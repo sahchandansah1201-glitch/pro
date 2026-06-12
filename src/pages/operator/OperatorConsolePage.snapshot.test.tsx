@@ -22,14 +22,15 @@ function findBadge(matcher: RegExp): HTMLElement {
 
 function getBadge(state: "active" | "expired"): HTMLElement {
   if (state === "expired") {
-    // bd-001 по умолчанию выбран и его ссылка истекла относительно DEMO_NOW.
+  // Первое обращение выбрано по умолчанию, его ссылка истекла относительно DEMO_NOW.
     return findBadge(/истекла/);
   }
-  // Кликаем по карточке bd-002 — там ссылка активна.
+  // Кликаем по карточке «Обращение 002» — там ссылка активна.
   const trigger = screen
-    .getAllByText("bd-002")[0]
-    .closest("div.cursor-pointer") as HTMLElement | null;
-  if (!trigger) throw new Error("bd-002 card not found");
+    .getAllByText("Обращение 002")
+    .map((node) => node.closest(".cursor-pointer") as HTMLElement | null)
+    .find(Boolean);
+  if (!trigger) throw new Error("Обращение 002 card not found");
   fireEvent.click(trigger);
   return findBadge(/активна/);
 }

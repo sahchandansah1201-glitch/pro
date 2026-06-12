@@ -25,7 +25,10 @@ test.describe("Operator protected-link status badge — smoke", () => {
       /Статус защищённой ссылки: истекла/,
     );
 
-    await page.getByText("bd-002", { exact: false }).first().click();
+    await page
+      .locator(".cursor-pointer", { hasText: "Обращение 002" })
+      .first()
+      .click();
 
     const activeBadge = page.locator(BADGE_SELECTOR, { hasText: "активна" }).first();
     await expect(activeBadge).toBeVisible();
@@ -37,4 +40,3 @@ test.describe("Operator protected-link status badge — smoke", () => {
     );
   });
 });
-

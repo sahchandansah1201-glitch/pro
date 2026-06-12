@@ -3,9 +3,9 @@ import { test, expect } from "@playwright/test";
 import { setDemoRole } from "./helpers/demo-role";
 
 /**
- * E2E: на вкладке «Отчёт» кнопка «Отправить пациенту (демо)» не реагирует на
+ * E2E: на вкладке «Отчёт» кнопка отправки пациенту не реагирует на
  * клик — DOM не меняется, статус/история отправки не появляются — даже после
- * «Сформировать демо-отчёт». Production-код не трогаем.
+ * «Сформировать учебный отчёт». Рабочий код не трогаем.
  */
 
 if (process.env.PW_CHROMIUM_PATH) {
@@ -14,7 +14,7 @@ if (process.env.PW_CHROMIUM_PATH) {
 
 const ROUTE = "/patients/p-004/visits/v-005?tab=report&lesion=l-008";
 
-test.describe("VisitReportTab · Отправить пациенту (демо) inert", () => {
+test.describe("VisitReportTab · отправка пациенту недоступна", () => {
   test.beforeEach(async ({ page }) => {
     await setDemoRole(page, "doctor");
   });
@@ -25,20 +25,20 @@ test.describe("VisitReportTab · Отправить пациенту (демо) 
     const reportTab = page.getByRole("tab", { name: "Отчёт" });
     await expect(reportTab).toHaveAttribute("data-state", "active");
 
-    // 1. Заполняем поля и формируем демо-отчёт.
+    // 1. Заполняем поля и формируем учебный отчёт.
     await page
       .getByLabel(/Текст для пациента/)
       .fill("Запишитесь на повторный осмотр через 3 месяца.");
     await page
       .getByLabel(/Внутренняя заметка врача/)
       .fill("ABCD граничный, контроль через 3 мес.");
-    await page.getByRole("button", { name: /Сформировать демо-отчёт/ }).click();
+    await page.getByRole("button", { name: /Сформировать учебный отчёт/ }).click();
 
     // Превью появилось — отчёт реально сформирован.
     await expect(page.getByTestId("demo-report-preview")).toBeVisible();
 
     const sendBtn = page
-      .getByRole("button", { name: /Отправить пациенту \(демо\)/ })
+      .getByRole("button", { name: /Отправка недоступна/ })
       .first();
     await expect(sendBtn).toBeVisible();
     await expect(sendBtn).toBeDisabled();
@@ -70,9 +70,9 @@ test.describe("VisitReportTab · Отправить пациенту (демо) 
     const htmlAfter = await page.locator("main, body").first().innerHTML();
     expect(htmlAfter).toBe(htmlBefore);
 
-    // 6. Helper-текст про бэкенд остался.
+    // 6. Helper-текст про систему клиники остался.
     await expect(
-      page.getByText(/Отправка и PDF будут подключены на бэкенде/),
+      page.getByText(/Отправка и печать будут подключены через систему клиники/),
     ).toBeVisible();
   });
 });

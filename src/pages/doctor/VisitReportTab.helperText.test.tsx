@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import VisitWorkspacePage from "./VisitWorkspacePage";
 
-const HELPER = /Отправка и PDF будут подключены на бэкенде/;
+const HELPER = /Отправка и печать будут подключены через систему клиники/;
 
 const renderAt = (path: string) =>
   render(
@@ -15,7 +15,7 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
-describe("VisitReportTab · helper text «Отправка и PDF будут подключены на бэкенде»", () => {
+describe("VisitReportTab · helper text «Отправка и печать будут подключены через систему клиники»", () => {
   const cases: Array<{ name: string; path: string }> = [
     {
       name: "valid lesion (l-008)",

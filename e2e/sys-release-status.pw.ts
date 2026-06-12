@@ -45,46 +45,45 @@ test.describe("/sys/release-status", () => {
     await page.goto("/sys/release-status", { waitUntil: "networkidle" });
 
     await expect(
-      page.getByRole("heading", { name: "Релиз-статус" }),
+      page.getByRole("heading", { level: 1, name: "Готовность релиза" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Предпросмотр release status" }),
-    ).toContainText("Main workflows: 9 из 9 success");
+      page.getByRole("region", { name: "Предпросмотр готовности релиза" }),
+    ).toContainText("Проверки основной ветки: 9 из 9 пройдены");
     await expect(
-      page.getByRole("region", { name: "Release readiness dashboard" }),
-    ).toContainText("Release readiness dashboard");
+      page.getByRole("region", { name: "Готовность релиза" }),
+    ).toContainText("Готовность релиза");
     await expect(
-      page.getByRole("status", { name: "Release readiness notification" }),
-    ).toContainText("report link may be published");
+      page.getByRole("status", { name: "Уведомление о готовности релиза" }),
+    ).toContainText("Ссылку на отчёт можно публиковать");
     await expect(
-      page.getByRole("status", { name: "CI status summary" }),
-    ).toContainText("CI checks: 9 из 9 green");
+      page.getByRole("status", { name: "Сводка проверок" }),
+    ).toContainText("Проверки: 9 из 9 пройдены");
     await expect(
-      page.getByRole("list", { name: "CI status checks" }),
-    ).toContainText("preflight-all");
+      page.getByRole("list", { name: "Проверки релиза" }),
+    ).toContainText("Предварительная проверка");
     await expect(
       page.getByRole("link", {
-        name: "Открыть опубликованный release readiness report",
+        name: "Открыть опубликованный отчёт готовности релиза",
       }),
     ).toHaveAttribute("href", /#artifacts$/);
     await expect(
-      page.getByText(/Доступ к разделу открыт только роли system_admin/),
+      page.getByText(/Доступ к разделу открыт только роли системного администратора/),
     ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Сравнение релизов" }),
     ).toContainText("Статус улучшился");
     await expect(
-      page.getByText("npm run preflight:release-status"),
+      page.getByText("Команды скрыты с экрана"),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Импорт release history" }),
+      page.getByRole("region", { name: "Импорт журнала релиза" }),
     ).toBeVisible();
     await expect(page.getByText("Предпросмотр истории")).toBeVisible();
-    await expect(
-      page.getByRole("list", { name: "Предпросмотр записей release history" }),
-    ).toContainText("c3d2d18");
+    await expect(page.getByText("c3d2d18")).toHaveCount(0);
+    await expect(page.getByText("код версии скрыт").first()).toBeVisible();
 
-    await page.getByLabel("Вставить release-history JSONL").fill(
+    await page.getByLabel("Вставить журнал истории релиза").fill(
       [
         historyLine("aaaaaaaaaaa", "10"),
         historyLine("bbbbbbbbbbb", "09"),
@@ -101,35 +100,35 @@ test.describe("/sys/release-status", () => {
       ].join("\n"),
     );
     await page
-      .getByLabel("Пресет фильтров release history")
+      .getByLabel("Пресет фильтров журнала релиза")
       .selectOption("builtin-e2e-failures");
     await expect(
-      page.getByLabel("Фильтр workflow результата истории"),
+      page.getByLabel("Фильтр результата проверок истории"),
     ).toHaveValue("failure");
-    await expect(page.getByLabel("Поиск по release history")).toHaveValue(
+    await expect(page.getByLabel("Поиск по журналу релиза")).toHaveValue(
       "e2e",
     );
     await expect(
-      page.getByRole("status", { name: "Сводка фильтров release history" }),
+      page.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
     ).toContainText("5 из 6");
-    await page.getByLabel("Название пресета release history").fill("E2E blockers");
+    await page.getByLabel("Название пресета журнала релиза").fill("E2E blockers");
     await page
       .getByRole("button", {
-        name: "Сохранить текущие фильтры release history как пресет",
+        name: "Сохранить текущие фильтры журнала релиза как пресет",
       })
       .click();
     await expect(
-      page.getByRole("status", { name: "Сводка пресетов release history" }),
+      page.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
     ).toContainText("Сохранено: 1/8");
     await expect(
       page.getByRole("region", {
-        name: "Управление пресетами release history",
+        name: "Управление пресетами журнала релиза",
       }),
     ).toBeVisible();
     const presetJsonDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать пресеты release history в JSON",
+        name: "Экспортировать пресеты журнала релиза в служебный файл",
       })
       .click();
     const presetJsonDownload = await presetJsonDownloadPromise;
@@ -145,7 +144,7 @@ test.describe("/sys/release-status", () => {
     const presetXlsxDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать пресеты release history в XLSX",
+        name: "Экспортировать пресеты журнала релиза в книгу",
       })
       .click();
     const presetXlsxDownload = await presetXlsxDownloadPromise;
@@ -158,7 +157,7 @@ test.describe("/sys/release-status", () => {
     expect(Array.from(presetXlsxBytes.subarray(0, 2))).toEqual([80, 75]);
 
     await page
-      .getByLabel("Импортировать пресеты release history JSON")
+      .getByLabel("Вставить пресеты журнала релиза")
       .fill(
         JSON.stringify({
           presets: [
@@ -180,52 +179,52 @@ test.describe("/sys/release-status", () => {
       );
     await expect(
       page.getByRole("status", {
-        name: "Предпросмотр импорта пресетов release history",
+        name: "Предпросмотр импорта пресетов журнала релиза",
       }),
     ).toContainText("принято: 1");
     await expect(
       page.getByRole("status", {
-        name: "Предпросмотр импорта пресетов release history",
+        name: "Предпросмотр импорта пресетов журнала релиза",
       }),
     ).toContainText("Imported E2E safe preset");
     await expect(
       page.getByRole("status", {
-        name: "План импорта пресетов release history",
+        name: "План импорта пресетов журнала релиза",
       }),
     ).toContainText("Будет импортировано: 1");
     await page
       .getByRole("button", {
-        name: "Импортировать пресеты release history",
+        name: "Импортировать пресеты журнала релиза",
       })
       .click();
     await expect(
       page.getByRole("option", { name: "Imported E2E safe preset" }),
     ).toBeAttached();
     await expect(
-      page.getByRole("region", { name: "Аудит пресетов release history" }),
+      page.getByRole("region", { name: "Аудит пресетов журнала релиза" }),
     ).toContainText("import");
 
     await page
       .getByRole("button", {
-        name: "Очистить сохранённые пресеты release history",
+        name: "Очистить сохранённые пресеты журнала релиза",
       })
       .click();
     await expect(
-      page.getByRole("status", { name: "Сводка пресетов release history" }),
+      page.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
     ).toContainText("Сохранено: 0/8");
     await page
       .getByRole("button", {
-        name: "Восстановить очищенные пресеты release history",
+        name: "Восстановить очищенные пресеты журнала релиза",
       })
       .click();
     await expect(
-      page.getByRole("status", { name: "Сводка пресетов release history" }),
+      page.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
     ).toContainText("Сохранено: 2/8");
 
     const presetAuditDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Скачать аудит пресетов release history",
+        name: "Скачать аудит пресетов журнала релиза",
       })
       .click();
     const presetAuditDownload = await presetAuditDownloadPromise;
@@ -239,28 +238,28 @@ test.describe("/sys/release-status", () => {
     expect(presetAuditText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
 
     await page
-      .getByLabel("Импортировать пресеты release history JSON")
+      .getByLabel("Вставить пресеты журнала релиза")
       .fill("{bad json");
     await expect(
-      page.getByLabel("Импортировать пресеты release history JSON"),
+      page.getByLabel("Вставить пресеты журнала релиза"),
     ).toHaveAttribute("aria-invalid", "true");
     await expect(
       page.getByRole("list", {
-        name: "Подсказки исправления импорта пресетов release history",
+        name: "Подсказки исправления импорта пресетов журнала релиза",
       }),
-    ).toContainText("Проверьте JSON");
+    ).toContainText("Проверьте данные");
     await page
-      .getByRole("button", { name: "Фокус на JSON пресетов с ошибкой" })
+      .getByRole("button", { name: "Фокус на пресетах с ошибкой" })
       .click();
     await expect(
-      page.getByLabel("Импортировать пресеты release history JSON"),
+      page.getByLabel("Вставить пресеты журнала релиза"),
     ).toBeFocused();
 
     await page.reload({ waitUntil: "networkidle" });
     await expect(
       page.getByRole("option", { name: "E2E blockers" }),
     ).toBeAttached();
-    await page.getByLabel("Вставить release-history JSONL").fill(
+    await page.getByLabel("Вставить журнал истории релиза").fill(
       [
         historyLine("aaaaaaaaaaa", "10"),
         historyLine("bbbbbbbbbbb", "09"),
@@ -277,25 +276,29 @@ test.describe("/sys/release-status", () => {
       ].join("\n"),
     );
     await page
-      .getByLabel("Пресет фильтров release history")
+      .getByLabel("Пресет фильтров журнала релиза")
       .selectOption({ label: "E2E blockers" });
     await page.getByLabel("Фильтр статуса истории").selectOption("fail");
-    await page.getByLabel("Фильтр deno-lock истории").selectOption("blocked");
-    await page.getByLabel("Фильтр artifact истории").selectOption("missing");
+    await page.getByLabel("Фильтр служебных файлов истории").selectOption("blocked");
+    await page.getByLabel("Фильтр отчёта истории").selectOption("missing");
     await page
-      .getByLabel("Фильтр workflow результата истории")
+      .getByLabel("Фильтр результата проверок истории")
       .selectOption("failure");
-    await page.getByLabel("Поиск по release history").fill("e2e-smoke");
+    await page.getByLabel("Поиск по журналу релиза").fill("e2e-smoke");
     await expect(
-      page.getByRole("status", { name: "Сводка фильтров release history" }),
+      page.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
     ).toContainText("5 из 6");
     await expect(
-      page.getByRole("list", { name: "Предпросмотр записей release history" }),
-    ).toContainText("aaaaaaaaaaa");
+      page.getByRole("list", { name: "Предпросмотр записей журнала релиза" }),
+    ).toContainText("код версии скрыт");
+    await expect(
+      page.getByRole("list", { name: "Предпросмотр записей журнала релиза" }),
+    ).not.toContainText("aaaaaaaaaaa");
     const filteredJsonlDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в JSONL",
+        name: "Экспортировать отфильтрованный журнал релиза",
+        exact: true,
       })
       .click();
     const filteredJsonlDownload = await filteredJsonlDownloadPromise;
@@ -312,7 +315,7 @@ test.describe("/sys/release-status", () => {
     const filteredCsvDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в CSV",
+        name: "Экспортировать отфильтрованный журнал релиза таблицей",
       })
       .click();
     const filteredCsvDownload = await filteredCsvDownloadPromise;
@@ -331,7 +334,7 @@ test.describe("/sys/release-status", () => {
     const filteredXlsxDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в XLSX",
+        name: "Экспортировать отфильтрованный журнал релиза книгой",
       })
       .click();
     const filteredXlsxDownload = await filteredXlsxDownloadPromise;
@@ -344,85 +347,92 @@ test.describe("/sys/release-status", () => {
     expect(Array.from(filteredXlsxBytes.subarray(0, 2))).toEqual([80, 75]);
 
     await expect(
-      page.getByRole("region", { name: "Пагинация release history" }),
+      page.getByRole("region", { name: "Пагинация журнала релиза" }),
     ).toContainText("1-3 из 5");
     await page
       .getByRole("button", { name: "Следующая страница истории" })
       .click();
     await expect(
-      page.getByRole("list", { name: "Предпросмотр записей release history" }),
-    ).toContainText("ddddddddddd");
+      page.getByRole("list", { name: "Предпросмотр записей журнала релиза" }),
+    ).toContainText("код версии скрыт");
     await expect(
-      page.getByRole("region", { name: "Пагинация release history" }),
+      page.getByRole("list", { name: "Предпросмотр записей журнала релиза" }),
+    ).not.toContainText("ddddddddddd");
+    await expect(
+      page.getByRole("region", { name: "Пагинация журнала релиза" }),
     ).toContainText("4-5 из 5");
     await page
       .getByRole("button", { name: "Предыдущая страница истории" })
       .click();
-    await page.getByLabel("Поиск по release history").fill("not-present-sha");
+    await page.getByLabel("Поиск по журналу релиза").fill("not-present-sha");
     await expect(
       page.getByText("По выбранным фильтрам history-записей нет."),
     ).toBeVisible();
     await expect(
       page.getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в JSONL",
+        name: "Экспортировать отфильтрованный журнал релиза",
+        exact: true,
       }),
     ).toBeDisabled();
     await expect(
       page.getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в CSV",
+        name: "Экспортировать отфильтрованный журнал релиза таблицей",
       }),
     ).toBeDisabled();
     await expect(
       page.getByRole("button", {
-        name: "Экспортировать отфильтрованную release history в XLSX",
+        name: "Экспортировать отфильтрованный журнал релиза книгой",
       }),
     ).toBeDisabled();
     await page
-      .getByRole("button", { name: "Сбросить фильтры release history" })
+      .getByRole("button", { name: "Сбросить фильтры журнала релиза" })
       .click();
     await expect(
-      page.getByRole("status", { name: "Сводка фильтров release history" }),
+      page.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
     ).toContainText("6 из 6");
-    await page.getByRole("button", { name: "Dry-run импорт" }).click();
+    await page.getByRole("button", { name: "Проверить импорт" }).click();
     await expect(
       page.getByRole("status", {
-        name: "Статус импорта release history",
+        name: "Статус импорта журнала релиза",
         exact: true,
       }),
-    ).toContainText("Dry-run импорт выполнен");
+    ).toContainText("Проверка импорта выполнена");
     await expect(
-      page.getByRole("button", { name: "Удалить импортированные baseline" }),
+      page.getByRole("button", { name: "Удалить импортированные эталоны" }),
     ).toBeDisabled();
 
     await page
-      .getByRole("button", { name: "Импортировать history JSONL" })
+      .getByRole("button", { name: "Импортировать журнал" })
       .click();
     await expect(
       page.getByRole("status", {
-        name: "Статус импорта release history",
+        name: "Статус импорта журнала релиза",
         exact: true,
       }),
-    ).toContainText("Импортировано 6 baseline-записей");
+    ).toContainText("Импортировано 6 эталонных записей");
     await expect(
       page.getByRole("status", {
-        name: "Privacy статус импорта release history",
+        name: "Статус проверки данных импорта журнала релиза",
         exact: true,
       }),
-    ).toContainText("Privacy-проверка импорта пройдена");
+    ).toContainText("Проверка данных импорта пройдена");
     await page
-      .getByLabel("Выбрать baseline release status")
+      .getByLabel("Выбрать эталон готовности релиза")
       .selectOption("imported-aaaaaaaaaaa-0");
     await expect(
       page.getByRole("region", { name: "Сравнение релизов" }),
-    ).toContainText("aaaaaaaaaaa");
+    ).toContainText("код версии скрыт");
     await expect(
-      page.getByRole("region", { name: "Предпросмотр выбранного baseline" }),
-    ).toContainText("aaaaaaaaaaa");
+      page.getByRole("region", { name: "Сравнение релизов" }),
+    ).not.toContainText("aaaaaaaaaaa");
     await expect(
-      page.getByRole("list", { name: "Workflow выбранного baseline" }),
-    ).toContainText("e2e-smoke");
+      page.getByRole("region", { name: "Предпросмотр выбранного эталона" }),
+    ).toContainText("код скрыт");
     await expect(
-      page.getByRole("region", { name: "Аудит импортов release history" }),
+      page.getByRole("list", { name: "Проверки выбранного эталона" }),
+    ).toContainText("Быстрая проверка интерфейса");
+    await expect(
+      page.getByRole("region", { name: "Аудит импортов журнала релиза" }),
     ).toContainText("Импорт обработан");
 
     const auditDownloadPromise = page.waitForEvent("download");
@@ -432,13 +442,13 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
     ).toContainText("1 из 5");
-    await page.getByLabel("Поиск по аудиту импортов").fill("privacy");
+    await page.getByLabel("Поиск по аудиту импортов").fill("Импорт");
     await expect(
-      page.getByRole("region", { name: "Аудит импортов release history" }),
+      page.getByRole("region", { name: "Аудит импортов журнала релиза" }),
     ).toContainText("Импорт обработан");
     await page
       .getByRole("button", {
-        name: "Скачать JSON отчет аудита импортов release history",
+        name: "Скачать служебный отчёт аудита импортов журнала релиза",
       })
       .click();
     const auditDownload = await auditDownloadPromise;
@@ -457,7 +467,7 @@ test.describe("/sys/release-status", () => {
     const auditCsvDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Скачать CSV отчет аудита импортов release history",
+        name: "Скачать табличный отчёт аудита импортов журнала релиза",
       })
       .click();
     const auditCsvDownload = await auditCsvDownloadPromise;
@@ -477,13 +487,13 @@ test.describe("/sys/release-status", () => {
     ).toContainText("7 из 7");
 
     await page
-      .getByRole("button", { name: "Удалить импортированные baseline" })
+      .getByRole("button", { name: "Удалить импортированные эталоны" })
       .click();
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText("Импортированные baseline удалены");
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText("Импортированные эталоны удалены");
     await expect(
-      page.getByRole("region", { name: "Аудит импортов release history" }),
+      page.getByRole("region", { name: "Аудит импортов журнала релиза" }),
     ).toContainText("Импорт удалён");
 
     const bodyText = await page.locator("body").innerText();
@@ -496,45 +506,47 @@ test.describe("/sys/release-status", () => {
       .getByLabel("Формат предпросмотра релиз-статуса")
       .selectOption("html");
     await expect(
-      page.getByRole("textbox", { name: "Предпросмотр файла release status" }),
-    ).toHaveValue(/<!doctype html>/i);
+      page.getByRole("textbox", { name: "Предпросмотр файла готовности релиза" }),
+    ).toHaveValue(/Готовность релиза: Готово/);
 
     await page.getByRole("button", { name: "Проверить предпросмотр" }).click();
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText("Проверка приватности пройдена для HTML.");
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText("Проверка приватности пройдена для Веб-страница.");
     await page.getByText("Показать категории приватности").click();
     await expect(
       page.getByRole("list", { name: "Категории проверки приватности" }),
-    ).toContainText("service role env");
+    ).toContainText("Служебная переменная");
 
     const bundleDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать единый пакет release status",
+        name: "Экспортировать единый пакет готовности релиза",
       })
       .click();
     await bundleDownloadPromise;
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
+      page.getByRole("status", { name: "Статус готовности релиза" }),
     ).toContainText("Пакетный экспорт готов: 4 файла.");
 
     const htmlDownloadPromise = page.waitForEvent("download");
     await page
-      .getByRole("button", { name: "Экспортировать release status в HTML" })
+      .getByRole("button", {
+        name: "Экспортировать готовность релиза: Веб-страница",
+      })
       .click();
     const htmlDownload = await htmlDownloadPromise;
     expect(htmlDownload.suggestedFilename()).toMatch(
       /^release-status-\d{4}-\d{2}-\d{2}\.html$/,
     );
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText(/HTML экспорт готов/);
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText(/Веб-страница готова/);
 
     const historyDownloadPromise = page.waitForEvent("download");
     await page
       .getByRole("button", {
-        name: "Экспортировать release status в History JSONL",
+        name: "Экспортировать готовность релиза: Журнал истории",
       })
       .click();
     const historyDownload = await historyDownloadPromise;
@@ -549,111 +561,111 @@ test.describe("/sys/release-status", () => {
       .getByRole("button", { name: "Подготовить локальный запуск" })
       .click();
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText(/preflight/);
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText(/Команд[ау] предварительной проверки/);
     await expect(
       page
-        .getByRole("region", { name: "Sync checker gate release status" })
-        .getByText("npm run check:release-status-sync"),
+        .getByRole("region", { name: "Сверка синхронизации релиза" })
+        .getByText("Сверка синхронизации", { exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Скопировать sync checker" })
+      .getByRole("button", { name: "Скопировать сверку" })
       .click();
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText(/sync checker/);
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText(/Команд[ау] сверки синхронизации/);
     await expect(
-      page.getByRole("region", { name: "Sync checker gate release status" }),
-    ).toContainText("npm run ci:release-status-sync");
+      page.getByRole("region", { name: "Сверка синхронизации релиза" }),
+    ).toContainText("Запись отчётов разрешается только после успешных проверок");
     await expect(
-      page.getByRole("status", { name: "CI gate status release status" }),
-    ).toContainText(/Запись release-status отчётов.*заблокирована/);
+      page.getByRole("status", { name: "Статус сверки записи отчётов" }),
+    ).toContainText("Проверка записи включена");
     await expect(
-      page.getByRole("region", { name: "Write gate drill release status" }),
-    ).toContainText("Gate passed");
+      page.getByRole("region", { name: "Проверка записи отчётов релиза" }),
+    ).toContainText("Запись отчётов разрешена");
     await expect(
-      page.getByRole("status", { name: "Write gate drill status" }),
-    ).toContainText(/may write release-status reports/);
+      page.getByRole("status", { name: "Статус проверки записи отчётов" }),
+    ).toContainText(/Запись отчётов разрешена/);
     await page
-      .getByLabel("Write gate drill scenario")
+      .getByLabel("Сценарий проверки записи отчётов")
       .selectOption("fail");
     await expect(
-      page.getByRole("status", { name: "Write gate drill status" }),
-    ).toContainText(/reports stay unwritten/);
+      page.getByRole("status", { name: "Статус проверки записи отчётов" }),
+    ).toContainText(/Запись отчётов заблокирована/);
     await expect(
       page.getByRole("alert", {
-        name: "Gate failure notification release status",
+        name: "Уведомление о блокере релиза",
       }),
-    ).toContainText(/Gate failed/);
+    ).toContainText(/Отчёты не записываются/);
     await expect(
-      page.getByRole("list", { name: "Write gate drill checks" }),
-    ).toContainText("Workflow success condition");
+      page.getByRole("list", { name: "Проверки записи отчётов" }),
+    ).toContainText("Условие успешной проверки");
     await expect(
-      page.getByRole("region", { name: "Sync checker gate release status" }),
-    ).toContainText("git status --short");
+      page.getByRole("region", { name: "Сверка синхронизации релиза" }),
+    ).toContainText("Сверка запускает проверки синхронизации");
     await page
-      .getByRole("button", { name: "Скопировать полный sync checker блок" })
+      .getByRole("button", { name: "Скопировать полный блок сверки" })
       .click();
     await expect(
-      page.getByRole("status", { name: "Статус релиз-дашборда" }),
-    ).toContainText(/sync checker/i);
+      page.getByRole("status", { name: "Статус готовности релиза" }),
+    ).toContainText(/блок сверки|Команду сверки/);
 
     await page
-      .getByLabel("Вставить release-history JSONL")
+      .getByLabel("Вставить журнал истории релиза")
       .fill("{bad json}\n");
-    await expect(page.getByLabel("Вставить release-history JSONL")).toHaveAttribute(
+    await expect(page.getByLabel("Вставить журнал истории релиза")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
     await expect(
       page.getByRole("status", {
-        name: "Сводка ошибок импорта release history",
+        name: "Сводка ошибок импорта журнала релиза",
       }),
     ).toContainText("Первая ошибка: строка 1");
     await expect(
-      page.getByRole("list", { name: "Ошибки формата release history" }),
-    ).toContainText("строка 1: invalid JSON");
+      page.getByRole("list", { name: "Ошибки формата журнала релиза" }),
+    ).toContainText("строка 1: данные некорректны");
     await expect(
       page.getByRole("list", {
-        name: "Подсказки исправления release history",
+        name: "Подсказки исправления журнала релиза",
       }),
-    ).toContainText("Проверьте синтаксис JSON");
+    ).toContainText("Проверьте структуру данных");
     await page
-      .getByRole("button", { name: "Фокус на JSONL с ошибкой" })
+      .getByRole("button", { name: "Фокус на журнале с ошибкой" })
       .click();
-    await expect(page.getByLabel("Вставить release-history JSONL")).toBeFocused();
+    await expect(page.getByLabel("Вставить журнал истории релиза")).toBeFocused();
     await page
-      .getByRole("button", { name: "Импортировать history JSONL" })
+      .getByRole("button", { name: "Импортировать журнал" })
       .click();
     await expect(
       page.getByRole("status", {
-        name: "Статус импорта release history",
+        name: "Статус импорта журнала релиза",
         exact: true,
       }),
-    ).toContainText("Импорт не содержит валидных baseline-записей");
+    ).toContainText("Импорт не содержит валидных эталонных записей");
 
     await page
-      .getByLabel("Вставить release-history JSONL")
+      .getByLabel("Вставить журнал истории релиза")
       .fill(
         'actor_email=doctor@example.com\n{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"e2e-smoke","conclusion":"success"}]}\n',
       );
     await page
-      .getByRole("button", { name: "Импортировать history JSONL" })
+      .getByRole("button", { name: "Импортировать журнал" })
       .click();
     await expect(
       page.getByRole("status", {
-        name: "Статус импорта release history",
+        name: "Статус импорта журнала релиза",
         exact: true,
       }),
     ).toContainText("Импорт заблокирован");
     await expect(
       page.getByRole("status", {
-        name: "Privacy статус импорта release history",
+        name: "Статус проверки данных импорта журнала релиза",
         exact: true,
       }),
-    ).toContainText("Privacy-проверка импорта: блокер");
+    ).toContainText("Проверка данных импорта: блокер");
     await expect(
-      page.getByRole("region", { name: "Аудит импортов release history" }),
+      page.getByRole("region", { name: "Аудит импортов журнала релиза" }),
     ).toContainText("Импорт заблокирован");
   });
 
@@ -664,46 +676,46 @@ test.describe("/sys/release-status", () => {
     await page.goto("/sys/release-status", { waitUntil: "networkidle" });
 
     const drill = page.getByRole("region", {
-      name: "Write gate drill release status",
+      name: "Проверка записи отчётов релиза",
     });
     const status = page.getByRole("status", {
-      name: "Write gate drill status",
+      name: "Статус проверки записи отчётов",
     });
     const checks = page.getByRole("list", {
-      name: "Write gate drill checks",
+      name: "Проверки записи отчётов",
     });
 
-    await expect(drill).toContainText("Gate passed");
-    await page.getByLabel("Write gate drill scenario").selectOption("fail");
+    await expect(drill).toContainText("Запись отчётов разрешена");
+    await page.getByLabel("Сценарий проверки записи отчётов").selectOption("fail");
 
-    await expect(status).toContainText(/reports stay unwritten/);
+    await expect(status).toContainText(/Запись отчётов заблокирована/);
     await expect(
       page.getByRole("alert", {
-        name: "Gate failure notification release status",
+        name: "Уведомление о блокере релиза",
       }),
-    ).toContainText(/reports stay unwritten/);
-    await expect(status).not.toContainText(/may write release-status reports/);
-    await expect(checks).toContainText("✗ Workflow success condition");
-    await expect(checks).toContainText("✗ Release-status workflow");
-    await expect(checks).toContainText("✗ CI sync gate");
-    await expect(checks).toContainText("✗ Deno lock guard");
+    ).toContainText(/Отчёты не записываются/);
+    await expect(status).not.toContainText(/Запись отчётов разрешена/);
+    await expect(checks).toContainText("✗ Условие успешной проверки");
+    await expect(checks).toContainText("✗ Проверка релиза");
+    await expect(checks).toContainText("✗ Сверка синхронизации");
+    await expect(checks).toContainText("✗ Проверка лишних служебных файлов");
     await expect(checks).toContainText(
-      "Write reports step can run without the success condition.",
+      "Запись отчётов может запуститься без успешной проверки.",
     );
-    await expect(checks).toContainText("release-status workflow is failure.");
+    await expect(checks).toContainText("Проверка релиза не готова: failure.");
     await expect(checks).toContainText(
-      "ci:release-status-sync failed before report generation.",
+      "Сверка синхронизации не прошла до генерации отчёта.",
     );
-    await expect(checks).toContainText("deno.lock guard failed.");
+    await expect(checks).toContainText("Найден лишний служебный файл.");
 
-    await page.getByLabel("Write gate drill scenario").selectOption("pass");
+    await page.getByLabel("Сценарий проверки записи отчётов").selectOption("pass");
 
-    await expect(status).toContainText(/may write release-status reports/);
-    await expect(status).not.toContainText(/reports stay unwritten/);
-    await expect(checks).toContainText("✓ Workflow success condition");
-    await expect(checks).toContainText("✓ Release-status workflow");
-    await expect(checks).toContainText("✓ CI sync gate");
-    await expect(checks).toContainText("✓ Deno lock guard");
+    await expect(status).toContainText(/Запись отчётов разрешена/);
+    await expect(status).not.toContainText(/Запись отчётов заблокирована/);
+    await expect(checks).toContainText("✓ Условие успешной проверки");
+    await expect(checks).toContainText("✓ Проверка релиза");
+    await expect(checks).toContainText("✓ Сверка синхронизации");
+    await expect(checks).toContainText("✓ Проверка лишних служебных файлов");
   });
 
   test("clinic_admin is blocked by the demo RBAC guard", async ({ page }) => {
@@ -711,11 +723,12 @@ test.describe("/sys/release-status", () => {
     await page.goto("/sys/release-status", { waitUntil: "networkidle" });
 
     await expect(
-      page.getByRole("heading", { name: "Релиз-статус" }),
+      page.getByRole("heading", { level: 1, name: "Готовность релиза" }),
     ).toBeHidden();
-    await expect(page.getByText("Нет доступа в демо-режиме")).toBeVisible();
+    await expect(page.getByText("Нет доступа в учебном режиме")).toBeVisible();
     await expect(
       page.getByText(/Текущая роль Администратор клиники/),
     ).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/self-hosted|production|backend|демо/i);
   });
 });

@@ -22,7 +22,7 @@ const selectedRegion = () =>
   screen.getByRole("region", { name: /Контекст выбранного очага/ });
 
 const localNotice = () =>
-  screen.queryByText(/Локальный демо-очаг нужно сохранить на бэкенде перед отчётом/);
+  screen.queryByText(/Локальный учебный очаг нужно сохранить в системе клиники перед отчётом/);
 
 const j = (...p: string[]) => p.join("");
 const FORBIDDEN_TOKENS = [

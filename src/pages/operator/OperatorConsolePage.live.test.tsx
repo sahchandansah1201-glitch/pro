@@ -17,7 +17,7 @@ import OperatorConsolePage from "./OperatorConsolePage";
  *     «Статус», и состояние, и временной контекст.
  *
  * Переключение состояния моделируем кликом по карточке другого диалога
- * (bd-001 — истекшая ссылка по умолчанию, bd-002 — активная).
+ * (первое обращение — истекшая ссылка по умолчанию, «Обращение 002» — активная).
  */
 
 function getStatusBadge(): HTMLElement {
@@ -30,8 +30,9 @@ function getStatusBadge(): HTMLElement {
 
 function selectDialog(label: string) {
   const card = screen
-    .getAllByText(label)[0]
-    .closest("div.cursor-pointer") as HTMLElement | null;
+    .getAllByText(label)
+    .map((node) => node.closest(".cursor-pointer") as HTMLElement | null)
+    .find(Boolean);
   if (!card) throw new Error(`card ${label} not found`);
   fireEvent.click(card);
 }
@@ -56,13 +57,13 @@ describe("Protected link badge — screen reader announces state change via aria
       </MemoryRouter>,
     );
 
-    // По умолчанию выбран bd-001 — ссылка истекла.
+    // По умолчанию выбрано первое обращение — ссылка истекла.
     const before = getStatusBadge();
     const labelBefore = before.getAttribute("aria-label") ?? "";
     expect(labelBefore).toMatch(/истекла/);
 
-    // Переключаемся на bd-002 — ссылка активна.
-    selectDialog("bd-002");
+    // Переключаемся на «Обращение 002» — ссылка активна.
+    selectDialog("Обращение 002");
 
     const after = getStatusBadge();
     const labelAfter = after.getAttribute("aria-label") ?? "";
@@ -85,7 +86,7 @@ describe("Protected link badge — screen reader announces state change via aria
     const before = getStatusBadge();
     expect(within(before).getByText(/истекла/)).toBeTruthy();
 
-    selectDialog("bd-002");
+    selectDialog("Обращение 002");
 
     const after = getStatusBadge();
     expect(within(after).getByText(/активна/)).toBeTruthy();
@@ -103,7 +104,7 @@ describe("Protected link badge — screen reader announces state change via aria
         <OperatorConsolePage />
       </MemoryRouter>,
     );
-    selectDialog("bd-002");
+    selectDialog("Обращение 002");
     const label = getStatusBadge().getAttribute("aria-label") ?? "";
 
     expect(label).toMatch(/Статус/);

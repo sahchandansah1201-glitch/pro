@@ -242,28 +242,28 @@ describe("VisitWorkspaceLiveActions", () => {
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Сохранить визит" }));
-    await waitFor(() => expect(screen.getByText("Визит сохранён в self-hosted backend.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Визит сохранён в системе клиники.")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Создать очаг" }));
-    await waitFor(() => expect(screen.getByText(/создан в self-hosted backend/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/создан в системе клиники/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Архивировать" }));
-    await waitFor(() => expect(screen.getByText(/архивирован в self-hosted backend/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/архивирован в системе клиники/i)).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Patient-safe текст"), {
+    fireEvent.change(document.getElementById("stage4h-patient-text") as HTMLTextAreaElement, {
       target: { value: "Контроль у врача." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить отчёт" }));
-    await waitFor(() => expect(screen.getByText("Отчёт визита сохранён в self-hosted backend.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Отчёт визита сохранён в системе клиники.")).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText("Дата и время контроля"), {
       target: { value: "2026-06-01T10:00" },
     });
-    fireEvent.change(screen.getByLabelText("Текст для пациента"), {
+    fireEvent.change(document.getElementById("stage17-follow-up-summary") as HTMLTextAreaElement, {
       target: { value: "Напомним о контрольном осмотре." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Создать контроль" }));
-    await waitFor(() => expect(screen.getByText("Контрольный контакт создан в self-hosted backend.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Контрольный контакт создан в системе клиники.")).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/visits/${VISIT_ID}`,
@@ -939,83 +939,155 @@ describe("VisitWorkspaceLiveActions", () => {
     });
 
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
-    await waitFor(() => expect(screen.getByRole("region", { name: "Операционный контроль follow-up" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("region", { name: "Операционный контроль" })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText("Контроль после визита")).toBeInTheDocument());
 
+    const clickAndExpectPatch = async (
+      buttonName: string,
+      path: string,
+      expectedBody: Record<string, unknown>,
+      occurrence = 0,
+    ) => {
+      fireEvent.click(screen.getAllByRole("button", { name: buttonName })[occurrence]);
+      await waitFor(() =>
+        expect(fetchSpy).toHaveBeenCalledWith(
+          `${BASE}${path}`,
+          expect.objectContaining({
+            method: "PATCH",
+            headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+          }),
+        ),
+      );
+      const call = fetchSpy.mock.calls.find(([url]) => String(url).endsWith(path));
+      expect(JSON.parse(String(call?.[1]?.body))).toMatchObject(expectedBody);
+    };
+
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
-    await waitFor(() => expect(screen.getByText("Follow-up закрыт в операционной очереди.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Контроль закрыт в очереди.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "QA reviewed" }));
-    await waitFor(() => expect(screen.getByText("Follow-up отмечен как QA reviewed.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Проверено" }));
+    await waitFor(() => expect(screen.getByText("Контроль отмечен как проверенный.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Clinic review done" }));
-    await waitFor(() => expect(screen.getByText("Clinic review по follow-up завершён локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Проверка клиники" }));
+    await waitFor(() => expect(screen.getByText("Проверка клиники завершена локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "SOP validated" }));
-    await waitFor(() => expect(screen.getByText("SOP validation по follow-up подтверждён локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Правила проверены" }));
+    await waitFor(() => expect(screen.getByText("Проверка правил подтверждена локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Apply policy" }));
-    await waitFor(() => expect(screen.getByText("SOP policy template применён к follow-up локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Применить правила" }));
+    await waitFor(() => expect(screen.getByText("Шаблон правил применён локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Close exception" }));
-    await waitFor(() => expect(screen.getByText("SOP policy exception закрыт локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть исключение" }));
+    await waitFor(() => expect(screen.getByText("Исключение по правилам закрыто локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Audit reviewed" }));
-    await waitFor(() => expect(screen.getByText("SOP policy audit отмечен как reviewed локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Аудит проверен" }));
+    await waitFor(() => expect(screen.getByText("Аудит правил отмечен как проверенный.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Governance reviewed" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance review отмечен как reviewed локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Контроль проверен" }));
+    await waitFor(() => expect(screen.getByText("Контроль правил отмечен как проверенный.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Close governance" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance closure закрыт локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть контроль" }));
+    await waitFor(() => expect(screen.getByText("Закрытие контроля правил выполнено локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Export evidence" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence отмечен как exported локально.")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Подготовить подтверждение" }));
+    await waitFor(() => expect(screen.getByText("Подтверждение правил подготовлено локально.")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Reconcile evidence" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation отмечен как reconciled локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Close recon" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation закрыт локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt принят локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Archive ready" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive readiness отмечен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Close archive" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure закрыт локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive archive receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt получен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Handoff archive receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff выполнен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive handoff receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt получен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Reconcile handoff receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation выполнен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Close receipt recon" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure закрыт локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive recon closure" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt получен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Archive recon receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness archived локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Close recon receipt archive" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure закрыт локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive recon archive closure" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt получен локально.")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Receive recon archive handoff receipt reconciliation closure receipt" }));
-    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt получен локально.")).toBeInTheDocument());
+    await clickAndExpectPatch(
+      "Сверить подтверждение",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation",
+      { sopPolicyGovernanceEvidenceReconciliationState: "reconciled" },
+    );
+    await clickAndExpectPatch(
+      "Закрыть сверку",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure",
+      { sopPolicyGovernanceEvidenceReconciliationClosureState: "closed" },
+    );
+    await clickAndExpectPatch(
+      "Отметить получение",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Архив готов",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready" },
+    );
+    await clickAndExpectPatch(
+      "Закрыть архив",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed" },
+    );
+    await clickAndExpectPatch(
+      "Получить архив",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Передать архив",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off" },
+    );
+    await clickAndExpectPatch(
+      "Получить передачу",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Сверить передачу",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState: "reconciled" },
+    );
+    await clickAndExpectPatch(
+      "Закрыть сверку передачи",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState: "closed" },
+    );
+    await clickAndExpectPatch(
+      "Получить закрытие сверки",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Архивировать сверку",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState: "archived" },
+    );
+    await clickAndExpectPatch(
+      "Закрыть архив сверки",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "closed" },
+    );
+    await clickAndExpectPatch(
+      "Получить закрытие архива",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Передать архив сверки",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState: "handed_off" },
+    );
+    await clickAndExpectPatch(
+      "Получить передачу архива",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptState: "received" },
+    );
+    await clickAndExpectPatch(
+      "Сверить передачу архива",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState: "reconciled" },
+    );
+    await clickAndExpectPatch(
+      "Закрыть сверку передачи",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureState: "closed" },
+      1,
+    );
+    await clickAndExpectPatch(
+      "Получить закрытие передачи",
+      "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt",
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "received" },
+    );
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
@@ -1087,104 +1159,6 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt`,
-      expect.objectContaining({
-        method: "PATCH",
-        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
-      }),
-    );
     const sopValidationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-validation"));
     expect(JSON.parse(String(sopValidationCall?.[1]?.body)).sopPolicyVersion).toBe("clinic-local-v2");
     const sopPolicyApplicationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-application"));
@@ -1199,36 +1173,6 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(JSON.parse(String(sopPolicyGovernanceClosureCall?.[1]?.body)).sopPolicyGovernanceClosureState).toBe("closed");
     const sopPolicyGovernanceEvidenceCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence"));
     expect(JSON.parse(String(sopPolicyGovernanceEvidenceCall?.[1]?.body)).sopPolicyGovernanceEvidenceState).toBe("exported");
-    const sopPolicyGovernanceEvidenceReconciliationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationState).toBe("reconciled");
-    const sopPolicyGovernanceEvidenceReconciliationClosureCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureState).toBe("closed");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptState).toBe("received");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState).toBe("ready");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState).toBe("closed");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState).toBe("received");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState).toBe("handed_off");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState).toBe("received");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState).toBe("reconciled");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState).toBe("closed");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState).toBe("received");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState).toBe("archived");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState).toBe("closed");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptState).toBe("received");
-    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt"));
-    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptState).toBe("received");
   });
 
   it("shows validation status returned by backend", async () => {
@@ -1322,7 +1266,7 @@ describe("VisitWorkspaceLiveActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Создать очаг" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Проверьте поля: backend вернул ошибку валидации.")).toBeInTheDocument();
+      expect(screen.getByText("Проверьте поля: система клиники вернула ошибку.")).toBeInTheDocument();
     });
   });
 });

@@ -1,5 +1,21 @@
 # NEXT_ACTIONS
 
+## Client journey audit follow-up · 2026-06-13
+
+The current branch contains a broad client journey audit and Russian UI
+hardening pass. Repository evidence covers local unit tests, typecheck, lint,
+build, agent QA gates, Stage 5I guards, doctor hygiene scan, Playwright e2e,
+a11y smoke, and e2e artifact preflight.
+
+Next QA action after merge is external production verification for the routes
+that intentionally skipped locally:
+- real-auth doctor assets smoke with `E2E_DOCTOR_EMAIL`,
+  `E2E_DOCTOR_PASSWORD`, and `E2E_VISIT_ROUTE`;
+- self-hosted visit QA route with `E2E_SELF_HOSTED_VISIT_QA=1` and a seeded
+  production visit/lesion fixture;
+- admin analytics pixel-diff baselines if visual-regression baseline approval
+  is required.
+
 ## Current confirmed state
 
 Batch R is the current local implementation batch for Dermatolog PRO / SkinDoctor.

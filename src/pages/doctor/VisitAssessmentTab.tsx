@@ -24,7 +24,7 @@ const IMAGE_KIND_LABEL: Record<ClinicalImage["kind"], string> = {
   overview: "обзор",
   dermoscopy: "дерматоскопия",
   macro: "макро",
-  body_map: "body map",
+  body_map: "карта тела",
 };
 
 function userName(id: string | null | undefined): string {
@@ -45,9 +45,18 @@ function qualityStatus(images: ClinicalImage[]): QualityStatus {
 }
 
 function qualityLabel(s: QualityStatus): string {
-  if (s === "ok") return "ok";
-  if (s === "review") return "needs review";
-  return "no images";
+  if (s === "ok") return "готово";
+  if (s === "review") return "нужна проверка";
+  return "нет снимков";
+}
+
+function safeSystemHintText(value: string): string {
+  return value
+    .replace(/\bXAI\b/gi, "карты внимания")
+    .replace(/\bAI\b/gi, "системная")
+    .replace(/XAI-карты/gi, "карты внимания")
+    .replace(/XAI-карта/gi, "карта внимания")
+    .replace(/XAI-сигналов/gi, "сигналов подсказки");
 }
 
 interface Props {
@@ -72,7 +81,7 @@ export function VisitAssessmentTab({
   if (lesions.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border bg-surface p-6 text-[13px] text-muted-foreground">
-        У пациента не зарегистрировано образований. Добавьте образование на вкладке Body map.
+        У пациента не зарегистрировано образований. Добавьте образование на карте тела.
       </div>
     );
   }
@@ -94,7 +103,7 @@ export function VisitAssessmentTab({
             role="status"
             className="mb-3 rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground"
           >
-            Локальный демо-очаг нужно сохранить на бэкенде перед оценкой.
+            Локальный учебный очаг нужно сохранить в системе клиники перед оценкой.
           </div>
         )}
         <Section title="Образования пациента">
@@ -243,20 +252,20 @@ function SelectedLesionPanel({
 function ExistingAssessmentPanels({ assessment }: { assessment: Assessment }) {
   return (
     <>
-      <Section title="ABCD (Total Dermoscopy Score)">
-        <ScoreRow term="Asymmetry" hint="асимметрия" value={assessment.abcd.asymmetry} />
-        <ScoreRow term="Border" hint="граница" value={assessment.abcd.border} />
-        <ScoreRow term="Color" hint="цвет" value={assessment.abcd.color} />
-        <ScoreRow term="Diameter" hint="диаметр" value={assessment.abcd.diameter} />
+      <Section title="Шкала ABCD">
+        <ScoreRow term="Асимметрия" hint="структурная заметка" value={assessment.abcd.asymmetry} />
+        <ScoreRow term="Граница" hint="структурная заметка" value={assessment.abcd.border} />
+        <ScoreRow term="Цвет" hint="структурная заметка" value={assessment.abcd.color} />
+        <ScoreRow term="Диаметр" hint="структурная заметка" value={assessment.abcd.diameter} />
         <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2">
-          <span className="text-[12px] font-medium text-muted-foreground">TDS</span>
+          <span className="text-[12px] font-medium text-muted-foreground">Итог</span>
           <span className="text-[16px] font-semibold tabular-nums">{assessment.abcd.total.toFixed(1)}</span>
         </div>
       </Section>
 
-      <Section title="7-point checklist">
-        <ScoreRow term="Major" hint="основные признаки" value={assessment.sevenPoint.major} />
-        <ScoreRow term="Minor" hint="второстепенные признаки" value={assessment.sevenPoint.minor} />
+      <Section title="Шкала семи признаков">
+        <ScoreRow term="Основные признаки" hint="структурная заметка" value={assessment.sevenPoint.major} />
+        <ScoreRow term="Второстепенные признаки" hint="структурная заметка" value={assessment.sevenPoint.minor} />
         <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2">
           <span className="text-[12px] font-medium text-muted-foreground">Сумма</span>
           <span className="text-[16px] font-semibold tabular-nums">{assessment.sevenPoint.total}</span>
@@ -266,17 +275,17 @@ function ExistingAssessmentPanels({ assessment }: { assessment: Assessment }) {
         </p>
       </Section>
 
-      <Section title="AI-поддержка решения" className="lg:col-span-2">
+      <Section title="Подсказка системы" className="lg:col-span-2">
         <AiSupportPanel assessment={assessment} />
       </Section>
 
-      <Section title="Решение врача (мок, только просмотр)" className="lg:col-span-2">
+      <Section title="Решение врача (только просмотр)" className="lg:col-span-2">
         <Field term="Заключение" value={assessment.doctorConclusion || "—"} />
         <Field term="План наблюдения" value={assessment.followUpPlan || "—"} />
         <Field term="Принял" value={userName(assessment.decidedBy)} />
         <Field term="Когда" value={formatDateTime(assessment.decidedAt)} />
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Существующая мок-запись врача. Редактирование появится на вкладке «Заключение».
+          Существующая запись врача. Редактирование доступно на вкладке «Заключение».
         </p>
       </Section>
     </>
@@ -316,14 +325,14 @@ function DemoAssessmentForm({ lesion }: { lesion: Lesion }) {
   };
 
   return (
-    <Section title="Локальная демо-оценка" className="lg:col-span-2">
+    <Section title="Локальная учебная оценка" className="lg:col-span-2">
       <p className="mb-3 text-[12px] text-muted-foreground">
-        Для этого образования ещё нет сохранённой оценки. Заполните демо-форму — она существует
-        только в UI текущего визита и не изменяет мок-данные.
+        Для этого образования ещё нет сохранённой оценки. Заполните учебную форму — она существует
+        только на текущем экране и не изменяет данные клиники.
       </p>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <FormField id="demo-abcd" label="ABCD total">
+        <FormField id="demo-abcd" label="Итог ABCD">
           <Input
             id="demo-abcd"
             inputMode="decimal"
@@ -333,7 +342,7 @@ function DemoAssessmentForm({ lesion }: { lesion: Lesion }) {
             className="min-h-[44px] sm:min-h-[32px]"
           />
         </FormField>
-        <FormField id="demo-7p" label="7-point total">
+        <FormField id="demo-7p" label="Итог по семи признакам">
           <Input
             id="demo-7p"
             inputMode="numeric"
@@ -370,10 +379,10 @@ function DemoAssessmentForm({ lesion }: { lesion: Lesion }) {
           className="min-h-[44px] sm:min-h-[32px]"
           onClick={onSave}
         >
-          Сохранить демо-оценку
+          Сохранить учебную оценку
         </Button>
         <span className="text-[11px] text-muted-foreground">
-          Локально, без сети и хранилища.
+          Локально, без передачи в систему клиники.
         </span>
       </div>
 
@@ -383,17 +392,17 @@ function DemoAssessmentForm({ lesion }: { lesion: Lesion }) {
           data-testid="demo-assessment-preview"
           className="mt-3 rounded-md border border-border bg-surface-muted p-3 text-[12px]"
         >
-          <div className="mb-1 text-[12px] font-medium">Демо-оценка создана локально</div>
+          <div className="mb-1 text-[12px] font-medium">Учебная оценка создана локально</div>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-            <dt className="text-muted-foreground">ABCD total</dt>
+            <dt className="text-muted-foreground">Итог ABCD</dt>
             <dd className="tabular-nums">{saved.abcdTotal || "—"}</dd>
-            <dt className="text-muted-foreground">7-point total</dt>
+            <dt className="text-muted-foreground">Итог по семи признакам</dt>
             <dd className="tabular-nums">{saved.sevenPointTotal || "—"}</dd>
             <dt className="text-muted-foreground">План наблюдения</dt>
             <dd>{saved.followUpPlan || "—"}</dd>
             <dt className="text-muted-foreground">Комментарий</dt>
             <dd>{saved.doctorComment || "—"}</dd>
-            <dt className="text-muted-foreground">Время (демо)</dt>
+            <dt className="text-muted-foreground">Время (учебное)</dt>
             <dd className="tabular-nums">{formatDateTime(saved.createdAt)}</dd>
           </dl>
         </div>
@@ -433,13 +442,13 @@ function AiSupportPanel({ assessment }: { assessment: Assessment }) {
         <div className="flex flex-wrap items-center gap-2">
           <RiskBadge level={ai.riskLevel as RiskLevel} />
           <span className="text-[12px] text-muted-foreground">
-            Уверенность модели:{" "}
+            Уверенность подсказки:{" "}
             <span className="font-medium tabular-nums text-foreground">{Math.round(ai.confidence * 100)}%</span>
           </span>
         </div>
 
         <div>
-          <div className="mb-1 text-[12px] font-medium text-muted-foreground">Подозреваемые признаки</div>
+          <div className="mb-1 text-[12px] font-medium text-muted-foreground">Сигналы подсказки</div>
           {ai.suspectedFeatures.length === 0 ? (
             <div className="text-[12px] text-muted-foreground">—</div>
           ) : (
@@ -455,7 +464,7 @@ function AiSupportPanel({ assessment }: { assessment: Assessment }) {
         </div>
 
         <div>
-          <div className="mb-1 text-[12px] font-medium text-muted-foreground">Маркеры неопределённости</div>
+          <div className="mb-1 text-[12px] font-medium text-muted-foreground">Что требует осторожности</div>
           {ai.uncertaintyNotes.length === 0 ? (
             <div className="text-[12px] text-muted-foreground">Не зафиксированы.</div>
           ) : (
@@ -471,20 +480,20 @@ function AiSupportPanel({ assessment }: { assessment: Assessment }) {
         </div>
 
         <div>
-          <div className="mb-1 text-[12px] font-medium text-muted-foreground">XAI-заметки</div>
-          <p className="text-[13px]">{ai.xaiNotes || "—"}</p>
+          <div className="mb-1 text-[12px] font-medium text-muted-foreground">Пояснение подсказки</div>
+          <p className="text-[13px]">{ai.xaiNotes ? safeSystemHintText(ai.xaiNotes) : "—"}</p>
         </div>
 
         <p className="rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[11px] text-muted-foreground">
-          {ai.disclaimer} AI — это поддержка решения, не диагноз. Окончательное решение принимает врач.
+          {safeSystemHintText(ai.disclaimer)} Подсказка помогает врачу структурировать осмотр. Это не диагноз.
         </p>
       </div>
 
       <div className="md:col-span-5">
-        <div className="mb-1 text-[12px] font-medium text-muted-foreground">XAI placeholder</div>
+        <div className="mb-1 text-[12px] font-medium text-muted-foreground">Карта внимания подсказки</div>
         <XaiPlaceholder seed={assessment.id} />
         <p className="mt-1 text-[11px] text-muted-foreground">
-          Демонстрационная карта внимания. Не используется для постановки диагноза.
+          Учебная карта внимания. Не используется для постановки диагноза.
         </p>
       </div>
     </div>
@@ -499,7 +508,7 @@ function XaiPlaceholder({ seed }: { seed: string }) {
   return (
     <div
       role="img"
-      aria-label="XAI placeholder: демонстрационная карта внимания"
+      aria-label="Карта внимания подсказки"
       className="grid aspect-square w-full overflow-hidden rounded-sm border border-border"
       style={{ gridTemplateColumns: "repeat(8, 1fr)" }}
     >

@@ -54,7 +54,7 @@ describe("RoleSwitcher", () => {
   it("renders the role select in anonymous state without a logout button", () => {
     renderSwitcher();
     expect(
-      screen.getByRole("combobox", { name: /демо-режим/i }),
+      screen.getByRole("combobox", { name: /учебный режим/i }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /выйти/i })).not.toBeInTheDocument();
   });

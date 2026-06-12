@@ -57,8 +57,8 @@ describe("release-status-ui", () => {
     const history = buildReleaseHistoryJsonl(RELEASE_STATUS_DEMO_SNAPSHOT);
     const combined = `${markdown}\n${json}\n${html}\n${history}`;
 
-    expect(markdown).toContain("## Release operations dashboard");
-    expect(JSON.parse(json).overallStatus).toBe("ok");
+    expect(markdown).toContain("## Готовность релиза");
+    expect(JSON.parse(json).overallStatus).toBe("Готово");
     expect(html).toMatch(/<!doctype html>/i);
     expect(JSON.parse(history).currentSha).toBe("5ce9cf1");
     expect(detectReleaseStatusUiPrivacyLeaks(combined)).toEqual([]);
@@ -133,18 +133,18 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         status: "ready",
       }),
     );
-    expect(ready.message).toContain("may write");
+    expect(ready.message).toContain("Запись отчётов разрешена");
     expect(blocked.canWriteReports).toBe(false);
     expect(blocked.status).toBe("blocked");
     expect(blocked.blockedReasons).toEqual(
       expect.arrayContaining([
-        "Workflow success condition",
-        "Release-status workflow",
-        "CI sync gate",
-        "Deno lock guard",
+        "Условие успешной проверки",
+        "Проверка релиза",
+        "Сверка синхронизации",
+        "Проверка лишних служебных файлов",
       ]),
     );
-    expect(blocked.message).toContain("reports stay unwritten");
+    expect(blocked.message).toContain("Запись отчётов заблокирована");
   });
 
   it("builds release readiness summary and publishable report link", () => {
@@ -160,7 +160,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(summary).toEqual(
       expect.objectContaining({
         status: "ready",
-        label: "Ready",
+        label: "Готово",
         score: 100,
         passedCount: 5,
         totalCount: 5,
@@ -172,7 +172,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(buildReleaseReportArtifactUrl(RELEASE_STATUS_DEMO_SNAPSHOT)).toBe(
       summary.reportUrl,
     );
-    expect(summary.notification).toMatch(/report link may be published/i);
+    expect(summary.notification).toMatch(/Ссылку на отчёт можно публиковать/i);
     expect(summary.checks.map((check) => check.id)).toEqual([
       "working-tree",
       "deno-lock-guard",
@@ -200,8 +200,8 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
 
     expect(summary.status).toBe("blocked");
     expect(summary.score).toBeLessThan(100);
-    expect(summary.notification).toMatch(/Gate failed/i);
-    expect(summary.notification).toMatch(/reports stay unwritten/i);
+    expect(summary.notification).toMatch(/Проверка не пройдена/i);
+    expect(summary.notification).toMatch(/Отчёты не записываются/i);
     expect(
       summary.checks.filter((check) => !check.ok).map((check) => check.id),
     ).toEqual(
@@ -271,7 +271,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.records[0]?.currentSha).toBe(
       RELEASE_STATUS_DEMO_SNAPSHOT.shortSha,
     );
-    expect(result.message).toMatch(/privacy-проверка пройдена/);
+    expect(result.message).toMatch(/проверка данных пройдена/);
     expect(preview.latestSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
     expect(preview.workflowNames).toContain("e2e-smoke");
 
@@ -308,7 +308,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.status).toBe("blocked");
     expect(result.records).toEqual([]);
     expect(result.skippedCount).toBeGreaterThan(0);
-    expect(result.message).toMatch(/privacy detector/);
+    expect(result.message).toMatch(/проверка данных/);
     expect(result.privacy.labels).toEqual(
       expect.arrayContaining(["email address"]),
     );
@@ -335,7 +335,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         expect.objectContaining({
           line: 2,
           reason: "invalid_json",
-          message: "invalid JSON",
+          message: "данные некорректны",
         }),
         expect.objectContaining({ line: 3, reason: "invalid_schema" }),
       ]),
@@ -404,7 +404,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         affectedLines: [2],
       }),
     );
-    expect(issueSummary.message).toContain("JSON: 1");
+    expect(issueSummary.message).toContain("Формат: 1");
     expect(parseReleaseHistoryJsonl(jsonl).acceptedCount).toBe(1);
     expect(csv).toContain('"summary","filteredCount","1"');
     expect(csv).toContain('"filter","status","fail"');

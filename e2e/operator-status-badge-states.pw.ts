@@ -13,8 +13,8 @@ import { setDemoRole } from "./helpers/demo-role";
  *     inline-блок, а не разрывается между подписью «Статус:» и пилюлей
  *     произвольным образом.
  *
- * Базовые фикстуры (DEMO_NOW): bd-001 — истекшая ссылка (выбрана по умолчанию),
- * bd-002 — активная ссылка.
+ * Базовые фикстуры (DEMO_NOW): первое обращение — истекшая ссылка
+ * (выбрана по умолчанию), «Обращение 002» — активная ссылка.
  */
 
 const BADGE_SELECTOR =
@@ -27,8 +27,11 @@ async function gotoOperator(page: Page) {
 }
 
 async function selectActiveDialog(page: Page) {
-  // Кликаем по карточке диалога bd-002 — у неё активная защищённая ссылка.
-  await page.getByText("bd-002", { exact: false }).first().click();
+  // Кликаем по карточке «Обращение 002» — у неё активная защищённая ссылка.
+  await page
+    .locator(".cursor-pointer", { hasText: "Обращение 002" })
+    .first()
+    .click();
   await page.waitForSelector(
     '[role="status"][aria-label*="активна"]',
   );

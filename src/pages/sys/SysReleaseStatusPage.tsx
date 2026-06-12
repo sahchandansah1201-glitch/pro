@@ -210,6 +210,7 @@ function formatTime(value: string): string {
 }
 
 function importAuditStatusLabel(status: ImportAuditEntry["status"]): string {
+  if (status === "safe") return "Импорт обработан";
   if (status === "blocked") return "Импорт заблокирован";
   if (status === "empty") return "Пустой импорт";
   if (status === "partial") return "Импорт частичный";
@@ -1540,7 +1541,7 @@ export default function SysReleaseStatusPage() {
                 </dd>
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <dt className="text-muted-foreground">Артефакт</dt>
+                <dt className="text-muted-foreground">Отчёт</dt>
                 <dd className="mt-1">
                   {snapshot.artifactPresent ? "найден" : "не найден"}
                 </dd>
@@ -2298,7 +2299,7 @@ export default function SysReleaseStatusPage() {
                   </select>
                 </label>
                 <label className="text-[11px] text-muted-foreground">
-                  Артефакт
+                  Отчёт
                   <select
                     aria-label="Фильтр отчёта истории"
                     value={historyArtifactFilter}
@@ -2617,7 +2618,7 @@ export default function SysReleaseStatusPage() {
                   </dd>
                 </div>
                 <div className="grid grid-cols-[88px_1fr] gap-2">
-                  <dt className="text-muted-foreground">Артефакт</dt>
+                  <dt className="text-muted-foreground">Отчёт</dt>
                   <dd>
                     {selectedBaseline.snapshot.artifactPresent ? "Есть" : "Нет"}
                   </dd>
@@ -2840,7 +2841,7 @@ export default function SysReleaseStatusPage() {
                   : "Итоговый статус не изменился."}
               {comparison.artifactChanged && (
                 <span className="block pt-1 text-muted-foreground">
-                  Доступность артефакта изменилась.
+                  Доступность отчёта изменилась.
                 </span>
               )}
             </div>

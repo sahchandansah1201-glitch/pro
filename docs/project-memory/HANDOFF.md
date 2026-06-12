@@ -9,6 +9,22 @@ Go-No-Go checklist. The reconciliation pass is recorded in
 
 ## Confirmed state
 
+0. Client journey audit and Russian UI hardening is implemented in the current
+   branch:
+   - doctor visit assessment/conclusion/report paths use native Russian labels
+     and keep diagnosis, measurements, dynamic conclusions, and patient
+     delivery disabled;
+   - visit workspace QA ledger labels are mapped to human Russian wording and
+     guarded by tests;
+   - system-admin device service statuses no longer expose unknown raw enum
+     values and fall back to `неизвестно`;
+   - role guard and status/release/system tests were aligned with native
+     Russian visible copy;
+   - e2e and a11y routes were executed across desktop/mobile where the local
+     demo or mocked self-hosted route is available;
+   - production-only self-hosted visit QA and real-auth asset smoke remain
+     external-environment gates, not closed repository evidence.
+
 0. External Clinic Operator Execution Record is defined:
    - `deploy/self-hosted/external-clinic-operator-execution-record.json`
      records the external clinic operator execution record template;

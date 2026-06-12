@@ -29,8 +29,11 @@ async function gotoOperator(page: Page) {
 }
 
 async function selectActiveCard(page: Page) {
-  // bd-002 — карточка с активной ссылкой (по DEMO_NOW в фикстурах).
-  await page.getByText("bd-002", { exact: false }).first().click();
+  // «Обращение 002» — карточка с активной ссылкой (по DEMO_NOW в фикстурах).
+  await page
+    .locator(".cursor-pointer", { hasText: "Обращение 002" })
+    .first()
+    .click();
   await page.waitForSelector('[role="status"][aria-label*="активна"]');
 }
 

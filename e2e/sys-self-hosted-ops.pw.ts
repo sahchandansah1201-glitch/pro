@@ -230,7 +230,9 @@ test.describe("/sys/self-hosted-ops", () => {
     await setDemoRole(page, "clinic_admin");
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
-    await expect(page.getByText("Нет доступа в демо-режиме")).toBeVisible();
+    await expect(page.getByText("Нет доступа в учебном режиме")).toBeVisible();
+    await expect(page.getByText(/учебный просмотр интерфейса/)).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/self-hosted|production|backend|демо/i);
     await expect(page.getByRole("heading", { name: "Рабочий контур" })).not.toBeVisible();
   });
 });

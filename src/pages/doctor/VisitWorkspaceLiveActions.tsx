@@ -1412,7 +1412,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             onChange={(event) => setComplaint(event.target.value)}
             className="min-h-20 text-[13px]"
           />
-          <Button type="submit" size="sm" disabled={busy === "visit"} className="h-8 text-[12px]">
+          <Button type="submit" size="sm" disabled={busy === "visit"} className="min-h-11 text-[12px]">
             {busy === "visit" ? "Сохраняем…" : "Сохранить визит"}
           </Button>
         </form>
@@ -1438,7 +1438,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             className="h-9 text-[13px]"
             placeholder="спина, плечо, голень"
           />
-          <Button type="submit" size="sm" disabled={busy === "create-lesion"} className="h-8 text-[12px]">
+          <Button type="submit" size="sm" disabled={busy === "create-lesion"} className="min-h-11 text-[12px]">
             {busy === "create-lesion" ? "Создаём…" : "Создать очаг"}
           </Button>
         </form>
@@ -1475,7 +1475,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             className="h-9 text-[13px]"
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" size="sm" disabled={!selectedLesionId || busy === "update-lesion"} className="h-8 text-[12px]">
+            <Button type="submit" size="sm" disabled={!selectedLesionId || busy === "update-lesion"} className="min-h-11 text-[12px]">
               {busy === "update-lesion" ? "Сохраняем…" : "Обновить очаг"}
             </Button>
             <Button
@@ -1484,7 +1484,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
               variant="destructive"
               disabled={!selectedLesionId || busy === "archive-lesion"}
               onClick={submitArchiveLesion}
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px]"
             >
               {busy === "archive-lesion" ? "Архивируем…" : "Архивировать"}
             </Button>
@@ -1511,7 +1511,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             onChange={(event) => setPatientText(event.target.value)}
             className="min-h-16 text-[13px]"
           />
-          <Button type="submit" size="sm" disabled={busy === "report"} className="h-8 text-[12px]">
+          <Button type="submit" size="sm" disabled={busy === "report"} className="min-h-11 text-[12px]">
             {busy === "report" ? "Сохраняем…" : "Сохранить отчёт"}
           </Button>
         </form>
@@ -1555,7 +1555,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             onChange={(event) => setFollowUpInternalNote(event.target.value)}
             className="min-h-14 text-[13px]"
           />
-          <Button type="submit" size="sm" disabled={busy === "follow-up"} className="h-8 text-[12px]">
+          <Button type="submit" size="sm" disabled={busy === "follow-up"} className="min-h-11 text-[12px]">
             {busy === "follow-up" ? "Создаём…" : "Создать контроль"}
           </Button>
         </form>
@@ -1578,7 +1578,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             variant="outline"
             disabled={busy === "operations-load"}
             onClick={() => void loadOperationsQueue()}
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
           >
             {busy === "operations-load" ? "Обновляем…" : "Обновить очередь"}
           </Button>
@@ -2071,7 +2071,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 id="stage22-sop-policy-code"
                 value={sopTemplateCode}
                 onChange={(event) => setSopTemplateCode(event.target.value)}
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-title">
                 Название
@@ -2080,7 +2080,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 id="stage22-sop-policy-title"
                 value={sopTemplateTitle}
                 onChange={(event) => setSopTemplateTitle(event.target.value)}
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-version">
                 Версия
@@ -2089,7 +2089,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 id="stage22-sop-policy-version"
                 value={sopTemplateVersion}
                 onChange={(event) => setSopTemplateVersion(event.target.value)}
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-description">
                 Описание
@@ -2100,7 +2100,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 onChange={(event) => setSopTemplateDescription(event.target.value)}
                 className="min-h-14 text-[12px]"
               />
-              <Button type="submit" size="sm" disabled={busy === "sop-policy-template-create"} className="h-8 text-[12px]">
+              <Button type="submit" size="sm" disabled={busy === "sop-policy-template-create"} className="min-h-11 text-[12px]">
                 {busy === "sop-policy-template-create" ? "Создаём…" : "Создать шаблон правил"}
               </Button>
             </form>
@@ -2243,7 +2243,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     { triageState: "waiting_patient", deliveryState: "pending", operationsNote: "Waiting for patient confirmation." },
                     "Контроль переведён в ожидание пациента.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Ждёт пациента
                 </Button>
@@ -2257,7 +2257,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     { triageState: "escalated", escalationLevel: "clinic_admin", operationsNote: "Escalated locally to clinic admin." },
                     "Контроль передан администратору клиники.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Эскалировать
                 </Button>
@@ -2270,7 +2270,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     { triageState: "resolved", deliveryState: "delivered", deliveryEvidence: { channel: "portal", state: "confirmed" } },
                     "Контроль закрыт в очереди.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть
                 </Button>
@@ -2288,7 +2288,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль отмечен как проверенный.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Проверено
                 </Button>
@@ -2306,7 +2306,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль помечен как требующий внимания.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Требует внимания
                 </Button>
@@ -2323,7 +2323,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Проверка срока хранения отмечена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Хранение проверено
                 </Button>
@@ -2340,7 +2340,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль отправлен на разбор правил клиники.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Разбор правил
                 </Button>
@@ -2357,7 +2357,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Проверка клиники завершена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Проверка клиники
                 </Button>
@@ -2374,7 +2374,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Проверка правил подтверждена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Правила проверены
                 </Button>
@@ -2392,7 +2392,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Исключение по правилам записано локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Исключение
                 </Button>
@@ -2409,7 +2409,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Шаблон правил применён локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Применить правила
                 </Button>
@@ -2426,7 +2426,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль отправлен на сверку правил.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Сверка правил
                 </Button>
@@ -2443,7 +2443,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Исключение по правилам открыто локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Открыть исключение
                 </Button>
@@ -2461,7 +2461,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Исключение по правилам закрыто локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть исключение
                 </Button>
@@ -2478,7 +2478,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Аудит правил отмечен как проверенный.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Аудит проверен
                 </Button>
@@ -2495,7 +2495,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Аудит правил отправлен на повторный контроль.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Повторный аудит
                 </Button>
@@ -2512,7 +2512,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль правил отмечен как проверенный.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Контроль проверен
                 </Button>
@@ -2529,7 +2529,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Контроль правил отправлен на повторный разбор.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Повторный контроль
                 </Button>
@@ -2546,7 +2546,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие контроля правил выполнено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть контроль
                 </Button>
@@ -2563,7 +2563,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие контроля правил отправлено на повторный разбор.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Повторное закрытие
                 </Button>
@@ -2580,7 +2580,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Подтверждение правил подготовлено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Подготовить подтверждение
                 </Button>
@@ -2597,7 +2597,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Подтверждение правил отправлено на повторный разбор.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Повторить подтверждение
                 </Button>
@@ -2614,7 +2614,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Сверка подтверждений выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Сверить подтверждение
                 </Button>
@@ -2631,7 +2631,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Сверка подтверждений помечена как несоответствие.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Есть расхождение
                 </Button>
@@ -2648,7 +2648,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Сверка подтверждений закрыта локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть сверку
                 </Button>
@@ -2665,7 +2665,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие сверки отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать закрытие
                 </Button>
@@ -2682,7 +2682,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение закрытия принято локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Отметить получение
                 </Button>
@@ -2699,7 +2699,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение закрытия сверки отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение
                 </Button>
@@ -2716,7 +2716,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Готовность архива отмечена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Архив готов
                 </Button>
@@ -2733,7 +2733,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Готовность архива отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать архив
                 </Button>
@@ -2750,7 +2750,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Архив закрыт локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть архив
                 </Button>
@@ -2767,7 +2767,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие архива отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать закрытие архива
                 </Button>
@@ -2784,7 +2784,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение архива отмечено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить архив
                 </Button>
@@ -2801,7 +2801,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение архива отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение архива
                 </Button>
@@ -2818,7 +2818,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Передача архива выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Передать архив
                 </Button>
@@ -2835,7 +2835,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Передача архива отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать передачу
                 </Button>
@@ -2852,7 +2852,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение передачи архива отмечено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить передачу
                 </Button>
@@ -2869,7 +2869,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение передачи архива отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение передачи
                 </Button>
@@ -2886,7 +2886,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Сверка передачи архива выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Сверить передачу
                 </Button>
@@ -2903,7 +2903,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Сверка передачи архива отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать сверку передачи
                 </Button>
@@ -2920,7 +2920,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие сверки передачи выполнено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть сверку передачи
                 </Button>
@@ -2937,7 +2937,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Закрытие сверки передачи отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать закрытие сверки
                 </Button>
@@ -2954,7 +2954,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение закрытия передачи отмечено локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить закрытие сверки
                 </Button>
@@ -2971,7 +2971,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Получение закрытия передачи отправлено на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение закрытия
                 </Button>
@@ -2988,7 +2988,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Архивировать сверку
                 </Button>
@@ -3005,7 +3005,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать архив сверки
                 </Button>
@@ -3022,7 +3022,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть архив сверки
                 </Button>
@@ -3039,7 +3039,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать закрытие архива
                 </Button>
@@ -3056,7 +3056,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить закрытие архива
                 </Button>
@@ -3073,7 +3073,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение архива
                 </Button>
@@ -3090,7 +3090,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Передать архив сверки
                 </Button>
@@ -3107,7 +3107,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать передачу архива
                 </Button>
@@ -3124,7 +3124,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить передачу архива
                 </Button>
@@ -3141,7 +3141,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение передачи
                 </Button>
@@ -3158,7 +3158,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Сверить передачу архива
                 </Button>
@@ -3175,7 +3175,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать сверку передачи
                 </Button>
@@ -3192,7 +3192,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Закрыть сверку передачи
                 </Button>
@@ -3209,7 +3209,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать закрытие сверки
                 </Button>
@@ -3226,7 +3226,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля выполнена локально.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Получить закрытие передачи
                 </Button>
@@ -3243,7 +3243,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     },
                     "Операция контроля отправлена на доработку.",
                   )}
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   Доработать получение закрытия
                 </Button>

@@ -71,7 +71,8 @@ describe("Patient portal pages", () => {
   it("MeReportPage показывает patient-safe текст и не утечки", () => {
     const { container } = renderRouted(<MeReportPage />, "/me/reports/r-001");
     expect(screen.getByRole("heading", { name: /Заключение/ })).toBeInTheDocument();
-    expect(screen.getByText(/доброкачественным изменениям/)).toBeInTheDocument();
+    expect(screen.getByText(/подготовлен план наблюдения/)).toBeInTheDocument();
+    expect(container.textContent || "").not.toMatch(/доброкачествен|злокачествен|меланома|рак кожи|биопсия/i);
     expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
     expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();

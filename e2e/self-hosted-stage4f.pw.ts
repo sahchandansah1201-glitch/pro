@@ -1,4 +1,4 @@
-// Stage 4F · End-to-end self-hosted login → patients flow with mocked /api/v1.
+// Stage 4F · End-to-end clinic-system login → patients flow with mocked /api/v1.
 // Не использует managed runtime: все сетевые вызовы перехвачены page.route().
 
 import { expect, test, type Page, type Route } from "@playwright/test";
@@ -148,30 +148,30 @@ async function installMockBackend(page: Page) {
   });
 }
 
-test.describe("Stage 4F self-hosted patient flow", () => {
+test.describe("Stage 4F clinic-system patient flow", () => {
   test.beforeEach(async ({ page }) => {
     await setDemoRole(page, "doctor");
     await installMockBackend(page);
   });
 
-  test("login → list → create → edit → archive against mocked self-hosted backend", async ({ page }) => {
+  test("login → list → create → edit → archive against mocked clinic system", async ({ page }) => {
     await page.goto("/self-hosted/login");
 
     await expect(
-      page.getByRole("heading", { name: "Вход в self-hosted backend" }),
+      page.getByRole("heading", { name: "Дерматолог Pro — рабочий вход" }),
     ).toBeVisible();
 
-    await page.getByLabel("Адрес backend").fill(BASE_URL);
-    await page.getByLabel("Email").fill("doctor@example.com");
+    await page.getByLabel("Адрес сервера клиники").fill(BASE_URL);
+    await page.getByLabel("Эл. почта").fill("doctor@example.com");
     await page.getByLabel("Пароль").fill("secret");
-    await page.getByRole("button", { name: /Войти в self-hosted backend/i }).click();
+    await page.getByRole("button", { name: /Войти в продукт/i }).click();
 
     await expect(page).toHaveURL(/\/patients$/);
     await expect(
-      page.getByRole("note", { name: "Ограничения демо-режима пациентов" }),
-    ).toContainText("Self-hosted backend подключён");
+      page.getByRole("note", { name: "Режим работы списка пациентов" }),
+    ).toContainText("систему клиники");
 
-    // Create a patient via live backend
+    // Create a patient through the mocked clinic system.
     await page.getByRole("button", { name: /Новый пациент/ }).click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog).toBeVisible();
@@ -179,8 +179,12 @@ test.describe("Stage 4F self-hosted patient flow", () => {
     await createDialog.getByLabel(/Дата рождения/i).fill("1990-01-02");
     await createDialog.getByRole("button", { name: /Сохранить|Создать/ }).click();
 
-    await expect(page.getByRole("link", { name: "Петрова Анна Сергеевна" })).toBeVisible();
-    await expect(page.getByText("Создан через self-hosted backend")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Петрова Анна Сергеевна", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/^Пациент Петрова Анна Сергеевна создан в системе клиники\.$/),
+    ).toBeVisible();
 
     // Edit the patient
     await page
@@ -190,22 +194,26 @@ test.describe("Stage 4F self-hosted patient flow", () => {
     await editDialog.getByLabel(/ФИО/i).fill("Петрова Анна Обновлённая");
     await editDialog.getByRole("button", { name: /Сохранить/ }).click();
     await expect(
-      page.getByRole("link", { name: "Петрова Анна Обновлённая" }),
+      page.getByRole("link", { name: "Петрова Анна Обновлённая", exact: true }),
     ).toBeVisible();
 
     // Archive (soft delete)
     await page
-      .getByRole("button", { name: /Удалить пациента Петрова Анна Обновлённая/ })
+      .getByRole("button", { name: /Скрыть пациента Петрова Анна Обновлённая/ })
       .click();
     const archiveDialog = page.getByRole("alertdialog");
     await archiveDialog.getByRole("button", { name: /Удалить|Архивировать/ }).click();
     await expect(
-      page.getByRole("link", { name: "Петрова Анна Обновлённая" }),
+      page.getByRole("link", { name: "Петрова Анна Обновлённая", exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByText(/архивирован в self-hosted backend/i)).toBeVisible();
+    await expect(
+      page.getByText(
+        /^Пациент Петрова Анна Обновлённая архивирован в системе клиники\.$/,
+      ),
+    ).toBeVisible();
 
-    // Logout from self-hosted
-    await page.getByRole("button", { name: "Выйти из self-hosted backend" }).click();
+    // Logout from the clinic system.
+    await page.getByRole("button", { name: "Выйти из системы клиники" }).click();
     await expect(page).toHaveURL(/\/self-hosted\/login$/);
   });
 });

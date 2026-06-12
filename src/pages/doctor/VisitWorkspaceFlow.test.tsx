@@ -140,10 +140,10 @@ describe("Visit Workspace · invalid params", () => {
   });
 
   it("?lesion=local-lesion-1 shows read-only notice in Assessment, Conclusion, and Report", () => {
-    const cases: Array<{ tab: string; rx: RegExp }> = [
-      { tab: "assessment", rx: /Локальный демо-очаг нужно сохранить на бэкенде перед оценкой/ },
-      { tab: "conclusion", rx: /Локальный демо-очаг нужно сохранить на бэкенде перед заключением/ },
-      { tab: "report", rx: /Локальный демо-очаг/ },
+      const cases: Array<{ tab: string; rx: RegExp }> = [
+      { tab: "assessment", rx: /Локальный учебный очаг нужно сохранить в системе клиники перед оценкой/ },
+      { tab: "conclusion", rx: /Локальный учебный очаг нужно сохранить в системе клиники перед заключением/ },
+      { tab: "report", rx: /Локальный учебный очаг/ },
     ];
     for (const { tab, rx } of cases) {
       const { unmount } = renderAt(
@@ -193,10 +193,10 @@ describe("Visit Workspace · local draft isolation across downstream tabs", () =
 });
 
 describe("Visit Workspace · Report demo-only actions", () => {
-  it("Печать отчёта и Отправить пациенту initially disabled without demo draft", () => {
+  it("печать и отправка показываются как недоступные без рабочей системы клиники", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    const printBtn = screen.getByRole("button", { name: /Печать отчёта/ }) as HTMLButtonElement;
-    const sendBtn = screen.getByRole("button", { name: /Отправить пациенту/ }) as HTMLButtonElement;
+    const printBtn = screen.getByRole("button", { name: /Печать недоступна/ }) as HTMLButtonElement;
+    const sendBtn = screen.getByRole("button", { name: /Отправка недоступна/ }) as HTMLButtonElement;
     expect(printBtn.disabled).toBe(true);
     expect(sendBtn.disabled).toBe(true);
   });
@@ -214,11 +214,11 @@ describe("Visit Workspace · mobile (390px) — no horizontal overflow heuristic
   // checks are not feasible here. Instead, verify presence of mobile-friendly
   // sizing classes on tab triggers and that the report renders without throwing
   // on a forced narrow viewport metadata.
-  it("tab triggers carry min-h-[44px] mobile target", () => {
+  it("tab triggers carry min-h-11 mobile target", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     const triggers = screen.getAllByRole("tab");
     for (const t of triggers) {
-      expect(t.className).toMatch(/min-h-\[44px\]/);
+      expect(t.className).toMatch(/min-h-11/);
     }
   });
 });

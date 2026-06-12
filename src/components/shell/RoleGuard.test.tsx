@@ -97,7 +97,7 @@ describe("RoleGuard · unconfigured (demo) mode", () => {
 
   it("shows the demo no-access screen when role is not allowed", () => {
     renderAt("/sys/users", authValue(), "doctor");
-    expect(screen.getByText(/Нет доступа в демо-режиме/)).toBeInTheDocument();
+    expect(screen.getByText(/Нет доступа в учебном режиме/)).toBeInTheDocument();
   });
 });
 
@@ -133,7 +133,7 @@ describe("RoleGuard · configured + auth-aware", () => {
       authValue({ status: "authenticated", accessToken: "tok" }),
       "doctor",
     );
-    expect(screen.getByText(/Нет доступа в демо-режиме/)).toBeInTheDocument();
+    expect(screen.getByText(/Нет доступа в учебном режиме/)).toBeInTheDocument();
   });
 });
 
@@ -166,7 +166,8 @@ describe("RoleGuard · production self-hosted mode", () => {
     writeSelfHostedSession(["doctor"]);
     renderAt("/sys/users", authValue(), "system_admin");
     expect(screen.getByText("Нет доступа")).toBeInTheDocument();
-    expect(screen.getByText(/переключение демо-ролей отключено/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Сменить демо-роль/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Права доступа определяются активным рабочим входом/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Сменить учебную роль/i)).not.toBeInTheDocument();
+    expect(document.body.textContent || "").not.toMatch(/self-hosted|production|backend|демо/i);
   });
 });

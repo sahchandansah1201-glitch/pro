@@ -38,6 +38,7 @@ import {
   type SelfHostedDeviceDTO,
 } from "@/lib/self-hosted-device-api";
 import type { Device } from "@/lib/domain";
+import { pollBackoffLabel, recoveryStateLabel, sysDeviceStatusLabel } from "./sysDeviceLabels";
 
 /**
  * Sys Devices — мост устройств и электронные дерматоскопы.
@@ -76,30 +77,6 @@ const LAN_TONE = {
   offline: "hsl(var(--destructive))",
 };
 
-const WORKER_STATUS_LABEL: Record<string, string> = {
-  online: "Служба на связи",
-  degraded: "Связь нестабильна",
-  offline: "Служба не в сети",
-  unknown: "Связь не проверена",
-  ready: "Готово",
-  ok: "Готово",
-  blocked: "Блокер",
-  warning: "Требует внимания",
-  needs_review: "Нужен разбор",
-  ready_for_production: "Готово к работе",
-  ready_for_rollout: "Готово к включению",
-  ready_for_handoff: "Готово к передаче",
-  in_review: "На разборе",
-};
-
-const COMMAND_STATUS_LABEL: Record<string, string> = {
-  queued: "В очереди",
-  acknowledged: "Принята",
-  completed: "Выполнена",
-  failed: "Ошибка",
-  cancelled: "Отменена",
-};
-
 type DevStatus = "connected" | "standby" | "offline";
 const STATUS_LABEL: Record<DevStatus, string> = {
   connected: "Подключен",
@@ -120,22 +97,6 @@ const POLARIZATION_LABEL: Record<string, string> = {
 
 function polarizationLabel(value: string): string {
   return POLARIZATION_LABEL[value] ?? "не указано";
-}
-
-function sysDeviceStatusLabel(value: string | undefined): string {
-  if (!value) return "нет данных";
-  return (
-    WORKER_STATUS_LABEL[value] ??
-    COMMAND_STATUS_LABEL[value] ??
-    {
-      passed: "Пройдено",
-      attention: "Требует внимания",
-      ready: "Готово",
-      failed: "Ошибка",
-      active: "Активно",
-    }[value] ??
-    value
-  );
 }
 
 function sysDeviceText(value: string | undefined): string {
@@ -707,16 +668,16 @@ export default function SysDevicesPage() {
                         Связь
                       </div>
                       <div className="divide-y divide-border/70">
-                        {workerStatus.items.length > 0 ? workerStatus.items.map((bridge) => (
+                        {workerStatus.items.length > 0 ? workerStatus.items.map((bridge, index) => (
                           <div key={bridge.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto] sm:items-center">
                             <div className="min-w-0">
-                              <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
+                              <div className="truncate text-[11px] font-semibold">Мост {index + 1}</div>
                               <div className="truncate text-[11px] text-muted-foreground">
                                 адрес скрыт · версия {bridge.workerVersion || "не указана"}
                               </div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {WORKER_STATUS_LABEL[bridge.workerStatus] ?? bridge.workerStatus}
+                              {sysDeviceStatusLabel(bridge.workerStatus)}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
                               {formatDateTime(bridge.workerLastSeenAt ?? bridge.lastHeartbeatAt ?? "")}
@@ -744,11 +705,11 @@ export default function SysDevicesPage() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate text-[11px]">Служебная команда</span>
                               <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                                {COMMAND_STATUS_LABEL[command.status] ?? command.status}
+                                {sysDeviceStatusLabel(command.status)}
                               </span>
                             </div>
                             <div className="mt-1 text-[11px] text-muted-foreground">
-                              {command.bridgeCode ?? "bridge"} · {formatDateTime(command.createdAt ?? "")}
+                              мост скрыт · {formatDateTime(command.createdAt ?? "")}
                             </div>
                           </div>
                         ))}
@@ -812,7 +773,7 @@ export default function SysDevicesPage() {
                   >
                     <div className="font-semibold text-foreground">Правила устойчивости</div>
                     <div className="mt-1">
-                      устаревает через {workerHardening.policy.staleAfterMinutes} мин · хранение {workerHardening.policy.retentionDays} дн. · задержка {workerHardening.policy.pollBackoff} · лимит опроса {workerHardening.policy.maxPollLimit}
+                      устаревает через {workerHardening.policy.staleAfterMinutes} мин · хранение {workerHardening.policy.retentionDays} дн. · задержка {pollBackoffLabel(workerHardening.policy.pollBackoff)} · лимит опроса {workerHardening.policy.maxPollLimit}
                     </div>
                   </div>
                   <div
@@ -824,10 +785,10 @@ export default function SysDevicesPage() {
                       Состояние устойчивости
                     </div>
                     <div className="divide-y divide-border/70">
-                      {workerHardening.items.length > 0 ? workerHardening.items.slice(0, 5).map((bridge) => (
+                      {workerHardening.items.length > 0 ? workerHardening.items.slice(0, 5).map((bridge, index) => (
                         <div key={bridge.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
                           <div className="min-w-0">
-                            <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
+                            <div className="truncate text-[11px] font-semibold">Мост {index + 1}</div>
                             <div className="truncate text-[11px] text-muted-foreground">
                               адрес скрыт · версия {bridge.workerVersion || "не указана"}
                             </div>
@@ -916,11 +877,11 @@ export default function SysDevicesPage() {
                           <div className="min-w-0">
                             <div className="truncate text-[11px] font-semibold">Служебная команда</div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              {command.bridgeCode ?? "мост"} · состояние {command.recoveryState ?? "активно"} · попытки {command.attemptCount}
+                              мост скрыт · состояние {recoveryStateLabel(command.recoveryState)} · попытки {command.attemptCount}
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {COMMAND_STATUS_LABEL[command.status] ?? command.status}
+                            {sysDeviceStatusLabel(command.status)}
                           </span>
                           <div className="flex flex-wrap justify-end gap-2">
                             <Button
@@ -1030,7 +991,7 @@ export default function SysDevicesPage() {
                               Событие аудита · служебная команда
                             </div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              {event.bridgeCode ?? "мост"} · {event.status} · ревизия {event.lifecycleRevision}
+                              мост скрыт · {sysDeviceStatusLabel(event.status)} · ревизия {event.lifecycleRevision}
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">

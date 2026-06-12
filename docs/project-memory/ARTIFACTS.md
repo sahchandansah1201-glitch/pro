@@ -1,5 +1,15 @@
 # ARTIFACTS
 
+## Client journey audit artifacts · 2026-06-13
+
+- [e2e-nightly-full-artifact-summary.md](../../test-results/e2e-nightly-full-artifact-summary.md)
+  is generated locally and ignored by git; it summarizes Playwright screenshot
+  artifacts after the full e2e run.
+- `reports/agent-qa/*` and `reports/doctor-hygiene/*` are generated locally and
+  ignored by git; they contain QA/eval and doctor hygiene scan outputs.
+- No raw Playwright traces, signed URLs, tokens, storage paths, or patient data
+  should be copied into repository review comments.
+
 ## Core repository references
 
 1. Project/product docs:

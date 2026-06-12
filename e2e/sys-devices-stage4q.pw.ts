@@ -6,8 +6,8 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
-test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", () => {
-  test("system_admin sees live Device Bridge registry without browser hardware APIs", async ({ page }) => {
+test.describe("Stage 4Q/4R · /sys/devices clinic-system registry and commands", () => {
+  test("system_admin sees live device bridge registry without browser hardware APIs", async ({ page }) => {
     await setDemoRole(page, "system_admin");
     await page.addInitScript(() => {
       localStorage.setItem("derma-pro:self-hosted-api-base-url", "http://localhost:8080");
@@ -284,7 +284,7 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
       const body = route.request().postDataJSON();
-      expect(body.reason).toContain("Stage 4X");
+      expect(body.reason).toContain("Ручной повтор");
       await route.fulfill({
         status: 202,
         contentType: "application/json",
@@ -342,49 +342,52 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await page.goto("/sys/devices");
 
     await expect(page.getByRole("heading", { level: 1, name: "Устройства" })).toBeVisible();
-    await expect(page.getByText("Self-hosted backend подключён")).toBeVisible();
+    await expect(page.getByText("Рабочая система подключена")).toBeVisible();
     await expect(page.getByText("LiveScope 20").first()).toBeVisible();
-    await expect(page.getByText("br-live-01").first()).toBeVisible();
-    await expect(page.getByRole("region", { name: "Device Bridge worker observability" })).toContainText(
+    await expect(page.getByText("br-live-01")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Наблюдение службы моста устройств" })).toContainText(
       "stage4t-local-worker",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge worker command lifecycle" })).toContainText(
-      "bridge_health_check",
+    await expect(page.getByRole("region", { name: "Жизненный цикл команд моста устройств" })).toContainText(
+      "Служебная команда",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge worker production hardening" })).toContainText(
-      "Cleanup candidates",
+    await expect(page.getByRole("region", { name: "Восстановление команд моста устройств" })).toContainText(
+      "Можно повторить",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge worker hardening policy" })).toContainText(
-      "linear-capped",
+    await expect(page.getByRole("region", { name: "Правила восстановления команд" })).toContainText(
+      "устаревает через",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge command recovery", exact: true })).toContainText(
-      "Retryable failed",
+    await expect(page.getByRole("region", { name: "Очередь восстановления команд" })).toContainText(
+      "мост скрыт",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge command recovery queue" })).toContainText(
-      "retryable_failed",
+    await expect(page.getByRole("region", { name: "Аудит и повтор команд моста устройств" })).toContainText(
+      "События аудита",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge command audit and replay" })).toContainText(
-      "Audit events",
+    await expect(page.getByRole("region", { name: "Правила повтора команд" })).toContainText(
+      "только рабочая система",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge replay policy" })).toContainText(
-      "backend_only",
+    await expect(page.getByRole("region", { name: "Журнал аудита команд" })).toContainText(
+      "вручную системным администратором",
     );
-    await expect(page.getByRole("region", { name: "Device Bridge command audit log" })).toContainText(
-      "manual_system_admin",
-    );
-    await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
+    await expect(page.getByText("Реестр устройств загружен из рабочей системы.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();
 
     await page.getByRole("button", { name: "Проверить мост" }).first().click();
-    await expect(page.getByText(/cmd-bridge-e2e/)).toBeVisible();
+    await expect(page.getByText(/Команда проверки «Мост 1» поставлена в очередь моста устройств/)).toBeVisible();
     await page.getByRole("button", { name: "Запросить калибровку" }).first().click();
-    await expect(page.getByText(/cmd-device-e2e/)).toBeVisible();
-    await page.getByRole("button", { name: "Повторить" }).click();
-    await expect(page.getByText(/cmd-recovery-e2e возвращена в очередь/)).toBeVisible();
-    await page.getByRole("button", { name: "Replay" }).click();
-    await expect(page.getByText(/cmd-replay-e2e поставлен в очередь Device Bridge: cmd-replayed-e2e/)).toBeVisible();
-    await page.getByRole("button", { name: "Экспорт audit CSV" }).click();
-    await expect(page.getByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeVisible();
+    await expect(page.getByText(/Команда калибровки поставлена в очередь моста устройств/)).toBeVisible();
+    await page
+      .getByRole("region", { name: "Очередь восстановления команд" })
+      .getByRole("button", { name: "Повторить" })
+      .click();
+    await expect(page.getByText(/Команда возвращена в очередь моста устройств/)).toBeVisible();
+    await page
+      .getByRole("region", { name: "Журнал аудита команд" })
+      .getByRole("button", { name: "Повторить" })
+      .click();
+    await expect(page.getByText(/Повтор команды поставлен в очередь моста устройств/)).toBeVisible();
+    await page.getByRole("button", { name: "Скачать журнал" }).click();
+    await expect(page.getByText(/Экспорт журнала команд моста устройств скачан/)).toBeVisible();
 
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");
@@ -395,13 +398,16 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     expect(html).not.toContain("WebUSB");
     expect(html).not.toContain("WebBluetooth");
     expect(html).not.toContain("WebSerial");
+    expect(html).not.toContain("br-live-01");
   });
 
   test("doctor role is blocked by the sys route guard", async ({ page }) => {
     await setDemoRole(page, "doctor");
     await page.goto("/sys/devices");
 
-    await expect(page.getByText("Нет доступа в демо-режиме")).toBeVisible();
-    await expect(page.getByText("Self-hosted backend подключён")).toHaveCount(0);
+    await expect(page.getByText("Нет доступа в учебном режиме")).toBeVisible();
+    await expect(page.getByText(/учебный просмотр интерфейса/)).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/self-hosted|production|backend|демо/i);
+    await expect(page.getByText("Рабочая система подключена")).toHaveCount(0);
   });
 });

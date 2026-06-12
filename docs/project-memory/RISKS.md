@@ -1,5 +1,24 @@
 # RISKS
 
+## Client journey audit risks
+
+1. **Risk: local e2e success can be mistaken for full production-clinic
+   acceptance.**
+   - Evidence: `npx playwright test` passed local/mocked routes, but real-auth
+     doctor assets smoke and self-hosted visit QA routes were skipped because
+     the required production credentials and seeded clinical fixture are not
+     available locally.
+   - Mitigation: final report must mark production-only routes as not fully
+     verified and require external self-hosted verification before treating
+     those client paths as closed.
+
+2. **Risk: unknown backend enum values can leak as raw technical labels.**
+   - Evidence: system-admin device service UI previously rendered unmapped
+     command/worker statuses directly.
+   - Mitigation: `sysDeviceStatusLabel`, `pollBackoffLabel`, and
+     `recoveryStateLabel` now return Russian safe fallbacks; tests cover
+     unknown enum values.
+
 ## Plan reconciliation risks
 
 1. **Risk: an unbounded Stage count can be mistaken for a confirmed development plan.**

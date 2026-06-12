@@ -59,8 +59,8 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/DeskPageLive.tsx": [
     "getSelfHostedDoctorDashboard",
-    "Источник данных: self-hosted backend /api/v1/doctor/dashboard",
-    "Production dashboard",
+    "Источник данных: система клиники.",
+    "Рабочий стол",
   ],
   "docs/backend/stage-5i-production-doctor-dashboard-contracts.md": [
     "Stage 5I",

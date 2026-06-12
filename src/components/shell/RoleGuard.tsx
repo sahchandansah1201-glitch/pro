@@ -63,17 +63,16 @@ function ProductionNoAccessScreen({ roleLabel }: { roleLabel: string }) {
           <div className="text-[13px] font-semibold">Нет доступа</div>
         </div>
         <p className="text-[13px] text-muted-foreground">
-          Текущая self-hosted роль <span className="text-foreground">{roleLabel}</span> не
-          имеет доступа к этому разделу. В production переключение демо-ролей отключено;
-          доступ определяется только backend-сессией.
+          Текущая роль в системе клиники <span className="text-foreground">{roleLabel}</span> не
+          имеет доступа к этому разделу. Права доступа определяются активным рабочим входом.
         </p>
 
-        <div className="mt-4 flex gap-2">
-          <Button size="sm" variant="secondary" className="h-8 text-[12px]" onClick={() => navigate(-1)}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
             Назад
           </Button>
-          <Button size="sm" className="h-8 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
-            Сменить self-hosted сессию
+          <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
+            Сменить вход в систему клиники
           </Button>
         </div>
       </div>
@@ -110,17 +109,17 @@ function NoAccessScreen({
       <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
         <div className="mb-3 flex items-center gap-2 text-warning">
           <Lock className="h-4 w-4" aria-hidden />
-          <div className="text-[13px] font-semibold">Нет доступа в демо-режиме</div>
+          <div className="text-[13px] font-semibold">Нет доступа в учебном режиме</div>
         </div>
         <p className="text-[13px] text-muted-foreground">
           Текущая роль <span className="text-foreground">{currentLabel}</span> не входит в
-          число ролей, для которых открыт этот раздел. Это UX-симуляция, не настоящая
-          защита — переключите демо-роль, чтобы увидеть интерфейс.
+          число ролей, для которых открыт этот раздел. Это учебный просмотр интерфейса;
+          переключите роль, чтобы увидеть нужный рабочий экран.
         </p>
 
         <div className="mt-4 space-y-1.5">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Сменить демо-роль
+            Сменить учебную роль
           </div>
           <div className="flex flex-wrap gap-1.5">
             {ROLES.map((r) => (
@@ -128,7 +127,7 @@ function NoAccessScreen({
                 key={r.id}
                 variant="outline"
                 size="sm"
-                className="h-7 text-[12px]"
+                className="min-h-11 min-w-11 text-[12px]"
                 onClick={() => onSwitchRole(r.id)}
               >
                 {r.short}
@@ -137,11 +136,11 @@ function NoAccessScreen({
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
-          <Button size="sm" variant="secondary" className="h-8 text-[12px]" onClick={() => navigate(-1)}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
             Назад
           </Button>
-          <Button size="sm" className="h-8 text-[12px]" onClick={() => navigate("/")}>
+          <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/")}>
             На стартовый экран роли
           </Button>
         </div>

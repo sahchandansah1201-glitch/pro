@@ -98,7 +98,7 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
           role="status"
           className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground"
         >
-          Локальный демо-очаг нужно сохранить на бэкенде перед заключением.
+          Локальный учебный очаг нужно сохранить в системе клиники перед заключением.
         </div>
       )}
 

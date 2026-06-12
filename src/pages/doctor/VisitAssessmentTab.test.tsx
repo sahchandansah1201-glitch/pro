@@ -32,7 +32,7 @@ describe("VisitAssessmentTab · URL params", () => {
   it("local-lesion-* id shows read-only notice and does NOT treat draft as a real lesion", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=local-lesion-1");
     expect(
-      screen.getByText(/Локальный демо-очаг нужно сохранить на бэкенде перед оценкой/),
+      screen.getByText(/Локальный учебный очаг нужно сохранить в системе клиники перед оценкой/),
     ).toBeInTheDocument();
     // No /lesions/local-lesion link
     expect(document.querySelectorAll("a[href*='/lesions/local-lesion']").length).toBe(0);
@@ -40,37 +40,37 @@ describe("VisitAssessmentTab · URL params", () => {
 });
 
 describe("VisitAssessmentTab · linked images and quality", () => {
-  it("shows image count and quality summary 'needs review' for l-008", () => {
+  it("shows image count and quality summary for l-008", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
     const q = screen.getByTestId("quality-summary");
-    expect(q.textContent).toMatch(/needs review/);
+    expect(q.textContent).toMatch(/нужна проверка/);
     // image count > 0
     expect(screen.getAllByText(/Снимков всего/).length).toBeGreaterThan(0);
   });
 });
 
-describe("VisitAssessmentTab · demo form for lesion without assessment", () => {
-  it("shows demo form for l-007 (no assessment in v-005)", () => {
+describe("VisitAssessmentTab · local training form for lesion without assessment", () => {
+  it("shows training form for l-007 (no assessment in v-005)", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-007");
-    expect(screen.getByText(/Локальная демо-оценка/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/ABCD total/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/7-point total/)).toBeInTheDocument();
+    expect(screen.getByText(/Локальная учебная оценка/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Итог ABCD/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Итог по семи признакам/)).toBeInTheDocument();
     expect(screen.getByLabelText(/План наблюдения/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Комментарий врача/)).toBeInTheDocument();
   });
 
-  it("'Сохранить демо-оценку' shows local preview and does not change getAssessmentsByVisitId", async () => {
+  it("'Сохранить учебную оценку' shows local preview and does not change getAssessmentsByVisitId", async () => {
     const { getAssessmentsByVisitId } = await import("@/lib/mock-data");
     const before = getAssessmentsByVisitId("v-005").length;
 
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-007");
-    fireEvent.change(screen.getByLabelText(/ABCD total/), { target: { value: "4.8" } });
-    fireEvent.change(screen.getByLabelText(/7-point total/), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить демо-оценку/ }));
+    fireEvent.change(screen.getByLabelText(/Итог ABCD/), { target: { value: "4.8" } });
+    fireEvent.change(screen.getByLabelText(/Итог по семи признакам/), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебную оценку/ }));
 
     const preview = screen.getByTestId("demo-assessment-preview");
     expect(preview).toBeInTheDocument();
-    expect(preview.textContent).toMatch(/Демо-оценка создана локально/);
+    expect(preview.textContent).toMatch(/Учебная оценка создана локально/);
     expect(preview.textContent).toMatch(/4\.8/);
 
     const after = getAssessmentsByVisitId("v-005").length;
@@ -79,9 +79,9 @@ describe("VisitAssessmentTab · demo form for lesion without assessment", () => 
 });
 
 describe("VisitAssessmentTab · existing assessment + CTAs", () => {
-  it("l-008 shows existing assessment (TDS row) and both CTAs", () => {
+  it("l-008 shows existing assessment summary and both CTAs", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
-    expect(screen.getByText(/TDS/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Итог/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /К снимкам этого очага/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /К заключению по визиту/ })).toBeInTheDocument();
   });
@@ -108,7 +108,7 @@ describe("VisitAssessmentTab · existing assessment + CTAs", () => {
 describe("VisitAssessmentTab · Body Map draft does not leak", () => {
   it("draft created on Body Map is not selectable as a real lesion in Assessment", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });

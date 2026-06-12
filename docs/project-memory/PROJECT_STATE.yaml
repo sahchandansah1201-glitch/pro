@@ -1,5 +1,28 @@
 generated_at: "2026-05-27T00:00:00+03:00"
 project: "Dermatolog Pro"
+client_journey_audit_2026_06_13:
+  name: "Client journey audit and Russian UI hardening"
+  status: "implemented-in-current-branch"
+  scope: "frontend/routes/tests/e2e/supply-chain override"
+  stage_defined: false
+  runtime_backend_behavior_added: false
+  database_migration_added: false
+  openapi_contract_added: false
+  patient_delivery_enabled: false
+  visual_routes_checked_by_playwright: true
+  production_only_routes_fully_verified: false
+  production_only_blocker: "real self-hosted credentials and production visit QA fixture not available locally"
+  verification:
+    unit_tests: "npm test"
+    typecheck: "npm run typecheck"
+    lint: "npm run lint"
+    build: "npm run build"
+    agent_qa: "npm run qa:agent"
+    stage5i: "npm run test:stage5i"
+    doctor_hygiene: "npm run scan:doctor"
+    e2e: "npx playwright test"
+    a11y: "npm run qa:a11y"
+    e2e_artifacts: "npm run preflight:e2e-artifacts"
 plan_reconciliation:
   name: "Post-Stage 47 plan reconciliation"
   status: "terminal-criterion-defined"

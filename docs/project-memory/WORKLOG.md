@@ -52,6 +52,23 @@
 
 # WORKLOG
 
+## 2026-06-13
+
+- Completed a broad client journey audit and Russian UI hardening pass across
+  doctor, patient, operator, system-admin, and self-hosted mocked routes.
+- Fixed visible English/technical copy and unsafe wording in doctor visit
+  assessment/conclusion/report flows, patient-safe report text, role guard
+  screens, and system-admin device/release status UI.
+- Added guards for native Russian VisitWorkspace field labels and safe fallback
+  labels for unknown device service enum values.
+- Updated e2e assertions to match the native Russian product UI while keeping
+  backend/API/OpenAPI contracts unchanged.
+- Added an `esbuild` override to `0.28.1`; `npm run qa:osv` reports no issues.
+- Verification executed: `npm test`, `npm run typecheck`, `npm run lint`,
+  `npm run build`, `npm run qa:agent`, `npm run test:stage5i`,
+  `npm run scan:doctor`, `git diff --check`, `npx playwright test`,
+  `npm run qa:a11y`, and `npm run preflight:e2e-artifacts`.
+
 ## 2026-05-27
 
 - Создан Stage 45A-45Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation после Stage 44A-44Z.

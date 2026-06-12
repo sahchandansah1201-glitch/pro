@@ -1914,12 +1914,12 @@ function ClinicalReportCompletionSummary({
       <dl className="mt-3 grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-4">
         <Field term="Очагов" value={reportPackage.counts.lesions} />
         <Field term="Снимков" value={reportPackage.counts.assets} />
-        <Field term="Assessment" value={reportPackage.assessment.status ?? "—"} />
-        <Field term="Conclusion" value={reportPackage.conclusion.status ?? "—"} />
-        <Field term="Report" value={reportPackage.report.status ?? "—"} />
+        <Field term="Оценка" value={reportPackage.assessment.status ?? "—"} />
+        <Field term="Заключение" value={reportPackage.conclusion.status ?? "—"} />
+        <Field term="Отчёт" value={reportPackage.report.status ?? "—"} />
         <Field term="Текст для пациента" value={reportPackage.report.patientTextPresent ? "есть" : "нет"} />
-        <Field term="Export" value={readiness.exportAllowed ? "разрешён" : "закрыт"} />
-        <Field term="Delivery" value={readiness.patientDeliveryAllowed ? "разрешена" : "закрыта"} />
+        <Field term="Выгрузка" value={readiness.exportAllowed ? "разрешён" : "закрыт"} />
+        <Field term="Выдача пациенту" value={readiness.patientDeliveryAllowed ? "разрешена" : "закрыта"} />
         <Field term="Фото-протокол" value={`${photoProtocol.selectedPhotoCount} фото`} />
         <Field
           term="Выдача фото"
@@ -2864,10 +2864,10 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Field term="Validation" value={longitudinalDatasetStatusLabel(rollout.validationStatus)} />
-          <Field term="Ready" value={rollout.readyTimelineCount} />
-          <Field term="Review" value={rollout.needsReviewTimelineCount} />
-          <Field term="Blocked" value={rollout.blockedTimelineCount} />
+          <Field term="Проверка" value={longitudinalDatasetStatusLabel(rollout.validationStatus)} />
+          <Field term="Готовы" value={rollout.readyTimelineCount} />
+          <Field term="На разбор" value={rollout.needsReviewTimelineCount} />
+          <Field term="Заблокированы" value={rollout.blockedTimelineCount} />
         </dl>
         {rollout.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -2922,12 +2922,12 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Dataset" value={timelineRolloutSopChecklistLabel(sop.datasetValidationStatus)} />
-          <Field term="Reviewer" value={timelineRolloutSopChecklistLabel(sop.reviewerOperationsStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(sop.rollbackPlanStatus)} />
-          <Field term="Monitoring" value={timelineRolloutSopChecklistLabel(sop.monitoringPlanStatus)} />
-          <Field term="Window" value={timelineRolloutSopChecklistLabel(sop.rolloutWindowStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(sop.ownerAckStatus)} />
+          <Field term="Данные" value={timelineRolloutSopChecklistLabel(sop.datasetValidationStatus)} />
+          <Field term="Проверяющие" value={timelineRolloutSopChecklistLabel(sop.reviewerOperationsStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(sop.rollbackPlanStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(sop.monitoringPlanStatus)} />
+          <Field term="Период" value={timelineRolloutSopChecklistLabel(sop.rolloutWindowStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(sop.ownerAckStatus)} />
         </dl>
         {sop.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -2983,15 +2983,15 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Monitoring" value={timelineRolloutSopChecklistLabel(evidence.monitoringEvidenceStatus)} />
-          <Field term="Sample" value={timelineRolloutSopChecklistLabel(evidence.sampleAuditStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(evidence.exceptionLogStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(evidence.rollbackDrillStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(evidence.ownerSignoffStatus)} />
-          <Field term="Window" value={`${evidence.monitoringWindowDays} дн.`} />
-          <Field term="Sampled" value={evidence.sampledTimelineCount} />
-          <Field term="Incidents" value={evidence.exceptionCount} />
-          <Field term="Drills" value={evidence.rollbackDrillCount} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(evidence.monitoringEvidenceStatus)} />
+          <Field term="Выборка" value={timelineRolloutSopChecklistLabel(evidence.sampleAuditStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(evidence.exceptionLogStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(evidence.rollbackDrillStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(evidence.ownerSignoffStatus)} />
+          <Field term="Период" value={`${evidence.monitoringWindowDays} дн.`} />
+          <Field term="Проверено выборкой" value={evidence.sampledTimelineCount} />
+          <Field term="Инциденты" value={evidence.exceptionCount} />
+          <Field term="Тренировки" value={evidence.rollbackDrillCount} />
         </dl>
         {evidence.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3047,17 +3047,17 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Outcome" value={timelineRolloutSopChecklistLabel(monitoring.outcomeSamplingStatus)} />
-          <Field term="Incidents" value={timelineRolloutSopChecklistLabel(monitoring.incidentReviewStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(monitoring.exceptionClosureStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(monitoring.rollbackOutcomeStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(monitoring.ownerFinalReviewStatus)} />
-          <Field term="Window" value={`${monitoring.monitoringWindowDays} дн.`} />
-          <Field term="Monitored" value={monitoring.monitoredTimelineCount} />
-          <Field term="Sampled" value={monitoring.sampledTimelineCount} />
-          <Field term="Open Inc." value={monitoring.unresolvedIncidentCount} />
-          <Field term="Closed Ex." value={monitoring.closedExceptionCount} />
-          <Field term="Rollback Run" value={monitoring.rollbackExecutionCount} />
+          <Field term="Результаты" value={timelineRolloutSopChecklistLabel(monitoring.outcomeSamplingStatus)} />
+          <Field term="Инциденты" value={timelineRolloutSopChecklistLabel(monitoring.incidentReviewStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(monitoring.exceptionClosureStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(monitoring.rollbackOutcomeStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(monitoring.ownerFinalReviewStatus)} />
+          <Field term="Период" value={`${monitoring.monitoringWindowDays} дн.`} />
+          <Field term="Под наблюдением" value={monitoring.monitoredTimelineCount} />
+          <Field term="Проверено выборкой" value={monitoring.sampledTimelineCount} />
+          <Field term="Открытые инциденты" value={monitoring.unresolvedIncidentCount} />
+          <Field term="Закрытые исключения" value={monitoring.closedExceptionCount} />
+          <Field term="Откаты" value={monitoring.rollbackExecutionCount} />
         </dl>
         {monitoring.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3113,21 +3113,21 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Dataset" value={timelineRolloutSopChecklistLabel(incidentProcedure.realDatasetStatus)} />
+          <Field term="Данные" value={timelineRolloutSopChecklistLabel(incidentProcedure.realDatasetStatus)} />
           <Field
-            term="Outcome Правила"
+            term="Правила результатов"
             value={timelineRolloutSopChecklistLabel(incidentProcedure.outcomeSamplingProcedureStatus)}
           />
-          <Field term="Triage" value={timelineRolloutSopChecklistLabel(incidentProcedure.incidentTriageStatus)} />
-          <Field term="Escalation" value={timelineRolloutSopChecklistLabel(incidentProcedure.escalationPathStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(incidentProcedure.rollbackDecisionStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(incidentProcedure.ownerReviewStatus)} />
-          <Field term="Real Set" value={incidentProcedure.realDatasetTimelineCount} />
-          <Field term="Monitored" value={incidentProcedure.monitoredTimelineCount} />
-          <Field term="Sampled" value={incidentProcedure.sampledOutcomeCount} />
-          <Field term="Open Inc." value={incidentProcedure.unresolvedIncidentCount} />
-          <Field term="Escalated" value={incidentProcedure.escalatedIncidentCount} />
-          <Field term="Rollback" value={incidentProcedure.rollbackDecisionCount} />
+          <Field term="Разбор" value={timelineRolloutSopChecklistLabel(incidentProcedure.incidentTriageStatus)} />
+          <Field term="Передача выше" value={timelineRolloutSopChecklistLabel(incidentProcedure.escalationPathStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(incidentProcedure.rollbackDecisionStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(incidentProcedure.ownerReviewStatus)} />
+          <Field term="Рабочая выборка" value={incidentProcedure.realDatasetTimelineCount} />
+          <Field term="Под наблюдением" value={incidentProcedure.monitoredTimelineCount} />
+          <Field term="Проверено выборкой" value={incidentProcedure.sampledOutcomeCount} />
+          <Field term="Открытые инциденты" value={incidentProcedure.unresolvedIncidentCount} />
+          <Field term="Переданы выше" value={incidentProcedure.escalatedIncidentCount} />
+          <Field term="Откат" value={incidentProcedure.rollbackDecisionCount} />
         </dl>
         {incidentProcedure.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3178,18 +3178,18 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Dataset lock" value={timelineRolloutSopChecklistLabel(clinicalValidation.realDatasetLockStatus)} />
-          <Field term="Validators" value={timelineRolloutSopChecklistLabel(clinicalValidation.validatorTrainingStatus)} />
-          <Field term="Blinded" value={timelineRolloutSopChecklistLabel(clinicalValidation.blindedSampleStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(clinicalValidation.adjudicationStatus)} />
-          <Field term="Decision log" value={timelineRolloutSopChecklistLabel(clinicalValidation.decisionLogStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(clinicalValidation.ownerAcceptanceStatus)} />
-          <Field term="Real Set" value={clinicalValidation.realDatasetTimelineCount} />
-          <Field term="Sample" value={clinicalValidation.validationSampleCount} />
-          <Field term="Disagree" value={clinicalValidation.disagreementCaseCount} />
-          <Field term="Adjudicated" value={clinicalValidation.adjudicatedCaseCount} />
-          <Field term="Follow-up" value={`${clinicalValidation.followupWindowDays} дн.`} />
-          <Field term="Blockers" value={clinicalValidation.blockerCount} />
+          <Field term="Данные закрыты" value={timelineRolloutSopChecklistLabel(clinicalValidation.realDatasetLockStatus)} />
+          <Field term="Проверяющие" value={timelineRolloutSopChecklistLabel(clinicalValidation.validatorTrainingStatus)} />
+          <Field term="Слепая выборка" value={timelineRolloutSopChecklistLabel(clinicalValidation.blindedSampleStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(clinicalValidation.adjudicationStatus)} />
+          <Field term="Журнал решений" value={timelineRolloutSopChecklistLabel(clinicalValidation.decisionLogStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(clinicalValidation.ownerAcceptanceStatus)} />
+          <Field term="Рабочая выборка" value={clinicalValidation.realDatasetTimelineCount} />
+          <Field term="Выборка" value={clinicalValidation.validationSampleCount} />
+          <Field term="Расхождения" value={clinicalValidation.disagreementCaseCount} />
+          <Field term="Разобраны" value={clinicalValidation.adjudicatedCaseCount} />
+          <Field term="Наблюдение" value={`${clinicalValidation.followupWindowDays} дн.`} />
+          <Field term="Препятствия" value={clinicalValidation.blockerCount} />
         </dl>
         {clinicalValidation.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3240,18 +3240,18 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Window" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.monitoringWindowStatus)} />
-          <Field term="Outcomes" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.outcomeReviewStatus)} />
-          <Field term="Drift" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.driftReviewStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.incidentFollowupStatus)} />
-          <Field term="Recheck" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.validatorRecheckStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.ownerSignoffStatus)} />
-          <Field term="Real Set" value={postValidationMonitoring.realDatasetTimelineCount} />
-          <Field term="Validated" value={postValidationMonitoring.clinicalValidationSampleCount} />
-          <Field term="Monitored" value={postValidationMonitoring.monitoredTimelineCount} />
-          <Field term="Sampled" value={postValidationMonitoring.sampledOutcomeCount} />
-          <Field term="Drift open" value={postValidationMonitoring.unresolvedDriftSignalCount} />
-          <Field term="Follow open" value={postValidationMonitoring.unresolvedIncidentFollowupCount} />
+          <Field term="Период" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.monitoringWindowStatus)} />
+          <Field term="Результаты" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.outcomeReviewStatus)} />
+          <Field term="Отклонения" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.driftReviewStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.incidentFollowupStatus)} />
+          <Field term="Повторная проверка" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.validatorRecheckStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.ownerSignoffStatus)} />
+          <Field term="Рабочая выборка" value={postValidationMonitoring.realDatasetTimelineCount} />
+          <Field term="Проверено" value={postValidationMonitoring.clinicalValidationSampleCount} />
+          <Field term="Под наблюдением" value={postValidationMonitoring.monitoredTimelineCount} />
+          <Field term="Проверено выборкой" value={postValidationMonitoring.sampledOutcomeCount} />
+          <Field term="Открытые отклонения" value={postValidationMonitoring.unresolvedDriftSignalCount} />
+          <Field term="Открытое наблюдение" value={postValidationMonitoring.unresolvedIncidentFollowupCount} />
         </dl>
         {postValidationMonitoring.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3302,24 +3302,24 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Window" value={timelineRolloutSopChecklistLabel(observationGovernance.observationWindowStatus)} />
-          <Field term="Outcomes" value={timelineRolloutSopChecklistLabel(observationGovernance.outcomeObservationStatus)} />
-          <Field term="Drift" value={timelineRolloutSopChecklistLabel(observationGovernance.driftSignalReviewStatus)} />
-          <Field term="Incidents" value={timelineRolloutSopChecklistLabel(observationGovernance.incidentOutcomeReviewStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(observationGovernance.followupClosureStatus)} />
-          <Field term="Governance" value={timelineRolloutSopChecklistLabel(observationGovernance.governanceReviewStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(observationGovernance.ownerSignoffStatus)} />
-          <Field term="Real Set" value={observationGovernance.realDatasetTimelineCount} />
-          <Field term="Validated" value={observationGovernance.postValidationSampleCount} />
-          <Field term="Observed" value={observationGovernance.observedTimelineCount} />
+          <Field term="Период" value={timelineRolloutSopChecklistLabel(observationGovernance.observationWindowStatus)} />
+          <Field term="Результаты" value={timelineRolloutSopChecklistLabel(observationGovernance.outcomeObservationStatus)} />
+          <Field term="Отклонения" value={timelineRolloutSopChecklistLabel(observationGovernance.driftSignalReviewStatus)} />
+          <Field term="Инциденты" value={timelineRolloutSopChecklistLabel(observationGovernance.incidentOutcomeReviewStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(observationGovernance.followupClosureStatus)} />
+          <Field term="Контроль" value={timelineRolloutSopChecklistLabel(observationGovernance.governanceReviewStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(observationGovernance.ownerSignoffStatus)} />
+          <Field term="Рабочая выборка" value={observationGovernance.realDatasetTimelineCount} />
+          <Field term="Проверено" value={observationGovernance.postValidationSampleCount} />
+          <Field term="Под наблюдением" value={observationGovernance.observedTimelineCount} />
           <Field
-            term="Follow closed"
+            term="Наблюдение закрыто"
             value={`${observationGovernance.completedFollowupCount}/${observationGovernance.expectedFollowupCount}`}
           />
-          <Field term="Drift open" value={observationGovernance.unresolvedDriftSignalCount} />
-          <Field term="Incident open" value={observationGovernance.unresolvedIncidentOutcomeCount} />
-          <Field term="Gov. open" value={observationGovernance.unresolvedGovernanceExceptionCount} />
-          <Field term="Blockers" value={observationGovernance.blockerCount} />
+          <Field term="Открытые отклонения" value={observationGovernance.unresolvedDriftSignalCount} />
+          <Field term="Открытые инциденты" value={observationGovernance.unresolvedIncidentOutcomeCount} />
+          <Field term="Открытый контроль" value={observationGovernance.unresolvedGovernanceExceptionCount} />
+          <Field term="Препятствия" value={observationGovernance.blockerCount} />
         </dl>
         {observationGovernance.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3370,21 +3370,21 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Register" value={timelineRolloutSopChecklistLabel(exceptionGovernance.exceptionRegisterStatus)} />
-          <Field term="SLA" value={timelineRolloutSopChecklistLabel(exceptionGovernance.triageSlaStatus)} />
-          <Field term="Evidence" value={timelineRolloutSopChecklistLabel(exceptionGovernance.resolutionEvidenceStatus)} />
-          <Field term="Recurrence" value={timelineRolloutSopChecklistLabel(exceptionGovernance.recurrenceReviewStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(exceptionGovernance.rollbackReadinessStatus)} />
-          <Field term="Archive" value={timelineRolloutSopChecklistLabel(exceptionGovernance.governanceArchiveStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(exceptionGovernance.ownerSignoffStatus)} />
-          <Field term="Real Set" value={exceptionGovernance.realDatasetTimelineCount} />
-          <Field term="Observed" value={exceptionGovernance.observedTimelineCount} />
-          <Field term="Exceptions" value={exceptionGovernance.governanceExceptionCount} />
-          <Field term="Resolved" value={exceptionGovernance.resolvedGovernanceExceptionCount} />
-          <Field term="Gov. open" value={exceptionGovernance.unresolvedGovernanceExceptionCount} />
-          <Field term="Recurrence open" value={exceptionGovernance.unresolvedRecurrenceSignalCount} />
-          <Field term="Rollback" value={exceptionGovernance.rollbackDrillCount} />
-          <Field term="Blockers" value={exceptionGovernance.blockerCount} />
+          <Field term="Реестр" value={timelineRolloutSopChecklistLabel(exceptionGovernance.exceptionRegisterStatus)} />
+          <Field term="Срок разбора" value={timelineRolloutSopChecklistLabel(exceptionGovernance.triageSlaStatus)} />
+          <Field term="Подтверждения" value={timelineRolloutSopChecklistLabel(exceptionGovernance.resolutionEvidenceStatus)} />
+          <Field term="Повторение" value={timelineRolloutSopChecklistLabel(exceptionGovernance.recurrenceReviewStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(exceptionGovernance.rollbackReadinessStatus)} />
+          <Field term="Архив" value={timelineRolloutSopChecklistLabel(exceptionGovernance.governanceArchiveStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(exceptionGovernance.ownerSignoffStatus)} />
+          <Field term="Рабочая выборка" value={exceptionGovernance.realDatasetTimelineCount} />
+          <Field term="Под наблюдением" value={exceptionGovernance.observedTimelineCount} />
+          <Field term="Исключения" value={exceptionGovernance.governanceExceptionCount} />
+          <Field term="Закрыты" value={exceptionGovernance.resolvedGovernanceExceptionCount} />
+          <Field term="Открытый контроль" value={exceptionGovernance.unresolvedGovernanceExceptionCount} />
+          <Field term="Открытые повторы" value={exceptionGovernance.unresolvedRecurrenceSignalCount} />
+          <Field term="Откат" value={exceptionGovernance.rollbackDrillCount} />
+          <Field term="Препятствия" value={exceptionGovernance.blockerCount} />
         </dl>
         {exceptionGovernance.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3435,26 +3435,26 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Window" value={timelineRolloutSopChecklistLabel(outcomeGovernance.longitudinalWindowStatus)} />
-          <Field term="Coverage" value={timelineRolloutSopChecklistLabel(outcomeGovernance.realDatasetCoverageStatus)} />
+          <Field term="Период" value={timelineRolloutSopChecklistLabel(outcomeGovernance.longitudinalWindowStatus)} />
+          <Field term="Покрытие" value={timelineRolloutSopChecklistLabel(outcomeGovernance.realDatasetCoverageStatus)} />
           <Field
-            term="Reviewer ops"
+            term="Работа проверяющих"
             value={timelineRolloutSopChecklistLabel(outcomeGovernance.reviewerOperationsValidationStatus)}
           />
-          <Field term="Trend" value={timelineRolloutSopChecklistLabel(outcomeGovernance.exceptionTrendReviewStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(outcomeGovernance.followupCadenceStatus)} />
-          <Field term="Governance" value={timelineRolloutSopChecklistLabel(outcomeGovernance.governanceCadenceStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(outcomeGovernance.ownerSignoffStatus)} />
-          <Field term="Real Set" value={outcomeGovernance.realDatasetTimelineCount} />
-          <Field term="Observed" value={outcomeGovernance.observedTimelineCount} />
+          <Field term="Тенденция" value={timelineRolloutSopChecklistLabel(outcomeGovernance.exceptionTrendReviewStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(outcomeGovernance.followupCadenceStatus)} />
+          <Field term="Контроль" value={timelineRolloutSopChecklistLabel(outcomeGovernance.governanceCadenceStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(outcomeGovernance.ownerSignoffStatus)} />
+          <Field term="Рабочая выборка" value={outcomeGovernance.realDatasetTimelineCount} />
+          <Field term="Под наблюдением" value={outcomeGovernance.observedTimelineCount} />
           <Field
-            term="Follow closed"
+            term="Наблюдение закрыто"
             value={`${outcomeGovernance.completedFollowupCount}/${outcomeGovernance.followupWindowCount}`}
           />
-          <Field term="Gov. open" value={outcomeGovernance.unresolvedGovernanceExceptionCount} />
-          <Field term="Recurrence open" value={outcomeGovernance.unresolvedRecurrenceSignalCount} />
-          <Field term="Reviews" value={outcomeGovernance.governanceReviewCount} />
-          <Field term="Blockers" value={outcomeGovernance.blockerCount} />
+          <Field term="Открытый контроль" value={outcomeGovernance.unresolvedGovernanceExceptionCount} />
+          <Field term="Открытые повторы" value={outcomeGovernance.unresolvedRecurrenceSignalCount} />
+          <Field term="Проверки" value={outcomeGovernance.governanceReviewCount} />
+          <Field term="Препятствия" value={outcomeGovernance.blockerCount} />
         </dl>
         {outcomeGovernance.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3505,21 +3505,21 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Window" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.outcomeWindowStatus)} />
-          <Field term="Coverage" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.clinicianCoverageStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.adjudicationStatus)} />
-          <Field term="Consensus" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.consensusReviewStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.followupValidationStatus)} />
-          <Field term="Governance" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.governanceCadenceStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.ownerSignoffStatus)} />
-          <Field term="Outcome set" value={longitudinalClinicalValidation.realOutcomeWindowCount} />
-          <Field term="Validated" value={longitudinalClinicalValidation.clinicallyValidatedWindowCount} />
-          <Field term="Adjudicated" value={longitudinalClinicalValidation.adjudicatedWindowCount} />
-          <Field term="Follow valid." value={longitudinalClinicalValidation.followupValidatedWindowCount} />
-          <Field term="Consensus" value={longitudinalClinicalValidation.consensusReviewCount} />
-          <Field term="Consensus open" value={longitudinalClinicalValidation.unresolvedConsensusCaseCount} />
-          <Field term="Reviews" value={longitudinalClinicalValidation.governanceReviewCount} />
-          <Field term="Blockers" value={longitudinalClinicalValidation.blockerCount} />
+          <Field term="Период" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.outcomeWindowStatus)} />
+          <Field term="Покрытие" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.clinicianCoverageStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.adjudicationStatus)} />
+          <Field term="Согласование" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.consensusReviewStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.followupValidationStatus)} />
+          <Field term="Контроль" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.governanceCadenceStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.ownerSignoffStatus)} />
+          <Field term="Набор результатов" value={longitudinalClinicalValidation.realOutcomeWindowCount} />
+          <Field term="Проверено" value={longitudinalClinicalValidation.clinicallyValidatedWindowCount} />
+          <Field term="Разобраны" value={longitudinalClinicalValidation.adjudicatedWindowCount} />
+          <Field term="Наблюдение проверено" value={longitudinalClinicalValidation.followupValidatedWindowCount} />
+          <Field term="Согласование" value={longitudinalClinicalValidation.consensusReviewCount} />
+          <Field term="Открытые согласования" value={longitudinalClinicalValidation.unresolvedConsensusCaseCount} />
+          <Field term="Проверки" value={longitudinalClinicalValidation.governanceReviewCount} />
+          <Field term="Препятствия" value={longitudinalClinicalValidation.blockerCount} />
         </dl>
         {longitudinalClinicalValidation.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3570,21 +3570,21 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Assets" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedAssetWindowStatus)} />
-          <Field term="Render" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedRenderStatus)} />
-          <Field term="Assign" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.reviewerAssignmentStatus)} />
-          <Field term="Second" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.secondReviewStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.adjudicationOpsStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.followupOpsStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.ownerSignoffStatus)} />
-          <Field term="Protected set" value={protectedReviewerValidation.protectedAssetTimelineCount} />
-          <Field term="Render ready" value={protectedReviewerValidation.protectedRenderReadyCount} />
-          <Field term="Assigned" value={protectedReviewerValidation.reviewerAssignedProtectedCount} />
-          <Field term="2nd review" value={protectedReviewerValidation.secondReviewedProtectedCount} />
-          <Field term="Adjudicated" value={protectedReviewerValidation.adjudicatedProtectedCount} />
-          <Field term="Follow valid." value={protectedReviewerValidation.followupValidatedProtectedCount} />
-          <Field term="Open review" value={protectedReviewerValidation.unresolvedProtectedReviewCount} />
-          <Field term="Blockers" value={protectedReviewerValidation.blockerCount} />
+          <Field term="Снимки" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedAssetWindowStatus)} />
+          <Field term="Показ снимков" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedRenderStatus)} />
+          <Field term="Назначение" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.reviewerAssignmentStatus)} />
+          <Field term="Вторая проверка" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.secondReviewStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.adjudicationOpsStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.followupOpsStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.ownerSignoffStatus)} />
+          <Field term="Защищённые снимки" value={protectedReviewerValidation.protectedAssetTimelineCount} />
+          <Field term="Показ готов" value={protectedReviewerValidation.protectedRenderReadyCount} />
+          <Field term="Назначены" value={protectedReviewerValidation.reviewerAssignedProtectedCount} />
+          <Field term="Вторая проверка" value={protectedReviewerValidation.secondReviewedProtectedCount} />
+          <Field term="Разобраны" value={protectedReviewerValidation.adjudicatedProtectedCount} />
+          <Field term="Наблюдение проверено" value={protectedReviewerValidation.followupValidatedProtectedCount} />
+          <Field term="Открытая проверка" value={protectedReviewerValidation.unresolvedProtectedReviewCount} />
+          <Field term="Препятствия" value={protectedReviewerValidation.blockerCount} />
         </dl>
         {protectedReviewerValidation.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3635,22 +3635,22 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Monitor" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerMonitoringStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerExceptionStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerAdjudicationStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerFollowupStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerRollbackStatus)} />
-          <Field term="Archive" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerArchiveStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.ownerSignoffStatus)} />
-          <Field term="Windows" value={protectedReviewerGovernance.protectedReviewWindowCount} />
-          <Field term="Monitored" value={protectedReviewerGovernance.monitoredProtectedReviewCount} />
-          <Field term="Escalated" value={protectedReviewerGovernance.escalatedProtectedReviewCount} />
-          <Field term="Adjudicated" value={protectedReviewerGovernance.adjudicatedProtectedGovernanceCount} />
-          <Field term="Follow closed" value={protectedReviewerGovernance.followupClosedProtectedCount} />
-          <Field term="Rollback ready" value={protectedReviewerGovernance.rollbackReadyProtectedCount} />
-          <Field term="Archived" value={protectedReviewerGovernance.archivedProtectedReviewCount} />
-          <Field term="Open governance" value={protectedReviewerGovernance.unresolvedGovernanceReviewCount} />
-          <Field term="Blockers" value={protectedReviewerGovernance.blockerCount} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerMonitoringStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerExceptionStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerAdjudicationStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerFollowupStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerRollbackStatus)} />
+          <Field term="Архив" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerArchiveStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.ownerSignoffStatus)} />
+          <Field term="Периоды" value={protectedReviewerGovernance.protectedReviewWindowCount} />
+          <Field term="Под наблюдением" value={protectedReviewerGovernance.monitoredProtectedReviewCount} />
+          <Field term="Переданы выше" value={protectedReviewerGovernance.escalatedProtectedReviewCount} />
+          <Field term="Разобраны" value={protectedReviewerGovernance.adjudicatedProtectedGovernanceCount} />
+          <Field term="Наблюдение закрыто" value={protectedReviewerGovernance.followupClosedProtectedCount} />
+          <Field term="Откат готов" value={protectedReviewerGovernance.rollbackReadyProtectedCount} />
+          <Field term="В архиве" value={protectedReviewerGovernance.archivedProtectedReviewCount} />
+          <Field term="Открытый контроль" value={protectedReviewerGovernance.unresolvedGovernanceReviewCount} />
+          <Field term="Препятствия" value={protectedReviewerGovernance.blockerCount} />
         </dl>
         {protectedReviewerGovernance.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3701,22 +3701,22 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Monitor" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerMonitoringEvidenceStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerExceptionEvidenceStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerAdjudicationEvidenceStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerFollowupEvidenceStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerRollbackEvidenceStatus)} />
-          <Field term="Archive" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerArchiveEvidenceStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.ownerSignoffStatus)} />
-          <Field term="Windows" value={protectedReviewerEvidence.protectedReviewWindowCount} />
-          <Field term="Monitored" value={protectedReviewerEvidence.monitoredProtectedReviewCount} />
-          <Field term="Sampled" value={protectedReviewerEvidence.sampledProtectedReviewCount} />
-          <Field term="Adjudicated" value={protectedReviewerEvidence.adjudicatedProtectedEvidenceCount} />
-          <Field term="Follow closed" value={protectedReviewerEvidence.followupClosedProtectedCount} />
-          <Field term="Rollback drills" value={protectedReviewerEvidence.rollbackDrillProtectedCount} />
-          <Field term="Archived" value={protectedReviewerEvidence.archivedProtectedReviewCount} />
-          <Field term="Open evidence" value={protectedReviewerEvidence.unresolvedProtectedEvidenceCount} />
-          <Field term="Blockers" value={protectedReviewerEvidence.blockerCount} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerMonitoringEvidenceStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerExceptionEvidenceStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerAdjudicationEvidenceStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerFollowupEvidenceStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerRollbackEvidenceStatus)} />
+          <Field term="Архив" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerArchiveEvidenceStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.ownerSignoffStatus)} />
+          <Field term="Периоды" value={protectedReviewerEvidence.protectedReviewWindowCount} />
+          <Field term="Под наблюдением" value={protectedReviewerEvidence.monitoredProtectedReviewCount} />
+          <Field term="Проверено выборкой" value={protectedReviewerEvidence.sampledProtectedReviewCount} />
+          <Field term="Разобраны" value={protectedReviewerEvidence.adjudicatedProtectedEvidenceCount} />
+          <Field term="Наблюдение закрыто" value={protectedReviewerEvidence.followupClosedProtectedCount} />
+          <Field term="Тренировки отката" value={protectedReviewerEvidence.rollbackDrillProtectedCount} />
+          <Field term="В архиве" value={protectedReviewerEvidence.archivedProtectedReviewCount} />
+          <Field term="Открытые подтверждения" value={protectedReviewerEvidence.unresolvedProtectedEvidenceCount} />
+          <Field term="Препятствия" value={protectedReviewerEvidence.blockerCount} />
         </dl>
         {protectedReviewerEvidence.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3767,22 +3767,22 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Real ops" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.realClinicWindowStatus)} />
-          <Field term="Sampling" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.datasetSamplingStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.longitudinalFollowupStatus)} />
-          <Field term="Reviewer link" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.protectedReviewerLinkageStatus)} />
-          <Field term="Observation" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.outcomeObservationStatus)} />
-          <Field term="Incidents" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.incidentLinkageStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.ownerSignoffStatus)} />
-          <Field term="Windows" value={productionDatasetEvidence.realClinicWindowCount} />
-          <Field term="Monitored" value={productionDatasetEvidence.monitoredClinicOperationCount} />
-          <Field term="Sampled" value={productionDatasetEvidence.sampledClinicOperationCount} />
-          <Field term="Follow-up" value={productionDatasetEvidence.longitudinalFollowupCount} />
-          <Field term="Reviewer linked" value={productionDatasetEvidence.protectedReviewerLinkedCount} />
-          <Field term="Observed" value={productionDatasetEvidence.observedOutcomeCount} />
-          <Field term="Incident linked" value={productionDatasetEvidence.incidentLinkedCount} />
-          <Field term="Open evidence" value={productionDatasetEvidence.unresolvedProductionDatasetEvidenceCount} />
-          <Field term="Blockers" value={productionDatasetEvidence.blockerCount} />
+          <Field term="Рабочие визиты" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.realClinicWindowStatus)} />
+          <Field term="Выборка" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.datasetSamplingStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.longitudinalFollowupStatus)} />
+          <Field term="Связь с проверяющими" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.protectedReviewerLinkageStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.outcomeObservationStatus)} />
+          <Field term="Инциденты" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.incidentLinkageStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.ownerSignoffStatus)} />
+          <Field term="Периоды" value={productionDatasetEvidence.realClinicWindowCount} />
+          <Field term="Под наблюдением" value={productionDatasetEvidence.monitoredClinicOperationCount} />
+          <Field term="Проверено выборкой" value={productionDatasetEvidence.sampledClinicOperationCount} />
+          <Field term="Наблюдение" value={productionDatasetEvidence.longitudinalFollowupCount} />
+          <Field term="Связано с проверяющими" value={productionDatasetEvidence.protectedReviewerLinkedCount} />
+          <Field term="Под наблюдением" value={productionDatasetEvidence.observedOutcomeCount} />
+          <Field term="Связано с инцидентами" value={productionDatasetEvidence.incidentLinkedCount} />
+          <Field term="Открытые подтверждения" value={productionDatasetEvidence.unresolvedProductionDatasetEvidenceCount} />
+          <Field term="Препятствия" value={productionDatasetEvidence.blockerCount} />
         </dl>
         {productionDatasetEvidence.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3833,22 +3833,22 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Assign" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionReviewerAssignmentStatus)} />
-          <Field term="Second" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionSecondReviewStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionAdjudicationStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionFollowupStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionExceptionStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionRollbackStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.ownerSignoffStatus)} />
-          <Field term="Windows" value={productionReviewerGovernance.productionReviewWindowCount} />
-          <Field term="Assigned" value={productionReviewerGovernance.assignedProductionReviewerCount} />
-          <Field term="2nd review" value={productionReviewerGovernance.secondReviewedProductionCount} />
-          <Field term="Adjudicated" value={productionReviewerGovernance.adjudicatedProductionReviewCount} />
-          <Field term="Follow closed" value={productionReviewerGovernance.followupClosedProductionCount} />
-          <Field term="Exceptions closed" value={productionReviewerGovernance.exceptionClosedProductionCount} />
-          <Field term="Rollback ready" value={productionReviewerGovernance.rollbackReadyProductionCount} />
-          <Field term="Open governance" value={productionReviewerGovernance.unresolvedProductionReviewerGovernanceCount} />
-          <Field term="Blockers" value={productionReviewerGovernance.blockerCount} />
+          <Field term="Назначение" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionReviewerAssignmentStatus)} />
+          <Field term="Вторая проверка" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionSecondReviewStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionAdjudicationStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionFollowupStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionExceptionStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionRollbackStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.ownerSignoffStatus)} />
+          <Field term="Периоды" value={productionReviewerGovernance.productionReviewWindowCount} />
+          <Field term="Назначены" value={productionReviewerGovernance.assignedProductionReviewerCount} />
+          <Field term="Вторая проверка" value={productionReviewerGovernance.secondReviewedProductionCount} />
+          <Field term="Разобраны" value={productionReviewerGovernance.adjudicatedProductionReviewCount} />
+          <Field term="Наблюдение закрыто" value={productionReviewerGovernance.followupClosedProductionCount} />
+          <Field term="Исключения закрыты" value={productionReviewerGovernance.exceptionClosedProductionCount} />
+          <Field term="Откат готов" value={productionReviewerGovernance.rollbackReadyProductionCount} />
+          <Field term="Открытый контроль" value={productionReviewerGovernance.unresolvedProductionReviewerGovernanceCount} />
+          <Field term="Препятствия" value={productionReviewerGovernance.blockerCount} />
         </dl>
         {productionReviewerGovernance.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3899,22 +3899,22 @@ function LongitudinalDatasetValidationPanel({
           </span>
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Field term="Assign" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionReviewerAssignmentStatus)} />
-          <Field term="Second" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionSecondReviewStatus)} />
-          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionAdjudicationStatus)} />
-          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionFollowupStatus)} />
-          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionExceptionStatus)} />
-          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionRollbackStatus)} />
-          <Field term="Owner" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.ownerSignoffStatus)} />
-          <Field term="Windows" value={productionReviewerEvidence.productionReviewWindowCount} />
-          <Field term="Assigned" value={productionReviewerEvidence.assignedProductionReviewerCount} />
-          <Field term="2nd review" value={productionReviewerEvidence.secondReviewedProductionCount} />
-          <Field term="Adjudicated" value={productionReviewerEvidence.adjudicatedProductionReviewCount} />
-          <Field term="Follow closed" value={productionReviewerEvidence.followupClosedProductionCount} />
-          <Field term="Exceptions closed" value={productionReviewerEvidence.exceptionClosedProductionCount} />
-          <Field term="Rollback ready" value={productionReviewerEvidence.rollbackReadyProductionCount} />
-          <Field term="Open evidence" value={productionReviewerEvidence.unresolvedProductionReviewerEvidenceCount} />
-          <Field term="Blockers" value={productionReviewerEvidence.blockerCount} />
+          <Field term="Назначение" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionReviewerAssignmentStatus)} />
+          <Field term="Вторая проверка" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionSecondReviewStatus)} />
+          <Field term="Разбор спорных" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionAdjudicationStatus)} />
+          <Field term="Наблюдение" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionFollowupStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionExceptionStatus)} />
+          <Field term="Откат" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionRollbackStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.ownerSignoffStatus)} />
+          <Field term="Периоды" value={productionReviewerEvidence.productionReviewWindowCount} />
+          <Field term="Назначены" value={productionReviewerEvidence.assignedProductionReviewerCount} />
+          <Field term="Вторая проверка" value={productionReviewerEvidence.secondReviewedProductionCount} />
+          <Field term="Разобраны" value={productionReviewerEvidence.adjudicatedProductionReviewCount} />
+          <Field term="Наблюдение закрыто" value={productionReviewerEvidence.followupClosedProductionCount} />
+          <Field term="Исключения закрыты" value={productionReviewerEvidence.exceptionClosedProductionCount} />
+          <Field term="Откат готов" value={productionReviewerEvidence.rollbackReadyProductionCount} />
+          <Field term="Открытые подтверждения" value={productionReviewerEvidence.unresolvedProductionReviewerEvidenceCount} />
+          <Field term="Препятствия" value={productionReviewerEvidence.blockerCount} />
         </dl>
         {productionReviewerEvidence.reasons.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -4023,10 +4023,10 @@ function ViewerQaReviewQueuePanel({
         <Field term="Готово" value={queue.summary.technicalReady} />
         <Field term="Переснять" value={queue.summary.needsRecapture} />
         <Field term="Не динамика" value={queue.summary.notSuitableForComparison} />
-        <Field term="Policy" value={queue.summary.measurementPolicyRequired} />
-        <Field term="Analysis" value={queue.summary.productionAnalysisPolicyRequired} />
-        <Field term="Assign" value={queue.summary.reviewerAssignmentRequired} />
-        <Field term="Second" value={queue.summary.secondReviewRequired} />
+        <Field term="Правила" value={queue.summary.measurementPolicyRequired} />
+        <Field term="Правила анализа" value={queue.summary.productionAnalysisPolicyRequired} />
+        <Field term="Назначение" value={queue.summary.reviewerAssignmentRequired} />
+        <Field term="Вторая проверка" value={queue.summary.secondReviewRequired} />
       </dl>
       {queue.items.length > 0 ? (
         <ol className="mt-3 grid grid-cols-1 gap-2">
@@ -4184,10 +4184,10 @@ function PhotoProtocolPolicyGovernancePanel({
         </span>
       </div>
       <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
-        <Field term="Release ledger" value={photoProtocol.policy.releasePrepared ? "есть" : "нет"} />
-        <Field term="File proxy" value={photoProtocol.deliveryBoundary.requiresSelfHostedFileProxy ? "не готов" : "готов"} />
-        <Field term="Retention" value={photoProtocol.deliveryBoundary.requiresRetentionPolicy ? "не подтверждён" : "подтверждён"} />
-        <Field term="Patient copy" value={photoProtocol.deliveryBoundary.requiresApprovedPatientCopy ? "нужна проверка" : "проверен"} />
+        <Field term="Журнал выдачи" value={photoProtocol.policy.releasePrepared ? "есть" : "нет"} />
+        <Field term="Доступ к файлам" value={photoProtocol.deliveryBoundary.requiresSelfHostedFileProxy ? "не готов" : "готов"} />
+        <Field term="Срок хранения" value={photoProtocol.deliveryBoundary.requiresRetentionPolicy ? "не подтверждён" : "подтверждён"} />
+        <Field term="Текст для пациента" value={photoProtocol.deliveryBoundary.requiresApprovedPatientCopy ? "нужна проверка" : "проверен"} />
       </dl>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px]">
@@ -4697,7 +4697,7 @@ function BodyMapTab({
               <Input
                 value={zoneDraft}
                 onChange={(e) => setZoneDraft(e.target.value)}
-                className="mt-1 h-8 text-[12px]"
+                className="mt-1 min-h-11 text-[12px]"
               />
             </label>
             <label className="mt-2 block text-[11px] text-muted-foreground">
@@ -4705,7 +4705,7 @@ function BodyMapTab({
               <Input
                 value={draftLabel}
                 onChange={(e) => setDraftLabel(e.target.value)}
-                className="mt-1 h-8 text-[12px]"
+                className="mt-1 min-h-11 text-[12px]"
               />
             </label>
             <label className="mt-2 block text-[11px] text-muted-foreground">
@@ -4713,7 +4713,7 @@ function BodyMapTab({
               <select
                 value={draftStatus}
                 onChange={(e) => setDraftStatus(e.target.value as Lesion["status"])}
-                className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-[12px]"
+                className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-[12px]"
                 aria-label="Статус учебного очага"
               >
                 {(Object.keys(LESION_STATUS) as Array<Lesion["status"]>).map((s) => (

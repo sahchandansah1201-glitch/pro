@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import SysDevicesPage from "./SysDevicesPage";
+import { pollBackoffLabel, recoveryStateLabel, sysDeviceStatusLabel } from "./sysDeviceLabels";
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
@@ -34,6 +35,12 @@ describe("SysDevicesPage", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("maps unknown service enum values to a safe Russian fallback", () => {
+    expect(sysDeviceStatusLabel("raw_failed_state")).toBe("неизвестно");
+    expect(pollBackoffLabel("raw_backoff_state")).toBe("неизвестно");
+    expect(recoveryStateLabel("raw_recovery_state")).toBe("неизвестно");
   });
 
   it("renders demo registry without backend calls when self-hosted session is missing", () => {
@@ -103,7 +110,7 @@ describe("SysDevicesPage", () => {
                 bridgeId: "br-uuid",
                 bridgeCode: "br-live-01",
                 commandType: "bridge_health_check",
-                status: "failed",
+                status: "raw_failed_state",
                 createdAt: "2026-05-14T08:01:00Z",
               },
             ],
@@ -260,7 +267,7 @@ describe("SysDevicesPage", () => {
                 bridgeId: "br-uuid",
                 bridgeCode: "br-live-01",
                 commandType: "bridge_health_check",
-                status: "failed",
+                status: "raw_audit_state",
                 attemptCount: 3,
                 lifecycleRevision: 4,
                 replayPolicy: "manual_system_admin",
@@ -630,11 +637,11 @@ describe("SysDevicesPage", () => {
       );
     });
 
-    renderPage();
+    const { container } = renderPage();
 
     expect(await screen.findByText(/Рабочая система подключена/)).toBeInTheDocument();
     expect((await screen.findAllByText("LiveScope 20")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("br-live-01").length).toBeGreaterThan(0);
+    expect(screen.queryByText("br-live-01")).not.toBeInTheDocument();
     expect(screen.getByText("Реестр устройств загружен из рабочей системы.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Наблюдение службы моста устройств" })).toHaveTextContent(
       "версия stage4t-local-worker",
@@ -642,6 +649,7 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("region", { name: "Жизненный цикл команд моста устройств" })).toHaveTextContent(
       "Служебная команда",
     );
+    expect(container.innerHTML).not.toContain("raw_failed_state");
     expect(screen.getByRole("note", { name: "Граница данных службы моста устройств" })).toHaveTextContent(
       "служебные метаданные",
     );
@@ -649,7 +657,7 @@ describe("SysDevicesPage", () => {
       "На очистку",
     );
     expect(screen.getByRole("region", { name: "Правила устойчивости моста устройств" })).toHaveTextContent(
-      "linear-capped",
+      "линейная задержка с ограничением",
     );
     expect(screen.getByRole("note", { name: "Граница данных устойчивости моста устройств" })).toHaveTextContent(
       "кандидаты на очистку",
@@ -658,7 +666,7 @@ describe("SysDevicesPage", () => {
       "Можно повторить",
     );
     expect(screen.getByRole("region", { name: "Очередь восстановления команд" })).toHaveTextContent(
-      "retryable_failed",
+      "можно повторить",
     );
     expect(screen.getByRole("note", { name: "Граница данных восстановления команд" })).toHaveTextContent(
       "аудит восстановления",
@@ -672,6 +680,7 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("region", { name: "Журнал аудита команд" })).toHaveTextContent(
       "вручную системным администратором",
     );
+    expect(container.innerHTML).not.toContain("raw_audit_state");
     expect(screen.getByRole("note", { name: "Граница данных аудита команд" })).toHaveTextContent(
       "аудит без изменений",
     );

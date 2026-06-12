@@ -79,7 +79,9 @@ describe("self-hosted-bootstrap-api", () => {
       "system-admin",
     ]);
     expect(checklist.filter((item) => item.status === "ready")).toHaveLength(4);
-    expect(checklist.find((item) => item.key === "system-admin")?.detail).toContain("Stage 5B");
+    expect(checklist.find((item) => item.key === "system-admin")?.detail).toContain(
+      "Создайте первого администратора",
+    );
   });
 
   it("rejects missing or invalid base URLs before fetch", async () => {

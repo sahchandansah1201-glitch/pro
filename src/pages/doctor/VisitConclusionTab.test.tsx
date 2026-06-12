@@ -36,7 +36,7 @@ describe("VisitConclusionTab · URL params", () => {
   it("?lesion=local-lesion-1 shows local notice and no /lesions/local-lesion-* link", () => {
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=local-lesion-1");
     expect(
-      screen.getByText(/Локальный демо-очаг нужно сохранить на бэкенде перед заключением/),
+      screen.getByText(/Локальный учебный очаг нужно сохранить в системе клиники перед заключением/),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("a[href*='/lesions/local-lesion']").length).toBe(0);
   });
