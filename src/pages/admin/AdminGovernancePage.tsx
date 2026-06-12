@@ -168,21 +168,21 @@ const POLICY_LABEL: Record<string, string> = {
   ready_for_access_window: "Окно доступа готово",
   retention_required: "Нужно хранение",
   patient_copy_required: "Нужна копия",
-  file_proxy_required: "Нужен file proxy",
+  file_proxy_required: "Нужна защищённая выдача",
   blocked: "Заблокировано",
   revoked: "Отозвано",
 };
 
 const ATTENTION_LABEL: Record<string, string> = {
-  retention_required: "retention",
+  retention_required: "хранение",
   patient_copy_required: "копия",
-  file_proxy_required: "file proxy",
+  file_proxy_required: "выдача файлов",
   expiry_required: "срок",
   expires_soon: "истекает",
-  session_artifacts_review: "артефакты доступа",
-  access_rotation_required: "ротация",
-  access_rotation_prepared: "ротация готова",
-  blocked_release: "блокер",
+  session_artifacts_review: "коды доступа",
+  access_rotation_required: "замена кодов",
+  access_rotation_prepared: "замена готова",
+  blocked_release: "препятствие",
   revoked_release: "отзыв",
 };
 
@@ -268,7 +268,7 @@ function QueueRow({ item, onReview }: { item: SelfHostedPatientPhotoProtocolRele
         <div className="flex flex-wrap items-center gap-1.5">
           <PolicyBadge status={item.policyStatus} />
           <Badge variant="outline" className="text-[10px]">Фото: {item.selectedPhotoCount}</Badge>
-          <Badge variant="outline" className="text-[10px]">Блокеры: {item.blockerCount}</Badge>
+          <Badge variant="outline" className="text-[10px]">Препятствия: {item.blockerCount}</Badge>
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {item.attention.map((attention) => (
@@ -295,10 +295,10 @@ function QueueRow({ item, onReview }: { item: SelfHostedPatientPhotoProtocolRele
 
 function BoundaryList({ governance }: { governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO }) {
   const items = [
-    ["Metadata-only", governance.boundaries.metadataOnly],
+    ["Только служебные итоги", governance.boundaries.metadataOnly],
     ["Имена пациентов скрыты", !governance.boundaries.patientNamesExposed],
-    ["Raw ID скрыты", !governance.boundaries.rawIdentifiersExposed],
-    ["Токены скрыты", !governance.boundaries.rawTokensExposed],
+    ["Служебные коды скрыты", !governance.boundaries.rawIdentifiersExposed],
+    ["Секретные ключи скрыты", !governance.boundaries.rawTokensExposed],
     ["Файлы скрыты", !governance.boundaries.rawFilesExposed],
     ["Врачебный текст скрыт", !governance.boundaries.doctorOnlyTextExposed],
   ] as const;
@@ -371,7 +371,7 @@ function GovernanceOperations({
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
   return (
-    <SectionCard title="Операционный контур" hint="Batch AF · production-safe хранение, отзыв, сессии">
+    <SectionCard title="Работа с доступом" hint="Правила хранения, отзыв доступа и безопасные сеансы">
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="grid gap-2 rounded-md border p-3">
           <div className="flex items-center gap-2 text-[12px] font-semibold">
@@ -390,7 +390,7 @@ function GovernanceOperations({
             onClick={onBlockUnapprovedRetention}
             disabled={retentionOperationBusy}
           >
-            {retentionOperationBusy ? "Блокируем окна..." : "Заблокировать без политики"}
+            {retentionOperationBusy ? "Блокируем окна..." : "Заблокировать без правил"}
           </Button>
         </div>
 
@@ -415,27 +415,27 @@ function GovernanceOperations({
         <div className="grid gap-2 rounded-md border p-3">
           <div className="flex items-center gap-2 text-[12px] font-semibold">
             <KeyRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Жизненный цикл сессий
+            Сеансы доступа
           </div>
           <OperationLine label="Активные" value={sessionLifecycle.active} />
           <OperationLine label="Без срока" value={sessionLifecycle.missingExpiry} tone={sessionLifecycle.missingExpiry > 0 ? "warning" : "success"} />
           <OperationLine
-            label="Артефакты доступа"
+            label="Временные коды"
             value={sessionLifecycle.unsafeArtifacts}
             tone={sessionLifecycle.unsafeArtifacts > 0 ? "warning" : "success"}
           />
           <OperationLine
-            label="Ротация нужна"
+            label="Нужна замена"
             value={sessionLifecycle.rotationPending}
             tone={sessionLifecycle.rotationPending > 0 ? "warning" : "success"}
           />
-          <OperationLine label="Ротация готова" value={sessionLifecycle.rotationPrepared} />
+          <OperationLine label="Замена готова" value={sessionLifecycle.rotationPrepared} />
           <OperationLine
-            label="Хэш нужен"
+            label="Ключ нужен"
             value={sessionLifecycle.credentialHashPending}
             tone={sessionLifecycle.credentialHashPending > 0 ? "warning" : "success"}
           />
-          <OperationLine label="Хэш готов" value={sessionLifecycle.credentialHashReady} />
+          <OperationLine label="Ключ готов" value={sessionLifecycle.credentialHashReady} />
           <OperationLine
             label="Обмен нужен"
             value={sessionLifecycle.sessionExchangePending}
@@ -447,9 +447,9 @@ function GovernanceOperations({
             value={sessionLifecycle.sessionExchangeDenied}
             tone={sessionLifecycle.sessionExchangeDenied > 0 ? "warning" : "success"}
           />
-          <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
+          <OperationLine label="Коды входа" value="скрыты" tone="success" />
           <div className="text-[11px] text-muted-foreground">
-            Обмен credential работает только через backend-сессию. Сырые credential, hash/fingerprint и session id не выводятся.
+            Обмен одноразового кода проходит только через систему клиники. Сырые коды, контрольные значения и номера сеансов не выводятся.
           </div>
           <Button
             variant="outline"
@@ -465,7 +465,7 @@ function GovernanceOperations({
             onClick={onBlockUnsafeSessionArtifacts}
             disabled={unsafeSessionArtifactOperationBusy}
           >
-            {unsafeSessionArtifactOperationBusy ? "Блокируем артефакты..." : "Заблокировать артефакты доступа"}
+            {unsafeSessionArtifactOperationBusy ? "Блокируем временные коды..." : "Заблокировать временные коды"}
           </Button>
           <Button
             variant="outline"
@@ -473,7 +473,7 @@ function GovernanceOperations({
             onClick={onPrepareAccessArtifactRotation}
             disabled={rotationOperationBusy}
           >
-            {rotationOperationBusy ? "Готовим ротацию..." : "Подготовить ротацию доступа"}
+            {rotationOperationBusy ? "Готовим замену..." : "Подготовить замену доступа"}
           </Button>
           <Button
             variant="outline"
@@ -481,20 +481,20 @@ function GovernanceOperations({
             onClick={onIssueAccessCredentialHash}
             disabled={credentialHashOperationBusy}
           >
-            {credentialHashOperationBusy ? "Создаём хэш..." : "Создать хэш доступа"}
+            {credentialHashOperationBusy ? "Готовим ключ..." : "Подготовить ключ доступа"}
           </Button>
         </div>
       </div>
       {operationResult && (
         <div role="status" className="mt-3 rounded-md border px-3 py-2 text-[12px] text-muted-foreground">
-          <div className="font-semibold text-foreground">Последняя backend-операция</div>
+          <div className="font-semibold text-foreground">Последнее действие системы</div>
           <div className="mt-1 grid gap-1 sm:grid-cols-3">
             <span>Изменено: <b className="tabular-nums text-foreground">{operationResult.affectedCount}</b></span>
             <span>Активные пропущены: <b className="tabular-nums text-foreground">{operationResult.skippedActiveCount}</b></span>
             <span>Без срока: <b className="tabular-nums text-foreground">{operationResult.skippedMissingExpiryCount}</b></span>
           </div>
           <div className="mt-1">
-            Только агрегаты: пациентские строки, причина отзыва, секрет доступа, QR/токены, ID сессий и файловые пути не раскрывались.
+            Только итоговые числа: пациентские строки, причина отзыва, секрет доступа, коды входа, номера сеансов и файловые пути не раскрывались.
           </div>
         </div>
       )}
@@ -533,7 +533,7 @@ export default function AdminGovernancePage() {
     if (!result.ok || !result.value) {
       setStatus("error");
       setGovernance(DEMO_GOVERNANCE);
-      setError(result.error?.message ?? "Self-hosted backend не вернул контур управления доступом.");
+      setError(result.error?.message ?? "Система клиники не вернула контур управления доступом.");
       return;
     }
     setStatus("ready");
@@ -551,16 +551,16 @@ export default function AdminGovernancePage() {
   );
 
   function recordReview(item: SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow) {
-    setLastAction(`Разбор политики подготовлен локально: строка #${item.queueNumber}`);
+    setLastAction(`Разбор правил подготовлен локально: строка #${item.queueNumber}`);
   }
 
   function recordRetentionReview() {
-    setLastAction("Разбор хранения подготовлен локально: без пациентских строк и без raw ID");
+    setLastAction("Разбор хранения подготовлен локально: без пациентских строк и без служебных кодов");
   }
 
   async function recordBlockUnapprovedRetention() {
     if (!configured) {
-      setLastAction("Demo: окна без политики хранения заблокированы локально, patient access не расширялся");
+      setLastAction("Учебный режим: окна без правил хранения заблокированы локально, доступ пациента не расширялся");
       setOperationResult({
         operation: "block_unapproved_retention_windows",
         status: "no_op",
@@ -596,19 +596,19 @@ export default function AdminGovernancePage() {
     });
     setRetentionOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не заблокировал окна без политики хранения.");
+      setLastAction(result.error?.message ?? "Система клиники не заблокировала окна без правил хранения.");
       return;
     }
     setOperationResult(result.value);
     setLastAction(
-      `Окна без политики хранения заблокированы: ${result.value.affectedCount} изменено, patient access не расширялся`,
+      `Окна без правил хранения заблокированы: ${result.value.affectedCount} изменено, доступ пациента не расширялся`,
     );
     await loadGovernance();
   }
 
   async function recordRevokeReview() {
     if (!configured) {
-      setLastAction("Demo: отзыв истёкших окон подготовлен локально, причина остаётся скрытой");
+      setLastAction("Учебный режим: отзыв истёкших окон подготовлен локально, причина остаётся скрытой");
       setOperationResult({
         operation: "revoke_expired_access_windows",
         status: "no_op",
@@ -644,7 +644,7 @@ export default function AdminGovernancePage() {
     });
     setRevokeOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не выполнил отзыв истёкших окон доступа.");
+      setLastAction(result.error?.message ?? "Система клиники не выполнила отзыв истёкших окон доступа.");
       return;
     }
     setOperationResult(result.value);
@@ -656,7 +656,7 @@ export default function AdminGovernancePage() {
 
   async function recordBlockMissingExpiry() {
     if (!configured) {
-      setLastAction("Demo: окна без срока заблокированы локально, QR/токены/ID не раскрыты");
+      setLastAction("Учебный режим: окна без срока заблокированы локально, коды входа не раскрыты");
       setOperationResult({
         operation: "block_missing_expiry_access_windows",
         status: "no_op",
@@ -692,19 +692,19 @@ export default function AdminGovernancePage() {
     });
     setMissingExpiryOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не заблокировал окна без срока доступа.");
+      setLastAction(result.error?.message ?? "Система клиники не заблокировала окна без срока доступа.");
       return;
     }
     setOperationResult(result.value);
     setLastAction(
-      `Окна без срока заблокированы: ${result.value.affectedCount} изменено, QR/токены/ID скрыты`,
+      `Окна без срока заблокированы: ${result.value.affectedCount} изменено, коды входа скрыты`,
     );
     await loadGovernance();
   }
 
   async function recordBlockUnsafeSessionArtifacts() {
     if (!configured) {
-      setLastAction("Demo: unsafe-артефакты доступа заблокированы локально, QR/токены/ID не раскрыты");
+      setLastAction("Учебный режим: небезопасные временные коды заблокированы локально, коды входа не раскрыты");
       setOperationResult({
         operation: "block_unsafe_session_artifacts",
         status: "no_op",
@@ -740,19 +740,19 @@ export default function AdminGovernancePage() {
     });
     setUnsafeSessionArtifactOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не заблокировал unsafe-артефакты доступа.");
+      setLastAction(result.error?.message ?? "Система клиники не заблокировала небезопасные временные коды.");
       return;
     }
     setOperationResult(result.value);
     setLastAction(
-      `Unsafe-артефакты доступа заблокированы: ${result.value.affectedCount} изменено, QR/токены/ID скрыты`,
+      `Небезопасные временные коды заблокированы: ${result.value.affectedCount} изменено, коды входа скрыты`,
     );
     await loadGovernance();
   }
 
   async function recordPrepareAccessArtifactRotation() {
     if (!configured) {
-      setLastAction("Demo: ротация доступа подготовлена локально, секреты доступа не раскрыты");
+      setLastAction("Учебный режим: замена доступа подготовлена локально, секреты доступа не раскрыты");
       setOperationResult({
         operation: "prepare_access_artifact_rotation",
         status: "no_op",
@@ -788,19 +788,19 @@ export default function AdminGovernancePage() {
     });
     setRotationOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не подготовил ротацию доступа.");
+      setLastAction(result.error?.message ?? "Система клиники не подготовила замену доступа.");
       return;
     }
     setOperationResult(result.value);
     setLastAction(
-      `Ротация доступа подготовлена: ${result.value.affectedCount} записей, секреты доступа скрыты`,
+      `Замена доступа подготовлена: ${result.value.affectedCount} записей, секреты доступа скрыты`,
     );
     await loadGovernance();
   }
 
   async function recordIssueAccessCredentialHash() {
     if (!configured) {
-      setLastAction("Demo: хэш доступа создан локально, секрет доступа/QR/session не раскрыты");
+      setLastAction("Учебный режим: ключ доступа подготовлен локально, секрет доступа и коды входа не раскрыты");
       setOperationResult({
         operation: "issue_access_credential_hash",
         status: "no_op",
@@ -836,12 +836,12 @@ export default function AdminGovernancePage() {
     });
     setCredentialHashOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Backend не создал хэш доступа.");
+      setLastAction(result.error?.message ?? "Система клиники не подготовила ключ доступа.");
       return;
     }
     setOperationResult(result.value);
     setLastAction(
-      `Хэш доступа создан: ${result.value.affectedCount} записей, секрет доступа/QR/session скрыты`,
+      `Ключ доступа подготовлен: ${result.value.affectedCount} записей, секрет доступа и коды входа скрыты`,
     );
     await loadGovernance();
   }
@@ -850,7 +850,7 @@ export default function AdminGovernancePage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Управление доступом"
-        subtitle="Пациентская выдача фото-протокола: политики, сроки хранения и аудит."
+        subtitle="Пациентская выдача фото-протокола: правила, сроки хранения и журнал действий."
       />
       <div className="space-y-3 p-3 sm:p-4">
         <section
@@ -867,15 +867,15 @@ export default function AdminGovernancePage() {
             <div className="min-w-0">
               <div className="font-semibold">Только агрегаты</div>
               <p className="mt-0.5 text-[12px]">
-                Без токенов, ссылок, фото, диагнозов и пациентских строк. Страница показывает только readiness,
-                политики выдачи, сроки доступа и блокеры production.
+                Без секретных ключей, ссылок, фото, диагнозов и пациентских строк. Страница показывает только готовность,
+                правила выдачи, сроки доступа и препятствия рабочего режима.
               </p>
             </div>
           </div>
         </section>
 
         {status === "loading" && (
-          <Card className="p-3 text-[12px] text-muted-foreground">Загружаем self-hosted governance…</Card>
+          <Card className="p-3 text-[12px] text-muted-foreground">Загружаем контур доступа из системы клиники…</Card>
         )}
         {status === "error" && (
           <Card className="p-3">
@@ -888,20 +888,20 @@ export default function AdminGovernancePage() {
         )}
         {status === "demo" && (
           <Card className="p-3 text-[12px] text-muted-foreground">
-            Self-hosted сессия не подключена. Показан demo-срез без сетевых действий и без пациентских данных.
+            Система клиники не подключена. Показан учебный срез без сетевых действий и без пациентских данных.
           </Card>
         )}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric
             icon={FileCheck2}
-            label="Политики выдачи"
+            label="Правила выдачи"
             value={policyReady}
             hint="готовы к окну доступа"
           />
           <Metric
             icon={Clock3}
-            label="Сессии пациента"
+            label="Сеансы пациента"
             value={governance.summary.activeAccessWindows}
             hint={`${governance.summary.expiringIn24h} истекают за 24ч`}
           />
@@ -913,9 +913,9 @@ export default function AdminGovernancePage() {
           />
           <Metric
             icon={AlertTriangle}
-            label="Блокеры"
+            label="Препятствия"
             value={governance.summary.blocked}
-            hint="не готовы к выдаче"
+            hint="мешают выдаче"
           />
         </div>
 
@@ -938,7 +938,7 @@ export default function AdminGovernancePage() {
         />
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <SectionCard title="Очередь утверждений" hint="metadata-only строки без пациентов и raw ID">
+          <SectionCard title="Очередь утверждений" hint="служебные строки без пациентов и внутренних кодов">
             <div className="space-y-2">
               {governance.queue.map((item) => (
                 <QueueRow key={item.queueNumber} item={item} onReview={() => recordReview(item)} />
@@ -948,7 +948,7 @@ export default function AdminGovernancePage() {
           </SectionCard>
 
           <div className="grid gap-3">
-            <SectionCard title="Сессии пациента" hint="сроки и отзывы">
+            <SectionCard title="Сеансы пациента" hint="сроки и отзывы">
               <div className="grid gap-2 text-[12px]">
                 <div className="flex items-center justify-between rounded-md border px-3 py-2">
                   <span>Подготовлено</span>
@@ -965,15 +965,15 @@ export default function AdminGovernancePage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Границы данных" hint="Batch AB · SD-MF-045/046/022">
+            <SectionCard title="Безопасность данных" hint="показываются только безопасные итоги">
               <BoundaryList governance={governance} />
             </SectionCard>
 
-            <SectionCard title="Блокеры production" hint="что нельзя считать закрытым">
+            <SectionCard title="Что мешает запуску" hint="что нельзя считать закрытым">
               <ul className="grid gap-2 text-[12px] text-muted-foreground">
                 <li className="flex gap-2">
                   <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Нужна утверждённая retention-политика и срок доступа.
+                  Нужны утверждённые правила хранения и срок доступа.
                 </li>
                 <li className="flex gap-2">
                   <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -981,7 +981,7 @@ export default function AdminGovernancePage() {
                 </li>
                 <li className="flex gap-2">
                   <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Файловая выдача работает только через self-hosted proxy.
+                  Файловая выдача работает только через защищённый канал клиники.
                 </li>
               </ul>
             </SectionCard>

@@ -93,44 +93,45 @@ describe("Admin clinic core pages — render & safety", () => {
     renderRouted(<AdminGovernancePage />);
     expect(screen.getByRole("heading", { name: /Управление доступом/ })).toBeInTheDocument();
     expect(screen.getByText(/Только агрегаты/)).toBeInTheDocument();
-    expect(screen.getByText("Политики выдачи")).toBeInTheDocument();
-    expect(screen.getAllByText("Сессии пациента").length).toBeGreaterThan(0);
-    expect(screen.getByText("Операционный контур")).toBeInTheDocument();
+    expect(screen.getByText("Правила выдачи")).toBeInTheDocument();
+    expect(screen.getAllByText("Сеансы пациента").length).toBeGreaterThan(0);
+    expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
-    expect(screen.getByText("Жизненный цикл сессий")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Заблокировать без политики/ })).toBeInTheDocument();
+    expect(screen.getByText("Сеансы доступа")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Заблокировать без правил/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Заблокировать без срока/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Заблокировать артефакты доступа/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Подготовить ротацию доступа/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Создать хэш доступа/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Заблокировать временные коды/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить замену доступа/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить ключ доступа/ })).toBeInTheDocument();
     expect(screen.getByText("Обмен нужен")).toBeInTheDocument();
     expect(screen.getByText("Сессия подтверждена")).toBeInTheDocument();
     expect(screen.getByText("Отказы обмена")).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
-    expect(screen.getByText("Границы данных")).toBeInTheDocument();
+    expect(screen.getByText("Безопасность данных")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Подготовить разбор хранения/ }));
     expect(screen.getByText(/Разбор хранения подготовлен локально/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Отозвать истёкшие окна/ }));
-    expect(screen.getByText(/Demo: отзыв истёкших окон подготовлен локально/)).toBeInTheDocument();
-    expect(screen.getByText("Последняя backend-операция")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Заблокировать без политики/ }));
-    expect(screen.getByText(/Demo: окна без политики хранения заблокированы локально/)).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим: отзыв истёкших окон подготовлен локально/)).toBeInTheDocument();
+    expect(screen.getByText("Последнее действие системы")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Заблокировать без правил/ }));
+    expect(screen.getByText(/Учебный режим: окна без правил хранения заблокированы локально/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Заблокировать без срока/ }));
-    expect(screen.getByText(/Demo: окна без срока заблокированы локально/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Заблокировать артефакты доступа/ }));
-    expect(screen.getByText(/Demo: unsafe-артефакты доступа заблокированы локально/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Подготовить ротацию доступа/ }));
-    expect(screen.getByText(/Demo: ротация доступа подготовлена локально/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Создать хэш доступа/ }));
-    expect(screen.getByText(/Demo: хэш доступа создан локально/)).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим: окна без срока заблокированы локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Заблокировать временные коды/ }));
+    expect(screen.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Подготовить замену доступа/ }));
+    expect(screen.getByText(/Учебный режим: замена доступа подготовлена локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Подготовить ключ доступа/ }));
+    expect(screen.getByText(/Учебный режим: ключ доступа подготовлен локально/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0]);
-    expect(screen.getByText(/Разбор политики подготовлен локально/)).toBeInTheDocument();
+    expect(screen.getByText(/Разбор правил подготовлен локально/)).toBeInTheDocument();
   });
 
-  it("AdminGovernancePage keeps release governance metadata-only", () => {
+  it("AdminGovernancePage keeps release governance aggregate-only and native Russian", () => {
     const { container } = renderRouted(<AdminGovernancePage />);
     const html = container.innerHTML;
+    const visible = container.textContent ?? "";
     for (const token of [
       ...FORBIDDEN,
       "patientId",
@@ -147,6 +148,9 @@ describe("Admin clinic core pages — render & safety", () => {
       expect(html, `forbidden token ${token}`).not.toContain(token);
     }
     expect(html).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+    expect(visible).not.toMatch(
+      /self-hosted|backend|metadata-only|raw id|file proxy|production|credential|hash|fingerprint|session id|demo|unsafe/i,
+    );
   });
 
   it("AdminBotSettingsPage keeps bot control safe and hides raw bot internals", () => {
