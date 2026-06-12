@@ -69,13 +69,13 @@ describe("Admin clinic core pages — render & safety", () => {
   it("AdminBotSettingsPage renders the bot control center with queues, scripts and audit", () => {
     renderRouted(<AdminBotSettingsPage />);
     expect(screen.getByRole("heading", { name: /Центр управления ботом/ })).toBeInTheDocument();
-    expect(screen.getByText(/intake, маршрутизация, качество фото, эскалация и аудит/)).toBeInTheDocument();
+    expect(screen.getByText(/сбор данных, маршрутизация, качество фото, передача оператору и журнал/)).toBeInTheDocument();
     expect(screen.getByText("Операционный статус бота")).toBeInTheDocument();
     expect(screen.getByText("Контроль качества фото")).toBeInTheDocument();
-    expect(screen.getByText("Очередь эскалации")).toBeInTheDocument();
-    expect(screen.getByText("Сценарии intake")).toBeInTheDocument();
+    expect(screen.getAllByText("Передача оператору").length).toBeGreaterThan(0);
+    expect(screen.getByText("Сценарии сбора данных")).toBeInTheDocument();
     expect(screen.getByText("Безопасные шаблоны")).toBeInTheDocument();
-    expect(screen.getByText("DryRun и аудит")).toBeInTheDocument();
+    expect(screen.getByText("Пробная проверка и журнал")).toBeInTheDocument();
     expect(screen.getByText(/бот не ставит диагноз/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Запросить повтор фото/ })[0]).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Передать оператору/ })[0]).toBeInTheDocument();
@@ -247,15 +247,30 @@ describe("Admin clinic core pages — render & safety", () => {
     renderRouted(<AdminClinicsPage />);
     expect(screen.getByRole("heading", { name: "Готовность филиалов" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Связь с врачами и услугами" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Маршрутизация лидов" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Маршрутизация заявок" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ограничения передачи данных" })).toBeInTheDocument();
-    expect(screen.getByText(/без фото, диагнозов и raw ID/)).toBeInTheDocument();
+    expect(screen.getByText(/без фото, диагнозов и внутренних кодов/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Открыть интеграции" })).toHaveAttribute(
       "href",
       "/admin/integrations",
     );
     fireEvent.click(screen.getByRole("button", { name: "Проверить филиалы" }));
     expect(screen.getByText(/Проверка филиалов подготовлена локально/)).toBeInTheDocument();
+  });
+
+  it("UX Batch 15: bot and clinics pages use native Russian visible copy", () => {
+    const forbiddenVisible =
+      /MVP|DryRun|JSON|intake|routing|escalation|quality gate|demo|Demo|демо|raw ID|raw токен|Device Bridge|Bridge|backend|бэкенд|user refs|patient-visible|MVP boundary|aggregate\/config|Telegram Bot API|PHI|AI\/XAI|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|лиды|лидов|лидам/i;
+
+    for (const ui of [<AdminBotSettingsPage />, <AdminClinicsPage />]) {
+      const { container, unmount } = renderRouted(ui);
+      const visible = container.textContent ?? "";
+      expect(visible).not.toMatch(forbiddenVisible);
+      expect(visible).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+      expect(visible).not.toMatch(/storagePath|signedUrl|accessToken|qrToken|sessionId/i);
+      expect(visible).not.toMatch(/lead-\d|tg:|wa:|TELEGRAM|WHATSAPP/i);
+      unmount();
+    }
   });
 
   it("none of the new admin pages render forbidden patient-level tokens", () => {

@@ -14,7 +14,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -31,13 +30,14 @@ import type {
 } from "@/lib/domain";
 
 /**
- * Bot Control Center.
+ * Центр управления ботом.
  *
  * SAFETY:
- *   - The bot is modeled as intake/routing/escalation, not diagnosis.
- *   - Do not render patient names, photo refs, raw protected-link tokens,
- *     external messenger user refs, model versions, or AI feature details.
- *   - All actions are local demo events: no network calls, no message sending.
+ *   - Бот собирает данные, направляет обращение и передает сложные случаи
+ *     оператору; медицинские выводы делает врач.
+ *   - Не рендерим имена пациентов, ссылки на фото, служебные коды,
+ *     внешние идентификаторы мессенджеров, версии моделей или детали подсказок.
+ *   - Все действия локальные: без сетевых вызовов и без отправки сообщений.
  */
 
 type TemplateKey =
@@ -101,7 +101,7 @@ const INTAKE_STEPS: IntakeStep[] = [
   {
     id: "photo",
     label: "Фото",
-    detail: "Общий вид + крупный план; quality gate до маршрутизации.",
+    detail: "Общий вид + крупный план; проверка качества до маршрутизации.",
     required: true,
   },
   {
@@ -246,19 +246,19 @@ export default function AdminBotSettingsPage() {
     {
       label: "Нужно фото лучше",
       value: photoQueue.length,
-      hint: "quality gate",
+      hint: "проверка качества",
       tone: "warn",
     },
     {
-      label: "Эскалация",
+      label: "Передать оператору",
       value: escalationQueue.length,
       hint: "оператор/врач",
       tone: "danger",
     },
     {
-      label: "Лиды из бота",
+      label: "Заявки из бота",
       value: botLeads.length,
-      hint: "telegram + whatsapp",
+      hint: "мессенджеры",
       tone: "ok",
     },
   ] as const;
@@ -286,7 +286,7 @@ export default function AdminBotSettingsPage() {
   function toggleStep(step: IntakeStep) {
     setEnabledSteps((current) => {
       const nextValue = !current[step.id];
-      appendAudit(`Шаг intake «${step.label}» ${nextValue ? "включён" : "выключен"} локально.`);
+      appendAudit(`Шаг сбора данных «${step.label}» ${nextValue ? "включён" : "выключен"} локально.`);
       return { ...current, [step.id]: nextValue };
     });
   }
@@ -301,46 +301,35 @@ export default function AdminBotSettingsPage() {
   }
 
   function buildDryRun() {
-    const payload = {
-      event: "bot.control_center.dry_run",
-      mode: "local_only",
-      sendsMessages: false,
-      externalCalls: false,
-      enabledIntakeSteps: INTAKE_STEPS.filter((step) => enabledSteps[step.id]).map(
-        (step) => step.id,
-      ),
-      queueCounts: {
-        photoQuality: photoQueue.length,
-        escalation: escalationQueue.length,
-        botLeads: botLeads.length,
-      },
-      safety: {
-        patientVisibleDiagnosis: false,
-        rawTokensRendered: false,
-        messengerUserRefsRendered: false,
-      },
-    };
-    setDryRun(JSON.stringify(payload, null, 2));
-    appendAudit("DryRun сценария сформирован локально.");
+    const enabledCount = INTAKE_STEPS.filter((step) => enabledSteps[step.id]).length;
+    const preview = [
+      "Пробная проверка сценария",
+      "Граница: только локальная проверка, сообщения не отправляются.",
+      `Шаги сбора данных: включено ${enabledCount} из ${INTAKE_STEPS.length}.`,
+      `Очередь фото: ${photoQueue.length}; передача оператору: ${escalationQueue.length}; заявки из мессенджеров: ${botLeads.length}.`,
+      "Безопасность: диагноз, риск, прогноз, служебные коды и внешние идентификаторы не показываются.",
+    ].join("\n");
+    setDryRun(preview);
+    appendAudit("Пробная проверка сценария сформирована локально.");
   }
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Центр управления ботом"
-        subtitle="intake, маршрутизация, качество фото, эскалация и аудит"
+        subtitle="сбор данных, маршрутизация, качество фото, передача оператору и журнал"
       />
 
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200">
-        MVP: бот работает как intake/routing/escalation контур. Реальные отправки
-        отключены, сообщения не отправляются, бот не ставит диагноз и не показывает
-        пациенту риск или прогноз.
+        Учебный режим: бот помогает собрать данные, проверить фото и передать
+        обращение оператору. Сообщения не отправляются, бот не ставит диагноз
+        и не показывает пациенту риск или прогноз.
       </div>
 
       <section aria-label="Операционный статус бота" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[13px] font-semibold">Операционный статус бота</h2>
-          <div className="text-[11px] text-muted-foreground">демо-агрегаты</div>
+          <div className="text-[11px] text-muted-foreground">учебные агрегаты</div>
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {statusCards.map((item) => (
@@ -384,7 +373,7 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Очередь эскалации" hint={`${escalationQueue.length} в работе`}>
+          <SectionCard title="Передача оператору" hint={`${escalationQueue.length} в работе`}>
             <div className="space-y-2">
               {escalationQueue.map((card) => {
                 const dialog = dialogs.find((item) => item.id === card.dialogId);
@@ -436,7 +425,7 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Сценарии intake" hint="обязательные шаги">
+          <SectionCard title="Сценарии сбора данных" hint="обязательные шаги">
             <div className="grid gap-2 md:grid-cols-2">
               {INTAKE_STEPS.map((step) => (
                 <div key={step.id} className="rounded-md border bg-card px-3 py-2">
@@ -454,11 +443,16 @@ export default function AdminBotSettingsPage() {
                         {step.detail}
                       </div>
                     </div>
-                    <Switch
-                      checked={enabledSteps[step.id]}
-                      onCheckedChange={() => toggleStep(step)}
-                      aria-label={`Переключить шаг intake «${step.label}»`}
-                    />
+                    <Button
+                      type="button"
+                      variant={enabledSteps[step.id] ? "default" : "outline"}
+                      className="min-h-[44px] shrink-0 px-3 text-[12px]"
+                      aria-pressed={enabledSteps[step.id]}
+                      aria-label={`Переключить шаг сбора данных «${step.label}»`}
+                      onClick={() => toggleStep(step)}
+                    >
+                      {enabledSteps[step.id] ? "Включено" : "Выключено"}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -499,7 +493,7 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="DryRun и аудит" hint="без внешних отправок">
+          <SectionCard title="Пробная проверка и журнал" hint="без внешних отправок">
             <div className="space-y-3">
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
@@ -521,10 +515,10 @@ export default function AdminBotSettingsPage() {
                   type="button"
                   className="min-h-[44px] sm:min-h-[32px]"
                   onClick={buildDryRun}
-                  aria-label="Сформировать DryRun сценарий"
+                  aria-label="Сформировать пробную проверку сценария"
                 >
                   <Bot className="size-4" aria-hidden />
-                  DryRun сценарий
+                  Пробная проверка
                 </Button>
               </div>
 
@@ -547,29 +541,29 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Безопасность сценария" hint="MVP boundary">
+          <SectionCard title="Безопасность сценария" hint="границы безопасности">
             <div className="space-y-2 text-[12px] leading-relaxed">
-              <SafetyRow text="Нет автоматического patient-visible диагноза, риска или прогноза." />
-              <SafetyRow text="Нет отправки сообщений из демо-экрана." />
-              <SafetyRow text="Нет показа raw токенов, ссылок, внешних user refs и путей к фото." />
-              <SafetyRow text="Эскалация означает операторскую проверку, не врачебное заключение." />
+              <SafetyRow text="Нет автоматического диагноза, риска или прогноза для пациента." />
+              <SafetyRow text="Сообщения не отправляются из этого экрана." />
+              <SafetyRow text="Служебные коды, ссылки, внешние идентификаторы и пути к фото скрыты." />
+              <SafetyRow text="Передача оператору означает организационную проверку, не врачебное заключение." />
             </div>
           </SectionCard>
         </div>
       </div>
 
-      <SectionCard title="Лиды и статусы бота" hint="агрегированный контроль">
+      <SectionCard title="Заявки и статусы бота" hint="агрегированный контроль">
         <div className="grid gap-2 md:grid-cols-3">
-          {botLeads.map((lead) => {
+          {botLeads.map((lead, index) => {
             const dialog = dialogs.find((item) => item.id === lead.dialogId);
             return (
               <div key={lead.id} className="rounded-md border bg-card px-3 py-2 text-[13px]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-medium">{lead.id}</div>
+                  <div className="font-medium">Заявка {index + 1}</div>
                   <Badge variant="outline">{LEAD_STATUS_LABEL[lead.status]}</Badge>
                 </div>
                 <div className="mt-1 text-[12px] text-muted-foreground">
-                  {lead.source.toUpperCase()} ·{" "}
+                  мессенджер ·{" "}
                   {dialog ? DIALOG_STATE_LABEL[dialog.state] : "без диалога"} ·{" "}
                   {formatTime(lead.createdAt)}
                 </div>

@@ -12,18 +12,18 @@ import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mo
 import type { PartnerTier } from "@/lib/domain";
 
 /**
- * Admin Clinics — клиники и филиалы (MVP, read-only).
+ * Admin Clinics — клиники и филиалы.
  *
  * SAFETY:
  *   - Используются операционные данные клиники: имя, адрес, тариф,
- *     приоритет маршрутинга, агрегаты лидов и записей. Пациент-уровневые
+ *     приоритет маршрутизации, агрегаты заявок и записей. Пациент-уровневые
  *     поля не импортируются. Телефон клиники не отображаем — оставлено
- *     для бэкенд-этапа редактирования контактов.
+ *     для этапа редактирования контактов в системе клиники.
  *   - Никаких сетевых вызовов, clipboard, storage, медиа.
  */
 
 const DEMO_NOTICE =
-  "MVP: данные демонстрационные. Реальные роли, RLS, аудит и синхронизация включаются на этапе бэкенда.";
+  "Учебный режим: показаны только операционные настройки филиалов. Персональные данные, фото и медицинские выводы скрыты.";
 
 const PARTNER_TIER_LABEL: Record<PartnerTier, string> = {
   owned: "Своя",
@@ -56,7 +56,7 @@ const SORT_OPTIONS: {
   {
     key: "conversion",
     label: "По конверсии",
-    hint: "сначала клиники с лучшим отношением записей к лидам",
+    hint: "сначала клиники с лучшим отношением записей к заявкам",
     Icon: ArrowDownWideNarrow,
   },
 ];
@@ -64,7 +64,7 @@ const SORT_OPTIONS: {
 const isSortKey = (v: string | null): v is SortKey =>
   v === "priority" || v === "conversion";
 
-// Детерминированная демо-готовность инфраструктуры по клинике.
+// Детерминированная учебная готовность инфраструктуры по клинике.
 const READINESS: Record<
   string,
   { integration: "ready" | "partial" | "missing"; bridge: "ready" | "partial" | "missing" }
@@ -176,7 +176,7 @@ export default function AdminClinicsPage() {
       activeFilters={activeFilterLabels}
       totalUnfiltered={enriched.length}
       onReset={resetAll}
-      hint="В демо-каталоге фиксированный список клиник. Реальный маршрутинг и партнёрские филиалы появятся с бэкендом."
+      hint="В учебном каталоге фиксированный список клиник. Рабочие изменения выполняются в системе клиники."
     />
   );
 
@@ -184,7 +184,7 @@ export default function AdminClinicsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Клиники и филиалы"
-        subtitle="Адреса, маршрутинг лидов, готовность инфраструктуры."
+        subtitle="Адреса, маршрутизация заявок, готовность кабинетов."
       />
 
       <div className="space-y-3 p-3 sm:p-4">
@@ -206,10 +206,10 @@ export default function AdminClinicsPage() {
             <div className="grid grid-cols-3 gap-2">
               <AdminMetric label="Филиалы" value={enriched.length} />
               <AdminMetric label="Готовы" value={readyBranches} tone={readyBranches ? "success" : "warning"} />
-              <AdminMetric label="Bridge" value={needsBridge} tone={needsBridge ? "warning" : "success"} />
+              <AdminMetric label="Кабинеты" value={needsBridge} tone={needsBridge ? "warning" : "success"} />
             </div>
             <p className="mt-3 text-[12px] text-muted-foreground">
-              Готовность показывает только инфраструктуру филиала: кабинет, device bridge, интеграции и правила записи.
+              Готовность показывает только операционные условия филиала: кабинет, устройство, интеграции и правила записи.
             </p>
           </AdminOpsCard>
 
@@ -229,7 +229,7 @@ export default function AdminClinicsPage() {
           </AdminOpsCard>
 
           <AdminOpsCard
-            title="Маршрутизация лидов"
+            title="Маршрутизация заявок"
             hint="Приоритет филиала, доступность врачей и качество интеграций."
             action={
               <Button
@@ -238,7 +238,7 @@ export default function AdminClinicsPage() {
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                 onClick={() =>
-                  setActionNote("Проверка филиалов подготовлена локально. Реальный пересчет маршрутов появится с бэкендом.")
+                  setActionNote("Проверка филиалов подготовлена локально. Рабочий пересчёт выполняется в системе клиники.")
                 }
               >
                 Проверить филиалы
@@ -246,17 +246,17 @@ export default function AdminClinicsPage() {
             }
           >
             <div className="grid grid-cols-2 gap-2">
-              <AdminMetric label="Лиды" value={totalLeads} tone="info" />
+              <AdminMetric label="Заявки" value={totalLeads} tone="info" />
               <AdminMetric label="Сортировка" value={sort === "priority" ? "приоритет" : "конверсия"} />
             </div>
             <p className="mt-3 text-[12px] text-muted-foreground">
-              Лиды направляются в филиал только по операционным признакам: расписание, услуга, интеграция, кабинет.
+              Заявки направляются в филиал только по операционным признакам: расписание, услуга, интеграция, кабинет.
             </p>
           </AdminOpsCard>
 
-          <AdminOpsCard title="Ограничения передачи данных" hint="Админский слой остается aggregate/config only.">
+          <AdminOpsCard title="Ограничения передачи данных" hint="только служебные настройки">
             <p className="text-[12px] text-muted-foreground">
-              В интеграции и маршрутизацию передаются только служебные статусы: без фото, диагнозов и raw ID.
+              В интеграции и маршрутизацию передаются только служебные статусы: без фото, диагнозов и внутренних кодов.
             </p>
             <Link
               to="/admin/integrations"
@@ -374,7 +374,7 @@ export default function AdminClinicsPage() {
                   </div>
                   <div>
                     <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Лиды
+                      Заявки
                     </dt>
                     <dd className="tabular-nums">{row.leads}</dd>
                   </div>
@@ -408,7 +408,7 @@ export default function AdminClinicsPage() {
                   </div>
                   <div>
                     <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Device Bridge
+                      Кабинет
                     </dt>
                     <dd>
                       <span
@@ -430,22 +430,22 @@ export default function AdminClinicsPage() {
                     className="min-h-[44px] flex-1 text-[12px] sm:min-h-[36px]"
                     onClick={() =>
                       setActionNote(
-                        `Настройка маршрутинга для «${row.clinic.name}» появится с бэкендом.`,
+                        `Настройка маршрутизации для «${row.clinic.name}» подготовлена локально.`,
                       )
                     }
                   >
-                    Настроить маршрутизацию (демо)
+                    Настроить маршрутизацию
                   </Button>
                   <Button
                     variant="outline"
                     className="min-h-[44px] flex-1 text-[12px] sm:min-h-[36px]"
                     onClick={() =>
                       setActionNote(
-                        `Проверка готовности «${row.clinic.name}» — демо-действие.`,
+                        `Проверка готовности «${row.clinic.name}» подготовлена локально.`,
                       )
                     }
                   >
-                    Проверить готовность (демо)
+                    Проверить готовность
                   </Button>
                 </div>
               </Card>
