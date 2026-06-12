@@ -24,6 +24,13 @@ const ROUTES: { path: string; role: DemoRole; title: string; action: string; scr
     action: "Новое фото",
     screenshot: "ux-batch-24-bot-sim",
   },
+  {
+    path: "/bot-sim/miniapp/booking",
+    role: "patient",
+    title: "Запись в клинику",
+    action: "Учебная форма записи",
+    screenshot: "ux-batch-24-booking-form",
+  },
 ];
 
 const VIEWPORTS = [

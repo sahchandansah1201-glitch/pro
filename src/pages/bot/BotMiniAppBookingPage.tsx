@@ -83,13 +83,13 @@ export default function BotMiniAppBookingPage() {
             <Link
               to="/bot-sim"
               className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"
-              aria-label="Вернуться в бот"
+              aria-label="Вернуться к помощнику записи"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="flex-1">
               <div className="text-sm font-semibold leading-tight">Запись в клинику</div>
-              <div className="text-xs text-muted-foreground">Форма записи · демо</div>
+              <div className="text-xs text-muted-foreground">Учебная форма записи</div>
             </div>
           </div>
 
@@ -119,7 +119,7 @@ export default function BotMiniAppBookingPage() {
           <div className="flex items-start gap-2 border-b bg-amber-50 px-4 py-3 text-[12px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div className="space-y-1 leading-snug">
-              <div>Предварительная рекомендация из бота. Это не диагноз.</div>
+              <div>Предварительная подсказка. Это не диагноз.</div>
               <div className="text-amber-800/80 dark:text-amber-200/80">
                 Окончательное решение принимает врач на очном приёме.
               </div>
@@ -220,12 +220,12 @@ export default function BotMiniAppBookingPage() {
                     <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <div className="text-sm">
                       <div className="font-medium">{slot.dayLabel}, {slot.time}</div>
-                      <div className="text-xs text-muted-foreground">Демонстрационный слот</div>
+                      <div className="text-xs text-muted-foreground">Учебное время</div>
                     </div>
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
-                  В демо-режиме запись не отправляется в клинику.
+                  В учебном режиме запись не отправляется в клинику.
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -236,7 +236,7 @@ export default function BotMiniAppBookingPage() {
                     Назад
                   </Button>
                   <Button className="min-h-[44px] flex-1" onClick={handleConfirm}>
-                    Подтвердить демо-запись
+                    Подтвердить учебную запись
                   </Button>
                 </div>
               </>
@@ -246,13 +246,13 @@ export default function BotMiniAppBookingPage() {
               <>
                 <div className="flex flex-col items-center gap-2 rounded-lg border bg-card p-4 text-center">
                   <CheckCircle2 className="h-8 w-8 text-primary" />
-                  <div className="text-sm font-semibold">Демо-запись создана локально</div>
+                  <div className="text-sm font-semibold">Учебная запись создана</div>
                   <div className="text-xs text-muted-foreground">
                     В реальной версии оператор клиники получит заявку.
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
-                  В демо-режиме запись не отправляется в клинику. Заявка и запись созданы только в памяти страницы.
+                  В учебном режиме запись не отправляется в клинику. Заявка и запись созданы только в памяти страницы.
                 </div>
                 <div className="space-y-1 rounded-lg border bg-card p-3 text-xs">
                   <div className="flex justify-between gap-2">
@@ -275,16 +275,16 @@ export default function BotMiniAppBookingPage() {
                 </div>
                 <div className="flex flex-col gap-2 pt-1">
                   <Button asChild variant="outline" className="min-h-[44px]">
-                    <Link to="/bot-sim">Вернуться в бот</Link>
+                    <Link to="/bot-sim">Вернуться к помощнику записи</Link>
                   </Button>
                   <Button variant="ghost" className="min-h-[44px]" onClick={handleReset}>
-                    Создать ещё одну демо-запись
+                    Создать ещё одну учебную запись
                   </Button>
                   <div
                     className="cursor-not-allowed select-none rounded-md border border-dashed px-3 py-2 text-center text-[11px] text-muted-foreground"
                     aria-disabled
                   >
-                    Передача в /operator недоступна в демо
+                    Передача оператору отключена в учебном режиме
                   </div>
                 </div>
               </>
@@ -292,11 +292,11 @@ export default function BotMiniAppBookingPage() {
           </div>
         </div>
 
-        {/* Desktop demo status */}
+        {/* Desktop status */}
         <aside className="hidden w-full max-w-sm lg:block">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Демо-статус</CardTitle>
+              <CardTitle className="text-base">Учебный статус</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div>

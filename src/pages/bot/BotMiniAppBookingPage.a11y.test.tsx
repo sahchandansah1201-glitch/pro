@@ -13,9 +13,9 @@ const renderPage = () =>
   );
 
 describe("BotMiniAppBookingPage a11y", () => {
-  it("ссылка 'Вернуться в бот' имеет aria-label", () => {
+  it("ссылка возврата к помощнику записи имеет aria-label", () => {
     renderPage();
-    const back = screen.getByRole("link", { name: "Вернуться в бот" });
+    const back = screen.getByRole("link", { name: "Вернуться к помощнику записи" });
     expect(back).toHaveAttribute("href", "/bot-sim");
   });
 
@@ -36,14 +36,14 @@ describe("BotMiniAppBookingPage a11y", () => {
     expect(screen.getByRole("button", { name: /Продолжить/ })).not.toBeDisabled();
   });
 
-  it("блок 'Передача в /operator' помечен aria-disabled", () => {
+  it("блок отключённой передачи оператору помечен aria-disabled", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(CLINICS[0].name) }));
     const slot = screen.getAllByRole("button").find((b) => /\d{2}:\d{2}/.test(b.textContent ?? ""))!;
     fireEvent.click(slot);
     fireEvent.click(screen.getByRole("button", { name: /Продолжить/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Подтвердить демо-запись/ }));
-    const stub = screen.getByText(/Передача в \/operator недоступна в демо/);
+    fireEvent.click(screen.getByRole("button", { name: /Подтвердить учебную запись/ }));
+    const stub = screen.getByText(/Передача оператору отключена в учебном режиме/);
     expect(stub).toHaveAttribute("aria-disabled");
   });
 

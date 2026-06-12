@@ -17,6 +17,9 @@ const FORBIDDEN = [
   j("external", "User", "Ref"),
 ];
 
+const FORBIDDEN_VISIBLE =
+  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Mini App|Telegram|Lead ID|lead|quality gate|CTA)\b|демо|бэкенд|лид|бот|\/operator/i;
+
 const renderPage = () =>
   render(
     <MemoryRouter>
@@ -25,15 +28,17 @@ const renderPage = () =>
   );
 
 describe("BotMiniAppBookingPage", () => {
-  it("рендерит мини-эпп и список клиник", () => {
+  it("рендерит форму записи и список клиник", () => {
     const { container } = renderPage();
     expect(screen.getAllByText(/Запись в клинику/)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Учебная форма записи/)).toBeInTheDocument();
     expect(screen.getByText(/Шаг 1/)).toBeInTheDocument();
     expect(screen.getByText(CLINICS[0].name)).toBeInTheDocument();
     for (const t of FORBIDDEN) expect(container.innerHTML).not.toContain(t);
+    expect(container.textContent ?? "").not.toMatch(FORBIDDEN_VISIBLE);
   });
 
-  it("проходит локальный flow: клиника → слот → подтверждение → done", () => {
+  it("проходит локальный сценарий: клиника → время → подтверждение → готово", () => {
     renderPage();
     fireEvent.click(screen.getByText(CLINICS[0].name));
     // Выбираем слот и продолжаем
@@ -41,8 +46,9 @@ describe("BotMiniAppBookingPage", () => {
     expect(slotBtns.length).toBeGreaterThan(0);
     fireEvent.click(slotBtns[0]);
     fireEvent.click(screen.getByRole("button", { name: /Продолжить/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Подтвердить демо-запись/ }));
-    expect(screen.getByText(/Демо-запись создана локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Подтвердить учебную запись/ }));
+    expect(screen.getByText(/Учебная запись создана/)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(FORBIDDEN_VISIBLE);
   });
 
   it("не мутирует глобальные mock-данные (leads/appointments)", () => {
