@@ -19,7 +19,7 @@ describe("DoctorReportsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Центр отчётов" })).toBeInTheDocument();
     expect(screen.getByText("Очередь отчётов")).toBeInTheDocument();
-    expect(screen.getAllByText("Пакеты пациенту").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Выпуск отчёта").length).toBeGreaterThan(0);
     expect(screen.getByText("Блокеры выпуска")).toBeInTheDocument();
 
     const firstReportLink = screen.getAllByRole("link", { name: /Открыть отчёт в визите/i })[0];
@@ -29,6 +29,9 @@ describe("DoctorReportsPage", () => {
     expect(document.body.textContent).not.toContain("tok-r005-demo");
     expect(document.body.textContent).not.toContain("doctorVersionText");
     expect(document.body.textContent).not.toContain("sharedLink");
+    expect(document.body.textContent).not.toMatch(
+      /MVP|демо|токен|token|raw ID|backend|self-hosted|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|DP-2026-\d+/i,
+    );
   });
 
   it("filters reports by patient or clinic text", async () => {

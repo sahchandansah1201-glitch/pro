@@ -35,7 +35,9 @@ type ReportRow = {
   expired: boolean;
 };
 
-const EXPIRED_LABEL = "Срок ссылки истёк";
+const EXPIRED_LABEL = "Срок доступа истёк";
+const SAFETY_NOTE =
+  "Учебная очередь показывает только готовность отчёта. Служебные коды доступа, закрытые адреса и врачебные черновики в списке скрыты.";
 
 function buildRows(): ReportRow[] {
   return getReports()
@@ -94,7 +96,6 @@ export default function DoctorReportsPage() {
     return rows.filter((row) =>
       [
         row.patient.fullName,
-        row.patient.code,
         row.clinicName,
         packetStatus(row),
       ]
@@ -111,9 +112,9 @@ export default function DoctorReportsPage() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Центр отчётов"
-        subtitle="Врачебная очередь: готовность пакета, блокеры выпуска и переход в отчёт визита."
+        subtitle="Очередь врача: что готово к проверке, что мешает выпуску и где открыть отчёт визита."
         actions={
-          <Button asChild size="sm" variant="secondary" className="min-h-[40px] text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-10">
             <Link to="/visits">К визитам</Link>
           </Button>
         }
@@ -122,22 +123,18 @@ export default function DoctorReportsPage() {
       <main className="space-y-5 px-4 py-5 sm:px-6">
         <section
           role="note"
-          aria-label="Граница демо-центра отчётов"
+          aria-label="Граница учебной очереди отчётов"
           className="surface-card flex items-start gap-3 px-4 py-3 text-[13px] leading-relaxed text-muted-foreground"
         >
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-          <span>
-            Демо-центр показывает только операционную готовность отчётов. Сырые
-            токены доступа, скрытые ссылки и врачебные черновики не выводятся в
-            списке.
-          </span>
+          <span>{SAFETY_NOTE}</span>
         </section>
 
         <section aria-label="Сводка отчётов" className="grid gap-3 md:grid-cols-4">
           <SummaryTile label="Всего отчётов" value={filteredRows.length} hint="в текущем фильтре" icon={FileText} />
           <SummaryTile label="Качество фото" value={weakRows.length} hint="проверить перед выпуском" icon={AlertTriangle} />
           <SummaryTile label="Согласие" value={consentRows.length} hint="нужно закрыть" icon={ShieldCheck} />
-          <SummaryTile label="Срок ссылки" value={expiredRows.length} hint="требует перевыпуска" icon={Clock} />
+          <SummaryTile label="Срок доступа" value={expiredRows.length} hint="требует перевыпуска" icon={Clock} />
         </section>
 
         <section className="surface-card overflow-hidden" aria-label="Очередь отчётов">
@@ -155,7 +152,7 @@ export default function DoctorReportsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 aria-label="Поиск отчёта"
-                placeholder="Пациент, код, клиника, статус"
+                placeholder="Поиск отчёта"
                 className="h-9 text-[13px]"
               />
             </div>
@@ -179,16 +176,13 @@ export default function DoctorReportsPage() {
                       <div className="min-w-0 text-[14px] font-semibold">
                         <span className="truncate">{row.patient.fullName}</span>
                       </div>
-                      <Badge variant="outline" className="text-[11px]">
-                        {row.patient.code}
-                      </Badge>
                       <Badge className={statusTone(row)}>{packetStatus(row)}</Badge>
                     </div>
                     <div className="mt-1 text-[12px] text-muted-foreground">
                       {formatDateTime(row.report.generatedAt)} · {row.clinicName}
                     </div>
                     <p className="mt-2 line-clamp-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-                      Текст для пациента доступен только внутри отчёта визита после
+                      Краткая версия открывается только внутри отчёта визита после
                       врачебной проверки.
                     </p>
                   </div>
@@ -196,10 +190,10 @@ export default function DoctorReportsPage() {
                   <div className="rounded-md border bg-surface px-3 py-2 text-[12px]">
                     <div className="flex items-center gap-1.5 font-medium">
                       <FileText className="size-3.5" aria-hidden />
-                      Пакеты пациенту
+                      Выпуск отчёта
                     </div>
                     <div className="mt-1 text-muted-foreground">
-                      Демо-ссылка скрыта · до {formatDateTime(row.expiresAt)}
+                      Доступ скрыт · до {formatDateTime(row.expiresAt)}
                     </div>
                   </div>
 

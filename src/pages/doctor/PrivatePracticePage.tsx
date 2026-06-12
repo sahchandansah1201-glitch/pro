@@ -42,7 +42,7 @@ const PRIVATE_CLINIC_ID = PRIVATE_DOCTOR.clinicId ?? "";
 const QUALITY_THRESHOLD = 0.8;
 
 const DEMO_NOTICE =
-  "MVP: демо-данные частной практики. Экран показывает рабочие очереди, оплату и готовность кабинета без сырых токенов, внешних ID и автоматических медицинских выводов.";
+  "Учебный режим: показаны рабочие очереди частного врача, оплата и готовность кабинета. Служебные коды, внешние идентификаторы и автоматические медицинские выводы скрыты.";
 
 const VISIT_STATUS_LABEL: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -68,11 +68,11 @@ const APPOINTMENT_STATUS_TONE: Record<AppointmentStatus, OpsTone> = {
 };
 
 const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  new: "Новый",
-  qualified: "Квалифицирован",
-  booked: "Записан",
-  lost: "Потерян",
-  duplicate: "Дубль",
+  new: "Новая",
+  qualified: "Проверена",
+  booked: "Записана",
+  lost: "Закрыта",
+  duplicate: "Повтор",
 };
 
 const CHANNEL_LABEL: Record<AppointmentChannel, string> = {
@@ -111,9 +111,24 @@ function qualityIssueText(image: ClinicalImage): string {
   return image.quality.issues.length > 0 ? image.quality.issues.join(", ") : "проверить качество";
 }
 
+function imageKindLabel(image: ClinicalImage): string {
+  switch (image.kind) {
+    case "overview":
+      return "Общий вид";
+    case "dermoscopy":
+      return "Дерматоскопия";
+    case "macro":
+      return "Крупный план";
+    case "body_map":
+      return "Карта тела";
+    default:
+      return "Снимок";
+  }
+}
+
 function patientLabel(patientId: string): string {
   const patient = getPatientById(patientId);
-  return patient ? `${patient.fullName} · ${patient.code}` : "Пациент";
+  return patient ? patient.fullName : "Пациент";
 }
 
 function buildPracticeData() {
@@ -186,11 +201,11 @@ function buildPracticeData() {
     }),
     ...openLeads.slice(0, 1).map((lead) => ({
       id: `lead-${lead.id}`,
-      title: "Лид ждёт решения",
+      title: "Заявка ждёт решения",
       detail: lead.patientId ? patientLabel(lead.patientId) : "Пациент ещё не привязан",
-      meta: `${LEAD_STATUS_LABEL[lead.status]} · источник скрыт безопасно`,
+      meta: `${LEAD_STATUS_LABEL[lead.status]} · канал скрыт`,
       to: "/admin/bot",
-      cta: "Открыть бот",
+      cta: "Разобрать заявку",
       tone: "info" as OpsTone,
       Icon: Users,
     })),
@@ -227,10 +242,10 @@ export default function PrivatePracticePage() {
         subtitle={`${PRIVATE_DOCTOR.fullName} · ${clinicName} · врачебная работа, запись, оплата и готовность кабинета`}
         actions={
           <div className="flex flex-wrap justify-end gap-2">
-            <Button asChild size="sm" className="min-h-[40px] text-[12px]">
+            <Button asChild size="sm" className="min-h-11 text-[12px] sm:min-h-10">
               <Link to="/cockpit">Рабочее место</Link>
             </Button>
-            <Button asChild size="sm" variant="secondary" className="min-h-[40px] text-[12px]">
+            <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-10">
               <Link to="/capture">Съёмка</Link>
             </Button>
           </div>
@@ -255,14 +270,14 @@ export default function PrivatePracticePage() {
           <MetricTile
             label="Пациенты практики"
             value={data.patientCount}
-            hint="в демо-контуре врача"
+            hint="в учебном режиме врача"
             tone="info"
             Icon={Users}
           />
           <MetricTile
             label="Рабочая очередь"
             value={data.queue.length}
-            hint="визиты, фото, отчёты, лиды"
+            hint="визиты, фото, отчёты, заявки"
             tone="warn"
             Icon={AlertTriangle}
           />
@@ -276,7 +291,7 @@ export default function PrivatePracticePage() {
           <MetricTile
             label="Оплата к сверке"
             value={data.paymentTodo}
-            hint="демо-счета и акты"
+            hint="учебные счета и акты"
             tone="muted"
             Icon={CreditCard}
           />
@@ -305,7 +320,7 @@ export default function PrivatePracticePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-          <SectionCard title="Финансы и оплата" hint="демо-оценка">
+          <SectionCard title="Финансы и оплата" hint="учебный расчёт">
             <div className="space-y-2 text-[12px]">
               <FinanceRow
                 label="Завершённые приёмы"
@@ -330,7 +345,7 @@ export default function PrivatePracticePage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Лиды и запись" hint={`${data.openLeads.length} активные`}>
+          <SectionCard title="Заявки на запись" hint={`${data.openLeads.length} в работе`}>
             <div className="grid grid-cols-2 gap-2">
               {(["new", "qualified", "booked", "lost"] as const).map((status) => (
                 <SmallMetric
@@ -379,7 +394,7 @@ export default function PrivatePracticePage() {
                             {visit ? patientLabel(visit.patientId) : "Фото визита"}
                           </div>
                           <div className="text-[11px] text-muted-foreground">
-                            {image.kind} · {qualityIssueText(image)}
+                            {imageKindLabel(image)} · {qualityIssueText(image)}
                           </div>
                         </div>
                         <StatusPill tone={image.quality.score >= QUALITY_THRESHOLD ? "muted" : "warn"}>
@@ -420,7 +435,7 @@ export default function PrivatePracticePage() {
               />
               <ReadinessItem
                 title="Интеграции"
-                detail="для MVP включён ручной режим кабинета"
+                detail="ручной режим кабинета включён"
                 tone="warn"
                 Icon={Plug}
               />

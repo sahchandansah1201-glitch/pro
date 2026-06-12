@@ -19,11 +19,11 @@ describe("PrivatePracticePage · Batch H private doctor practice center", () => 
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Центр частной практики" })).toBeInTheDocument();
-    expect(screen.getByText(/MVP: демо-данные частной практики/i)).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим: показаны рабочие очереди частного врача/i)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Рабочий день" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Очередь частной практики" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Финансы и оплата" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Лиды и запись" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Заявки на запись" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Качество фото" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Готовность кабинета" })).toBeInTheDocument();
 
@@ -64,6 +64,9 @@ describe("PrivatePracticePage · Batch H private doctor practice center", () => 
       expect(html, `forbidden token ${token}`).not.toContain(token);
     }
     expect(html).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+    expect(document.body.textContent).not.toMatch(
+      /MVP|демо|лид|Lead|raw ID|backend|self-hosted|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|dermoscopy|macro|overview|body_map|DP-2026-\d+/i,
+    );
   });
 
   it("is routed only to private doctors", () => {
