@@ -11,10 +11,10 @@ import { CLINICS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 /**
- * /bot-sim — симулятор Telegram-подобного бота для пред-триажа.
- * Локальная демонстрация воронки: фото → quality gate → безопасная
- * рекомендация → CTA. Без реального Telegram API, без загрузки файлов,
- * без сети, без записи данных, без PHI.
+ * /bot-sim — учебный помощник записи.
+ * Локальная учебная проверка: фото → проверка качества → безопасная
+ * подсказка → действие. Без реального мессенджера, без загрузки файлов,
+ * без сети, без записи данных, без персональных медицинских данных.
  */
 
 type Routing = "low" | "moderate" | "high" | "urgent";
@@ -93,7 +93,7 @@ type Bubble = {
 };
 
 const SAFETY_LINES = [
-  "Предварительная оценка не является диагнозом.",
+  "Предварительная сводка не является диагнозом.",
   "Окончательное решение принимает врач.",
   "При тревожных симптомах обратитесь в клинику очно.",
 ];
@@ -108,7 +108,7 @@ export default function BotSimPage() {
       id: "b-0",
       side: "bot",
       text:
-        "Здравствуйте. Я помогу подготовить фото образования для предварительной оценки. Это не диагноз.",
+        "Здравствуйте. Я помогу подготовить фото образования для предварительной сводки. Это не диагноз.",
     },
   ]);
 
@@ -131,11 +131,11 @@ export default function BotSimPage() {
   );
 
   function handleNewAnalysis() {
-    push({ side: "user", text: "Новый анализ" });
+    push({ side: "user", text: "Новое фото" });
     push({
       side: "bot",
       text:
-        "Хорошо. Сначала короткая инструкция по фото. Это нужно, чтобы оценка была корректной.",
+        "Хорошо. Сначала короткая инструкция по фото. Это нужно, чтобы проверка была понятной.",
     });
     setStep("instruction");
     setCtaStatus(null);
@@ -157,7 +157,7 @@ export default function BotSimPage() {
     push({
       side: "bot",
       text:
-        "Предварительная оценка помогает выбрать срочность визита. Это не диагноз. Окончательное решение принимает врач.",
+        "Предварительная сводка помогает выбрать срочность визита. Это не диагноз. Окончательное решение принимает врач.",
     });
   }
 
@@ -174,11 +174,11 @@ export default function BotSimPage() {
     const sc = SCENARIOS[scenarioIdx % SCENARIOS.length];
     setScenarioIdx((i) => i + 1);
     setScenario(sc);
-    push({ side: "user", text: "📷 [симулированное фото]" });
+    push({ side: "user", text: "Учебное фото" });
     push({
       side: "bot",
       text: sc.passed
-        ? `Фото принято. Оценка качества: ${(sc.score * 100).toFixed(0)}%.`
+        ? `Фото принято. Качество снимка: ${(sc.score * 100).toFixed(0)}%.`
         : `Фото не прошло проверку качества: ${sc.issues.join(", ")}.`,
     });
     setStep("quality");
@@ -189,7 +189,7 @@ export default function BotSimPage() {
     push({ side: "bot", text: scenario.safeSummary });
     push({
       side: "bot",
-      text: `Маршрут: ${ROUTING_LABEL[scenario.routing]}. Демо-ссылка анализа будет создана на этапе бэкенда.`,
+      text: `Следующий шаг: ${ROUTING_LABEL[scenario.routing]}. Данные остаются в учебном сценарии.`,
     });
     setStep("recommendation");
   }
@@ -200,7 +200,7 @@ export default function BotSimPage() {
       push({
         side: "bot",
         text:
-          "Для записи сначала пришлите фото — я подготовлю безопасную рекомендацию и маршрут.",
+          "Для записи сначала пришлите фото — я подготовлю безопасную подсказку и следующий шаг.",
       });
       setStep("instruction");
       return;
@@ -215,7 +215,7 @@ export default function BotSimPage() {
       return;
     }
     setCtaStatus(
-      "Демо: лид подготовлен для оператора. В следующем шаге откроется Mini App записи.",
+      "Учебная заявка подготовлена для оператора. Следующий шаг — форма записи.",
     );
     setStep("done");
   }
@@ -235,7 +235,7 @@ export default function BotSimPage() {
     }
     push({ side: "user", text: CTA_LABEL[scenario.cta] });
     setCtaStatus(
-      "Демо: лид подготовлен для оператора. В следующем шаге откроется Mini App записи.",
+      "Учебная заявка подготовлена для оператора. Следующий шаг — форма записи.",
     );
     setStep("done");
   }
@@ -253,11 +253,11 @@ export default function BotSimPage() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2">
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-medium">Дерматолог Про Bot</span>
-              <span className="text-[11px] text-muted-foreground">симуляция</span>
+              <span className="text-sm font-medium">Помощник записи</span>
+              <span className="text-[11px] text-muted-foreground">учебный сценарий</span>
             </div>
             <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-              demo
+              учебно
             </span>
           </div>
 
@@ -291,7 +291,7 @@ export default function BotSimPage() {
             {step === "quality" && scenario && (
               <Card className="space-y-1 p-3 text-[12px]">
                 <div className="font-medium">Проверка качества</div>
-                <div>Оценка: {(scenario.score * 100).toFixed(0)}%</div>
+                <div>Качество: {(scenario.score * 100).toFixed(0)}%</div>
                 <div>
                   Статус: {scenario.passed ? "пригодно" : "требуется повтор"}
                 </div>
@@ -304,25 +304,25 @@ export default function BotSimPage() {
                   style={{ minHeight: 44 }}
                   onClick={handleShowRecommendation}
                 >
-                  Показать рекомендацию
+                  Показать подсказку
                 </Button>
               </Card>
             )}
 
             {step === "recommendation" && scenario && (
               <Card className="space-y-2 p-3 text-[12px]">
-                <div className="font-medium">Безопасная рекомендация</div>
+                <div className="font-medium">Безопасная подсказка</div>
                 <div>Качество фото: {(scenario.score * 100).toFixed(0)}%</div>
                 {scenario.issues.length > 0 && (
                   <div>Замечания: {scenario.issues.join(", ")}</div>
                 )}
                 <div>{scenario.safeSummary}</div>
                 <div>
-                  <span className="text-muted-foreground">Маршрут: </span>
+                  <span className="text-muted-foreground">Следующий шаг: </span>
                   {ROUTING_LABEL[scenario.routing]}
                 </div>
                 <div className="text-muted-foreground">
-                  Демо-ссылка анализа будет создана на этапе бэкенда.
+                  Данные остаются в учебном сценарии. Это не медицинское заключение.
                 </div>
                 <Button
                   className="mt-1 w-full"
@@ -337,7 +337,7 @@ export default function BotSimPage() {
                   className="w-full"
                   style={{ minHeight: 44 }}
                 >
-                  <Link to="/bot-sim/miniapp/booking">Открыть Mini App записи</Link>
+                  <Link to="/bot-sim/miniapp/booking">Открыть форму записи</Link>
                 </Button>
               </Card>
             )}
@@ -364,7 +364,7 @@ export default function BotSimPage() {
                   style={{ minHeight: 44 }}
                   onClick={handleNewAnalysis}
                 >
-                  Новый анализ
+                  Новое фото
                 </Button>
                 <Button
                   size="sm"
@@ -405,7 +405,7 @@ export default function BotSimPage() {
                   style={{ minHeight: 44 }}
                   onClick={handleNewAnalysis}
                 >
-                  Новый анализ
+                  Новое фото
                 </Button>
                 <Button
                   size="sm"
@@ -425,7 +425,7 @@ export default function BotSimPage() {
                 style={{ minHeight: 44 }}
                 onClick={handleNewAnalysis}
               >
-                Новый
+                Новое
               </button>
               <button
                 type="button"
@@ -493,15 +493,15 @@ function DemoPanel({
         {step}
       </div>
       <div>
-        <span className="text-muted-foreground">Источник: </span>
-        telegram-sim
+        <span className="text-muted-foreground">Канал: </span>
+        учебный чат
       </div>
       <div>
-        <span className="text-muted-foreground">Маршрут риска: </span>
+        <span className="text-muted-foreground">Срочность: </span>
         {scenario ? ROUTING_LABEL[scenario.routing] : "—"}
       </div>
       <div>
-        <span className="text-muted-foreground">Лид (локально): </span>
+        <span className="text-muted-foreground">Заявка на запись: </span>
         {ctaStatus ? "подготовлен" : "не создан"}
       </div>
       <div>
@@ -510,7 +510,7 @@ function DemoPanel({
         <div className="text-muted-foreground">{recommendedClinic.address}</div>
       </div>
       <div className="rounded-md border border-border bg-muted/40 p-2 text-muted-foreground">
-        Данные не записываются. Это симуляция воронки.
+        Данные не записываются. Это учебная проверка сценария.
       </div>
     </div>
   );
@@ -519,7 +519,7 @@ function DemoPanel({
     <div className="lg:w-80">
       {/* Desktop */}
       <Card className="hidden p-3 lg:block">
-        <div className="mb-2 text-sm font-medium">Демо-статус</div>
+        <div className="mb-2 text-sm font-medium">Учебный статус</div>
         {content}
       </Card>
       {/* Mobile */}
@@ -527,7 +527,7 @@ function DemoPanel({
         <Collapsible>
           <CollapsibleTrigger asChild>
             <Button variant="outline" className="w-full" style={{ minHeight: 44 }}>
-              Демо-статус
+              Учебный статус
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2">

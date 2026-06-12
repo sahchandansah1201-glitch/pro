@@ -13,6 +13,40 @@ interface RouteRef {
   description: string;
 }
 
+const ROUTE_LABELS: Record<string, string> = {
+  "/desk": "Рабочий стол",
+  "/patients": "Пациенты",
+  "/patients/:id": "Карточка пациента",
+  "/patients/:id/visits/:visitId": "Рабочая область визита",
+  "/patients/:id/lesions/:lesionId": "Карточка образования",
+  "/capture": "Съёмка",
+  "/me": "Личный кабинет",
+  "/me/reports": "Заключения",
+  "/me/reports/:id": "Заключение",
+  "/me/booking": "Запись на приём",
+  "/me/reminders": "Напоминания",
+  "/bot-sim": "Помощник записи",
+  "/bot-sim/miniapp/booking": "Форма записи",
+  "/operator": "Очередь оператора",
+  "/operator/dialogs/:id": "Диалог с пользователем",
+  "/admin": "Операционный центр",
+  "/admin/doctors": "Врачи",
+  "/admin/services": "Услуги",
+  "/admin/clinics": "Клиники",
+  "/admin/integrations": "Интеграции",
+  "/admin/bot": "Помощник записи",
+  "/admin/analytics": "Аналитика",
+  "/admin/governance": "Управление доступом",
+  "/sys/users": "Пользователи",
+  "/sys/devices": "Устройства",
+  "/sys/audit": "Журнал событий",
+  "/sys/api-keys": "Ключи доступа",
+};
+
+function routeLabel(path: string) {
+  return ROUTE_LABELS[path] ?? path;
+}
+
 interface RoleRef {
   title: string;
   responsibilities: string;
@@ -25,47 +59,47 @@ const ROLES: RoleRef[] = [
   {
     title: "Врач / Ассистент",
     responsibilities:
-      "Ведение визита, документация образований, дерматоскопия, ABCD/7-point, итоговое заключение.",
+      "Ведение визита, документация образований, дерматоскопия, клинические шкалы, итоговое заключение.",
     routes: ["/desk", "/patients", "/capture"],
     safe: [
       "Документировать образования и снимки.",
-      "Использовать AI/XAI как поддержку решения.",
+      "Использовать автоматическую подсказку как помощь врачу.",
       "Формировать заключение и пациентский отчёт.",
     ],
     forbidden: [
-      "Передавать AI-вывод как окончательный диагноз.",
-      "Отправлять снимки во внешние мессенджеры/CRM.",
-      "Работать с реальными ПДн в демо-контуре.",
+      "Передавать автоматическую подсказку как окончательный диагноз.",
+      "Отправлять снимки во внешние мессенджеры или учётные системы.",
+      "Работать с реальными данными пациентов в учебном контуре.",
     ],
   },
   {
     title: "Администратор клиники",
     responsibilities:
-      "Доктора, услуги, расписание, маршрутизация, интеграции, бот-настройки, аналитика клиники.",
+      "Доктора, услуги, расписание, маршрутизация, интеграции, настройки помощника записи, аналитика клиники.",
     routes: ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/integrations", "/admin/bot", "/admin/analytics", "/admin/governance"],
     safe: [
       "Управлять докторами, услугами и расписанием.",
-      "Настраивать маршрутизацию лидов и тексты бота.",
+      "Настраивать маршрутизацию заявок и тексты помощника записи.",
       "Смотреть агрегированную аналитику клиники.",
     ],
     forbidden: [
       "Открывать клинические карточки и снимки.",
       "Менять врачебные заключения.",
-      "Выгружать медицинские данные в CRM/ERP.",
+      "Выгружать медицинские данные во внешние учётные системы.",
     ],
   },
   {
     title: "Оператор поддержки",
     responsibilities:
-      "Мониторинг диалогов бота, помощь с записью, эскалация в клинику. Не ставит диагноз.",
+      "Наблюдение за обращениями, помощь с записью, передача в клинику. Не ставит диагноз.",
     routes: ["/operator"],
     safe: [
-      "Помогать с записью и навигацией по боту.",
+      "Помогать с записью и навигацией по помощнику записи.",
       "Эскалировать сложные случаи в клинику.",
       "Отвечать в безопасных формулировках.",
     ],
     forbidden: [
-      "Интерпретировать снимки или AI-результат.",
+      "Интерпретировать снимки или автоматическую подсказку.",
       "Давать медицинские рекомендации.",
       "Запрашивать у пациента ПДн сверх необходимого.",
     ],
@@ -73,12 +107,12 @@ const ROLES: RoleRef[] = [
   {
     title: "Системный администратор",
     responsibilities:
-      "Пользователи и роли, устройства, аудит, API-ключи. Безопасность и конфигурация контура.",
+      "Пользователи и роли, устройства, журнал действий, ключи доступа. Безопасность и настройка контура.",
     routes: ["/sys/users", "/sys/devices", "/sys/audit", "/sys/api-keys"],
     safe: [
       "Назначать роли и управлять доступами.",
-      "Подключать устройства и API-ключи интеграций.",
-      "Просматривать журнал аудита.",
+      "Подключать устройства и ключи доступа для интеграций.",
+      "Просматривать журнал действий.",
     ],
     forbidden: [
       "Открывать клинические данные пациентов.",
@@ -89,16 +123,16 @@ const ROLES: RoleRef[] = [
   {
     title: "Пациент",
     responsibilities:
-      "Личный кабинет: безопасные заключения, запись, напоминания. Без врачебных деталей и AI-внутренностей.",
+      "Личный кабинет: безопасные заключения, запись, напоминания. Без врачебных деталей и технических деталей подсказки.",
     routes: ["/me", "/me/reports", "/me/booking", "/me/reminders"],
     safe: [
       "Смотреть пациент-безопасные заключения.",
       "Записываться на приём и принимать напоминания.",
-      "Загружать снимки только по запросу врача/бота.",
+      "Загружать снимки только по запросу врача или клиники.",
     ],
     forbidden: [
-      "Видеть AI/XAI-внутренности и врачебные пометки.",
-      "Получать диагноз от бота автоматически.",
+      "Видеть технические детали подсказки и врачебные пометки.",
+      "Получать диагноз от помощника записи автоматически.",
       "Делиться чужими медицинскими данными.",
     ],
   },
@@ -108,7 +142,7 @@ const CLINICAL: RouteRef[] = [
   { path: "/desk", description: "Очередь визитов и приоритеты дня." },
   { path: "/patients", description: "Список пациентов с фильтрами." },
   { path: "/patients/:id", description: "Карточка пациента: визиты, образования, история." },
-  { path: "/patients/:id/visits/:visitId", description: "Рабочая область визита: интейк, body map, снимки, оценка, заключение, отчёт." },
+  { path: "/patients/:id/visits/:visitId", description: "Рабочая область визита: анамнез, карта тела, снимки, оценка, заключение, отчёт." },
   { path: "/patients/:id/lesions/:lesionId", description: "Образование: хронология снимков и оценок." },
   { path: "/capture", description: "Захват снимков: телефон, файл, камера, дерматоскоп." },
 ];
@@ -122,10 +156,10 @@ const PATIENT: RouteRef[] = [
 ];
 
 const BOT: RouteRef[] = [
-  { path: "/bot-sim", description: "Симулятор Telegram-бота: воронка лида." },
-  { path: "/bot-sim/miniapp/booking", description: "Mini App для записи на приём." },
+  { path: "/bot-sim", description: "Учебный помощник записи: путь от фото к заявке." },
+  { path: "/bot-sim/miniapp/booking", description: "Форма записи на приём." },
   { path: "/operator", description: "Консоль оператора поддержки." },
-  { path: "/operator/dialogs/:id", description: "Диалог с пользователем бота." },
+  { path: "/operator/dialogs/:id", description: "Диалог с пользователем помощника записи." },
 ];
 
 const ADMIN_ROUTES: RouteRef[] = [
@@ -133,24 +167,24 @@ const ADMIN_ROUTES: RouteRef[] = [
   { path: "/admin/doctors", description: "Доктора и расписание." },
   { path: "/admin/services", description: "Услуги, тарифы, длительности." },
   { path: "/admin/clinics", description: "Клиники и филиалы." },
-  { path: "/admin/integrations", description: "CRM/ERP/мессенджер-интеграции." },
-  { path: "/admin/bot", description: "Настройки бота, тексты, маршрутизация." },
+  { path: "/admin/integrations", description: "Внешние учётные системы и мессенджеры." },
+  { path: "/admin/bot", description: "Настройки помощника записи, тексты, маршрутизация." },
   { path: "/admin/analytics", description: "Аналитика клиники." },
-  { path: "/admin/governance", description: "Политики доступа, сессии, retention-согласования, журнал решений." },
+  { path: "/admin/governance", description: "Правила доступа, сеансы пациента, сроки хранения, журнал решений." },
 ];
 
 const SYS_ROUTES: RouteRef[] = [
   { path: "/sys/users", description: "Пользователи и назначения ролей." },
-  { path: "/sys/devices", description: "Дерматоскопы, Device Bridge, локальная передача." },
+  { path: "/sys/devices", description: "Дерматоскопы, локальная связь устройства, локальная передача." },
   { path: "/sys/audit", description: "Журнал событий и доступа." },
-  { path: "/sys/api-keys", description: "API-ключи интеграций." },
+  { path: "/sys/api-keys", description: "Ключи доступа интеграций." },
 ];
 
 const DATA_POLICY = [
-  "Никаких медицинских персональных данных в CRM/ERP/мессенджеры.",
+  "Никаких медицинских персональных данных во внешние учётные системы и мессенджеры.",
   "Снимки не передаются во внешние системы — только защищённые ссылки.",
-  "В CRM не уходит диагноз: только статус лида и факт записи.",
-  "Внутренности AI/XAI остаются в клинической рабочей области.",
+  "Во внешнюю учётную систему не уходит диагноз: только статус заявки и факт записи.",
+  "Технические детали автоматической подсказки остаются в клинической рабочей области.",
   "Пациентское заключение и клиническая карточка анализа — разные документы.",
   "Защищённые ссылки на анализ отделены от врачебных отчётов.",
 ];
@@ -162,9 +196,9 @@ function RouteList({ items }: { items: RouteRef[] }) {
         <li key={r.path} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-baseline sm:gap-3">
           <Link
             to={r.path.replace(/:[^/]+/g, "—")}
-            className="inline-flex min-h-[44px] items-center font-mono text-[12px] text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-0"
+            className="inline-flex min-h-[44px] items-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-0"
           >
-            {r.path}
+            {routeLabel(r.path)}
           </Link>
           <span className="text-[12px] text-muted-foreground">{r.description}</span>
         </li>
@@ -190,14 +224,18 @@ const ANCHORS = [
   { id: "roles", label: "Роли" },
   { id: "clinical", label: "Клинический поток" },
   { id: "patient", label: "Пациентский поток" },
-  { id: "bot", label: "Бот и запись" },
+  { id: "bot", label: "Помощник записи" },
   { id: "admin", label: "Администрирование" },
   { id: "sys", label: "Системный контур" },
-  { id: "policy", label: "Политика данных" },
+  { id: "policy", label: "Правила данных" },
 ] as const;
 
 function matchRoute(r: RouteRef, q: string) {
-  return r.path.toLowerCase().includes(q) || r.description.toLowerCase().includes(q);
+  return (
+    r.path.toLowerCase().includes(q) ||
+    routeLabel(r.path).toLowerCase().includes(q) ||
+    r.description.toLowerCase().includes(q)
+  );
 }
 
 function matchRole(r: RoleRef, q: string) {
@@ -249,7 +287,7 @@ export default function HelpPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Справка" subtitle="Роли, маршруты и ограничения MVP" />
+      <PageHeader title="Справка" subtitle="Роли, маршруты и границы текущей версии" />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div
@@ -270,9 +308,9 @@ export default function HelpPage() {
                 onClick={() => setBannerOpen((v) => !v)}
                 aria-expanded={bannerOpen}
                 aria-controls="safety-banner-body"
-                className="flex min-h-[32px] w-full items-center justify-between gap-2 text-left font-medium focus:outline-none focus-visible:underline"
+                className="flex min-h-11 w-full items-center justify-between gap-2 text-left font-medium focus:outline-none focus-visible:underline"
               >
-                <span>Безопасность и границы MVP</span>
+                <span>Безопасность и границы текущей версии</span>
                 {bannerOpen ? (
                   <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
                 ) : (
@@ -281,9 +319,9 @@ export default function HelpPage() {
               </button>
               {bannerOpen && (
                 <ul id="safety-banner-body" className="mt-1 space-y-1">
-                  <li>RoleGuard — это UX-симуляция, а не реальная граница безопасности.</li>
-                  <li>Не используйте реальные данные пациентов в демо-контуре.</li>
-                  <li>AI — только поддержка принятия решений, не диагноз.</li>
+                  <li>Проверка доступа на экране — учебная, а не реальная граница безопасности.</li>
+                  <li>Не используйте реальные данные пациентов в учебном контуре.</li>
+                  <li>Автоматическая подсказка — только помощь врачу, не диагноз.</li>
                   <li>Финальное медицинское решение принимает врач.</li>
                 </ul>
               )}
@@ -297,7 +335,7 @@ export default function HelpPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по ролям и маршрутам, например: визит, /admin, оператор"
+            placeholder="Поиск по ролям и разделам, например: визит, запись, оператор"
             aria-label="Поиск по разделам справки"
             className="h-11 pl-9 pr-20 text-[13px]"
           />
@@ -346,7 +384,7 @@ export default function HelpPage() {
                   e.preventDefault();
                   document.getElementById(a.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
-                className={`inline-flex min-h-[32px] items-center rounded-md border px-2.5 text-[12px] transition-colors ${
+                className={`inline-flex min-h-11 items-center rounded-md border px-2.5 text-[12px] transition-colors ${
                   available
                     ? "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                     : "pointer-events-none border-dashed border-border/60 text-muted-foreground/60"
@@ -372,8 +410,8 @@ export default function HelpPage() {
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-[13px] font-medium">{r.title}</span>
                     {r.routes.map((p) => (
-                      <Badge key={p} variant="outline" className="font-mono text-[11px]">
-                        {p}
+                      <Badge key={p} variant="outline" className="text-[11px]">
+                        {routeLabel(p)}
                       </Badge>
                     ))}
                   </div>
@@ -443,7 +481,7 @@ export default function HelpPage() {
         )}
 
         {filtered.bot.length > 0 && (
-          <Section id="bot" icon={Bot} title="Бот и запись">
+          <Section id="bot" icon={Bot} title="Помощник записи">
             <RouteList items={filtered.bot} />
           </Section>
         )}
@@ -461,7 +499,7 @@ export default function HelpPage() {
         )}
 
         {!isSearching && (
-          <Section id="policy" icon={Lock} title="Политика данных">
+          <Section id="policy" icon={Lock} title="Правила данных">
             <ul className="space-y-1.5 text-[12px]">
               {DATA_POLICY.map((p) => (
                 <li key={p} className="flex items-start gap-2">
@@ -471,7 +509,7 @@ export default function HelpPage() {
               ))}
             </ul>
             <p className="mt-3 text-[11px] italic text-muted-foreground">
-              Демо-контур: данные мок, интеграции и сетевые вызовы отсутствуют. На бэкенд-этапе политика будет реализована технически: разделение хранилищ, маскирование, аудит, протоколирование доступа.
+              Учебный контур: данные условные, интеграции и сетевые вызовы отсутствуют. В рабочем контуре это закрывается технически: разделением хранилищ, маскированием, журналом действий и протоколированием доступа.
             </p>
           </Section>
         )}

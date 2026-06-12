@@ -26,6 +26,9 @@ const NETWORK_TOKENS = [
   j("navigator", ".", "clipboard"), j("media", "Devices"), j("local", "Storage"), j("session", "Storage"),
 ];
 
+const FORBIDDEN_VISIBLE =
+  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|Telegram|CRM|ERP|RoleGuard|raw ID)\b|демо|бэкенд|лид/i;
+
 const renderHelp = () =>
   render(
     <MemoryRouter initialEntries={["/help"]}>
@@ -40,8 +43,8 @@ describe("HelpPage", () => {
   it("рендерит заголовок и баннер безопасности", () => {
     renderHelp();
     expect(screen.getByText("Справка")).toBeInTheDocument();
-    expect(screen.getByText(/RoleGuard.+UX-симуляция/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI.+поддержка/i)).toBeInTheDocument();
+    expect(screen.getByText(/Проверка доступа на экране.+учебная/i)).toBeInTheDocument();
+    expect(screen.getByText(/Автоматическая подсказка.+не диагноз/i)).toBeInTheDocument();
     expect(screen.getByText(/Финальное медицинское решение/i)).toBeInTheDocument();
   });
 
@@ -74,6 +77,7 @@ describe("HelpPage", () => {
     for (const t of FORBIDDEN) {
       expect(html, `forbidden token ${t}`).not.toContain(t);
     }
+    expect(container.textContent ?? "").not.toMatch(FORBIDDEN_VISIBLE);
   });
 
   it("исходный код HelpPage и App.tsx не содержат сетевых API и запрещённых токенов", () => {

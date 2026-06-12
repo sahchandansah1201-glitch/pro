@@ -27,6 +27,9 @@ const FORBIDDEN = [
   j("external", "User", "Ref"),
 ];
 
+const FORBIDDEN_VISIBLE =
+  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Mini App|Telegram|Lead ID|lead|quality gate|CTA)\b|демо|бэкенд|лид/i;
+
 const renderPage = () =>
   render(
     <MemoryRouter>
@@ -37,19 +40,21 @@ const renderPage = () =>
 describe("BotSimPage", () => {
   it("рендерит симулятор и стартовое сообщение бота", () => {
     const { container } = renderPage();
-    expect(screen.getByText(/Дерматолог Про Bot/)).toBeInTheDocument();
+    expect(screen.getByText(/Помощник записи/)).toBeInTheDocument();
     expect(screen.getByText(/помогу подготовить фото/)).toBeInTheDocument();
     for (const t of FORBIDDEN) expect(container.innerHTML).not.toContain(t);
+    expect(container.textContent ?? "").not.toMatch(FORBIDDEN_VISIBLE);
   });
 
-  it("проводит локальный сценарий: Новый анализ → инструкция → фото → рекомендация", () => {
+  it("проводит локальный сценарий: новое фото → инструкция → фото → подсказка", () => {
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: /Новый анализ/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Новое фото/ })[0]);
     fireEvent.click(
       screen.getByRole("button", { name: /Сымитировать отправку фото/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Показать рекомендацию/ }));
-    expect(screen.getByText(/Безопасная рекомендация/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Показать подсказку/ }));
+    expect(screen.getByText(/Безопасная подсказка/)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(FORBIDDEN_VISIBLE);
   });
 
   it("не мутирует глобальные mock-данные", () => {
@@ -57,7 +62,7 @@ describe("BotSimPage", () => {
     const beforeLeads = getLeads().length;
     const beforeCards = ANALYSIS_CARDS.length;
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: /Новый анализ/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Новое фото/ })[0]);
     fireEvent.click(
       screen.getByRole("button", { name: /Сымитировать отправку фото/ }),
     );
