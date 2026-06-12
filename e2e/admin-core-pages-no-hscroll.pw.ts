@@ -14,7 +14,15 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
-const ROUTES = ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/governance"] as const;
+const ROUTES = [
+  "/admin",
+  "/admin/doctors",
+  "/admin/services",
+  "/admin/clinics",
+  "/admin/integrations",
+  "/admin/integrations/crm/int-005",
+  "/admin/governance",
+] as const;
 
 const SIZES = [
   { name: "mobile-375", width: 375, height: 812 },

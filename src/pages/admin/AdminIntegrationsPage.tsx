@@ -10,8 +10,8 @@ import type { IntegrationKind, IntegrationStatus } from "@/lib/domain";
 
 const KIND_FILTERS: { value: "all" | IntegrationKind; label: string }[] = [
   { value: "all", label: "Все" },
-  { value: "crm", label: "CRM" },
-  { value: "erp", label: "ERP" },
+  { value: "crm", label: "Клиентская база" },
+  { value: "erp", label: "Учёт" },
   { value: "mis", label: "МИС" },
   { value: "messenger", label: "Мессенджеры" },
   { value: "telephony", label: "Телефония" },
@@ -26,8 +26,8 @@ const STATUS_FILTERS: { value: "all" | IntegrationStatus; label: string }[] = [
 ];
 
 const KIND_LABEL: Record<IntegrationKind, string> = {
-  crm: "CRM",
-  erp: "ERP",
+  crm: "Клиентская база",
+  erp: "Учёт",
   mis: "МИС",
   messenger: "Мессенджер",
   telephony: "Телефония",
@@ -45,6 +45,15 @@ const STATUS_DOT: Record<IntegrationStatus, string> = {
   draft: "bg-muted-foreground",
   disabled: "bg-muted-foreground/60",
   error: "bg-destructive",
+};
+
+const providerLabel = (provider: string) => {
+  if (provider === "Bitrix24") return "Битрикс24";
+  if (provider === "amoCRM") return "Амо";
+  if (provider === "1С: Медицина") return "1С: Медицина";
+  if (provider === "Telegram Bot API") return "Телеграм";
+  if (provider === "Demo MIS") return "Учебная медсистема";
+  return provider;
 };
 
 export default function AdminIntegrationsPage() {
@@ -70,7 +79,18 @@ export default function AdminIntegrationsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Интеграции" subtitle="CRM · ERP · МИС · мессенджеры · телефония" />
+      <PageHeader
+        title="Интеграции"
+        subtitle={
+          <span className="flex flex-wrap gap-x-3 gap-y-1">
+            <span>Клиентская база</span>
+            <span>учёт</span>
+            <span>МИС</span>
+            <span>мессенджеры</span>
+            <span>телефония</span>
+          </span>
+        }
+      />
       <div className="space-y-4 p-4">
         <div
           role="status"
@@ -82,7 +102,7 @@ export default function AdminIntegrationsPage() {
           }}
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>MVP: внешние вызовы отключены. Фото, диагнозы, AI/XAI и PHI не отправляются.</span>
+          <span>Учебный режим: внешние системы не получают фото, клинические выводы и персональные данные.</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -118,14 +138,14 @@ export default function AdminIntegrationsPage() {
                 <th className="px-3 py-2 font-medium">Тип</th>
                 <th className="px-3 py-2 font-medium">Статус</th>
                 <th className="px-3 py-2 font-medium">Последняя синхронизация</th>
-                <th className="px-3 py-2 font-medium">Политика данных</th>
+                <th className="px-3 py-2 font-medium">Передача данных</th>
                 <th className="px-3 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((i) => (
                 <tr key={i.id} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{i.provider}</td>
+                  <td className="px-3 py-2 font-medium">{providerLabel(i.provider)}</td>
                   <td className="px-3 py-2">{KIND_LABEL[i.kind]}</td>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5">
@@ -136,10 +156,10 @@ export default function AdminIntegrationsPage() {
                   <td className="px-3 py-2 text-muted-foreground">
                     {i.lastSyncAt ? formatDateTime(i.lastSyncAt) : "нет синхронизации"}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground">safeSummary + protectedLink only</td>
+                  <td className="px-3 py-2 text-muted-foreground">Краткое резюме и защищённая ссылка</td>
                   <td className="px-3 py-2 text-right">
-                    <Link to={`/admin/integrations/crm/${i.id}`}>
-                      <Button size="sm" variant="outline">Открыть</Button>
+                    <Link to={`/admin/integrations/crm/${i.id}`} className="inline-flex min-h-11 items-center">
+                      <Button size="sm" variant="outline" className="min-h-11">Открыть</Button>
                     </Link>
                   </td>
                 </tr>
@@ -159,7 +179,7 @@ export default function AdminIntegrationsPage() {
             <Card key={i.id} className="p-3 text-[13px]">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-medium">{i.provider}</div>
+                  <div className="font-medium">{providerLabel(i.provider)}</div>
                   <div className="text-[12px] text-muted-foreground">{KIND_LABEL[i.kind]}</div>
                 </div>
                 <span className="inline-flex items-center gap-1.5 text-[12px]">
@@ -170,9 +190,9 @@ export default function AdminIntegrationsPage() {
               <div className="mt-2 text-[12px] text-muted-foreground">
                 {i.lastSyncAt ? formatDateTime(i.lastSyncAt) : "нет синхронизации"}
               </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">safeSummary + protectedLink only</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">Краткое резюме и защищённая ссылка</div>
               <div className="mt-3">
-                <Link to={`/admin/integrations/crm/${i.id}`}>
+                <Link to={`/admin/integrations/crm/${i.id}`} className="block min-h-11">
                   <Button size="sm" variant="outline" className="min-h-11 w-full">Открыть</Button>
                 </Link>
               </div>
@@ -217,7 +237,7 @@ function FilterBtn({
   return (
     <button
       onClick={onClick}
-      className={`rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
+      className={`min-h-11 rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
         active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:bg-muted"
       }`}
     >

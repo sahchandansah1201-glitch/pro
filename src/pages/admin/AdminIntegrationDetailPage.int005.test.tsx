@@ -8,7 +8,7 @@ import { getIntegrations } from "@/lib/mock-data";
  * Контракт безопасности admin UI для /admin/integrations/crm/int-005:
  *   - страница не содержит токен `externalUserRef` ни в тексте, ни в
  *     атрибутах (title/aria-label/alt и пр.) — он запрещён политикой
- *     данных MVP;
+ *     данных учебного режима;
  *   - при этом безопасный маппинг `channel → chat_type` отображается
  *     корректно как разрешённая строка.
  */
@@ -48,27 +48,26 @@ describe("AdminIntegrationDetailPage — int-005 messenger integration", () => {
     }
   });
 
-  it("безопасный маппинг channel → chat_type отображается как разрешённый", () => {
-    const { container, getAllByText } = renderInt005();
+  it("безопасная связь канала отображается русскими названиями", () => {
+    const { container, getAllByText, getByText } = renderInt005();
 
-    // Левая часть строки маппинга: наше поле `channel` (в <code>).
-    const codes = Array.from(container.querySelectorAll("code")).map(
-      (c) => c.textContent,
-    );
-    expect(codes).toContain("channel");
-    expect(codes).toContain("chat_type");
+    expect(container.querySelectorAll("code")).toHaveLength(0);
+    expect(getByText("Канал связи")).toBeTruthy();
+    expect(getByText("Тип диалога")).toBeTruthy();
 
     // Подпись «разрешено» присутствует хотя бы один раз.
     expect(getAllByText("разрешено").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("заблокированные категории (фото, диагноз, AI/XAI, идентификаторы пациента) показаны как закрытые", () => {
-    const { getAllByText, getByText } = renderInt005();
+  it("заблокированные категории показаны русскими названиями без технических сокращений", () => {
+    const { container, getAllByText, getByText } = renderInt005();
+    const visible = container.textContent ?? "";
     expect(getByText("Идентификаторы пациента")).toBeTruthy();
     expect(getByText("Фото")).toBeTruthy();
     expect(getByText("Клиническое решение")).toBeTruthy();
-    expect(getByText("AI / XAI детали")).toBeTruthy();
+    expect(getByText("Технические детали подсказки")).toBeTruthy();
     // «закрыто» встречается несколько раз — по одному на каждую категорию.
     expect(getAllByText("закрыто").length).toBeGreaterThanOrEqual(4);
+    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|DryRun|JSON|Report|AnalysisCard|safeSummary|protectedLink|Telegram Bot API/i);
   });
 });

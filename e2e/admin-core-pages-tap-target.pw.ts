@@ -15,7 +15,15 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
-const ROUTES = ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/governance"] as const;
+const ROUTES = [
+  "/admin",
+  "/admin/doctors",
+  "/admin/services",
+  "/admin/clinics",
+  "/admin/integrations",
+  "/admin/integrations/crm/int-005",
+  "/admin/governance",
+] as const;
 const MIN_TAP = 44;
 
 test.describe("Admin core pages — tap target ≥ 44px @ 390x844", () => {

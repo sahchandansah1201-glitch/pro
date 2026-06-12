@@ -7,6 +7,7 @@ import AdminServicesPage from "./AdminServicesPage";
 import AdminClinicsPage from "./AdminClinicsPage";
 import AdminBotSettingsPage from "./AdminBotSettingsPage";
 import AdminGovernancePage from "./AdminGovernancePage";
+import AdminIntegrationsPage from "./AdminIntegrationsPage";
 
 const FORBIDDEN = [
   "birthDate",
@@ -151,6 +152,20 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(visible).not.toMatch(
       /self-hosted|backend|metadata-only|raw id|file proxy|production|credential|hash|fingerprint|session id|demo|unsafe/i,
     );
+  });
+
+  it("AdminIntegrationsPage uses native Russian admin copy without technical transfer terms", () => {
+    const { container } = renderRouted(<AdminIntegrationsPage />);
+    const visible = container.textContent ?? "";
+
+    expect(screen.getByRole("heading", { name: "Интеграции" })).toBeInTheDocument();
+    expect(screen.getAllByText("Клиентская база").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("учёт").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("МИС").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Учебный режим: внешние системы не получают фото/)).toBeInTheDocument();
+    expect(screen.getAllByText("Краткое резюме и защищённая ссылка").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Клиентская база" })).toBeInTheDocument();
+    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|safeSummary|protectedLink|DryRun|JSON|Telegram Bot API|Demo MIS/i);
   });
 
   it("AdminBotSettingsPage keeps bot control safe and hides raw bot internals", () => {
