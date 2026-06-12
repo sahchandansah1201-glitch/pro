@@ -460,7 +460,7 @@ function ProductionWorkspaceState({ title, text }: { title: string; text: string
     <div className="flex h-full flex-col">
       <PageHeader title={title} subtitle={text} />
       <div className="p-4">
-        <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+        <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
           <Link to="/self-hosted/login">К входу в систему клиники</Link>
         </Button>
       </div>
@@ -1867,10 +1867,10 @@ function ProductionClinicalWorkspacePanel({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" className="h-8 text-[12px]" onClick={save} disabled={saving}>
+          <Button type="button" size="sm" className="min-h-11 text-[12px]" onClick={save} disabled={saving}>
             {saving ? "Сохраняем…" : "Сохранить в системе клиники"}
           </Button>
-          <Button type="button" size="sm" variant="secondary" className="h-8 text-[12px]" onClick={load} disabled={saving}>
+          <Button type="button" size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={load} disabled={saving}>
             Обновить
           </Button>
           <span role="status" aria-live="polite" className="text-[12px] text-muted-foreground">
@@ -2668,21 +2668,21 @@ function LongitudinalDatasetValidationPanel({
       label: "Правила",
       done: sop.status === "ready_for_operational_rollout",
       statusLabel: timelineRolloutSopStatusLabel(sop.status),
-      nextActionLabel: "Закрыть Правила",
+      nextActionLabel: "Закрыть правила",
     },
     {
       key: "monitoring",
-      label: "Мониторинг",
+      label: "Наблюдение",
       done: monitoring.status === "ready_for_production_rollout",
       statusLabel: timelineRolloutMonitoringStatusLabel(monitoring.status),
-      nextActionLabel: "Подтвердить мониторинг",
+      nextActionLabel: "Подтвердить наблюдение",
     },
     {
       key: "clinical",
-      label: "Валидация",
+      label: "Проверка",
       done: longitudinalClinicalValidation.status === "ready_for_longitudinal_clinical_validation",
       statusLabel: timelineRolloutLongitudinalClinicalValidationStatusLabel(longitudinalClinicalValidation.status),
-      nextActionLabel: "Проверить валидацию",
+      nextActionLabel: "Проверить историю",
     },
     {
       key: "protected-review",
@@ -2693,14 +2693,14 @@ function LongitudinalDatasetValidationPanel({
     },
     {
       key: "production-dataset",
-      label: "Раб. данные",
+      label: "Рабочие данные",
       done: productionDatasetEvidence.status === "ready_for_production_dataset_evidence",
       statusLabel: timelineRolloutProductionDatasetEvidenceStatusLabel(productionDatasetEvidence.status),
       nextActionLabel: "Проверить рабочие данные",
     },
     {
       key: "production-review",
-      label: "Раб. проверка",
+      label: "Рабочая проверка",
       done: productionReviewerEvidence.status === "ready_for_production_reviewer_evidence",
       statusLabel: timelineRolloutProductionReviewerEvidenceStatusLabel(productionReviewerEvidence.status),
       nextActionLabel: "Закрыть рабочую проверку",
@@ -2743,7 +2743,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-12">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -2809,7 +2809,7 @@ function LongitudinalDatasetValidationPanel({
             <span className="rounded-sm border border-border bg-surface px-2 py-1 text-[12px] font-medium">
               Прогресс проверки: {completedTimelineQaSteps}/{timelineQaSteps.length}
             </span>
-            <Button asChild size="sm" className="h-8 text-[12px]">
+            <Button asChild size="sm" className="min-h-11 text-[12px]">
               <a href={primaryActionHref}>{primaryActionLabel}</a>
             </Button>
           </div>
@@ -2841,7 +2841,7 @@ function LongitudinalDatasetValidationPanel({
       <TimelineQaGroupNav />
       <TimelineQaGroupHeader
         title="Данные и запуск"
-        hint="Сначала закрываются blockers по очагам, затем фиксируется контроль запуска."
+        hint="Сначала закрываются препятствия по очагам, затем фиксируется контроль запуска."
       />
       <div
         id="timeline-rollout-details"
@@ -2880,7 +2880,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={saving || !rolloutReady}
             onClick={() => onReviewRollout("approved_for_clinical_operations")}
           >
@@ -2890,7 +2890,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={saving}
             onClick={() => onReviewRollout("review_required")}
           >
@@ -2919,7 +2919,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutSopStatusLabel(sop.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Dataset" value={timelineRolloutSopChecklistLabel(sop.datasetValidationStatus)} />
           <Field term="Reviewer" value={timelineRolloutSopChecklistLabel(sop.reviewerOperationsStatus)} />
           <Field term="Rollback" value={timelineRolloutSopChecklistLabel(sop.rollbackPlanStatus)} />
@@ -2941,7 +2941,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={sopSaving}
             onClick={() => onReviewSop("in_review")}
           >
@@ -2950,7 +2950,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={sopSaving || !sopPrerequisitesReady}
             onClick={() => onReviewSop("ready_for_operational_rollout")}
           >
@@ -2980,7 +2980,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutEvidenceStatusLabel(evidence.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Monitoring" value={timelineRolloutSopChecklistLabel(evidence.monitoringEvidenceStatus)} />
           <Field term="Sample" value={timelineRolloutSopChecklistLabel(evidence.sampleAuditStatus)} />
           <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(evidence.exceptionLogStatus)} />
@@ -3005,7 +3005,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={evidenceSaving}
             onClick={() => onReviewEvidence("in_review")}
           >
@@ -3014,7 +3014,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={evidenceSaving || !evidencePrerequisitesReady}
             onClick={() => onReviewEvidence("ready_for_monitored_rollout")}
           >
@@ -3044,7 +3044,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutMonitoringStatusLabel(monitoring.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Outcome" value={timelineRolloutSopChecklistLabel(monitoring.outcomeSamplingStatus)} />
           <Field term="Incidents" value={timelineRolloutSopChecklistLabel(monitoring.incidentReviewStatus)} />
           <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(monitoring.exceptionClosureStatus)} />
@@ -3071,7 +3071,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={monitoringSaving}
             onClick={() => onReviewMonitoring("in_review")}
           >
@@ -3080,7 +3080,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={monitoringSaving || !monitoringPrerequisitesReady}
             onClick={() => onReviewMonitoring("ready_for_production_rollout")}
           >
@@ -3110,7 +3110,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutIncidentProcedureStatusLabel(incidentProcedure.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Dataset" value={timelineRolloutSopChecklistLabel(incidentProcedure.realDatasetStatus)} />
           <Field
             term="Outcome Правила"
@@ -3141,7 +3141,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={incidentProcedureSaving}
             onClick={() => onReviewIncidentProcedure("in_review")}
           >
@@ -3150,7 +3150,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={incidentProcedureSaving || !incidentProcedurePrerequisitesReady}
             onClick={() => onReviewIncidentProcedure("ready_for_clinic_monitoring")}
           >
@@ -3175,7 +3175,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutClinicalValidationStatusLabel(clinicalValidation.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Dataset lock" value={timelineRolloutSopChecklistLabel(clinicalValidation.realDatasetLockStatus)} />
           <Field term="Validators" value={timelineRolloutSopChecklistLabel(clinicalValidation.validatorTrainingStatus)} />
           <Field term="Blinded" value={timelineRolloutSopChecklistLabel(clinicalValidation.blindedSampleStatus)} />
@@ -3203,7 +3203,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={clinicalValidationSaving}
             onClick={() => onReviewClinicalValidation("in_review")}
           >
@@ -3212,7 +3212,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={clinicalValidationSaving || !clinicalValidationPrerequisitesReady}
             onClick={() => onReviewClinicalValidation("ready_for_clinical_validation")}
           >
@@ -3237,7 +3237,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutPostValidationMonitoringStatusLabel(postValidationMonitoring.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Window" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.monitoringWindowStatus)} />
           <Field term="Outcomes" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.outcomeReviewStatus)} />
           <Field term="Drift" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.driftReviewStatus)} />
@@ -3265,7 +3265,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={postValidationMonitoringSaving}
             onClick={() => onReviewPostValidationMonitoring("in_review")}
           >
@@ -3274,7 +3274,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={postValidationMonitoringSaving || !postValidationMonitoringPrerequisitesReady}
             onClick={() => onReviewPostValidationMonitoring("ready_for_post_validation_monitoring")}
           >
@@ -3299,7 +3299,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutObservationGovernanceStatusLabel(observationGovernance.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Window" value={timelineRolloutSopChecklistLabel(observationGovernance.observationWindowStatus)} />
           <Field term="Outcomes" value={timelineRolloutSopChecklistLabel(observationGovernance.outcomeObservationStatus)} />
           <Field term="Drift" value={timelineRolloutSopChecklistLabel(observationGovernance.driftSignalReviewStatus)} />
@@ -3333,7 +3333,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={observationGovernanceSaving}
             onClick={() => onReviewObservationGovernance("in_review")}
           >
@@ -3342,7 +3342,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={observationGovernanceSaving || !observationGovernancePrerequisitesReady}
             onClick={() => onReviewObservationGovernance("ready_for_observation_governance")}
           >
@@ -3367,7 +3367,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutExceptionGovernanceStatusLabel(exceptionGovernance.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Register" value={timelineRolloutSopChecklistLabel(exceptionGovernance.exceptionRegisterStatus)} />
           <Field term="SLA" value={timelineRolloutSopChecklistLabel(exceptionGovernance.triageSlaStatus)} />
           <Field term="Evidence" value={timelineRolloutSopChecklistLabel(exceptionGovernance.resolutionEvidenceStatus)} />
@@ -3398,7 +3398,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={exceptionGovernanceSaving}
             onClick={() => onReviewExceptionGovernance("in_review")}
           >
@@ -3407,7 +3407,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={exceptionGovernanceSaving || !exceptionGovernancePrerequisitesReady}
             onClick={() => onReviewExceptionGovernance("ready_for_exception_governance")}
           >
@@ -3432,7 +3432,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutOutcomeGovernanceStatusLabel(outcomeGovernance.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Window" value={timelineRolloutSopChecklistLabel(outcomeGovernance.longitudinalWindowStatus)} />
           <Field term="Coverage" value={timelineRolloutSopChecklistLabel(outcomeGovernance.realDatasetCoverageStatus)} />
           <Field
@@ -3468,7 +3468,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={outcomeGovernanceSaving}
             onClick={() => onReviewOutcomeGovernance("in_review")}
           >
@@ -3477,7 +3477,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={outcomeGovernanceSaving || !outcomeGovernancePrerequisitesReady}
             onClick={() => onReviewOutcomeGovernance("ready_for_outcome_governance")}
           >
@@ -3502,7 +3502,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutLongitudinalClinicalValidationStatusLabel(longitudinalClinicalValidation.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Window" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.outcomeWindowStatus)} />
           <Field term="Coverage" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.clinicianCoverageStatus)} />
           <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(longitudinalClinicalValidation.adjudicationStatus)} />
@@ -3533,7 +3533,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={longitudinalClinicalValidationSaving}
             onClick={() => onReviewLongitudinalClinicalValidation("in_review")}
           >
@@ -3542,7 +3542,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={longitudinalClinicalValidationSaving || !longitudinalClinicalValidationPrerequisitesReady}
             onClick={() => onReviewLongitudinalClinicalValidation("ready_for_longitudinal_clinical_validation")}
           >
@@ -3567,7 +3567,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProtectedReviewerValidationStatusLabel(protectedReviewerValidation.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Assets" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedAssetWindowStatus)} />
           <Field term="Render" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.protectedRenderStatus)} />
           <Field term="Assign" value={timelineRolloutSopChecklistLabel(protectedReviewerValidation.reviewerAssignmentStatus)} />
@@ -3598,7 +3598,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerValidationSaving}
             onClick={() => onReviewProtectedReviewerValidation("in_review")}
           >
@@ -3607,7 +3607,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerValidationSaving || !protectedReviewerValidationPrerequisitesReady}
             onClick={() => onReviewProtectedReviewerValidation("ready_for_protected_reviewer_validation")}
           >
@@ -3632,7 +3632,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProtectedReviewerGovernanceStatusLabel(protectedReviewerGovernance.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Monitor" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerMonitoringStatus)} />
           <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerExceptionStatus)} />
           <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerGovernance.reviewerAdjudicationStatus)} />
@@ -3664,7 +3664,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerGovernanceSaving}
             onClick={() => onReviewProtectedReviewerGovernance("in_review")}
           >
@@ -3673,7 +3673,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerGovernanceSaving || !protectedReviewerGovernancePrerequisitesReady}
             onClick={() => onReviewProtectedReviewerGovernance("ready_for_protected_reviewer_governance")}
           >
@@ -3698,7 +3698,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProtectedReviewerEvidenceStatusLabel(protectedReviewerEvidence.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Monitor" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerMonitoringEvidenceStatus)} />
           <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerExceptionEvidenceStatus)} />
           <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerAdjudicationEvidenceStatus)} />
@@ -3730,7 +3730,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerEvidenceSaving}
             onClick={() => onReviewProtectedReviewerEvidence("in_review")}
           >
@@ -3739,7 +3739,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={protectedReviewerEvidenceSaving || !protectedReviewerEvidencePrerequisitesReady}
             onClick={() => onReviewProtectedReviewerEvidence("ready_for_protected_reviewer_evidence")}
           >
@@ -3764,7 +3764,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProductionDatasetEvidenceStatusLabel(productionDatasetEvidence.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Real ops" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.realClinicWindowStatus)} />
           <Field term="Sampling" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.datasetSamplingStatus)} />
           <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.longitudinalFollowupStatus)} />
@@ -3796,7 +3796,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionDatasetEvidenceSaving}
             onClick={() => onReviewProductionDatasetEvidence("in_review")}
           >
@@ -3805,7 +3805,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionDatasetEvidenceSaving || !productionDatasetEvidencePrerequisitesReady}
             onClick={() => onReviewProductionDatasetEvidence("ready_for_production_dataset_evidence")}
           >
@@ -3830,7 +3830,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProductionReviewerGovernanceStatusLabel(productionReviewerGovernance.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Assign" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionReviewerAssignmentStatus)} />
           <Field term="Second" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionSecondReviewStatus)} />
           <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(productionReviewerGovernance.productionAdjudicationStatus)} />
@@ -3862,7 +3862,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionReviewerGovernanceSaving}
             onClick={() => onReviewProductionReviewerGovernance("in_review")}
           >
@@ -3871,7 +3871,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionReviewerGovernanceSaving || !productionReviewerGovernancePrerequisitesReady}
             onClick={() => onReviewProductionReviewerGovernance("ready_for_production_reviewer_governance")}
           >
@@ -3896,7 +3896,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProductionReviewerEvidenceStatusLabel(productionReviewerEvidence.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Field term="Assign" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionReviewerAssignmentStatus)} />
           <Field term="Second" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionSecondReviewStatus)} />
           <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(productionReviewerEvidence.productionAdjudicationStatus)} />
@@ -3928,7 +3928,7 @@ function LongitudinalDatasetValidationPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionReviewerEvidenceSaving}
             onClick={() => onReviewProductionReviewerEvidence("in_review")}
           >
@@ -3937,7 +3937,7 @@ function LongitudinalDatasetValidationPanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-[12px]"
+            className="min-h-11 text-[12px]"
             disabled={productionReviewerEvidenceSaving || !productionReviewerEvidencePrerequisitesReady}
             onClick={() => onReviewProductionReviewerEvidence("ready_for_production_reviewer_evidence")}
           >
@@ -5161,8 +5161,10 @@ function Section({ title, children, className }: { title: string; children: Reac
 function Field({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-2 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
-      <dt className="min-w-0 truncate text-[12px] text-muted-foreground">{humanFieldTerm(term)}</dt>
-      <dd className="min-w-0 truncate text-right">{typeof value === "string" ? humanDisplayValue(value) : value}</dd>
+      <dt className="min-w-0 max-w-[70%] break-words text-[12px] leading-snug text-muted-foreground">
+        {humanFieldTerm(term)}
+      </dt>
+      <dd className="shrink-0 text-right">{typeof value === "string" ? humanDisplayValue(value) : value}</dd>
     </div>
   );
 }

@@ -2505,7 +2505,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Дозаполнить данные устройства/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить связь с устройством/)).toBeInTheDocument();
     expect(screen.getByText(/Утвердить правила анализа/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Анализ/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Правила анализа/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/снимки: 1/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/анализ: 1/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/связь: 1/).length).toBeGreaterThan(0);
