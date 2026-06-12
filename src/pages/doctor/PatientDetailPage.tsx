@@ -31,7 +31,6 @@ import {
 } from "@/lib/self-hosted-patient-api";
 import { listSelfHostedVisitsByPatient } from "@/lib/self-hosted-visit-api";
 import {
-  SELF_HOSTED_LIVE_SOURCE_LABEL,
   selfHostedPatientDetailToDomain,
   selfHostedVisitToDomain,
 } from "@/lib/self-hosted-clinical-adapter";
@@ -61,8 +60,8 @@ type LivePatientDetailState =
   | { kind: "error"; message: string };
 
 function apiErrorText(error: SelfHostedApiError | null | undefined): string {
-  if (!error) return "Self-hosted backend не вернул описание ошибки.";
-  if (error.status === 401) return "Требуется повторный вход в self-hosted backend.";
+  if (!error) return "Система клиники не вернула описание ошибки.";
+  if (error.status === 401) return "Требуется повторный вход в систему клиники.";
   if (error.status === 403) return "Недостаточно прав для просмотра карточки пациента.";
   return error.message;
 }
@@ -124,14 +123,14 @@ export default function PatientDetailPage() {
   if (productionMode && !liveBackend) {
     return (
       <ProductionPatientState
-        title="Требуется self-hosted вход"
-        text="Production-режим не открывает карточки пациентов из mock-данных. Войдите через self-hosted backend."
+        title="Требуется рабочий вход"
+        text="Карточки пациентов открываются только после входа в систему клиники."
       />
     );
   }
 
   if (productionMode && liveState.kind === "loading") {
-    return <ProductionPatientState title="Загружаем карточку пациента" text="Читаем данные из self-hosted backend…" />;
+    return <ProductionPatientState title="Загружаем карточку пациента" text="Читаем данные из системы клиники…" />;
   }
 
   if (productionMode && liveState.kind === "error") {
@@ -158,9 +157,9 @@ export default function PatientDetailPage() {
   if (!patient) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title="Пациент не найден" subtitle="Карточка пациента отсутствует в демо-данных." />
+        <PageHeader title="Пациент не найден" subtitle="Карточка пациента отсутствует в учебных данных." />
         <div className="p-4">
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
             <Link to="/patients">К списку пациентов</Link>
           </Button>
         </div>
@@ -170,14 +169,15 @@ export default function PatientDetailPage() {
 
   const lastVisit = visits.find((v) => v.status === "closed") ?? visits[0];
   const lastReport = reports[0];
+  const activeLesionCount = lesions.filter((lesion) => lesion.status === "active" || lesion.status === "monitoring").length;
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title={patient.fullName}
-        subtitle={`${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
+        subtitle={`№ ${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
         actions={
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
             <Link to="/patients">К списку</Link>
           </Button>
         }
@@ -189,27 +189,57 @@ export default function PatientDetailPage() {
           aria-live="polite"
           className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
         >
-          <span className="font-medium text-foreground">{SELF_HOSTED_LIVE_SOURCE_LABEL}</span>
-          {" · "}mock-данные для карточки пациента отключены.
+          <span className="font-medium text-foreground">Данные из системы клиники</span>
+          {" · "}учебные данные для карточки отключены.
         </div>
       ) : null}
 
+      <section
+        role="region"
+        aria-label="Что делать с карточкой пациента"
+        className="border-b border-border bg-surface px-6 py-3 text-[12px]"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+            <h2 className="mt-1 text-[14px] font-semibold">
+              {lastVisit ? "Открыть последний приём" : "Проверить данные пациента"}
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Приёмов: <span className="font-medium text-foreground">{visits.length}</span> · очагов в наблюдении:{" "}
+              <span className="font-medium text-foreground">{activeLesionCount}</span> · отчётов:{" "}
+              <span className="font-medium text-foreground">{reports.length}</span>.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-2 lg:justify-end">
+            {lastVisit ? (
+              <Button asChild className="min-h-11 text-[12px]">
+                <Link to={`/patients/${patient.id}/visits/${lastVisit.id}`}>Открыть приём</Link>
+              </Button>
+            ) : null}
+            <Button asChild variant="outline" className="min-h-11 text-[12px]">
+              <Link to="/patients">К списку пациентов</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <Tabs defaultValue="overview" className="flex-1">
         <div className="border-b border-border bg-surface px-6">
-          <TabsList className="h-10 bg-transparent p-0">
-            <TabsTrigger value="overview" className="text-[13px]">Обзор</TabsTrigger>
-            <TabsTrigger value="visits" className="text-[13px]">Визиты ({visits.length})</TabsTrigger>
-            <TabsTrigger value="lesions" className="text-[13px]">Образования ({lesions.length})</TabsTrigger>
-            <TabsTrigger value="reports" className="text-[13px]">Отчёты ({reports.length})</TabsTrigger>
+          <TabsList className="h-auto min-h-11 flex-wrap justify-start gap-1 bg-transparent py-1">
+            <TabsTrigger value="overview" className="min-h-11 text-[13px]">Обзор</TabsTrigger>
+            <TabsTrigger value="visits" className="min-h-11 text-[13px]">Визиты ({visits.length})</TabsTrigger>
+            <TabsTrigger value="lesions" className="min-h-11 text-[13px]">Очаги ({lesions.length})</TabsTrigger>
+            <TabsTrigger value="reports" className="min-h-11 text-[13px]">Отчёты ({reports.length})</TabsTrigger>
           </TabsList>
         </div>
 
         {/* Обзор */}
         <TabsContent value="overview" className="m-0 px-6 py-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-            <Section title="Демография" className="lg:col-span-4">
+            <Section title="Данные пациента" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
-              <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
+              <Field term="Номер карты" value={patient.code} />
               <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
               <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
               <Field term="Фототип" value={patient.phototype} />
@@ -221,7 +251,7 @@ export default function PatientDetailPage() {
               <Field term="Телемедицина" value={patient.consents.telemed ? "Есть" : "Нет"} />
             </Section>
 
-            <Section title="Факторы риска" className="lg:col-span-4">
+            <Section title="Отметки наблюдения" className="lg:col-span-4">
               {patient.riskFactors.length === 0 ? (
                 <div className="text-meta">Не указаны.</div>
               ) : (
@@ -262,8 +292,8 @@ export default function PatientDetailPage() {
               )}
             </Section>
 
-            <Section title="Образования и отчёты" className="lg:col-span-6">
-              <Field term="Всего образований" value={lesions.length} />
+            <Section title="Очаги и отчёты" className="lg:col-span-6">
+              <Field term="Всего очагов" value={lesions.length} />
               <Field term="Активных / наблюдение" value={`${lesions.filter((l) => l.status === "active").length} / ${lesions.filter((l) => l.status === "monitoring").length}`} />
               <Field term="Всего отчётов" value={reports.length} />
               {lastReport && <Field term="Последний отчёт" value={formatDateTime(lastReport.generatedAt)} />}
@@ -328,10 +358,10 @@ export default function PatientDetailPage() {
           )}
         </TabsContent>
 
-        {/* Образования */}
+        {/* Очаги */}
         <TabsContent value="lesions" className="m-0 px-6 py-6">
           {lesions.length === 0 ? (
-            <Empty text="Образований у пациента не зарегистрировано." />
+            <Empty text="Очаги у пациента не зарегистрированы." />
           ) : (
             <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {lesions.map((l) => {
@@ -355,15 +385,15 @@ export default function PatientDetailPage() {
                       <Stat term="Снимков" value={imageCount} />
                       {lastAssessment && (
                         <>
-                          <Stat term="ABCD (TDS)" value={lastAssessment.abcd.total.toFixed(1)} />
-                          <Stat term="7-point" value={lastAssessment.sevenPoint.total} />
+                          <Stat term="Оценка ABCD" value={lastAssessment.abcd.total.toFixed(1)} />
+                          <Stat term="7 признаков" value={lastAssessment.sevenPoint.total} />
                         </>
                       )}
                     </dl>
                     <div className="mt-3 flex justify-end">
                       <Link
                         to={`/patients/${patient.id}/lesions/${l.id}`}
-                        className="inline-flex items-center gap-0.5 text-[12px] font-medium text-primary hover:underline"
+                        className="inline-flex min-h-11 items-center gap-0.5 text-[12px] font-medium text-primary hover:underline"
                       >
                         Открыть <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                       </Link>
@@ -386,7 +416,7 @@ export default function PatientDetailPage() {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <div className="text-row font-semibold tabular-nums">Отчёт от {formatDateTime(r.generatedAt)}</div>
                     <div className="text-meta">
-                      Защищённый просмотр: демо-ссылка скрыта · до {formatDateTime(getReportLinkExpiry(r))}
+                      Доступ к отчёту: служебная ссылка скрыта · до {formatDateTime(getReportLinkExpiry(r))}
                     </div>
                   </div>
                   <div className="mt-2 text-[11px] font-medium text-muted-foreground">Текст для пациента</div>
@@ -406,8 +436,8 @@ function ProductionPatientState({ title, text }: { title: string; text: string }
     <div className="flex h-full flex-col">
       <PageHeader title={title} subtitle={text} />
       <div className="p-4">
-        <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
-          <Link to="/self-hosted/login">К production входу</Link>
+        <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
+          <Link to="/self-hosted/login">К входу в систему клиники</Link>
         </Button>
       </div>
     </div>

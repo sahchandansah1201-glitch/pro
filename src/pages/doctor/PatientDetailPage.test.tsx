@@ -50,7 +50,7 @@ describe("PatientDetailPage", () => {
     expect(screen.getAllByText(/DP-2026-0001/).length).toBeGreaterThan(0);
   });
 
-  it("loads production patient detail and visits from self-hosted backend without demo lookup", async () => {
+  it("loads production patient detail and visits from the clinic system without learning fallback", async () => {
     configureProductionSession();
     const fetchMock = vi.fn((url: RequestInfo | URL, _init?: RequestInit) => {
       const href = String(url);
@@ -96,7 +96,10 @@ describe("PatientDetailPage", () => {
     renderAt("/patients/live-patient");
 
     expect(await screen.findByRole("heading", { name: "Петрова Анна Live" })).toBeInTheDocument();
-    expect(screen.getByText(/Источник данных: self-hosted backend/)).toBeInTheDocument();
+    expect(screen.getByText(/Данные из системы клиники/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Что делать с карточкой пациента" }),
+    ).toHaveTextContent("Открыть последний приём");
     expect(screen.getByRole("tab", { name: /Визиты \(1\)/ })).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     for (const [, init] of fetchMock.mock.calls) {
@@ -104,7 +107,7 @@ describe("PatientDetailPage", () => {
     }
   });
 
-  it("does not fall back to mock patient data when production backend returns an error", async () => {
+  it("does not fall back to learning patient data when the clinic system returns an error", async () => {
     configureProductionSession();
     vi.stubGlobal(
       "fetch",
@@ -121,6 +124,6 @@ describe("PatientDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "Карточка пациента недоступна" })).toBeInTheDocument();
     expect(screen.getByText(/Недостаточно прав/)).toBeInTheDocument();
     expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
-    expect(screen.queryByText(/карточка пациента отсутствует в демо-данных/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/карточка пациента отсутствует в учебных данных/i)).not.toBeInTheDocument();
   });
 });

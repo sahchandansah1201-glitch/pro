@@ -70,14 +70,14 @@ import { isProductionAppMode } from "@/lib/app-mode";
 const PHOTOTYPES: Phototype[] = ["I", "II", "III", "IV", "V", "VI"];
 const PATIENT_EDIT_DEMO_TODAY = "2026-05-11";
 const PATIENT_DEMO_GATE_MESSAGE =
-  "Кнопка «Новый пациент» не создаёт запись, а «Удалить локально» скрывает строку только в текущем демо-сеансе.";
+  "новые записи и удаление не меняют данные клиники.";
 const PATIENT_DEMO_CREATE_BLOCKED_MESSAGE =
-  "Создание пациента пока недоступно в демо-режиме: действие заблокировано до этапа сохранения на сервере. Реальные данные пациентов не вводите.";
+  "Создание пациента доступно только после входа в систему клиники. Реальные данные пациентов здесь не вводите.";
 const PATIENT_DEMO_GATE_ID = "patients-demo-gate-note";
 const PATIENT_LIVE_GATE_MESSAGE =
-  "Self-hosted backend подключён: создание, редактирование и архивирование пациентов идут через локальный API /api/v1/patients.";
+  "список, создание, редактирование и архивирование идут через систему клиники.";
 const PATIENT_PRODUCTION_GATE_MESSAGE =
-  "Production-режим: пациенты загружаются только из self-hosted backend. Mock-данные и демо-fallback отключены.";
+  "пациенты загружаются только из системы клиники.";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
@@ -223,9 +223,9 @@ function patientDraftToPayload(draft: PatientEditDraft) {
 }
 
 function patientApiErrorText(error: SelfHostedApiError | null | undefined): string {
-  if (!error) return "Self-hosted backend не вернул описание ошибки.";
-  if (error.status === 401) return "Self-hosted backend требует повторной авторизации.";
-  if (error.status === 403) return "Недостаточно прав для действия с пациентами в self-hosted backend.";
+  if (!error) return "Система клиники не вернула описание ошибки.";
+  if (error.status === 401) return "Система клиники требует повторного входа.";
+  if (error.status === 403) return "Недостаточно прав для действия с пациентами.";
   if (error.kind === "validation" && error.details?.length) {
     return error.details.map((item) => `${item.field}: ${item.message}`).join("; ");
   }
@@ -290,7 +290,7 @@ export default function PatientsPage() {
       }
       setBackendLoadState("error");
       if (productionMode) setPatients([]);
-      setStatusMessage(`Не удалось загрузить пациентов из self-hosted backend: ${patientApiErrorText(result.error)}`);
+      setStatusMessage(`Не удалось загрузить пациентов из системы клиники: ${patientApiErrorText(result.error)}`);
     });
 
     return () => {
@@ -343,6 +343,10 @@ export default function PatientsPage() {
     () => (previewPatient ? buildRow(previewPatient) : null),
     [previewPatient],
   );
+  const firstActionRow = rows[0] ?? null;
+  const activeRowsCount = rows.filter((row) => row.hasActive).length;
+  const noImagingConsentRowsCount = rows.filter((row) => !row.patient.consents.imaging).length;
+  const upcomingRowsCount = rows.filter((row) => row.nextVisit).length;
 
   function handleCreateOpen() {
     setStatusMessage(null);
@@ -375,14 +379,14 @@ export default function PatientsPage() {
     }
     const patient = selfHostedPatientToDomain(result.value);
     setPatients((current) => [patient, ...current.filter((item) => item.id !== patient.id)]);
-    setStatusMessage(`Пациент ${patient.fullName} создан в self-hosted backend.`);
+    setStatusMessage(`Пациент ${patient.fullName} создан в системе клиники.`);
     setChangeLog((current) => [
       {
         id: `create-${patient.id}-${current.length + 1}`,
         action: "edit",
         patientCode: patient.code,
         patientName: patient.fullName,
-        message: "Создан через self-hosted backend.",
+        message: "Создан в системе клиники.",
       },
       ...current,
     ]);
@@ -409,7 +413,7 @@ export default function PatientsPage() {
     });
     setBusyPatientId(null);
     if (!result.ok || !result.value) {
-      setStatusMessage(`Не удалось открыть карточку из self-hosted backend: ${patientApiErrorText(result.error)}`);
+      setStatusMessage(`Не удалось открыть карточку из системы клиники: ${patientApiErrorText(result.error)}`);
       return;
     }
     setPreviewPatient(selfHostedPatientToDomain(result.value));
@@ -440,14 +444,14 @@ export default function PatientsPage() {
       }
       const updated = selfHostedPatientToDomain(result.value);
       setPatients((current) => current.map((patient) => (patient.id === updated.id ? updated : patient)));
-      setStatusMessage(`Изменения по пациенту ${updated.fullName} сохранены в self-hosted backend.`);
+      setStatusMessage(`Изменения по пациенту ${updated.fullName} сохранены в системе клиники.`);
       setChangeLog((current) => [
         {
           id: `edit-${updated.id}-${current.length + 1}`,
           action: "edit",
           patientCode: updated.code,
           patientName: updated.fullName,
-          message: "Обновлены данные пациента через self-hosted backend.",
+          message: "Обновлены данные пациента в системе клиники.",
         },
         ...current,
       ]);
@@ -473,14 +477,14 @@ export default function PatientsPage() {
           : patient,
       ),
     );
-    setStatusMessage(`Изменения по пациенту ${fullName} сохранены локально в демо-режиме.`);
+    setStatusMessage(`Изменения по пациенту ${fullName} сохранены только на этом экране.`);
     setChangeLog((current) => [
       {
         id: `edit-${editDraft.id}-${current.length + 1}`,
         action: "edit",
         patientCode: previous?.code ?? editDraft.id,
         patientName: fullName,
-        message: "Обновлены данные пациента локально.",
+        message: "Обновлены данные пациента на этом экране.",
       },
       ...current,
     ]);
@@ -501,7 +505,7 @@ export default function PatientsPage() {
       });
       setSaving(false);
       if (!result.ok) {
-        setStatusMessage(`Не удалось архивировать пациента в self-hosted backend: ${patientApiErrorText(result.error)}`);
+        setStatusMessage(`Не удалось архивировать пациента в системе клиники: ${patientApiErrorText(result.error)}`);
         setDeleteCandidate(null);
         return;
       }
@@ -509,14 +513,14 @@ export default function PatientsPage() {
       setPreviewPatient((current) => (current?.id === patient.id ? null : current));
       setEditDraft((current) => (current?.id === patient.id ? null : current));
       setLastDeleted(null);
-      setStatusMessage(`Пациент ${patient.fullName} архивирован в self-hosted backend.`);
+      setStatusMessage(`Пациент ${patient.fullName} архивирован в системе клиники.`);
       setChangeLog((current) => [
         {
           id: `archive-${patient.id}-${current.length + 1}`,
           action: "delete",
           patientCode: patient.code,
           patientName: patient.fullName,
-          message: "Архивирован через self-hosted backend.",
+          message: "Архивирован в системе клиники.",
         },
         ...current,
       ]);
@@ -528,14 +532,14 @@ export default function PatientsPage() {
     setPreviewPatient((current) => (current?.id === patient.id ? null : current));
     setEditDraft((current) => (current?.id === patient.id ? null : current));
     setLastDeleted({ patient });
-    setStatusMessage(`Пациент ${patient.fullName} удалён из локального списка в демо-режиме.`);
+    setStatusMessage(`Пациент ${patient.fullName} скрыт только на этом экране.`);
     setChangeLog((current) => [
       {
         id: `delete-${patient.id}-${current.length + 1}`,
         action: "delete",
         patientCode: patient.code,
         patientName: patient.fullName,
-        message: "Удалён из локального списка.",
+        message: "Скрыт на этом экране.",
       },
       ...current,
     ]);
@@ -552,14 +556,14 @@ export default function PatientsPage() {
         (a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER),
       );
     });
-    setStatusMessage(`Удаление пациента ${restored.fullName} отменено.`);
+    setStatusMessage(`Скрытие пациента ${restored.fullName} отменено.`);
     setChangeLog((current) => [
       {
         id: `restore-${restored.id}-${current.length + 1}`,
         action: "restore",
         patientCode: restored.code,
         patientName: restored.fullName,
-        message: "Удаление отменено.",
+        message: "Скрытие отменено.",
       },
       ...current,
     ]);
@@ -578,7 +582,7 @@ export default function PatientsPage() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Пациенты"
-        subtitle={`Всего в базе: ${patients.length}`}
+        subtitle={`В списке: ${patients.length}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {productionMode && !liveBackend ? (
@@ -586,11 +590,11 @@ export default function PatientsPage() {
                 asChild
                 type="button"
                 size="sm"
-                className="h-9 gap-1.5 text-[12px]"
+                className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
               >
-                <Link to="/self-hosted/login" aria-label="Войти в production self-hosted backend">
+                <Link to="/self-hosted/login" aria-label="Войти в систему клиники">
                   <ServerCog className="h-3.5 w-3.5" aria-hidden />
-                  Войти в продукт
+                  Войти
                 </Link>
               </Button>
             ) : null}
@@ -598,7 +602,7 @@ export default function PatientsPage() {
               type="button"
               size="sm"
               variant="secondary"
-              className="h-9 gap-1.5 text-[12px]"
+              className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
               aria-describedby={PATIENT_DEMO_GATE_ID}
               onClick={handleCreateOpen}
             >
@@ -610,16 +614,16 @@ export default function PatientsPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-9 gap-1.5 text-[12px]"
-                aria-label="Выйти из self-hosted backend"
+                className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
+                aria-label="Выйти из системы клиники"
                 onClick={() => {
                   clearSelfHostedApiSession();
-                  setStatusMessage("Self-hosted сессия завершена. Возврат в демо-режим.");
+                  setStatusMessage("Рабочий вход завершён. Открыт учебный режим.");
                   navigate("/self-hosted/login");
                 }}
               >
                 <LogOut className="h-3.5 w-3.5" aria-hidden />
-                Выйти из self-hosted
+                Выйти
               </Button>
             ) : !productionMode ? (
               <Button
@@ -627,11 +631,11 @@ export default function PatientsPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-9 gap-1.5 text-[12px]"
+                className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
               >
-                <Link to="/self-hosted/login" aria-label="Войти в self-hosted backend">
+                <Link to="/self-hosted/login" aria-label="Войти в систему клиники">
                   <ServerCog className="h-3.5 w-3.5" aria-hidden />
-                  Войти в self-hosted backend
+                  Войти
                 </Link>
               </Button>
             ) : null}
@@ -642,19 +646,66 @@ export default function PatientsPage() {
       <section
         id={PATIENT_DEMO_GATE_ID}
         role="note"
-        aria-label="Ограничения демо-режима пациентов"
+        aria-label="Режим работы списка пациентов"
         className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
       >
         <span className="font-medium text-foreground">
-          {productionMode ? "Production patients: " : liveBackend ? "Self-hosted backend: " : "Демо-ограничение: "}
+          {productionMode || liveBackend ? "Рабочий режим: " : "Учебный режим: "}
         </span>
         {productionMode
           ? liveBackend
             ? PATIENT_PRODUCTION_GATE_MESSAGE
-            : "Production-режим требует self-hosted сессию. Войдите через /self-hosted/login."
+            : "Войдите в систему клиники, чтобы открыть рабочий список пациентов."
           : liveBackend
             ? PATIENT_LIVE_GATE_MESSAGE
             : PATIENT_DEMO_GATE_MESSAGE}
+      </section>
+
+      <section
+        role="region"
+        aria-label="Что делать с пациентами сейчас"
+        className="border-b border-border bg-surface px-6 py-3 text-[12px]"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+            <h2 className="mt-1 text-[14px] font-semibold">
+              {firstActionRow ? "Открыть карточку пациента" : "Уточнить поиск пациента"}
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Найдено: <span className="font-medium text-foreground">{rows.length}</span> · активное наблюдение:{" "}
+              <span className="font-medium text-foreground">{activeRowsCount}</span> · без согласия на съёмку:{" "}
+              <span className="font-medium text-foreground">{noImagingConsentRowsCount}</span> · с ближайшим приёмом:{" "}
+              <span className="font-medium text-foreground">{upcomingRowsCount}</span>.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-2 lg:justify-end">
+            {firstActionRow ? (
+              <Button asChild className="min-h-11 text-[12px]">
+                <Link to={`/patients/${firstActionRow.patient.id}`}>Открыть карточку</Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-11 text-[12px]"
+                onClick={() => {
+                  setQuery("");
+                  setAdvancedSearch({ code: "", name: "", ageFrom: "", ageTo: "" });
+                  setPhototype("any");
+                  setConsent("any");
+                  setLesionsFilter("any");
+                  setPage(1);
+                }}
+              >
+                Сбросить фильтры
+              </Button>
+            )}
+            <Button type="button" variant="outline" className="min-h-11 text-[12px]" onClick={handleCreateOpen}>
+              Создать пациента
+            </Button>
+          </div>
+        </div>
       </section>
 
       {liveBackend && backendLoadState === "loading" && (
@@ -662,10 +713,10 @@ export default function PatientsPage() {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          aria-label="Статус загрузки пациентов из self-hosted backend"
+          aria-label="Статус загрузки пациентов из системы клиники"
           className="border-b border-border bg-info/10 px-6 py-2 text-[12px] text-info"
         >
-          Загружаем пациентов из self-hosted backend…
+          Загружаем пациентов из системы клиники…
         </div>
       )}
 
@@ -683,11 +734,11 @@ export default function PatientsPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 border-warning/40 bg-surface text-[12px] text-warning hover:bg-warning/10"
+              className="min-h-11 gap-1.5 border-warning/40 bg-surface text-[12px] text-warning hover:bg-warning/10 sm:min-h-8"
               onClick={handleUndoDelete}
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              Отменить удаление
+              Отменить скрытие
             </Button>
           )}
         </div>
@@ -704,8 +755,8 @@ export default function PatientsPage() {
                 setPage(1);
                 setQuery(e.target.value);
               }}
-              placeholder="Поиск по ФИО, коду, полу, фототипу"
-              className="h-8 pl-7 text-[13px]"
+              placeholder="Поиск по ФИО, номеру карты, полу, фототипу"
+              className="min-h-11 pl-7 text-[13px] sm:min-h-8"
               aria-label="Поиск пациента"
             />
           </div>
@@ -735,7 +786,7 @@ export default function PatientsPage() {
           />
 
           <FilterSelect
-            label="Образования"
+            label="Очаги"
             value={lesionsFilter}
             onChange={(v) => {
               setPage(1);
@@ -743,7 +794,7 @@ export default function PatientsPage() {
             }}
             options={[
               { value: "any", label: "Все пациенты" },
-              { value: "with_active", label: "С активными/наблюдением" },
+              { value: "with_active", label: "С очагами в наблюдении" },
               { value: "without_active", label: "Без активных" },
             ]}
           />
@@ -783,7 +834,7 @@ export default function PatientsPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-[12px]"
+                className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
                 aria-label="Расширенный поиск пациентов"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
@@ -810,15 +861,15 @@ export default function PatientsPage() {
               <Input
                 value={advancedSearch.code}
                 onChange={(e) => updateAdvancedSearch("code", e.target.value)}
-                placeholder="Код пациента"
-                className="h-8 text-[13px]"
-                aria-label="Расширенный поиск по коду пациента"
+                placeholder="Номер карты"
+                className="min-h-11 text-[13px] sm:min-h-8"
+                aria-label="Расширенный поиск по номеру карты"
               />
               <Input
                 value={advancedSearch.name}
                 onChange={(e) => updateAdvancedSearch("name", e.target.value)}
                 placeholder="ФИО"
-                className="h-8 text-[13px]"
+                className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Расширенный поиск по ФИО"
               />
               <Input
@@ -826,7 +877,7 @@ export default function PatientsPage() {
                 onChange={(e) => updateAdvancedSearch("ageFrom", e.target.value)}
                 placeholder="Возраст от"
                 inputMode="numeric"
-                className="h-8 text-[13px]"
+                className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Возраст пациента от"
               />
               <Input
@@ -834,7 +885,7 @@ export default function PatientsPage() {
                 onChange={(e) => updateAdvancedSearch("ageTo", e.target.value)}
                 placeholder="Возраст до"
                 inputMode="numeric"
-                className="h-8 text-[13px]"
+                className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Возраст пациента до"
               />
             </div>
@@ -856,7 +907,7 @@ export default function PatientsPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="ml-auto h-7 gap-1.5 text-[12px]"
+              className="ml-auto min-h-11 gap-1.5 text-[12px] sm:min-h-8"
               onClick={() => setExportOpen(true)}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
@@ -878,7 +929,7 @@ export default function PatientsPage() {
         {rows.length === 0 ? (
           <div className="surface-card p-12 text-center text-row text-muted-foreground">
             {productionMode && backendLoadState === "error"
-              ? "Self-hosted backend недоступен. Production-режим не показывает демо-пациентов."
+              ? "Система клиники недоступна. Рабочий режим не показывает учебные данные."
               : "Под текущие фильтры пациентов не найдено."}
           </div>
         ) : (
@@ -889,14 +940,14 @@ export default function PatientsPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="w-[120px]">Код</th>
+                      <th className="w-[120px]">Номер</th>
                       <th>ФИО</th>
                       <th className="w-[60px]">Возр.</th>
                       <th className="w-[50px]">Пол</th>
                       <th className="w-[80px]">Фототип</th>
-                      <th className="w-[110px]">Факторы</th>
+                      <th className="w-[110px]">Отметки</th>
                       <th className="w-[130px]">Согласие</th>
-                      <th className="w-[100px]">Образ.</th>
+                      <th className="w-[100px]">Очаги</th>
                       <th className="w-[120px]">Посл. визит</th>
                       <th className="w-[120px]">След. визит</th>
                       <th className="w-[120px]" aria-label="Действия" />
@@ -905,7 +956,7 @@ export default function PatientsPage() {
                   <tbody>
                     {pagedRows.map((r) => (
                       <tr key={r.patient.id}>
-                        <td className="font-mono text-[12px] text-muted-foreground">{r.patient.code}</td>
+                        <td className="text-[12px] text-muted-foreground">№ {r.patient.code}</td>
                         <td>
                           <Link to={`/patients/${r.patient.id}`} className="font-medium hover:underline">
                             {r.patient.fullName}
@@ -956,7 +1007,7 @@ export default function PatientsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                              aria-label={`Удалить пациента ${r.patient.fullName}`}
+                              aria-label={`Скрыть пациента ${r.patient.fullName}`}
                               onClick={() => setDeleteCandidate(r.patient)}
                             >
                               <Trash2 className="h-4 w-4" aria-hidden />
@@ -982,10 +1033,10 @@ export default function PatientsPage() {
                       >
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="truncate text-row font-medium">{r.patient.fullName}</span>
-                          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{r.patient.code}</span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">№ {r.patient.code}</span>
                         </div>
                         <div className="mt-0.5 text-meta">
-                          {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · образований {r.lesionCount}
+                          {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · очагов {r.lesionCount}
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           <ConsentChip ok={r.patient.consents.imaging} />
@@ -998,7 +1049,7 @@ export default function PatientsPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground"
                           aria-label={`Просмотреть пациента ${r.patient.fullName}`}
                           onClick={() => void handlePreviewOpen(r.patient)}
                           disabled={busyPatientId === r.patient.id}
@@ -1009,7 +1060,7 @@ export default function PatientsPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground"
                           aria-label={`Редактировать пациента ${r.patient.fullName}`}
                           onClick={() => handleEditOpen(r.patient)}
                         >
@@ -1019,8 +1070,8 @@ export default function PatientsPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          aria-label={`Удалить пациента ${r.patient.fullName}`}
+                          className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+                          aria-label={`Скрыть пациента ${r.patient.fullName}`}
                           onClick={() => setDeleteCandidate(r.patient)}
                         >
                           <Trash2 className="h-4 w-4" aria-hidden />
@@ -1047,7 +1098,7 @@ export default function PatientsPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px] sm:min-h-8"
                 onClick={() => setPage((n) => Math.max(1, n - 1))}
                 disabled={currentPage === 1}
               >
@@ -1057,7 +1108,7 @@ export default function PatientsPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px] sm:min-h-8"
                 onClick={() => setPage((n) => Math.min(totalPages, n + 1))}
                 disabled={currentPage === totalPages}
               >
@@ -1106,7 +1157,7 @@ export default function PatientsPage() {
             </DialogHeader>
 
             <div className="grid gap-3 text-[13px] sm:grid-cols-2">
-              <PreviewField label="Код" value={previewRow.patient.code} mono />
+              <PreviewField label="Номер карты" value={previewRow.patient.code} />
               <PreviewField label="ФИО" value={previewRow.patient.fullName} />
               <PreviewField label="Возраст" value={`${previewRow.age} лет`} />
               <PreviewField label="Пол" value={sexShort(previewRow.patient.sex)} />
@@ -1115,7 +1166,7 @@ export default function PatientsPage() {
                 label="Согласие на съёмку"
                 value={previewRow.patient.consents.imaging ? "Есть" : "Нет"}
               />
-              <PreviewField label="Образования" value={String(previewRow.lesionCount)} />
+              <PreviewField label="Очаги" value={String(previewRow.lesionCount)} />
               <PreviewField label="Последний визит" value={formatDate(previewRow.lastVisit)} />
               <PreviewField label="Следующий визит" value={formatDate(previewRow.nextVisit)} />
             </div>
@@ -1144,12 +1195,12 @@ export default function PatientsPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {liveBackend ? "Архивировать пациента?" : "Удалить пациента из локального списка?"}
+                {liveBackend ? "Архивировать пациента?" : "Скрыть пациента на этом экране?"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {liveBackend
-                  ? `Пациент ${deleteCandidate.fullName} будет soft-архивирован через self-hosted backend. Физическое удаление не выполняется.`
-                  : `Пациент ${deleteCandidate.fullName} будет скрыт только на этой странице в демо-режиме. Реальные данные и mock-data не изменяются.`}
+                  ? `Пациент ${deleteCandidate.fullName} будет архивирован в системе клиники. Физическое удаление не выполняется.`
+                  : `Пациент ${deleteCandidate.fullName} будет скрыт только на этой странице. Реальные данные клиники не изменяются.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1159,7 +1210,7 @@ export default function PatientsPage() {
                 onClick={() => void handleDeleteConfirm()}
                 disabled={saving}
               >
-                {liveBackend ? "Архивировать" : "Удалить локально"}
+                {liveBackend ? "Архивировать" : "Скрыть на этом экране"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1180,7 +1231,7 @@ export default function PatientsPage() {
             <DialogHeader>
               <DialogTitle>Новый пациент</DialogTitle>
               <DialogDescription>
-                Пациент будет создан через self-hosted backend и PostgreSQL. Не используйте форму без локальной авторизации.
+                Пациент будет создан в системе клиники. Не используйте форму без рабочего входа.
               </DialogDescription>
             </DialogHeader>
 
@@ -1233,8 +1284,8 @@ export default function PatientsPage() {
               <DialogTitle>Редактировать пациента</DialogTitle>
               <DialogDescription>
                 {liveBackend
-                  ? "Изменения сохраняются через self-hosted backend."
-                  : "Изменения сохраняются только локально в демо-режиме."}
+                  ? "Изменения сохраняются в системе клиники."
+                  : "Изменения сохраняются только на этом экране."}
               </DialogDescription>
             </DialogHeader>
 
@@ -1400,8 +1451,8 @@ function PatientDraftFields({
           </Label>
           <p className="text-[12px] text-muted-foreground">
             {liveBackend
-              ? "Значение будет сохранено в локальном backend."
-              : "В демо-режиме меняется только отображение на текущей странице."}
+              ? "Значение будет сохранено в системе клиники."
+              : "В учебном режиме меняется только отображение на текущей странице."}
           </p>
         </div>
       </div>
@@ -1422,7 +1473,7 @@ function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8 min-w-[160px] text-[12px]" aria-label={label}>
+      <SelectTrigger className="min-h-11 min-w-[160px] text-[12px] sm:min-h-8" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

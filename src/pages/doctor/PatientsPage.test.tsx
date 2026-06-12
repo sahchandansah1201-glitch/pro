@@ -72,14 +72,33 @@ describe("PatientsPage", () => {
     renderPage();
 
     const note = screen.getByRole("note", {
-      name: "Ограничения демо-режима пациентов",
+      name: "Режим работы списка пациентов",
     });
-    expect(note).toHaveTextContent("Демо-ограничение");
-    expect(note).toHaveTextContent("Кнопка «Новый пациент» не создаёт запись");
-    expect(note).toHaveTextContent("«Удалить локально» скрывает строку только в текущем демо-сеансе");
+    expect(note).toHaveTextContent("Учебный режим");
+    expect(note).toHaveTextContent("новые записи и удаление не меняют данные клиники");
     expect(screen.getByRole("button", { name: /Новый пациент/i })).toHaveAttribute(
       "aria-describedby",
       note.id,
+    );
+  });
+
+  it("shows a native Russian current-action block without technical wording", () => {
+    renderPage();
+
+    const action = screen.getByRole("region", {
+      name: "Что делать с пациентами сейчас",
+    });
+    expect(action).toHaveTextContent("Что делать сейчас");
+    expect(action).toHaveTextContent("Открыть карточку пациента");
+    expect(action).toHaveTextContent("активное наблюдение");
+    expect(action).toHaveTextContent("без согласия на съёмку");
+    expect(within(action).getByRole("link", { name: "Открыть карточку" })).toHaveAttribute(
+      "href",
+      "/patients/p-007",
+    );
+
+    expect(document.body.textContent ?? "").not.toMatch(
+      /self-hosted|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|raw ID|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
   });
 
@@ -90,10 +109,9 @@ describe("PatientsPage", () => {
 
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent(
-      /Создание пациента пока недоступно в демо-режиме/i,
+      /Создание пациента доступно только после входа в систему клиники/i,
     );
-    expect(status).toHaveTextContent(/действие заблокировано/i);
-    expect(status).toHaveTextContent(/Реальные данные пациентов не вводите/i);
+    expect(status).toHaveTextContent(/Реальные данные пациентов здесь не вводите/i);
     expect(status.getAttribute("aria-live")).toBe("polite");
     expect(status.getAttribute("aria-atomic")).toBe("true");
     expect(status.getAttribute("aria-label")).toBe("Статус действий с пациентами");
@@ -107,7 +125,7 @@ describe("PatientsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Новый пациент/i }));
 
     expect(within(table).getAllByRole("row").length).toBe(rowsBefore);
-    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 10/)).toBeInTheDocument();
   });
 
   it("opens an edit dialog for an existing patient with current values", async () => {
@@ -130,7 +148,7 @@ describe("PatientsPage", () => {
       "1984-03-12",
     );
     expect(
-      within(dialog).getByText(/Изменения сохраняются только локально/i),
+      within(dialog).getByText(/Изменения сохраняются только на этом экране/i),
     ).toBeInTheDocument();
   });
 
@@ -179,9 +197,9 @@ describe("PatientsPage", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getAllByText("Иванова Наталья Тестовая").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 10/)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      /Изменения по пациенту Иванова Наталья Тестовая сохранены локально/i,
+      /Изменения по пациенту Иванова Наталья Тестовая сохранены только на этом экране/i,
     );
   });
 
@@ -207,7 +225,7 @@ describe("PatientsPage", () => {
     const log = screen.getByRole("region", { name: "Журнал изменений пациентов" });
     expect(log).toHaveTextContent("DP-2026-0001");
     expect(log).toHaveTextContent("Иванова Наталья Журнал");
-    expect(log).toHaveTextContent("Обновлены данные пациента локально.");
+    expect(log).toHaveTextContent("Обновлены данные пациента на этом экране.");
   });
 
   it("requires a non-empty patient name before saving", async () => {
@@ -291,7 +309,7 @@ describe("PatientsPage", () => {
 
     expect(screen.getAllByText("Беляева Елена Сергеевна").length).toBeGreaterThan(0);
     expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
-    expect(screen.getByText(/Найдено:/).textContent).toContain("1");
+    expect(screen.getAllByText(/Найдено:/).map((node) => node.textContent).join(" ")).toContain("1");
   });
 
   it("sorts patients by age descending", async () => {
@@ -314,14 +332,14 @@ describe("PatientsPage", () => {
     renderPage();
 
     expect(screen.getByRole("navigation", { name: "Пагинация пациентов" })).toHaveTextContent(
-      "Страница 1 из 2",
+      "Страница 1 из 3",
     );
     expect(screen.queryByText("Кузнецов Павел Андреевич")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Вперёд" }));
 
     expect(screen.getByRole("navigation", { name: "Пагинация пациентов" })).toHaveTextContent(
-      "Страница 2 из 2",
+      "Страница 2 из 3",
     );
     expect(screen.getAllByText("Кузнецов Павел Андреевич").length).toBeGreaterThan(0);
     expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
@@ -334,23 +352,23 @@ describe("PatientsPage", () => {
 
     await userEvent.click(
       within(table).getByRole("button", {
-        name: /Удалить пациента Иванова Наталья Олеговна/i,
+        name: /Скрыть пациента Иванова Наталья Олеговна/i,
       }),
     );
     const alert = await screen.findByRole("alertdialog", {
-      name: "Удалить пациента из локального списка?",
+      name: "Скрыть пациента на этом экране?",
     });
     await userEvent.click(
-      within(alert).getByRole("button", { name: "Удалить локально" }),
+      within(alert).getByRole("button", { name: "Скрыть на этом экране" }),
     );
 
     expect(within(table).queryByRole("link", { name: "Иванова Наталья Олеговна" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Всего в базе: 7/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 9/)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      /Пациент Иванова Наталья Олеговна удалён из локального списка/i,
+      /Пациент Иванова Наталья Олеговна скрыт только на этом экране/i,
     );
     const log = screen.getByRole("region", { name: "Журнал изменений пациентов" });
-    expect(log).toHaveTextContent("Удалён из локального списка.");
+    expect(log).toHaveTextContent("Скрыт на этом экране.");
     expect(PATIENTS.length).toBe(before);
   });
 
@@ -360,25 +378,25 @@ describe("PatientsPage", () => {
 
     await userEvent.click(
       within(table).getByRole("button", {
-        name: /Удалить пациента Иванова Наталья Олеговна/i,
+        name: /Скрыть пациента Иванова Наталья Олеговна/i,
       }),
     );
     const alert = await screen.findByRole("alertdialog", {
-      name: "Удалить пациента из локального списка?",
+      name: "Скрыть пациента на этом экране?",
     });
     await userEvent.click(
-      within(alert).getByRole("button", { name: "Удалить локально" }),
+      within(alert).getByRole("button", { name: "Скрыть на этом экране" }),
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Отменить удаление" }));
+    await userEvent.click(screen.getByRole("button", { name: "Отменить скрытие" }));
 
-    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 10/)).toBeInTheDocument();
     expect(screen.getAllByText("Иванова Наталья Олеговна").length).toBeGreaterThan(0);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Удаление пациента Иванова Наталья Олеговна отменено.",
+      "Скрытие пациента Иванова Наталья Олеговна отменено.",
     );
     expect(screen.getByRole("region", { name: "Журнал изменений пациентов" })).toHaveTextContent(
-      "Удаление отменено.",
+      "Скрытие отменено.",
     );
   });
 
@@ -409,11 +427,11 @@ describe("PatientsPage", () => {
     expect(
       within(exportDialog).getByLabelText("Текст экспорта журнала изменений"),
     ).toHaveValue(
-      "1. DP-2026-0001 Иванова Наталья Экспорт: Обновлены данные пациента локально.",
+      "1. DP-2026-0001 Иванова Наталья Экспорт: Обновлены данные пациента на этом экране.",
     );
   });
 
-  it("loads patients from the self-hosted backend when a local backend token is present", async () => {
+  it("loads patients from the clinic system when a local session token is present", async () => {
     configureLiveBackend();
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ items: [livePatient()] }),
@@ -424,19 +442,19 @@ describe("PatientsPage", () => {
 
     expect(
       screen.getByRole("status", {
-        name: "Статус загрузки пациентов из self-hosted backend",
+        name: "Статус загрузки пациентов из системы клиники",
       }),
     ).toHaveTextContent("Загружаем пациентов");
     expect((await screen.findAllByText("Петрова Анна Сергеевна")).length).toBeGreaterThan(0);
-    expect(screen.getByRole("note", { name: "Ограничения демо-режима пациентов" })).toHaveTextContent(
-      "Self-hosted backend подключён",
+    expect(screen.getByRole("note", { name: "Режим работы списка пациентов" })).toHaveTextContent(
+      "Рабочий режим",
     );
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:8080/api/v1/patients?limit=200&offset=0");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer local-jwt");
   });
 
-  it("creates a patient through the self-hosted backend in live mode", async () => {
+  it("creates a patient through the clinic system in live mode", async () => {
     configureLiveBackend();
     const created = livePatient({
       id: "22222222-2222-4222-8222-222222222222",
@@ -463,7 +481,7 @@ describe("PatientsPage", () => {
 
     expect((await screen.findAllByText("Соколова Мария Ивановна")).length).toBeGreaterThan(0);
     expect(screen.getByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
-      "создан в self-hosted backend",
+      "создан в системе клиники",
     );
     const [, createInit] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(createInit.method).toBe("POST");
@@ -476,7 +494,7 @@ describe("PatientsPage", () => {
     });
   });
 
-  it("updates a live backend patient instead of writing only local demo state", async () => {
+  it("updates a live patient in the clinic system instead of changing only screen state", async () => {
     configureLiveBackend();
     const fetchMock = vi
       .fn()
@@ -493,7 +511,7 @@ describe("PatientsPage", () => {
       }),
     );
     const dialog = await screen.findByRole("dialog", { name: "Редактировать пациента" });
-    expect(within(dialog).getByText(/сохраняются через self-hosted backend/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/сохраняются в системе клиники/i)).toBeInTheDocument();
     const nameInput = within(dialog).getByLabelText("ФИО");
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, "Петрова Анна Новая");
@@ -505,7 +523,7 @@ describe("PatientsPage", () => {
     expect(init.method).toBe("PATCH");
   });
 
-  it("archives a live backend patient through soft-delete API without showing demo undo", async () => {
+  it("archives a live patient without showing screen-only undo", async () => {
     configureLiveBackend();
     const fetchMock = vi
       .fn()
@@ -518,7 +536,7 @@ describe("PatientsPage", () => {
     const table = screen.getByRole("table");
     await userEvent.click(
       within(table).getByRole("button", {
-        name: /Удалить пациента Петрова Анна Сергеевна/i,
+        name: /Скрыть пациента Петрова Анна Сергеевна/i,
       }),
     );
     const alert = await screen.findByRole("alertdialog", { name: "Архивировать пациента?" });
@@ -528,16 +546,16 @@ describe("PatientsPage", () => {
     await waitFor(() => {
       expect(within(table).queryByRole("link", { name: "Петрова Анна Сергеевна" })).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: "Отменить удаление" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Отменить скрытие" })).not.toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
-      "архивирован в self-hosted backend",
+      "архивирован в системе клиники",
     );
     const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(url).toBe(`http://localhost:8080/api/v1/patients/${LIVE_PATIENT_ID}`);
     expect(init.method).toBe("DELETE");
   });
 
-  it("surfaces backend RBAC/list errors without hiding the safe demo fallback", async () => {
+  it("surfaces access errors without hiding the safe learning fallback", async () => {
     configureLiveBackend();
     vi.stubGlobal(
       "fetch",
@@ -560,11 +578,11 @@ describe("PatientsPage", () => {
     expect(await screen.findByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
       "Недостаточно прав",
     );
-    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 10/)).toBeInTheDocument();
     expect(screen.getAllByText("Иванова Наталья Олеговна").length).toBeGreaterThan(0);
   });
 
-  it("does not show demo patient rows when production live loading fails", async () => {
+  it("does not show learning patient rows when production live loading fails", async () => {
     vi.stubEnv("VITE_APP_MODE", "production");
     configureLiveBackend();
     vi.stubGlobal(
@@ -588,11 +606,11 @@ describe("PatientsPage", () => {
     expect(await screen.findByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
       "Недостаточно прав",
     );
-    expect(screen.getByRole("note", { name: "Ограничения демо-режима пациентов" })).toHaveTextContent(
-      "Production-режим",
+    expect(screen.getByRole("note", { name: "Режим работы списка пациентов" })).toHaveTextContent(
+      "Рабочий режим",
     );
-    expect(screen.getByText(/Self-hosted backend недоступен/i)).toBeInTheDocument();
+    expect(screen.getByText(/Система клиники недоступна/i)).toBeInTheDocument();
     expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
-    expect(screen.getByText(/Всего в базе: 0/)).toBeInTheDocument();
+    expect(screen.getByText(/В списке: 0/)).toBeInTheDocument();
   });
 });
