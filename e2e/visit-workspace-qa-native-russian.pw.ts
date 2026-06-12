@@ -602,8 +602,16 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
       await expect(page.getByRole("tab", { name: "Отчёт" })).toHaveAttribute("data-state", "active");
       const timelineRegion = page.getByRole("region", { name: "Готовность проверки истории" });
       await expect(timelineRegion).toBeVisible();
+      await expect(timelineRegion.getByText("Краткая сводка проверки истории")).toBeVisible();
+      await expect(timelineRegion.getByText("Данные снимков")).toBeVisible();
+      await expect(timelineRegion.getByText("Условия сравнения")).toBeVisible();
+      await expect(timelineRegion.getByText("Разбор врачом")).toBeVisible();
+      await expect(timelineRegion.getByText("Рабочий контроль")).toBeVisible();
       await expect(timelineRegion.getByText("Что делать сейчас")).toBeVisible();
       await expect(timelineRegion.getByRole("link", { name: /Открыть/ })).toBeVisible();
+      await expect(timelineRegion.getByText("Технический журнал проверки")).toBeVisible();
+      await expect(timelineRegion.getByText("Открыть подробный контроль")).toBeVisible();
+      await expect(timelineRegion.getByRole("region", { name: "Порядок инцидентов" })).toHaveCount(0);
 
       const timelineText = await timelineRegion.innerText();
       expect(timelineText).not.toMatch(FORBIDDEN_VISIBLE);

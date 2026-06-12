@@ -29,6 +29,7 @@ import {
   TimelineQaGroupHeader,
   TimelineQaGroupNav,
 } from "@/pages/doctor/visit-workspace/TimelineQaNavigation";
+import { LongitudinalQaSummary } from "@/pages/doctor/visit-workspace/LongitudinalQaSummary";
 import {
   humanDisplayValue,
   humanFieldTerm,
@@ -2720,7 +2721,7 @@ function LongitudinalDatasetValidationPanel({
         : currentTimelineQaStep?.nextActionLabel ?? "Проверить следующий шаг";
   const primaryActionHref = !rolloutReady && validation.items.length > 0
     ? "#timeline-qa-lesions"
-    : "#timeline-rollout-details";
+    : "#timeline-technical-ledger";
   const primaryActionLabel = !rolloutReady && validation.items.length > 0
     ? "Открыть очаги с блокерами"
     : "Открыть детальный аудит";
@@ -2743,23 +2744,12 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Field term="Очагов" value={readiness.lesionCount} />
-        <Field term="Готово" value={readiness.readyTimelineCount} />
-        <Field term="Review" value={readiness.needsReviewTimelineCount} />
-        <Field term="Блок" value={readiness.blockedTimelineCount} />
-        <Field term="Снимков" value={readiness.imageCount} />
-        <Field term="Пар" value={readiness.candidatePairCount} />
-        <Field term="Workflow" value={readiness.reviewerWorkflowReadyCount} />
-        <Field term="Assets" value={readiness.productionAssetNotReadyCount} />
-        <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
-        <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
-        <Field term="Protocol" value={readiness.captureProtocolNotReadyCount} />
-        <Field term="Policy" value={readiness.measurementPolicyNotReadyCount} />
-        <Field term="Analysis" value={readiness.productionAnalysisPolicyNotReadyCount} />
-        <Field term="Assign" value={readiness.reviewerAssignmentNotReadyCount} />
-        <Field term="Second" value={readiness.secondReviewNotReadyCount} />
-      </dl>
+      <LongitudinalQaSummary
+        readiness={readiness}
+        completedSteps={completedTimelineQaSteps}
+        totalSteps={timelineQaSteps.length}
+        currentStepLabel={currentTimelineQaStep?.label ?? "проверка"}
+      />
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {validation.blockers.slice(0, 4).map((blocker) => (
@@ -2838,17 +2828,23 @@ function LongitudinalDatasetValidationPanel({
           })}
         </ol>
       </div>
-      <TimelineQaGroupNav />
-      <TimelineQaGroupHeader
-        title="Данные и запуск"
-        hint="Сначала закрываются препятствия по очагам, затем фиксируется контроль запуска."
-      />
-      <div
-        id="timeline-rollout-details"
-        role="region"
-        aria-label="Запуск проверки истории"
-        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
-      >
+      <details id="timeline-technical-ledger" className="mt-3 rounded-sm border border-border/70 bg-surface-muted">
+        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2 text-[12px] font-medium">
+          <span>Технический журнал проверки</span>
+          <span className="text-muted-foreground">Открыть подробный контроль</span>
+        </summary>
+        <div className="border-t border-border/70 px-2.5 pb-2">
+          <TimelineQaGroupNav />
+          <TimelineQaGroupHeader
+            title="Данные и запуск"
+            hint="Сначала закрываются препятствия по очагам, затем фиксируется контроль запуска."
+          />
+          <div
+            id="timeline-rollout-details"
+            role="region"
+            aria-label="Запуск проверки истории"
+            className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+          >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <h4 className="text-[12px] font-semibold">Запуск проверки истории</h4>
@@ -3945,6 +3941,8 @@ function LongitudinalDatasetValidationPanel({
           </Button>
         </div>
       </div>
+        </div>
+      </details>
       {validation.items.length > 0 ? (
         <ol id="timeline-qa-lesions" className="mt-3 grid grid-cols-1 gap-2">
           {validation.items.slice(0, 5).map((item) => (

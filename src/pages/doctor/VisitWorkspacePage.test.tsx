@@ -55,6 +55,10 @@ function selectTab(name: RegExp) {
   fireEvent.click(tab);
 }
 
+async function openTimelineTechnicalJournal() {
+  fireEvent.click(await screen.findByText("Технический журнал проверки"));
+}
+
 describe("VisitWorkspacePage · Карта тела", () => {
   it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
@@ -2412,7 +2416,13 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Технический контур сравнения/)).toBeInTheDocument();
     expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
     expect(screen.getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
-    expect(await screen.findByRole("region", { name: "Готовность проверки истории" })).toBeInTheDocument();
+    const timelineRegion = await screen.findByRole("region", { name: "Готовность проверки истории" });
+    expect(timelineRegion).toBeInTheDocument();
+    expect(within(timelineRegion).getByText("Краткая сводка проверки истории")).toBeInTheDocument();
+    expect(within(timelineRegion).getByText("Данные снимков")).toBeInTheDocument();
+    expect(within(timelineRegion).getByText("Условия сравнения")).toBeInTheDocument();
+    expect(within(timelineRegion).getByText("Разбор врачом")).toBeInTheDocument();
+    expect(within(timelineRegion).getByText("Рабочий контроль")).toBeInTheDocument();
     const timelineFocus = await screen.findByRole("region", { name: "Рабочий шаг проверки истории" });
     expect(within(timelineFocus).getByText(/Что делать сейчас/)).toBeInTheDocument();
     expect(within(timelineFocus).getByText(/Следующий шаг: Закрыть блокеры данных/)).toBeInTheDocument();
@@ -2425,6 +2435,12 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       "#timeline-qa-lesions",
     );
     expect(within(timelineFocus).getByRole("list", { name: "Этапы проверки истории" })).toBeInTheDocument();
+    expect(screen.getByText("Технический журнал проверки")).toBeInTheDocument();
+    expect(screen.getByText("Открыть подробный контроль")).toBeInTheDocument();
+    const technicalJournal = screen.getByText("Технический журнал проверки").closest("details");
+    expect(technicalJournal).not.toHaveAttribute("open");
+    await openTimelineTechnicalJournal();
+    expect(technicalJournal).toHaveAttribute("open");
     const timelineGroups = screen.getByRole("navigation", { name: "Разделы проверки истории" });
     expect(within(timelineGroups).getByRole("link", { name: /Данные и запуск/ })).toHaveAttribute(
       "href",
@@ -2551,6 +2567,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Запуск проверки истории" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Нужен разбор запуска/ }));
     await screen.findByText(/Запуск проверки истории сохранён/);
@@ -2572,6 +2589,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Правила запуска истории" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать разбор правил/ }));
     await screen.findByText(/Правила запуска истории сохранены/);
@@ -2594,6 +2612,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     const rolloutEvidenceRegion = await screen.findByRole("region", { name: "Подтверждения запуска" });
     expect(rolloutEvidenceRegion).toBeInTheDocument();
     fireEvent.click(within(rolloutEvidenceRegion).getByRole("button", { name: /Зафиксировать подтверждения/ }));
@@ -2621,6 +2640,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     const rolloutMonitoringRegion = await screen.findByRole("region", { name: "Наблюдение результатов" });
     expect(rolloutMonitoringRegion).toBeInTheDocument();
     fireEvent.click(within(rolloutMonitoringRegion).getByRole("button", { name: /Зафиксировать наблюдение/ }));
@@ -2650,6 +2670,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Порядок инцидентов" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать порядок инцидентов/ }));
     await screen.findByText(/Порядок инцидентов сохранён/);
@@ -2687,6 +2708,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Клиническая проверка" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать клиническую проверку/ }));
     await screen.findByText(/Клиническая проверка сохранена/);
@@ -2720,6 +2742,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Наблюдение после проверки" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать наблюдение после проверки/ }));
     await screen.findByText(/Наблюдение после проверки сохранено/);
@@ -2755,6 +2778,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Закрытие исключений" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать закрытие исключений/ }));
     await screen.findByText(/Закрытие исключений сохранено/);
@@ -2791,6 +2815,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Контроль результатов истории" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль результатов/ }));
     await screen.findByText(/Контроль результатов сохранён/);
@@ -2827,6 +2852,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Клиническая проверка истории" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать проверку истории/ }));
     await screen.findByText(/Проверка истории сохранена/);
@@ -2866,6 +2892,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Проверка закрытых снимков" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать проверку закрытых снимков/ }));
     await screen.findByText(/Проверка закрытых снимков сохранена/);
@@ -2903,6 +2930,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Контроль закрытой проверки" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль закрытой проверки/ }));
     await screen.findByText(/Контроль закрытой проверки сохранён/);
@@ -2937,6 +2965,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Подтверждения закрытой проверки" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать подтверждения закрытой проверки/ }));
     await screen.findByText(/Подтверждения закрытой проверки сохранены/);
@@ -2971,6 +3000,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Подтверждение рабочих данных" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать рабочие данные/ }));
     await screen.findByText(/Подтверждение рабочих данных сохранено/);
@@ -3005,6 +3035,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Контроль рабочей проверки" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль рабочей проверки/ }));
     await screen.findByText(/Контроль рабочей проверки сохранён/);
@@ -3043,6 +3074,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    await openTimelineTechnicalJournal();
     expect(await screen.findByRole("region", { name: "Подтверждение рабочей проверки" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Зафиксировать подтверждение рабочей проверки/ }));
     await screen.findByText(/Подтверждение рабочей проверки сохранено/);
