@@ -29,16 +29,16 @@ describe("Admin clinic core pages — render & safety", () => {
   it("AdminHomePage renders the admin operating dashboard, action queue and quick links", () => {
     renderRouted(<AdminHomePage />);
     expect(screen.getByRole("heading", { name: /Операционный центр клиники/ })).toBeInTheDocument();
-    expect(screen.getByText(/MVP: данные демонстрационные/)).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим: показаны только агрегаты/)).toBeInTheDocument();
     expect(screen.getByText("Очередь решений администратора")).toBeInTheDocument();
-    expect(screen.getByText(/МИС отключена/)).toBeInTheDocument();
+    expect(screen.getByText(/Связь с учётной системой выключена/)).toBeInTheDocument();
     expect(screen.getByText(/Бот ждёт фото лучшего качества/)).toBeInTheDocument();
     expect(screen.getByText("Операционный день")).toBeInTheDocument();
-    expect(screen.getByText("Готовность интеграций")).toBeInTheDocument();
-    expect(screen.getByText("Бот и лиды")).toBeInTheDocument();
+    expect(screen.getByText("Готовность подключений")).toBeInTheDocument();
+    expect(screen.getByText("Бот и заявки")).toBeInTheDocument();
     expect(screen.getByText("Услуги и филиалы")).toBeInTheDocument();
     expect(screen.getByText("Финансовый контур")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Разобрать интеграции/ })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Проверить подключение|Проверить подключения/ })[0]).toHaveAttribute(
       "href",
       "/admin/integrations",
     );
@@ -62,8 +62,8 @@ describe("Admin clinic core pages — render & safety", () => {
     for (const patientName of ["Иванова", "Кузнецов", "Новиков", "Григорьева"]) {
       expect(html).not.toContain(patientName);
     }
-    expect(screen.getByText(/Только агрегаты/)).toBeInTheDocument();
-    expect(screen.getByText(/фото и диагнозы не выводятся/)).toBeInTheDocument();
+    expect(screen.getByText(/только агрегаты/i)).toBeInTheDocument();
+    expect(screen.getByText(/фото и медицинские выводы скрыты/)).toBeInTheDocument();
   });
 
   it("AdminBotSettingsPage renders the bot control center with queues, scripts and audit", () => {
@@ -161,11 +161,25 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("heading", { name: "Интеграции" })).toBeInTheDocument();
     expect(screen.getAllByText("Клиентская база").length).toBeGreaterThan(0);
     expect(screen.getAllByText("учёт").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("МИС").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Учётная система|учётная система/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Учебный режим: внешние системы не получают фото/)).toBeInTheDocument();
     expect(screen.getAllByText("Краткое резюме и защищённая ссылка").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Клиентская база" })).toBeInTheDocument();
-    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|safeSummary|protectedLink|DryRun|JSON|Telegram Bot API|Demo MIS/i);
+    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|safeSummary|protectedLink|DryRun|JSON|Telegram Bot API|Demo MIS|МИС/i);
+  });
+
+  it("UX Batch 17: admin home and integrations use native Russian visible copy", () => {
+    const forbiddenVisible =
+      /MVP|DryRun|JSON|MIS|МИС|Demo MIS|demo|Demo|демо|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|raw ID|safeSummary|protectedLink|Telegram Bot API|AI\/XAI|PHI|лиды|лидов|лидам|DRM-\d|device bridge|planned \+ confirmed|CRM,|ERP/i;
+
+    for (const ui of [<AdminHomePage />, <AdminIntegrationsPage />]) {
+      const { container, unmount } = renderRouted(ui);
+      const visible = container.textContent ?? "";
+      expect(visible).not.toMatch(forbiddenVisible);
+      expect(visible).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+      expect(visible).not.toMatch(/storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
+      unmount();
+    }
   });
 
   it("AdminBotSettingsPage keeps bot control safe and hides raw bot internals", () => {

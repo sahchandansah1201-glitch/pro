@@ -12,7 +12,7 @@ const KIND_FILTERS: { value: "all" | IntegrationKind; label: string }[] = [
   { value: "all", label: "Все" },
   { value: "crm", label: "Клиентская база" },
   { value: "erp", label: "Учёт" },
-  { value: "mis", label: "МИС" },
+  { value: "mis", label: "Учётная система" },
   { value: "messenger", label: "Мессенджеры" },
   { value: "telephony", label: "Телефония" },
 ];
@@ -28,7 +28,7 @@ const STATUS_FILTERS: { value: "all" | IntegrationStatus; label: string }[] = [
 const KIND_LABEL: Record<IntegrationKind, string> = {
   crm: "Клиентская база",
   erp: "Учёт",
-  mis: "МИС",
+  mis: "Учётная система",
   messenger: "Мессенджер",
   telephony: "Телефония",
 };
@@ -52,7 +52,7 @@ const providerLabel = (provider: string) => {
   if (provider === "amoCRM") return "Амо";
   if (provider === "1С: Медицина") return "1С: Медицина";
   if (provider === "Telegram Bot API") return "Телеграм";
-  if (provider === "Demo MIS") return "Учебная медсистема";
+  if (provider === "Demo MIS") return "Учебная система клиники";
   return provider;
 };
 
@@ -85,7 +85,7 @@ export default function AdminIntegrationsPage() {
           <span className="flex flex-wrap gap-x-3 gap-y-1">
             <span>Клиентская база</span>
             <span>учёт</span>
-            <span>МИС</span>
+            <span>учётная система</span>
             <span>мессенджеры</span>
             <span>телефония</span>
           </span>

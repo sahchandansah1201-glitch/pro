@@ -11,7 +11,7 @@ import type { IntegrationKind, IntegrationStatus } from "@/lib/domain";
 const KIND_LABEL: Record<IntegrationKind, string> = {
   crm: "Клиентская база",
   erp: "Учёт",
-  mis: "МИС",
+  mis: "Учётная система",
   messenger: "Мессенджер",
   telephony: "Телефония",
 };
@@ -28,7 +28,7 @@ const providerLabel = (provider: string) => {
   if (provider === "amoCRM") return "Амо";
   if (provider === "1С: Медицина") return "1С: Медицина";
   if (provider === "Telegram Bot API") return "Телеграм";
-  if (provider === "Demo MIS") return "Учебная медсистема";
+  if (provider === "Demo MIS") return "Учебная система клиники";
   return provider;
 };
 
@@ -73,11 +73,11 @@ export const ALLOWED_SOURCE_FIELDS = new Set<string>([
   "patientCode",
   "visitId",
   // Внешний идентификатор пользователя в мессенджере намеренно исключён:
-  // токен такого поля запрещён в admin UI политикой данных MVP.
+  // токен такого поля запрещён в админском интерфейсе политикой данных.
   "channel",
 ]);
 
-/** Обобщённые категории, которые в MVP всегда заблокированы политикой данных. */
+/** Обобщённые категории, которые всегда заблокированы политикой данных. */
 const LOCKED_CATEGORIES: { label: string }[] = [
   { label: "Идентификаторы пациента" },
   { label: "Фото" },

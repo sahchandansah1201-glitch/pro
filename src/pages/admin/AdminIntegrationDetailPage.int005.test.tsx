@@ -68,6 +68,6 @@ describe("AdminIntegrationDetailPage — int-005 messenger integration", () => {
     expect(getByText("Технические детали подсказки")).toBeTruthy();
     // «закрыто» встречается несколько раз — по одному на каждую категорию.
     expect(getAllByText("закрыто").length).toBeGreaterThanOrEqual(4);
-    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|DryRun|JSON|Report|AnalysisCard|safeSummary|protectedLink|Telegram Bot API/i);
+    expect(visible).not.toMatch(/MVP|AI|XAI|PHI|DryRun|JSON|Report|AnalysisCard|safeSummary|protectedLink|Telegram Bot API|Demo MIS|МИС/i);
   });
 });

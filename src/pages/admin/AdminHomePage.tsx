@@ -32,18 +32,18 @@ import type {
 } from "@/lib/domain";
 
 /**
- * Admin Operating Dashboard — операционный центр клиники.
+ * Операционный центр клиники.
  *
- * SAFETY:
- *   - Только агрегаты и демо-операционные сущности: расписание, лиды,
- *     филиалы, услуги, интеграции, статусы бота.
- *   - Не импортируем и не рендерим пациентов, фото, диагнозы, AI/XAI детали,
- *     внешние идентификаторы пользователей мессенджеров или raw tokens.
+ * Safety boundary:
+ *   - Только агрегаты и учебные операционные сущности: расписание, заявки,
+ *     филиалы, услуги, подключения, статусы бота.
+ *   - Не импортируем и не рендерим пациентов, фото, диагнозы, подсказки системы,
+ *     внешние идентификаторы пользователей мессенджеров или секретные значения.
  *   - Никаких сетевых вызовов, clipboard, storage, медиа.
  */
 
 const DEMO_NOTICE =
-  "MVP: данные демонстрационные. Только агрегаты: пациентские данные, фото и диагнозы не выводятся.";
+  "Учебный режим: показаны только агрегаты. Персональные данные, фото и медицинские выводы скрыты.";
 
 const STATUS_LABEL: Record<IntegrationStatus, string> = {
   connected: "Подключено",
@@ -75,10 +75,34 @@ const APPOINTMENT_STATUS_TONE: Record<AppointmentStatus, string> = {
   no_show: "text-warning border-warning/40 bg-warning/10",
 };
 
+const APPOINTMENT_CHANNEL_LABEL: Record<Appointment["channel"], string> = {
+  bot: "бот",
+  operator: "оператор",
+  phone: "телефон",
+  portal: "личный кабинет",
+};
+
+const INTEGRATION_KIND_LABEL: Record<Integration["kind"], string> = {
+  crm: "Клиентская база",
+  erp: "Учёт",
+  mis: "Учётная система",
+  messenger: "Мессенджер",
+  telephony: "Телефония",
+};
+
 const PARTNER_TIER_LABEL: Record<PartnerTier, string> = {
   owned: "Своя",
   partner: "Партнёр",
   external: "Внешняя",
+};
+
+const integrationProviderLabel = (provider: string) => {
+  if (provider === "Bitrix24") return "Битрикс24";
+  if (provider === "amoCRM") return "Амо";
+  if (provider === "1С: Медицина") return "1С: Медицина";
+  if (provider === "Telegram Bot API") return "Телеграм";
+  if (provider === "Demo MIS") return "Учебная система клиники";
+  return provider;
 };
 
 const DIALOG_STATE_LABEL: Record<BotDialogState, string> = {
@@ -270,11 +294,11 @@ export default function AdminHomePage() {
 
   const actionQueue = [
     {
-      title: "МИС отключена",
-      detail: "Записи и отчёты не синхронизируются с внешней медицинской системой.",
-      meta: "Demo MIS · интеграции",
+      title: "Связь с учётной системой выключена",
+      detail: "Записи и отчёты не обновляются в учётной системе клиники.",
+      meta: "Система клиники · подключение",
       to: "/admin/integrations",
-      cta: "Разобрать интеграции",
+      cta: "Проверить подключение",
       tone: "danger" as OpsTone,
       Icon: Plug,
     },
@@ -298,7 +322,7 @@ export default function AdminHomePage() {
     },
     {
       title: "Северный филиал готов частично",
-      detail: "Перед маршрутизацией лидов нужно проверить интеграцию и device bridge.",
+      detail: "Перед маршрутизацией заявок нужно проверить подключение и локальную связь с кабинетом.",
       meta: "Клиники и филиалы",
       to: "/admin/clinics",
       cta: "Проверить филиалы",
@@ -311,7 +335,7 @@ export default function AdminHomePage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Операционный центр клиники"
-        subtitle="Расписание, очереди, интеграции, бот, услуги и финансовая готовность."
+        subtitle="Расписание, очереди, подключения, бот, услуги и финансовая готовность."
       />
 
       <div className="space-y-3 p-3 sm:p-4">
@@ -332,7 +356,7 @@ export default function AdminHomePage() {
           <OpsMetric
             label="Ближайшие записи"
             value={upcoming.length}
-            hint="planned + confirmed"
+            hint="плановые и подтверждённые"
             tone="info"
           />
           <OpsMetric
@@ -342,7 +366,7 @@ export default function AdminHomePage() {
             tone="warn"
           />
           <OpsMetric
-            label="Интеграции с риском"
+            label="Подключения с риском"
             value={integrationsNeedAction.length}
             hint="черновик или отключено"
             tone="danger"
@@ -350,7 +374,7 @@ export default function AdminHomePage() {
           <OpsMetric
             label="Потенциал записи"
             value={money(plannedPotential)}
-            hint="демо-оценка по слотам"
+            hint="учебная оценка по слотам"
             tone="ok"
           />
         </section>
@@ -394,7 +418,7 @@ export default function AdminHomePage() {
                       <div className="min-w-0">
                         <div className="font-medium">{fmtDateShort(appointment.slotAt)}</div>
                         <div className="truncate text-muted-foreground">
-                          {clinic?.name ?? "Клиника"} · канал: {appointment.channel}
+                          {clinic?.name ?? "Клиника"} · канал: {APPOINTMENT_CHANNEL_LABEL[appointment.channel]}
                         </div>
                       </div>
                       <StatusPill tone={APPOINTMENT_STATUS_TONE[appointment.status]}>
@@ -409,18 +433,18 @@ export default function AdminHomePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-          <SectionCard title="Готовность интеграций" hint={`${integrations.length} систем`}>
+          <SectionCard title="Готовность подключений" hint={`${integrations.length} систем`}>
             <ul className="space-y-2">
               {integrations.map((integration) => (
                 <IntegrationRow key={integration.id} integration={integration} />
               ))}
             </ul>
             <div className="mt-3">
-              <ActionLink to="/admin/integrations">Разобрать интеграции</ActionLink>
+              <ActionLink to="/admin/integrations">Проверить подключения</ActionLink>
             </div>
           </SectionCard>
 
-          <SectionCard title="Бот и лиды" hint={`${botNeedsAction.length} требуют внимания`}>
+          <SectionCard title="Бот и заявки" hint={`${botNeedsAction.length} требуют внимания`}>
             <div className="space-y-3 text-[12px]">
               <div>
                 <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -437,7 +461,7 @@ export default function AdminHomePage() {
               </div>
               <div>
                 <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Воронка лидов
+                  Воронка заявок
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <SmallMetric label="Новые" value={leadStates.new ?? 0} />
@@ -450,11 +474,11 @@ export default function AdminHomePage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Финансовый контур" hint="демо-оценка">
+          <SectionCard title="Финансовый контур" hint="учебная оценка">
             <div className="space-y-2 text-[12px]">
               <FinanceRow label="Завершённые визиты" value={money(completedRevenue)} hint={`${finished.length} визита`} />
               <FinanceRow label="Ближайшие записи" value={money(plannedPotential)} hint={`${upcoming.length} слота`} />
-              <FinanceRow label="Потерянные лиды" value={money(lostOpportunity)} hint={`${lostLeads.length} лид`} />
+              <FinanceRow label="Потерянные заявки" value={money(lostOpportunity)} hint={`${lostLeads.length} заявка`} />
             </div>
             <div className="mt-3">
               <ActionLink to="/admin/analytics">Открыть аналитику</ActionLink>
@@ -475,7 +499,7 @@ export default function AdminHomePage() {
                       <div className="min-w-0">
                         <div className="font-medium">{service.name}</div>
                         <div className="text-[11px] text-muted-foreground">
-                          {service.code} · {service.slotMin} мин · {service.price}
+                          служебный код скрыт · {service.slotMin} мин · {service.price}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           согласие: {service.consent}
@@ -502,7 +526,7 @@ export default function AdminHomePage() {
                         <div className="min-w-0">
                           <div className="truncate font-medium">{clinic.name}</div>
                           <div className="text-[11px] text-muted-foreground">
-                            {PARTNER_TIER_LABEL[clinic.partnerTier]} · лиды {leadsCount} · записи {bookings}
+                            {PARTNER_TIER_LABEL[clinic.partnerTier]} · заявки {leadsCount} · записи {bookings}
                           </div>
                         </div>
                         <StatusPill tone={readiness.integration === "ok" && readiness.bridge === "ok" ? OPS_TONE.ok : OPS_TONE.warn}>
@@ -524,8 +548,8 @@ export default function AdminHomePage() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <QuickLink to="/admin/doctors" label="Врачи" hint="состав и лицензии" Icon={Stethoscope} />
               <QuickLink to="/admin/services" label="Услуги" hint="цены и длительность" Icon={FileText} />
-              <QuickLink to="/admin/clinics" label="Клиники" hint="маршрутинг лидов" Icon={Building2} />
-              <QuickLink to="/admin/integrations" label="Интеграции" hint="CRM, МИС, бот" Icon={Plug} />
+              <QuickLink to="/admin/clinics" label="Клиники" hint="маршрутизация заявок" Icon={Building2} />
+              <QuickLink to="/admin/integrations" label="Интеграции" hint="клиентская база, учёт, бот" Icon={Plug} />
               <QuickLink to="/admin/bot" label="Бот" hint="шаблоны и эскалация" Icon={Bot} />
               <QuickLink to="/admin/analytics" label="Аналитика" hint="воронка и качество" Icon={BarChart3} />
             </div>
@@ -544,10 +568,10 @@ function IntegrationRow({ integration }: { integration: Integration }) {
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate font-medium">{integration.provider}</span>
+            <span className="truncate font-medium">{integrationProviderLabel(integration.provider)}</span>
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {integration.kind.toUpperCase()} · синхр.: {fmtSync(integration.lastSyncAt)}
+            {INTEGRATION_KIND_LABEL[integration.kind]} · синхр.: {fmtSync(integration.lastSyncAt)}
           </div>
           <div className="text-[11px] text-muted-foreground">
             передача: безопасное резюме + защищённая ссылка
