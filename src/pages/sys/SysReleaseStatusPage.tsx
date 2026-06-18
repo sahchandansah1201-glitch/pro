@@ -216,7 +216,7 @@ function importAuditStatusLabel(status: ImportAuditEntry["status"]): string {
   if (status === "partial") return "Импорт частичный";
   if (status === "dry_run") return "Проверка импорта";
   if (status === "deleted") return "Импорт удалён";
-  if (status === "downloaded") return "Отчет аудита скачан";
+  if (status === "downloaded") return "Отчёт аудита скачан";
   return "Импорт обработан";
 }
 
@@ -236,10 +236,10 @@ function releaseStatusOperationLabel(
     return "Готовим табличный экспорт журнала.";
   if (operation === "history_filtered_xlsx")
     return "Готовим книгу журнала.";
-  if (operation === "preset_json") return "Готовим файл пресетов.";
-  if (operation === "preset_xlsx") return "Готовим книгу пресетов.";
-  if (operation === "preset_import") return "Импортируем пресеты фильтров.";
-  if (operation === "preset_audit") return "Готовим аудит пресетов.";
+  if (operation === "preset_json") return "Готовим файл наборов фильтров.";
+  if (operation === "preset_xlsx") return "Готовим книгу наборов фильтров.";
+  if (operation === "preset_import") return "Импортируем наборы фильтров.";
+  if (operation === "preset_audit") return "Готовим аудит наборов фильтров.";
   if (operation === "audit_json") return "Готовим служебный отчёт аудита.";
   if (operation === "audit_csv") return "Готовим табличный отчёт аудита.";
   return "Операции не выполняются.";
@@ -247,7 +247,7 @@ function releaseStatusOperationLabel(
 
 function workflowDisplayName(name: string): string {
   const labels: Record<string, string> = {
-    "release-status": "Готовность релиза",
+    "release-status": "Готовность публикации",
     "preflight-all": "Предварительная проверка",
     "no-deno-locks": "Лишние служебные файлы",
     "e2e-smoke": "Быстрая проверка интерфейса",
@@ -268,9 +268,9 @@ function workflowConclusionLabel(conclusion: string): string {
 
 function privacyCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
-    "bearer token": "Токен авторизации",
-    "cookie header": "Заголовок cookie",
-    "url token parameter": "Токен в ссылке",
+    "bearer token": "Ключ авторизации",
+    "cookie header": "Служебный заголовок",
+    "url token parameter": "Ключ в ссылке",
     "email address": "Эл. почта",
     "patient full-name field": "Полное имя пациента",
     "actor email field": "Эл. почта сотрудника",
@@ -322,7 +322,7 @@ export default function SysReleaseStatusPage() {
   const [historyPresetName, setHistoryPresetName] = useState("");
   const [historyPresetImportInput, setHistoryPresetImportInput] = useState("");
   const [historyPresetImportNote, setHistoryPresetImportNote] = useState(
-    "Импорт пресетов ожидает данные из экспортированного файла.",
+    "Импорт наборов фильтров ожидает данные из экспортированного файла.",
   );
   const [lastClearedHistoryPresets, setLastClearedHistoryPresets] = useState<
     ReleaseHistoryFilterPreset[] | null
@@ -376,12 +376,12 @@ export default function SysReleaseStatusPage() {
   const safePreviewOutput = useMemo(
     () =>
       [
-        `Готовность релиза: ${releaseStatusLevelLabel(level)}.`,
+        `Готовность публикации: ${releaseStatusLevelLabel(level)}.`,
         `Проверки пройдены: ${readinessSummary.passedCount} из ${readinessSummary.totalCount}.`,
         `Рабочее дерево: ${snapshot.workingTree === "clean" ? "чисто" : "требует внимания"}.`,
         `Отчёт: ${snapshot.artifactPresent ? "найден" : "не найден"}.`,
         `Дата снимка: ${formatDateTime(snapshot.generatedAt)}.`,
-        `Граница данных: токены, пути хранения, подписанные ссылки, почта и имена пациентов не выводятся.`,
+        `Граница данных: секретные ключи, места хранения, закрытые ссылки, почта и имена пациентов не выводятся.`,
       ].join("\n"),
     [level, readinessSummary.passedCount, readinessSummary.totalCount, snapshot.artifactPresent, snapshot.generatedAt, snapshot.workingTree],
   );
@@ -429,12 +429,12 @@ export default function SysReleaseStatusPage() {
     }
     if (historyIssueSummary.invalidSchemaCount > 0) {
       hints.push(
-        "Оставьте только строки журнала релиза с репозиторием, веткой, кодом версии, статусом и проверками.",
+        "Оставьте только строки журнала публикации с репозиторием, веткой, кодом версии, статусом и проверками.",
       );
     }
     if (historyIssueSummary.privacyBlockedCount > 0) {
       hints.push(
-        "Удалите почту, токены, подписанные ссылки, пути хранения и реальные данные перед импортом.",
+        "Удалите почту, секретные ключи, закрытые ссылки, места хранения и реальные данные перед импортом.",
       );
     }
     return hints;
@@ -469,7 +469,7 @@ export default function SysReleaseStatusPage() {
     const hints: string[] = [];
     if (presetImportResult.status === "blocked") {
       hints.push(
-        "Удалите email, токены, signed URL и другие приватные значения.",
+        "Удалите адреса почты, секретные ключи, закрытые ссылки и другие приватные значения.",
       );
     }
     if (
@@ -477,17 +477,17 @@ export default function SysReleaseStatusPage() {
       presetImportResult.skippedCount > 0
     ) {
       hints.push(
-        "Проверьте данные: ожидается объект с массивом пресетов или массив пресетов.",
+        "Проверьте данные: ожидается объект или массив с наборами фильтров.",
       );
     }
     if (
       presetImportResult.status === "empty" &&
       presetImportResult.skippedCount === 0
     ) {
-      hints.push("Добавьте хотя бы один безопасный saved-пресет.");
+      hints.push("Добавьте хотя бы один безопасный saved-набор фильтров.");
     }
     if (presetImportResult.status === "partial") {
-      hints.push("Часть пресетов пропущена из-за формата, дублей или лимита.");
+      hints.push("Часть наборов фильтров пропущена из-за формата, дублей или лимита.");
     }
     return hints;
   }, [historyPresetImportInput, presetImportResult]);
@@ -627,7 +627,7 @@ export default function SysReleaseStatusPage() {
     setHistoryQuery(preset.filters.query);
     setHistoryPage(1);
     setSelectedHistoryPresetId(preset.id);
-    setStatus(`Пресет фильтров применён: ${preset.name}.`);
+    setStatus(`Набор фильтров применён: ${preset.name}.`);
   };
 
   const handleHistoryPresetChange = (presetId: string) => {
@@ -646,7 +646,7 @@ export default function SysReleaseStatusPage() {
     );
     if (!preset) {
       setStatus(
-        "Пресет не сохранён: задайте безопасное название без секретов и приватных данных.",
+        "Набор фильтров не сохранён: задайте безопасное название без секретов и приватных данных.",
       );
       return;
     }
@@ -663,8 +663,8 @@ export default function SysReleaseStatusPage() {
     setSelectedHistoryPresetId(preset.id);
     setHistoryPresetName("");
     setLastClearedHistoryPresets(null);
-    recordPresetAudit("save", 1, `Пресет сохранён: ${preset.name}.`);
-    setStatus(`Пресет фильтров сохранён: ${preset.name}.`);
+    recordPresetAudit("save", 1, `Набор фильтров сохранён: ${preset.name}.`);
+    setStatus(`Набор фильтров сохранён: ${preset.name}.`);
   };
 
   const handleDeleteHistoryPreset = () => {
@@ -677,8 +677,8 @@ export default function SysReleaseStatusPage() {
     );
     setSelectedHistoryPresetId("custom");
     setLastClearedHistoryPresets(null);
-    recordPresetAudit("delete", 1, `Пресет удалён: ${preset.name}.`);
-    setStatus(`Сохранённый пресет удалён: ${preset.name}.`);
+    recordPresetAudit("delete", 1, `Набор фильтров удалён: ${preset.name}.`);
+    setStatus(`Сохранённый набор фильтров удалён: ${preset.name}.`);
   };
 
   const handleRenameHistoryPreset = () => {
@@ -693,7 +693,7 @@ export default function SysReleaseStatusPage() {
     );
     if (!renamed) {
       setStatus(
-        "Пресет не переименован: задайте безопасное название без секретов и приватных данных.",
+        "Набор фильтров не переименован: задайте безопасное название без секретов и приватных данных.",
       );
       return;
     }
@@ -702,8 +702,8 @@ export default function SysReleaseStatusPage() {
       items.map((item) => (item.id === preset.id ? nextPreset : item)),
     );
     setHistoryPresetName("");
-    recordPresetAudit("rename", 1, `Пресет переименован: ${nextPreset.name}.`);
-    setStatus(`Пресет фильтров переименован: ${nextPreset.name}.`);
+    recordPresetAudit("rename", 1, `Набор фильтров переименован: ${nextPreset.name}.`);
+    setStatus(`Набор фильтров переименован: ${nextPreset.name}.`);
   };
 
   const handleDuplicateHistoryPreset = () => {
@@ -716,7 +716,7 @@ export default function SysReleaseStatusPage() {
     );
     if (!duplicate) {
       setStatus(
-        "Копия пресета не создана: задайте безопасное название без секретов и приватных данных.",
+        "Копия набора фильтров не создана: задайте безопасное название без секретов и приватных данных.",
       );
       return;
     }
@@ -731,8 +731,8 @@ export default function SysReleaseStatusPage() {
     setSelectedHistoryPresetId(duplicate.id);
     setHistoryPresetName("");
     setLastClearedHistoryPresets(null);
-    recordPresetAudit("duplicate", 1, `Копия пресета создана: ${duplicate.name}.`);
-    setStatus(`Копия пресета создана: ${duplicate.name}.`);
+    recordPresetAudit("duplicate", 1, `Копия набора фильтров создана: ${duplicate.name}.`);
+    setStatus(`Копия набора фильтров создана: ${duplicate.name}.`);
   };
 
   const handleExportHistoryPresets = (targetFormat: "json" | "xlsx") => {
@@ -742,7 +742,7 @@ export default function SysReleaseStatusPage() {
       const privacy = summarizeReleasePrivacy(json);
       if (privacy.findingCount > 0) {
         setStatus(
-          "Экспорт пресетов заблокирован: проверка данных нашла чувствительные значения.",
+          "Экспорт наборов фильтров заблокирован: проверка данных нашла чувствительные значения.",
         );
         return;
       }
@@ -763,12 +763,12 @@ export default function SysReleaseStatusPage() {
         downloadText(filename, json, "application/json;charset=utf-8");
       }
       setStatus(
-        `${targetFormat.toUpperCase()} экспорт пресетов готов: ${filename}.`,
+        `${targetFormat.toUpperCase()} экспорт наборов фильтров готов: ${filename}.`,
       );
       recordPresetAudit(
         `export_${targetFormat}`,
         savedHistoryPresets.length,
-        `${targetFormat.toUpperCase()} экспорт пресетов: ${filename}.`,
+        `${targetFormat.toUpperCase()} экспорт наборов фильтров: ${filename}.`,
       );
     });
   };
@@ -813,9 +813,9 @@ export default function SysReleaseStatusPage() {
     recordPresetAudit(
       "clear",
       previous.length,
-      `Очищено сохранённых пресетов: ${previous.length}.`,
+      `Очищено сохранённых наборов фильтров: ${previous.length}.`,
     );
-    setStatus(`Сохранённые пресеты очищены: ${previous.length}.`);
+    setStatus(`Сохранённые наборы фильтров очищены: ${previous.length}.`);
   };
 
   const handleUndoClearHistoryPresets = () => {
@@ -831,9 +831,9 @@ export default function SysReleaseStatusPage() {
     recordPresetAudit(
       "undo_clear",
       restored.length,
-      `Восстановлено сохранённых пресетов: ${restored.length}.`,
+      `Восстановлено сохранённых наборов фильтров: ${restored.length}.`,
     );
-    setStatus(`Сохранённые пресеты восстановлены: ${restored.length}.`);
+    setStatus(`Сохранённые наборы фильтров восстановлены: ${restored.length}.`);
   };
 
   const handleDownloadPresetAudit = () => {
@@ -843,13 +843,13 @@ export default function SysReleaseStatusPage() {
       const privacy = summarizeReleasePrivacy(content);
       if (privacy.findingCount > 0) {
         setStatus(
-          "Аудит пресетов заблокирован: проверка данных нашла чувствительные значения.",
+          "Аудит наборов фильтров заблокирован: проверка данных нашла чувствительные значения.",
         );
         return;
       }
       const filename = releaseHistoryPresetAuditFilename();
       downloadText(filename, content, "application/json;charset=utf-8");
-      setStatus(`Аудит пресетов скачан: ${filename}.`);
+      setStatus(`Аудит наборов фильтров скачан: ${filename}.`);
     });
   };
 
@@ -876,7 +876,7 @@ export default function SysReleaseStatusPage() {
     if (!input) return;
     input.focus();
     input.setSelectionRange(0, input.value.length);
-    setStatus("Выделены пресеты журнала для исправления.");
+    setStatus("Выделены наборы фильтров журнала для исправления.");
   };
 
   const handleExport = (targetFormat: ReleaseStatusFormat) => {
@@ -1256,21 +1256,21 @@ export default function SysReleaseStatusPage() {
       if (!navigator.clipboard?.writeText)
         throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(readinessSummary.reportUrl);
-      setStatus("Ссылка на отчёт готовности релиза скопирована.");
+      setStatus("Ссылка на отчёт готовности публикации скопирована.");
     } catch {
-      setStatus(`Ссылка на отчёт готовности релиза: ${readinessSummary.reportUrl}`);
+      setStatus(`Ссылка на отчёт готовности публикации: ${readinessSummary.reportUrl}`);
     }
   };
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Готовность релиза"
+        title="Готовность публикации"
         subtitle="Проверки перед публикацией, отчёт и безопасный экспорт."
         actions={
           <Button
             size="sm"
-            className="h-9 text-[12px]"
+            className="min-h-11 text-[12px]"
             onClick={() => handleExport(format)}
             disabled={isBusy}
           >
@@ -1287,7 +1287,7 @@ export default function SysReleaseStatusPage() {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-        aria-label="Статус готовности релиза"
+        aria-label="Статус готовности публикации"
           aria-busy={isBusy}
           className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
         >
@@ -1299,7 +1299,7 @@ export default function SysReleaseStatusPage() {
         </div>
 
         <section
-          aria-label="Готовность релиза"
+          aria-label="Готовность публикации"
           className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]"
         >
           <Card className="p-4">
@@ -1311,11 +1311,11 @@ export default function SysReleaseStatusPage() {
                     aria-hidden
                   />
                   <h2 className="text-[16px] font-semibold tracking-tight">
-                    Готовность релиза
+                    Готовность публикации
                   </h2>
                 </div>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Единый снимок готовности релиза: проверки, отчёт и разрешение записи.
+                  Единый снимок готовности публикации: проверки, отчёт и разрешение записи.
                 </p>
               </div>
               <Badge
@@ -1339,7 +1339,7 @@ export default function SysReleaseStatusPage() {
                   : "mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-700"
               }
               role={readinessSummary.status === "blocked" ? "alert" : "status"}
-              aria-label="Уведомление о готовности релиза"
+              aria-label="Уведомление о готовности публикации"
             >
               {readinessSummary.notification}
             </div>
@@ -1368,7 +1368,7 @@ export default function SysReleaseStatusPage() {
 
             <ul
               className="mt-4 grid gap-2 text-[12px] sm:grid-cols-2"
-              aria-label="Проверки готовности релиза"
+              aria-label="Проверки готовности публикации"
             >
               {readinessSummary.checks.map((check) => (
                 <li
@@ -1408,7 +1408,7 @@ export default function SysReleaseStatusPage() {
                   Статус проверок
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Публикуемая ссылка ведёт на страницу проверки с отчётом релиза.
+                  Публикуемая ссылка ведёт на страницу проверки с отчётом публикации.
                 </p>
               </div>
             </div>
@@ -1424,7 +1424,7 @@ export default function SysReleaseStatusPage() {
 
             <ul
               className="mt-3 max-h-[260px] divide-y divide-border overflow-auto rounded-md border border-border"
-              aria-label="Проверки релиза"
+              aria-label="Проверки публикации"
             >
               {snapshot.workflows.map((workflow) => (
                 <li
@@ -1447,14 +1447,14 @@ export default function SysReleaseStatusPage() {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 asChild
               >
                 <a
                   href={readinessSummary.reportUrl}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label="Открыть опубликованный отчёт готовности релиза"
+                  aria-label="Открыть опубликованный отчёт готовности публикации"
                 >
                   <ExternalLink
                     className="mr-1.5 h-3.5 w-3.5"
@@ -1467,7 +1467,7 @@ export default function SysReleaseStatusPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleCopyReportLink}
               >
                 <ClipboardCheck
@@ -1482,7 +1482,7 @@ export default function SysReleaseStatusPage() {
               <div
                 className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
                 role="alert"
-                aria-label="Уведомление о блокере релиза"
+                aria-label="Уведомление о блокере публикации"
               >
                 {readinessSummary.notification}
               </div>
@@ -1491,7 +1491,7 @@ export default function SysReleaseStatusPage() {
         </section>
 
         <section
-          aria-label="Предпросмотр готовности релиза"
+          aria-label="Предпросмотр готовности публикации"
           className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]"
         >
           <Card className="p-4">
@@ -1596,12 +1596,12 @@ export default function SysReleaseStatusPage() {
                 <div className="mt-1 text-muted-foreground">
                   Доступ к разделу открыт только роли{" "}
                   системного администратора. Проверка маршрута показывает логику интерфейса,
-                  серверный доступ проверяется отдельно.
+                  доступ рабочей системы проверяется отдельно.
                 </div>
               </div>
 
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <div className="font-medium">Скан предпросмотра</div>
+                <div className="font-medium">Проверка предпросмотра</div>
                 <div
                   className={
                     privacySummary.findingCount === 0
@@ -1651,7 +1651,7 @@ export default function SysReleaseStatusPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-3 h-8 text-[12px]"
+                  className="mt-3 min-h-11 text-[12px]"
                   onClick={handlePrivacyCheck}
                 >
                   <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
@@ -1669,7 +1669,7 @@ export default function SysReleaseStatusPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-3 h-8 text-[12px]"
+                  className="mt-3 min-h-11 text-[12px]"
                   onClick={handlePreparePreflight}
                 >
                   <PlayCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />
@@ -1679,7 +1679,7 @@ export default function SysReleaseStatusPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="ml-0 mt-2 h-8 text-[12px] sm:ml-2 sm:mt-3"
+                  className="ml-0 mt-2 min-h-11 text-[12px] sm:ml-2 sm:mt-3"
                   onClick={handlePrepareSyncCheck}
                 >
                   <ListChecks className="mr-1.5 h-3.5 w-3.5" aria-hidden />
@@ -1688,7 +1688,7 @@ export default function SysReleaseStatusPage() {
                 <div
                   className="mt-3 rounded-md border border-border bg-background p-2"
                   role="region"
-                  aria-label="Сверка синхронизации релиза"
+                  aria-label="Сверка синхронизации публикации"
                 >
                   <div className="text-[11px] font-medium">
                     Сверка синхронизации
@@ -1703,7 +1703,7 @@ export default function SysReleaseStatusPage() {
                   <div
                     className="mt-2 rounded-md border border-border bg-muted/30 p-2"
                     role="region"
-                    aria-label="Проверка записи отчётов релиза"
+                    aria-label="Проверка записи отчётов публикации"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -1715,7 +1715,7 @@ export default function SysReleaseStatusPage() {
                         </p>
                       </div>
                       <select
-                        className="h-8 rounded-md border border-input bg-background px-2 text-[11px]"
+                        className="min-h-11 rounded-md border border-input bg-background px-2 text-[11px]"
                         aria-label="Сценарий проверки записи отчётов"
                         value={writeGateScenario}
                         onChange={(event) =>
@@ -1759,7 +1759,7 @@ export default function SysReleaseStatusPage() {
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <ul
                       className="space-y-1 text-[11px] text-muted-foreground"
-                      aria-label="Критерии сверки релиза"
+                      aria-label="Критерии сверки публикации"
                     >
                       <li>Сверка запускает проверки синхронизации, документов и изменений.</li>
                       <li>Запись отчётов разрешается только после успешных проверок.</li>
@@ -1771,7 +1771,7 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 w-fit shrink-0 text-[11px]"
+                      className="min-h-11 w-fit shrink-0 text-[11px]"
                       onClick={handlePrepareSyncBlock}
                       aria-label="Скопировать полный блок сверки"
                     >
@@ -1785,7 +1785,7 @@ export default function SysReleaseStatusPage() {
         </section>
 
         <section
-          aria-label="Импорт журнала релиза"
+          aria-label="Импорт журнала публикации"
           aria-busy={historyBusy || auditBusy || presetBusy}
           className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]"
         >
@@ -1797,7 +1797,7 @@ export default function SysReleaseStatusPage() {
                   Импорт журнала истории
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Вставьте безопасный журнал релиза, чтобы сравнить
+                  Вставьте безопасный журнал публикации, чтобы сравнить
                   текущую основную ветку с выбранным эталоном.
                 </p>
               </div>
@@ -1809,7 +1809,7 @@ export default function SysReleaseStatusPage() {
                 setHistoryInput(event.target.value);
                 setHistoryPage(1);
               }}
-              aria-label="Вставить журнал истории релиза"
+              aria-label="Вставить журнал истории публикации"
               aria-invalid={historyIssueSummary.totalIssues > 0}
               aria-describedby="release-history-import-error-summary release-history-import-error-hints release-history-filter-summary release-history-import-status release-history-import-privacy-status"
               disabled={historyBusy}
@@ -1820,7 +1820,7 @@ export default function SysReleaseStatusPage() {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleDryRunHistory}
                 disabled={isBusy}
               >
@@ -1832,7 +1832,7 @@ export default function SysReleaseStatusPage() {
               <Button
                 type="button"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleImportHistory}
                 disabled={isBusy}
               >
@@ -1845,7 +1845,7 @@ export default function SysReleaseStatusPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleResetHistoryInput}
                 disabled={isBusy}
               >
@@ -1903,7 +1903,7 @@ export default function SysReleaseStatusPage() {
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
-                aria-label="Сводка ошибок импорта журнала релиза"
+                aria-label="Сводка ошибок импорта журнала публикации"
                 className={
                   historyIssueSummary.totalIssues === 0
                     ? "mt-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground"
@@ -1924,7 +1924,7 @@ export default function SysReleaseStatusPage() {
                     <ul
                       id="release-history-import-error-hints"
                       className="space-y-1 text-[11px] text-muted-foreground"
-                      aria-label="Подсказки исправления журнала релиза"
+                      aria-label="Подсказки исправления журнала публикации"
                     >
                       {historyIssueHints.map((hint) => (
                         <li key={hint}>{hint}</li>
@@ -1934,7 +1934,7 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 w-fit shrink-0 text-[11px]"
+                      className="min-h-11 w-fit shrink-0 text-[11px]"
                       onClick={handleFocusFirstHistoryError}
                       aria-label="Фокус на журнале с ошибкой"
                     >
@@ -1946,14 +1946,14 @@ export default function SysReleaseStatusPage() {
               <div className="mt-3 rounded-md border border-border bg-background p-3">
                 <div className="grid gap-2 lg:grid-cols-[minmax(180px,0.8fr)_minmax(180px,1fr)_auto_auto] lg:items-end">
                   <label className="text-[11px] text-muted-foreground">
-                    Пресет
+                    Набор фильтров
                     <select
-                      aria-label="Пресет фильтров журнала релиза"
+                      aria-label="Набор фильтров журнала публикации"
                       value={selectedHistoryPresetId}
                       onChange={(event) =>
                         handleHistoryPresetChange(event.target.value)
                       }
-                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <option value="custom">Ручные фильтры</option>
                       <optgroup label="Встроенные">
@@ -1977,25 +1977,25 @@ export default function SysReleaseStatusPage() {
                     </select>
                   </label>
                   <label className="text-[11px] text-muted-foreground">
-                    Название пресета
+                    Название набора фильтров
                     <Input
-                      aria-label="Название пресета журнала релиза"
+                      aria-label="Название набора фильтров журнала публикации"
                       value={historyPresetName}
                       onChange={(event) =>
                         setHistoryPresetName(event.target.value)
                       }
                       placeholder="Например: Блокеры недели"
-                      className="mt-1 h-9 text-[12px]"
+                      className="mt-1 min-h-11 text-[12px]"
                     />
                   </label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 text-[12px]"
+                    className="min-h-11 text-[12px]"
                     onClick={handleSaveHistoryPreset}
                     disabled={isBusy}
-                    aria-label="Сохранить текущие фильтры журнала релиза как пресет"
+                    aria-label="Сохранить текущие фильтры журнала публикации как набор фильтров"
                   >
                     Сохранить
                   </Button>
@@ -2003,7 +2003,7 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 text-[12px]"
+                    className="min-h-11 text-[12px]"
                     onClick={handleDeleteHistoryPreset}
                     disabled={
                       isBusy ||
@@ -2011,14 +2011,14 @@ export default function SysReleaseStatusPage() {
                         (preset) => preset.id === selectedHistoryPresetId,
                       )
                     }
-                    aria-label="Удалить сохранённый пресет журнала релиза"
+                    aria-label="Удалить сохранённый набор фильтров журнала публикации"
                   >
                     Удалить
                   </Button>
                 </div>
                 <div
                   role="status"
-                  aria-label="Сводка пресетов журнала релиза"
+                  aria-label="Сводка наборов фильтров журнала публикации"
                   className="mt-2 text-[11px] text-muted-foreground"
                 >
                   Выбран: {selectedHistoryPreset?.name ?? "Ручные фильтры"}.
@@ -2028,7 +2028,7 @@ export default function SysReleaseStatusPage() {
                 <div
                   className="mt-3 rounded-md border border-border bg-muted/30 p-2"
                   role="region"
-                  aria-label="Управление пресетами журнала релиза"
+                  aria-label="Управление наборами фильтров журнала публикации"
                   aria-busy={presetBusy}
                 >
                   <div className="flex flex-wrap gap-2">
@@ -2036,7 +2036,7 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={handleRenameHistoryPreset}
                       disabled={
                         isBusy ||
@@ -2044,7 +2044,7 @@ export default function SysReleaseStatusPage() {
                           (preset) => preset.id === selectedHistoryPresetId,
                         )
                       }
-                      aria-label="Переименовать сохранённый пресет журнала релиза"
+                      aria-label="Переименовать сохранённый набор фильтров журнала публикации"
                     >
                       Переименовать
                     </Button>
@@ -2052,10 +2052,10 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={handleDuplicateHistoryPreset}
                       disabled={!selectedHistoryPreset || isBusy}
-                      aria-label="Дублировать выбранный пресет журнала релиза"
+                      aria-label="Дублировать выбранный набор фильтров журнала публикации"
                     >
                       Дублировать
                     </Button>
@@ -2063,32 +2063,32 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={() => handleExportHistoryPresets("json")}
                       disabled={savedHistoryPresets.length === 0 || isBusy}
-                      aria-label="Экспортировать пресеты журнала релиза в служебный файл"
+                      aria-label="Экспортировать наборы фильтров журнала публикации в служебный файл"
                     >
-                      Пресеты файлом
+                      Наборы фильтров файлом
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={() => handleExportHistoryPresets("xlsx")}
                       disabled={savedHistoryPresets.length === 0 || isBusy}
-                      aria-label="Экспортировать пресеты журнала релиза в книгу"
+                      aria-label="Экспортировать наборы фильтров журнала публикации в книгу"
                     >
-                      Пресеты книгой
+                      Наборы фильтров книгой
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={handleClearHistoryPresets}
                       disabled={savedHistoryPresets.length === 0 || isBusy}
-                      aria-label="Очистить сохранённые пресеты журнала релиза"
+                      aria-label="Очистить сохранённые наборы фильтров журнала публикации"
                     >
                       Очистить
                     </Button>
@@ -2096,10 +2096,10 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-[11px]"
+                      className="min-h-11 text-[11px]"
                       onClick={handleUndoClearHistoryPresets}
                       disabled={!lastClearedHistoryPresets || isBusy}
-                      aria-label="Восстановить очищенные пресеты журнала релиза"
+                      aria-label="Восстановить очищенные наборы фильтров журнала публикации"
                     >
                       Вернуть
                     </Button>
@@ -2110,11 +2110,11 @@ export default function SysReleaseStatusPage() {
                     onChange={(event) =>
                       setHistoryPresetImportInput(event.target.value)
                     }
-                    aria-label="Вставить пресеты журнала релиза"
+                    aria-label="Вставить наборы фильтров журнала публикации"
                     aria-invalid={presetImportHasError}
                     aria-describedby="release-history-preset-import-preview release-history-preset-import-plan release-history-preset-import-status release-history-preset-import-hints"
                     className="mt-2 min-h-[72px] resize-y font-mono text-[11px]"
-                    placeholder="Вставьте безопасные пресеты журнала"
+                    placeholder="Вставьте безопасные наборы фильтров журнала"
                     disabled={isBusy}
                   />
                   <div
@@ -2122,20 +2122,20 @@ export default function SysReleaseStatusPage() {
                     id="release-history-preset-import-preview"
                     aria-live="polite"
                     aria-atomic="true"
-                    aria-label="Предпросмотр импорта пресетов журнала релиза"
+                    aria-label="Предпросмотр импорта наборов фильтров журнала публикации"
                     className="mt-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground"
                   >
                     {presetImportPreview ? (
                       <>
-                        Статус: {presetImportPreview.status}; принято:{" "}
+                        Статус: {importAuditStatusLabel(presetImportPreview.status)}; принято:{" "}
                         {presetImportPreview.acceptedCount}; пропущено:{" "}
                         {presetImportPreview.skippedCount}; проверка данных:{" "}
                         {presetImportPreview.privacyFindingCount}.
                         {presetImportPreview.previewNames.length > 0 &&
-                          ` Пресеты: ${presetImportPreview.previewNames.join(", ")}.`}
+                          ` Наборы фильтров: ${presetImportPreview.previewNames.join(", ")}.`}
                       </>
                     ) : (
-                      "Предпросмотр появится после вставки данных пресетов."
+                      "Предпросмотр появится после вставки данных наборов фильтров."
                     )}
                   </div>
                   <div
@@ -2143,7 +2143,7 @@ export default function SysReleaseStatusPage() {
                     role="status"
                     aria-live="polite"
                     aria-atomic="true"
-                    aria-label="План импорта пресетов журнала релиза"
+                    aria-label="План импорта наборов фильтров журнала публикации"
                     className={
                       presetImportHasError
                         ? "mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive"
@@ -2152,7 +2152,7 @@ export default function SysReleaseStatusPage() {
                   >
                     {presetImportPlan ? (
                       <>
-                        {presetImportPlan.message} Доступно слотов:{" "}
+                        {presetImportPlan.message} Свободных мест:{" "}
                         {presetImportPlan.availableSlots}. Будет импортировано:{" "}
                         {presetImportPlan.willImportCount}.
                         {presetImportPlan.duplicateCount > 0 &&
@@ -2161,7 +2161,7 @@ export default function SysReleaseStatusPage() {
                           ` Вытеснит старые: ${presetImportPlan.trimmedExistingNames.join(", ")}.`}
                       </>
                     ) : (
-                      "План импорта появится после вставки данных пресетов."
+                      "План импорта появится после вставки данных наборов фильтров."
                     )}
                   </div>
                   {presetImportHints.length > 0 && (
@@ -2170,7 +2170,7 @@ export default function SysReleaseStatusPage() {
                         <ul
                           id="release-history-preset-import-hints"
                           className="space-y-1 text-[11px] text-muted-foreground"
-                          aria-label="Подсказки исправления импорта пресетов журнала релиза"
+                          aria-label="Подсказки исправления импорта наборов фильтров журнала публикации"
                         >
                           {presetImportHints.map((hint) => (
                             <li key={hint}>{hint}</li>
@@ -2180,11 +2180,11 @@ export default function SysReleaseStatusPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 w-fit shrink-0 text-[11px]"
+                          className="min-h-11 w-fit shrink-0 text-[11px]"
                           onClick={handleFocusPresetImportError}
-                          aria-label="Фокус на пресетах с ошибкой"
+                          aria-label="Фокус на наборах фильтров с ошибкой"
                         >
-                          К пресетам
+                          К наборам фильтров
                         </Button>
                       </div>
                     </div>
@@ -2195,7 +2195,7 @@ export default function SysReleaseStatusPage() {
                       role="status"
                       aria-live="polite"
                       aria-atomic="true"
-                      aria-label="Статус импорта пресетов журнала релиза"
+                      aria-label="Статус импорта наборов фильтров журнала публикации"
                       className="text-[11px] text-muted-foreground"
                     >
                       {historyPresetImportNote}
@@ -2204,33 +2204,33 @@ export default function SysReleaseStatusPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 w-fit text-[11px]"
+                      className="min-h-11 w-fit text-[11px]"
                       onClick={handleImportHistoryPresets}
                       disabled={!historyPresetImportInput.trim() || isBusy}
-                      aria-label="Импортировать пресеты журнала релиза"
+                      aria-label="Импортировать наборы фильтров журнала публикации"
                     >
                       {operation === "preset_import"
                         ? "Импортируем…"
-                        : "Импорт пресетов"}
+                        : "Импорт наборов фильтров"}
                     </Button>
                   </div>
                   <div
                     className="mt-3 rounded-md border border-border bg-background p-2"
                     role="region"
-                    aria-label="Аудит пресетов журнала релиза"
+                    aria-label="Аудит наборов фильтров журнала публикации"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-[11px] font-medium">
-                        Аудит пресетов: {presetAuditLog.length}
+                        Аудит наборов фильтров: {presetAuditLog.length}
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 w-fit text-[11px]"
+                        className="min-h-11 w-fit text-[11px]"
                         onClick={handleDownloadPresetAudit}
                         disabled={presetAuditLog.length === 0 || isBusy}
-                        aria-label="Скачать аудит пресетов журнала релиза"
+                        aria-label="Скачать аудит наборов фильтров журнала публикации"
                       >
                         Скачать аудит
                       </Button>
@@ -2238,7 +2238,7 @@ export default function SysReleaseStatusPage() {
                     {presetAuditLog.length > 0 ? (
                       <ul
                         className="mt-2 space-y-1 text-[11px] text-muted-foreground"
-                        aria-label="Записи аудита пресетов журнала релиза"
+                        aria-label="Записи аудита наборов фильтров журнала публикации"
                       >
                         {presetAuditLog.slice(0, 4).map((entry) => (
                           <li key={`${entry.at}-${entry.action}`}>
@@ -2252,7 +2252,7 @@ export default function SysReleaseStatusPage() {
                         role="status"
                         className="mt-2 text-[11px] text-muted-foreground"
                       >
-                        Операций с пресетами пока нет.
+                        Операций с наборами фильтров пока нет.
                       </div>
                     )}
                   </div>
@@ -2271,7 +2271,7 @@ export default function SysReleaseStatusPage() {
                       );
                       setHistoryPage(1);
                     }}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Все</option>
                     <option value="ok">Готово</option>
@@ -2291,7 +2291,7 @@ export default function SysReleaseStatusPage() {
                       );
                       setHistoryPage(1);
                     }}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Любой</option>
                     <option value="ok">Чисто</option>
@@ -2310,7 +2310,7 @@ export default function SysReleaseStatusPage() {
                       );
                       setHistoryPage(1);
                     }}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Любой</option>
                     <option value="present">Есть</option>
@@ -2329,7 +2329,7 @@ export default function SysReleaseStatusPage() {
                       );
                       setHistoryPage(1);
                     }}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Любой</option>
                     {historyWorkflowOptions.map((option) => (
@@ -2342,7 +2342,7 @@ export default function SysReleaseStatusPage() {
                 <label className="text-[11px] text-muted-foreground">
                   Поиск
                   <Input
-                    aria-label="Поиск по журналу релиза"
+                    aria-label="Поиск по журналу публикации"
                     value={historyQuery}
                     onChange={(event) => {
                       markHistoryFiltersCustom();
@@ -2350,7 +2350,7 @@ export default function SysReleaseStatusPage() {
                       setHistoryPage(1);
                     }}
                     placeholder="код версии, проверка, ветка"
-                    className="mt-1 h-9 text-[12px]"
+                    className="mt-1 min-h-11 text-[12px]"
                   />
                 </label>
               </div>
@@ -2358,7 +2358,7 @@ export default function SysReleaseStatusPage() {
                 <div
                   id="release-history-filter-summary"
                   role="status"
-                  aria-label="Сводка фильтров журнала релиза"
+                  aria-label="Сводка фильтров журнала публикации"
                 >
                   Найдено записей истории: {filteredHistoryRecords.length} из{" "}
                   {historyDraft.records.length}.
@@ -2368,10 +2368,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 w-fit text-[11px]"
+                    className="min-h-11 w-fit text-[11px]"
                     onClick={() => handleExportFilteredHistory("jsonl")}
                     disabled={filteredHistoryRecords.length === 0 || isBusy}
-                    aria-label="Экспортировать отфильтрованный журнал релиза"
+                    aria-label="Экспортировать отфильтрованный журнал публикации"
                   >
                     <Download className="mr-1 h-3 w-3" aria-hidden />
                     {operation === "history_filtered_jsonl"
@@ -2382,10 +2382,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 w-fit text-[11px]"
+                    className="min-h-11 w-fit text-[11px]"
                     onClick={() => handleExportFilteredHistory("csv")}
                     disabled={filteredHistoryRecords.length === 0 || isBusy}
-                    aria-label="Экспортировать отфильтрованный журнал релиза таблицей"
+                    aria-label="Экспортировать отфильтрованный журнал публикации таблицей"
                   >
                     <Download className="mr-1 h-3 w-3" aria-hidden />
                     {operation === "history_filtered_csv"
@@ -2396,10 +2396,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 w-fit text-[11px]"
+                    className="min-h-11 w-fit text-[11px]"
                     onClick={() => handleExportFilteredHistory("xlsx")}
                     disabled={filteredHistoryRecords.length === 0 || isBusy}
-                    aria-label="Экспортировать отфильтрованный журнал релиза книгой"
+                    aria-label="Экспортировать отфильтрованный журнал публикации книгой"
                   >
                     <Download className="mr-1 h-3 w-3" aria-hidden />
                     {operation === "history_filtered_xlsx"
@@ -2410,10 +2410,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 w-fit text-[11px]"
+                    className="min-h-11 w-fit text-[11px]"
                     onClick={resetHistoryFilters}
                     disabled={isBusy}
-                    aria-label="Сбросить фильтры журнала релиза"
+                    aria-label="Сбросить фильтры журнала публикации"
                   >
                     Сбросить фильтры
                   </Button>
@@ -2432,7 +2432,7 @@ export default function SysReleaseStatusPage() {
               {historyDraft.issues.length > 0 && (
                 <ul
                   className="mt-2 space-y-1 rounded-md border border-border bg-background p-2"
-                  aria-label="Ошибки формата журнала релиза"
+                  aria-label="Ошибки формата журнала публикации"
                 >
                   {historyDraft.issues.slice(0, 4).map((issue, index) => (
                     <li
@@ -2447,7 +2447,7 @@ export default function SysReleaseStatusPage() {
               {historyPageData.records.length > 0 ? (
                 <ul
                   className="mt-2 divide-y divide-border rounded-md border border-border"
-                  aria-label="Предпросмотр записей журнала релиза"
+                  aria-label="Предпросмотр записей журнала публикации"
                 >
                   {historyPageData.records.map((record) => (
                     <li
@@ -2466,13 +2466,13 @@ export default function SysReleaseStatusPage() {
                   role="status"
                   className="mt-2 rounded-md border border-dashed border-border bg-background p-2 text-[11px] text-muted-foreground"
                 >
-                  По выбранным фильтрам history-записей нет.
+                  По выбранным фильтрам записей нет.
                 </div>
               )}
               <div
                 className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
                 role="region"
-                aria-label="Пагинация журнала релиза"
+                aria-label="Пагинация журнала публикации"
               >
                 <span>
                   {historyPageData.totalCount === 0
@@ -2486,7 +2486,7 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px]"
+                    className="min-h-11 text-[11px]"
                     onClick={() =>
                       setHistoryPage((page) => Math.max(1, page - 1))
                     }
@@ -2499,7 +2499,7 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px]"
+                    className="min-h-11 text-[11px]"
                     onClick={() =>
                       setHistoryPage((page) =>
                         Math.min(historyPageData.pageCount, page + 1),
@@ -2524,7 +2524,7 @@ export default function SysReleaseStatusPage() {
               role="status"
               aria-live="polite"
               aria-atomic="true"
-              aria-label="Статус импорта журнала релиза"
+              aria-label="Статус импорта журнала публикации"
               className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-[12px] text-muted-foreground"
             >
               {historyParseNote}
@@ -2534,7 +2534,7 @@ export default function SysReleaseStatusPage() {
               role="status"
               aria-live="polite"
               aria-atomic="true"
-              aria-label="Статус проверки данных импорта журнала релиза"
+              aria-label="Статус проверки данных импорта журнала публикации"
               className="mt-2 rounded-md border border-border bg-muted/30 p-3 text-[12px] text-muted-foreground"
             >
               {importPrivacyNote}
@@ -2542,10 +2542,10 @@ export default function SysReleaseStatusPage() {
             <label className="mt-3 block text-[12px] text-muted-foreground">
               Эталон для сравнения
               <select
-                aria-label="Выбрать эталон готовности релиза"
+                aria-label="Выбрать эталон готовности публикации"
                 value={selectedBaseline.id}
                 onChange={(event) => setSelectedBaselineId(event.target.value)}
-                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {baselineOptions.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -2572,7 +2572,7 @@ export default function SysReleaseStatusPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="mt-3 h-8 text-[12px]"
+              className="mt-3 min-h-11 text-[12px]"
               onClick={handleDeleteImportedHistory}
               disabled={importedRecords.length === 0 || isBusy}
               aria-label="Удалить импортированные эталоны"
@@ -2649,7 +2649,7 @@ export default function SysReleaseStatusPage() {
             <div
               className="mt-4"
               role="region"
-              aria-label="Аудит импортов журнала релиза"
+              aria-label="Аудит импортов журнала публикации"
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-1.5 text-[13px] font-semibold">
@@ -2661,10 +2661,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 text-[12px]"
+                    className="min-h-11 text-[12px]"
                     onClick={() => handleDownloadImportAudit("json")}
                     disabled={filteredImportAuditLog.length === 0 || isBusy}
-                    aria-label="Скачать служебный отчёт аудита импортов журнала релиза"
+                    aria-label="Скачать служебный отчёт аудита импортов журнала публикации"
                   >
                     <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                     {operation === "audit_json"
@@ -2675,10 +2675,10 @@ export default function SysReleaseStatusPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 text-[12px]"
+                    className="min-h-11 text-[12px]"
                     onClick={() => handleDownloadImportAudit("csv")}
                     disabled={filteredImportAuditLog.length === 0 || isBusy}
-                    aria-label="Скачать табличный отчёт аудита импортов журнала релиза"
+                    aria-label="Скачать табличный отчёт аудита импортов журнала публикации"
                   >
                     <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                     {operation === "audit_csv" ? "Готовим таблицу…" : "Табличный отчёт"}
@@ -2694,7 +2694,7 @@ export default function SysReleaseStatusPage() {
                     onChange={(event) =>
                       setAuditStatusFilter(event.target.value)
                     }
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {AUDIT_STATUS_OPTIONS.map((option) => (
                       <option key={option} value={option}>
@@ -2717,7 +2717,7 @@ export default function SysReleaseStatusPage() {
                         event.target.value as ReleaseImportAuditPrivacyFilter,
                       )
                     }
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Любой</option>
                     <option value="clean">Без совпадений</option>
@@ -2731,7 +2731,7 @@ export default function SysReleaseStatusPage() {
                     value={auditQuery}
                     onChange={(event) => setAuditQuery(event.target.value)}
                     placeholder="статус, дата, сообщение"
-                    className="mt-1 h-9 text-[12px]"
+                    className="mt-1 min-h-11 text-[12px]"
                   />
                 </label>
               </div>
@@ -2744,7 +2744,7 @@ export default function SysReleaseStatusPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 w-fit text-[11px]"
+                  className="min-h-11 w-fit text-[11px]"
                   onClick={resetAuditFilters}
                   disabled={isBusy}
                   aria-label="Сбросить фильтры аудита импортов"
@@ -2799,7 +2799,7 @@ export default function SysReleaseStatusPage() {
         </section>
 
         <section
-          aria-label="Сравнение релизов"
+          aria-label="Сравнение публикаций"
           className="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
         >
           <Card className="p-4">
@@ -2807,7 +2807,7 @@ export default function SysReleaseStatusPage() {
               <GitCompare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
               <div>
                 <h2 className="text-[16px] font-semibold tracking-tight">
-                  Сравнение релизов
+                  Сравнение публикаций
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
                   Текущий снимок основной ветки сравнивается с предыдущим сохранённым
@@ -2859,7 +2859,7 @@ export default function SysReleaseStatusPage() {
             ) : (
               <ul
                 className="mt-3 divide-y divide-border rounded-md border border-border"
-                aria-label="Изменения проверок между релизами"
+                aria-label="Изменения проверок между публикациями"
               >
                 {comparison.workflowChanges.map((item) => (
                   <li
@@ -2890,12 +2890,12 @@ export default function SysReleaseStatusPage() {
               <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                 Формат
                 <select
-                  aria-label="Формат предпросмотра релиз-статуса"
+                  aria-label="Формат предпросмотра статуса публикации"
                   value={format}
                   onChange={(event) =>
                     setFormat(event.target.value as ReleaseStatusFormat)
                   }
-                  className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="min-h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {FORMATS.map((item) => (
                     <option key={item} value={item}>
@@ -2908,7 +2908,7 @@ export default function SysReleaseStatusPage() {
 
             <Textarea
               readOnly
-              aria-label="Предпросмотр файла готовности релиза"
+              aria-label="Предпросмотр файла готовности публикации"
               value={safePreviewOutput}
               className="mt-3 min-h-[320px] resize-y font-mono text-[11px] leading-relaxed"
             />
@@ -2918,10 +2918,10 @@ export default function SysReleaseStatusPage() {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleExportBundle}
                 disabled={isBusy}
-                aria-label="Экспортировать единый пакет готовности релиза"
+                aria-label="Экспортировать единый пакет готовности публикации"
               >
                 <PackageCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 {operation === "bundle_export"
@@ -2934,10 +2934,10 @@ export default function SysReleaseStatusPage() {
                   type="button"
                   variant={item === format ? "default" : "outline"}
                   size="sm"
-                  className="h-8 text-[12px]"
+                  className="min-h-11 text-[12px]"
                   onClick={() => handleExport(item)}
                   disabled={isBusy}
-                  aria-label={`Экспортировать готовность релиза: ${releaseStatusFormatLabel(item)}`}
+                  aria-label={`Экспортировать готовность публикации: ${releaseStatusFormatLabel(item)}`}
                 >
                   <FileCode2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   {releaseStatusFormatLabel(item)}
@@ -2951,14 +2951,14 @@ export default function SysReleaseStatusPage() {
               <div className="flex items-center gap-2">
                 <History className="h-4 w-4 text-primary" aria-hidden />
                 <h2 className="text-[16px] font-semibold tracking-tight">
-                  Журнал UI-экспорта
+                  Журнал экспорта интерфейса
                 </h2>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={() => setShowHistory((value) => !value)}
                 aria-expanded={showHistory}
                 aria-controls="release-export-log"
@@ -2971,7 +2971,7 @@ export default function SysReleaseStatusPage() {
               <div
                 id="release-export-log"
                 role="region"
-                aria-label="Журнал экспортов релиз-статуса"
+                aria-label="Журнал экспортов статуса публикации"
                 className="mt-3"
               >
                 {exportLog.length === 0 ? (

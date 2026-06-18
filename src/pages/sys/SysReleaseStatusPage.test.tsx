@@ -48,35 +48,35 @@ describe("SysReleaseStatusPage", () => {
   it("renders a safe visual release-status preview", () => {
     const { container } = render(<SysReleaseStatusPage />);
 
-    expect(screen.getAllByRole("heading", { name: "Готовность релиза" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { name: "Готовность публикации" }).length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("region", { name: "Предпросмотр готовности релиза" }),
+      screen.getByRole("region", { name: "Предпросмотр готовности публикации" }),
     ).toHaveTextContent(/Проверки основной ветки: 9 из 9 пройдены/);
     expect(
-      screen.getByRole("region", { name: "Готовность релиза" }),
-    ).toHaveTextContent(/Готовность релиза/);
+      screen.getByRole("region", { name: "Готовность публикации" }),
+    ).toHaveTextContent(/Готовность публикации/);
     expect(
-      screen.getByRole("status", { name: "Уведомление о готовности релиза" }),
+      screen.getByRole("status", { name: "Уведомление о готовности публикации" }),
     ).toHaveTextContent(/Ссылку на отчёт можно публиковать/);
     expect(
-      screen.getByRole("list", { name: "Проверки готовности релиза" }),
+      screen.getByRole("list", { name: "Проверки готовности публикации" }),
     ).toHaveTextContent(/Набор проверок/);
     expect(
       screen.getByRole("status", { name: "Сводка проверок" }),
     ).toHaveTextContent(/Проверки: 9 из 9 пройдены/);
     expect(
-      screen.getByRole("list", { name: "Проверки релиза" }),
+      screen.getByRole("list", { name: "Проверки публикации" }),
     ).toHaveTextContent(/Предварительная проверка/);
     expect(
       screen.getByRole("link", {
-        name: "Открыть опубликованный отчёт готовности релиза",
+        name: "Открыть опубликованный отчёт готовности публикации",
       }),
     ).toHaveAttribute("href", expect.stringContaining("#artifacts"));
     fireEvent.click(
       screen.getByRole("button", { name: "Скопировать ссылку" }),
     );
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/отчёт/);
     expect(screen.getAllByText("Готово").length).toBeGreaterThan(0);
     expect(
@@ -86,13 +86,13 @@ describe("SysReleaseStatusPage", () => {
       screen.getByText(/Команды скрыты с экрана/),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Сверка синхронизации релиза" }),
+      screen.getByRole("region", { name: "Сверка синхронизации публикации" }),
     ).toHaveTextContent(/Полный служебный блок скрыт/);
     expect(
       screen.getByRole("status", { name: "Статус сверки записи отчётов" }),
     ).toHaveTextContent(/Отчёты не записываются/);
     expect(
-      screen.getByRole("region", { name: "Проверка записи отчётов релиза" }),
+      screen.getByRole("region", { name: "Проверка записи отчётов публикации" }),
     ).toHaveTextContent(/Проверка пройдена/);
     expect(
       screen.getByRole("status", { name: "Статус проверки записи отчётов" }),
@@ -105,19 +105,19 @@ describe("SysReleaseStatusPage", () => {
     ).toHaveTextContent(/Запись отчётов заблокирована/);
     expect(
       screen.getByRole("alert", {
-        name: "Уведомление о блокере релиза",
+        name: "Уведомление о блокере публикации",
       }),
     ).toHaveTextContent(/Проверка не пройдена/i);
     expect(
       screen.getByRole("alert", {
-        name: "Уведомление о блокере релиза",
+        name: "Уведомление о блокере публикации",
       }),
     ).toHaveTextContent(/Отчёты не записываются/i);
     expect(
       screen.getByRole("list", { name: "Проверки записи отчётов" }),
     ).toHaveTextContent(/Условие успешной проверки/);
     expect(
-      screen.getByRole("region", { name: "Сверка синхронизации релиза" }),
+      screen.getByRole("region", { name: "Сверка синхронизации публикации" }),
     ).toHaveTextContent(/Скопировать блок/);
     fireEvent.click(
       screen.getByRole("button", {
@@ -125,10 +125,10 @@ describe("SysReleaseStatusPage", () => {
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Полный блок сверки/);
     expect(
-      screen.getByRole("region", { name: "Сравнение релизов" }),
+      screen.getByRole("region", { name: "Сравнение публикаций" }),
     ).toHaveTextContent(/Статус улучшился/);
     expect(container.innerHTML).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
     expect(container.innerHTML).not.toContain("storage_object_path");
@@ -140,7 +140,7 @@ describe("SysReleaseStatusPage", () => {
     render(<SysReleaseStatusPage />);
 
     fireEvent.change(
-      screen.getByLabelText("Формат предпросмотра релиз-статуса"),
+      screen.getByLabelText("Формат предпросмотра статуса публикации"),
       {
         target: { value: "json" },
       },
@@ -148,16 +148,16 @@ describe("SysReleaseStatusPage", () => {
     expect(
       (
         screen.getByLabelText(
-          "Предпросмотр файла готовности релиза",
+          "Предпросмотр файла готовности публикации",
         ) as HTMLTextAreaElement
       ).value,
-    ).toMatch(/Готовность релиза: Готово/);
+    ).toMatch(/Готовность публикации: Готово/);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Проверить предпросмотр" }),
     );
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Проверка приватности пройдена для Структурный отчёт/);
     expect(screen.getByText(/Проверено строк:/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Показать категории приватности"));
@@ -170,13 +170,13 @@ describe("SysReleaseStatusPage", () => {
     render(<SysReleaseStatusPage />);
 
     const historyInput = screen.getByLabelText(
-      "Вставить журнал истории релиза",
+      "Вставить журнал истории публикации",
     );
     expect(screen.getByText("Предпросмотр истории")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Сбросить пример" }));
     expect(
       screen.getByRole("list", {
-        name: "Предпросмотр записей журнала релиза",
+        name: "Предпросмотр записей журнала публикации",
       }),
     ).toHaveTextContent(/код версии скрыт/);
 
@@ -192,19 +192,19 @@ describe("SysReleaseStatusPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус импорта журнала релиза" }),
+        screen.getByRole("status", { name: "Статус импорта журнала публикации" }),
       ).toHaveTextContent(/Импортировано 1 эталонных записей/),
     );
     expect(
       screen.getByRole("status", {
-        name: "Статус проверки данных импорта журнала релиза",
+        name: "Статус проверки данных импорта журнала публикации",
       }),
     ).toHaveTextContent(/Проверка данных импорта пройдена/);
-    fireEvent.change(screen.getByLabelText("Выбрать эталон готовности релиза"), {
+    fireEvent.change(screen.getByLabelText("Выбрать эталон готовности публикации"), {
       target: { value: "imported-aaaaaaaaaaa-0" },
     });
     expect(
-      screen.getByRole("region", { name: "Сравнение релизов" }),
+      screen.getByRole("region", { name: "Сравнение публикаций" }),
     ).toHaveTextContent("код версии скрыт");
     expect(screen.getByText("Импортированная история")).toBeInTheDocument();
 
@@ -219,21 +219,21 @@ describe("SysReleaseStatusPage", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус импорта журнала релиза" }),
+        screen.getByRole("status", { name: "Статус импорта журнала публикации" }),
       ).toHaveTextContent(/Импорт заблокирован/),
     );
     expect(
       screen.getByRole("status", {
-        name: "Статус проверки данных импорта журнала релиза",
+        name: "Статус проверки данных импорта журнала публикации",
       }),
     ).toHaveTextContent(/Проверка данных импорта: блокер/);
     const importAudit = screen.getByRole("region", {
-      name: "Аудит импортов журнала релиза",
+      name: "Аудит импортов журнала публикации",
     });
     expect(importAudit).toHaveTextContent(/Импорт обработан/);
     expect(importAudit).toHaveTextContent(/Импорт заблокирован/);
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Журнал истории не импортирован/);
   });
 
@@ -244,7 +244,7 @@ describe("SysReleaseStatusPage", () => {
     render(<SysReleaseStatusPage />);
 
     const historyInput = screen.getByLabelText(
-      "Вставить журнал истории релиза",
+      "Вставить журнал истории публикации",
     );
     expect(historyInput).toHaveAttribute(
       "aria-describedby",
@@ -263,55 +263,55 @@ describe("SysReleaseStatusPage", () => {
       target: { value: "fail" },
     });
     expect(
-      screen.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка фильтров журнала публикации" }),
     ).toHaveTextContent("1 из 2");
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза",
+        name: "Экспортировать отфильтрованный журнал публикации",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Экспорт журнала готов/);
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза таблицей",
+        name: "Экспортировать отфильтрованный журнал публикации таблицей",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Табличный экспорт журнала готов/);
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза книгой",
+        name: "Экспортировать отфильтрованный журнал публикации книгой",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Книга журнала готова/);
 
-    fireEvent.change(screen.getByLabelText("Поиск по журналу релиза"), {
+    fireEvent.change(screen.getByLabelText("Поиск по журналу публикации"), {
       target: { value: "not-present" },
     });
     expect(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза",
+        name: "Экспортировать отфильтрованный журнал публикации",
       }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза таблицей",
+        name: "Экспортировать отфильтрованный журнал публикации таблицей",
       }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", {
-        name: "Экспортировать отфильтрованный журнал релиза книгой",
+        name: "Экспортировать отфильтрованный журнал публикации книгой",
       }),
     ).toBeDisabled();
 
@@ -319,15 +319,15 @@ describe("SysReleaseStatusPage", () => {
     expect(historyInput).toHaveAttribute("aria-invalid", "true");
     expect(
       screen.getByRole("status", {
-        name: "Сводка ошибок импорта журнала релиза",
+        name: "Сводка ошибок импорта журнала публикации",
       }),
     ).toHaveTextContent(/Первая ошибка: строка 1/);
     expect(
-      screen.getByRole("list", { name: "Ошибки формата журнала релиза" }),
+      screen.getByRole("list", { name: "Ошибки формата журнала публикации" }),
     ).toHaveTextContent(/строка 1: данные некорректны/);
     expect(
       screen.getByRole("list", {
-        name: "Подсказки исправления журнала релиза",
+        name: "Подсказки исправления журнала публикации",
       }),
     ).toHaveTextContent(/Проверьте структуру данных/);
     fireEvent.click(
@@ -347,7 +347,7 @@ describe("SysReleaseStatusPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Сбросить пример" }));
 
     fireEvent.change(
-      screen.getByLabelText("Пресет фильтров журнала релиза"),
+      screen.getByLabelText("Набор фильтров журнала публикации"),
       {
         target: { value: "builtin-e2e-failures" },
       },
@@ -355,23 +355,23 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByLabelText("Фильтр результата проверок истории"),
     ).toHaveValue("failure");
-    expect(screen.getByLabelText("Поиск по журналу релиза")).toHaveValue(
+    expect(screen.getByLabelText("Поиск по журналу публикации")).toHaveValue(
       "e2e",
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Выбран: Ошибки сквозных проверок/);
 
-    fireEvent.change(screen.getByLabelText("Название пресета журнала релиза"), {
+    fireEvent.change(screen.getByLabelText("Название набора фильтров журнала публикации"), {
       target: { value: "Мой E2E фильтр" },
     });
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Сохранить текущие фильтры журнала релиза как пресет",
+        name: "Сохранить текущие фильтры журнала публикации как набор фильтров",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Сохранено: 1\/8/);
     expect(
       window.localStorage.getItem(
@@ -385,47 +385,47 @@ describe("SysReleaseStatusPage", () => {
       name: "Мой E2E фильтр",
     }) as HTMLOptionElement;
     fireEvent.change(
-      screen.getByLabelText("Пресет фильтров журнала релиза"),
+      screen.getByLabelText("Набор фильтров журнала публикации"),
       {
         target: { value: savedOption.value },
       },
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Мой E2E фильтр/);
-    fireEvent.change(screen.getByLabelText("Название пресета журнала релиза"), {
+    fireEvent.change(screen.getByLabelText("Название набора фильтров журнала публикации"), {
       target: { value: "Мой E2E фильтр v2" },
     });
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Переименовать сохранённый пресет журнала релиза",
+        name: "Переименовать сохранённый набор фильтров журнала публикации",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/переименован/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Дублировать выбранный пресет журнала релиза",
+        name: "Дублировать выбранный набор фильтров журнала публикации",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Сохранено: 2\/8/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать пресеты журнала релиза в служебный файл",
+        name: "Экспортировать наборы фильтров журнала публикации в служебный файл",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать пресеты журнала релиза в книгу",
+        name: "Экспортировать наборы фильтров журнала публикации в книгу",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     fireEvent.change(
-      screen.getByLabelText("Вставить пресеты журнала релиза"),
+      screen.getByLabelText("Вставить наборы фильтров журнала публикации"),
       {
         target: {
           value: JSON.stringify({
@@ -450,35 +450,35 @@ describe("SysReleaseStatusPage", () => {
     );
     expect(
       screen.getByRole("status", {
-        name: "Предпросмотр импорта пресетов журнала релиза",
+        name: "Предпросмотр импорта наборов фильтров журнала публикации",
       }),
     ).toHaveTextContent(/принято: 1/i);
     expect(
       screen.getByRole("status", {
-        name: "Предпросмотр импорта пресетов журнала релиза",
+        name: "Предпросмотр импорта наборов фильтров журнала публикации",
       }),
     ).toHaveTextContent(/Безопасный импорт/);
     expect(
       screen.getByRole("status", {
-        name: "План импорта пресетов журнала релиза",
+        name: "План импорта наборов фильтров журнала публикации",
       }),
     ).toHaveTextContent(/Будет импортировано: 1/);
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
-          name: "Импортировать пресеты журнала релиза",
+          name: "Импортировать наборы фильтров журнала публикации",
         }),
       ).toBeEnabled(),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Импортировать пресеты журнала релиза",
+        name: "Импортировать наборы фильтров журнала публикации",
       }),
     );
     await waitFor(() =>
       expect(
         screen.getByRole("status", {
-          name: "Статус импорта пресетов журнала релиза",
+          name: "Статус импорта наборов фильтров журнала публикации",
         }),
       ).toHaveTextContent(/1 принято/),
     );
@@ -486,66 +486,66 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("option", { name: "Безопасный импорт" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Аудит пресетов журнала релиза" }),
+      screen.getByRole("region", { name: "Аудит наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/import/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Удалить сохранённый пресет журнала релиза",
+        name: "Удалить сохранённый набор фильтров журнала публикации",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Сохранено: 2\/8/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Очистить сохранённые пресеты журнала релиза",
+        name: "Очистить сохранённые наборы фильтров журнала публикации",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Сохранено: 0\/8/);
     expect(
       screen.queryByRole("option", { name: "Мой E2E фильтр v2" }),
     ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Восстановить очищенные пресеты журнала релиза",
+        name: "Восстановить очищенные наборы фильтров журнала публикации",
       }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка пресетов журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка наборов фильтров журнала публикации" }),
     ).toHaveTextContent(/Сохранено: 2\/8/);
     expect(
       screen.getByRole("option", { name: "Мой E2E фильтр v2" }),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Скачать аудит пресетов журнала релиза",
+        name: "Скачать аудит наборов фильтров журнала публикации",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
-    ).toHaveTextContent(/Аудит пресетов скачан/);
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
+    ).toHaveTextContent(/Аудит наборов фильтров скачан/);
 
     const presetImportInput = screen.getByLabelText(
-      "Вставить пресеты журнала релиза",
+      "Вставить наборы фильтров журнала публикации",
     ) as HTMLTextAreaElement;
     fireEvent.change(presetImportInput, { target: { value: "{bad json" } });
     expect(presetImportInput).toHaveAttribute("aria-invalid", "true");
     expect(
       screen.getByRole("status", {
-        name: "План импорта пресетов журнала релиза",
+        name: "План импорта наборов фильтров журнала публикации",
       }),
     ).toHaveTextContent(/данные некорректны|не выполнен/i);
     expect(
       screen.getByRole("list", {
-        name: "Подсказки исправления импорта пресетов журнала релиза",
+        name: "Подсказки исправления импорта наборов фильтров журнала публикации",
       }),
     ).toHaveTextContent(/Проверьте данные|Проверьте структуру данных/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Фокус на пресетах с ошибкой",
+        name: "Фокус на наборах фильтров с ошибкой",
       }),
     );
     expect(presetImportInput).toHaveFocus();
@@ -561,7 +561,7 @@ describe("SysReleaseStatusPage", () => {
     render(<SysReleaseStatusPage />);
 
     const historyInput = screen.getByLabelText(
-      "Вставить журнал истории релиза",
+      "Вставить журнал истории публикации",
     );
     fireEvent.change(historyInput, {
       target: {
@@ -587,30 +587,30 @@ describe("SysReleaseStatusPage", () => {
       screen.getByLabelText("Фильтр результата проверок истории"),
       { target: { value: "failure" } },
     );
-    fireEvent.change(screen.getByLabelText("Поиск по журналу релиза"), {
+    fireEvent.change(screen.getByLabelText("Поиск по журналу публикации"), {
       target: { value: "e2e-smoke" },
     });
     expect(
       screen.getByRole("list", {
-        name: "Предпросмотр записей журнала релиза",
+        name: "Предпросмотр записей журнала публикации",
       }),
     ).toHaveTextContent("код версии скрыт");
     expect(
-      screen.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка фильтров журнала публикации" }),
     ).toHaveTextContent("5 из 5");
     expect(
-      screen.getByRole("region", { name: "Пагинация журнала релиза" }),
+      screen.getByRole("region", { name: "Пагинация журнала публикации" }),
     ).toHaveTextContent("1-3 из 5");
     fireEvent.click(
       screen.getByRole("button", { name: "Следующая страница истории" }),
     );
     const historyPreviewList = screen.getByRole("list", {
-      name: "Предпросмотр записей журнала релиза",
+      name: "Предпросмотр записей журнала публикации",
     });
     expect(historyPreviewList).toHaveTextContent("код версии скрыт");
     expect(historyPreviewList).toHaveTextContent("код версии скрыт");
     expect(
-      screen.getByRole("region", { name: "Пагинация журнала релиза" }),
+      screen.getByRole("region", { name: "Пагинация журнала публикации" }),
     ).toHaveTextContent("4-5 из 5");
     fireEvent.click(
       screen.getByRole("button", { name: "Предыдущая страница истории" }),
@@ -619,7 +619,7 @@ describe("SysReleaseStatusPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Проверить импорт" }));
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус импорта журнала релиза" }),
+        screen.getByRole("status", { name: "Статус импорта журнала публикации" }),
       ).toHaveTextContent(/Проверка импорта выполнена/),
     );
     expect(screen.getByText("Учебный эталон")).toBeInTheDocument();
@@ -627,7 +627,7 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("button", { name: "Удалить импортированные эталоны" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("region", { name: "Аудит импортов журнала релиза" }),
+      screen.getByRole("region", { name: "Аудит импортов журнала публикации" }),
     ).toHaveTextContent(/Проверка импорта/);
 
     fireEvent.click(
@@ -640,11 +640,11 @@ describe("SysReleaseStatusPage", () => {
         }),
       ).not.toBeDisabled(),
     );
-    fireEvent.change(screen.getByLabelText("Выбрать эталон готовности релиза"), {
+    fireEvent.change(screen.getByLabelText("Выбрать эталон готовности публикации"), {
       target: { value: "imported-aaaaaaaaaaa-0" },
     });
     expect(
-      screen.getByRole("region", { name: "Сравнение релизов" }),
+      screen.getByRole("region", { name: "Сравнение публикаций" }),
     ).toHaveTextContent("код версии скрыт");
     const baselinePreview = screen.getByRole("region", {
       name: "Предпросмотр выбранного эталона",
@@ -662,11 +662,11 @@ describe("SysReleaseStatusPage", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(/Импортированные эталоны удалены/),
     );
     expect(
-      screen.getByRole("region", { name: "Аудит импортов журнала релиза" }),
+      screen.getByRole("region", { name: "Аудит импортов журнала публикации" }),
     ).toHaveTextContent(/Импорт удалён/);
 
     fireEvent.change(screen.getByLabelText("Фильтр статуса аудита импортов"), {
@@ -679,25 +679,25 @@ describe("SysReleaseStatusPage", () => {
       target: { value: "очищено" },
     });
     expect(
-      screen.getByRole("region", { name: "Аудит импортов журнала релиза" }),
+      screen.getByRole("region", { name: "Аудит импортов журнала публикации" }),
     ).toHaveTextContent(/Импорт удалён/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Скачать служебный отчёт аудита импортов журнала релиза",
+        name: "Скачать служебный отчёт аудита импортов журнала публикации",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Отчёт аудита импортов скачан/);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Скачать табличный отчёт аудита импортов журнала релиза",
+        name: "Скачать табличный отчёт аудита импортов журнала публикации",
       }),
     );
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Отчёт аудита импортов скачан/);
     fireEvent.change(
       screen.getByLabelText("Фильтр проверки данных аудита импортов"),
@@ -716,22 +716,22 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
     ).toHaveTextContent("5 из 5");
     fireEvent.click(
-      screen.getByRole("button", { name: "Сбросить фильтры журнала релиза" }),
+      screen.getByRole("button", { name: "Сбросить фильтры журнала публикации" }),
     );
     expect(
-      screen.getByRole("status", { name: "Сводка фильтров журнала релиза" }),
+      screen.getByRole("status", { name: "Сводка фильтров журнала публикации" }),
     ).toHaveTextContent("5 из 5");
 
     fireEvent.change(historyInput, { target: { value: "{bad json}\n" } });
     expect(
-      screen.getByRole("list", { name: "Ошибки формата журнала релиза" }),
+      screen.getByRole("list", { name: "Ошибки формата журнала публикации" }),
     ).toHaveTextContent(/строка 1: данные некорректны/);
     fireEvent.click(
       screen.getByRole("button", { name: "Импортировать журнал" }),
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус импорта журнала релиза" }),
+        screen.getByRole("status", { name: "Статус импорта журнала публикации" }),
       ).toHaveTextContent(/Импорт не содержит валидных эталонных записей/),
     );
   });
@@ -744,60 +744,60 @@ describe("SysReleaseStatusPage", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать единый пакет готовности релиза",
+        name: "Экспортировать единый пакет готовности публикации",
       }),
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(/Пакетный экспорт готов/),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать готовность релиза: Текстовый отчёт",
+        name: "Экспортировать готовность публикации: Текстовый отчёт",
       }),
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(/Текстовый отчёт готов/),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать готовность релиза: Структурный отчёт",
+        name: "Экспортировать готовность публикации: Структурный отчёт",
       }),
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(/Структурный отчёт готов/),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать готовность релиза: Веб-страница",
+        name: "Экспортировать готовность публикации: Веб-страница",
       }),
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(/Веб-страница готов/),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Экспортировать готовность релиза: Журнал истории",
+        name: "Экспортировать готовность публикации: Журнал истории",
       }),
     );
 
     await waitFor(() =>
       expect(
-        screen.getByRole("status", { name: "Статус готовности релиза" }),
+        screen.getByRole("status", { name: "Статус готовности публикации" }),
       ).toHaveTextContent(
         /Журнал истории готов: release-history-\d{4}-\d{2}-\d{2}\.jsonl/,
       ),
     );
     expect(click).toHaveBeenCalledTimes(8);
     const log = screen.getByRole("region", {
-      name: "Журнал экспортов релиз-статуса",
+      name: "Журнал экспортов статуса публикации",
     });
     expect(within(log).getByText("Единый пакет")).toBeInTheDocument();
     expect(within(log).getByText("Файлов: 4")).toBeInTheDocument();
@@ -823,7 +823,7 @@ describe("SysReleaseStatusPage", () => {
     );
 
     expect(
-      screen.getByRole("status", { name: "Статус готовности релиза" }),
+      screen.getByRole("status", { name: "Статус готовности публикации" }),
     ).toHaveTextContent(/Команду предварительной проверки/);
   });
 });

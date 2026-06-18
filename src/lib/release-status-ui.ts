@@ -331,7 +331,7 @@ export const DEFAULT_RELEASE_HISTORY_FILTER_PRESETS: ReleaseHistoryFilterPreset[
     },
     {
       id: "builtin-blockers",
-      name: "Блокеры релиза",
+      name: "Блокеры публикации",
       source: "built_in",
       filters: {
         status: "fail",
@@ -343,7 +343,7 @@ export const DEFAULT_RELEASE_HISTORY_FILTER_PRESETS: ReleaseHistoryFilterPreset[
     },
     {
       id: "builtin-ready",
-      name: "Готовые релизы",
+      name: "Готовые публикации",
       source: "built_in",
       filters: {
         status: "ok",
@@ -492,9 +492,9 @@ function releaseWorkflowDisplayName(name: string): string {
     "lint": "Проверка кода",
     "build": "Сборка",
     "auth-assets-smoke-skip": "Проверка авторизации и ассетов",
-    "backend-guardrails": "Защитные проверки сервера",
+    "backend-guardrails": "Защитные проверки рабочей системы",
     "frontend-auth-assets": "Проверка авторизации интерфейса",
-    "release-status": "Готовность релиза",
+    "release-status": "Готовность публикации",
   };
   return labels[name] ?? "Проверка";
 }
@@ -533,11 +533,11 @@ export function buildReleaseStatusWriteGateSummary(
     },
     {
       id: "release-status-workflow",
-      label: "Проверка релиза",
+      label: "Проверка публикации",
       ok: releaseWorkflowOk,
       detail: releaseWorkflowOk
-        ? "Проверка релиза прошла."
-        : `Проверка релиза не готова: ${releaseStatusWorkflow?.conclusion ?? "нет данных"}.`,
+        ? "Проверка публикации прошла."
+        : `Проверка публикации не готова: ${releaseStatusWorkflow?.conclusion ?? "нет данных"}.`,
     },
     {
       id: "ci-sync-gate",
@@ -613,7 +613,7 @@ export function buildReleaseReadinessSummary(
     },
     {
       id: "release-artifact",
-      label: "Отчёт релиза",
+      label: "Отчёт публикации",
       ok: snapshot.artifactPresent,
       detail: snapshot.artifactPresent
         ? "Отчёт найден."
@@ -672,11 +672,11 @@ export function buildReleaseReadinessSummary(
     passedCount,
     totalCount,
     reportUrl,
-    reportLabel: `отчёт релиза ${snapshot.shortSha}`,
+    reportLabel: `отчёт публикации ${snapshot.shortSha}`,
     checks,
     notification:
       status === "ready"
-        ? "Готовность релиза подтверждена. Ссылку на отчёт можно публиковать после ручной проверки."
+        ? "Готовность публикации подтверждена. Ссылку на отчёт можно публиковать после ручной проверки."
         : status === "blocked"
           ? `Проверка не пройдена. Отчёты не записываются. Блокеры: ${blockerLabels.join(", ")}.`
           : `Готовность требует проверки: ${blockerLabels.join(", ")}.`,
@@ -723,7 +723,7 @@ export function buildReleaseStatusMarkdown(
 ): string {
   const level = releaseStatusLevel(snapshot);
   const lines = [
-    "## Готовность релиза",
+    "## Готовность публикации",
     "",
     `- Репозиторий: \`${snapshot.repo}\``,
     `- Ветка: \`${snapshot.branch}\``,
@@ -741,7 +741,7 @@ export function buildReleaseStatusMarkdown(
     "",
     `- ${snapshot.denoLockOk ? "✓ лишние служебные файлы не найдены" : "✗ найдены лишние служебные файлы"}`,
     "",
-    "### Отчёт релиза",
+    "### Отчёт публикации",
     "",
     `- Путь: \`${snapshot.artifactPath}\``,
     `- Наличие: ${snapshot.artifactPresent ? "есть" : "нет"}`,
@@ -752,7 +752,7 @@ export function buildReleaseStatusMarkdown(
     "",
     "### Безопасность данных",
     "",
-    "- Вывод очищен: токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются.",
+    "- Вывод очищен: секретные ключи, закрытые ссылки, почта, имена пациентов, места хранения и служебные значения не печатаются.",
     "",
   ];
   return lines.join("\n");
@@ -763,7 +763,7 @@ export function buildReleaseStatusJson(
 ): string {
   return `${JSON.stringify(
     {
-      title: "Готовность релиза",
+      title: "Готовность публикации",
       repo: snapshot.repo,
       branch: snapshot.branch,
       currentSha: {
@@ -790,7 +790,7 @@ export function buildReleaseStatusJson(
       overallStatus: releaseStatusLevelLabel(releaseStatusLevel(snapshot)),
       generatedAt: snapshot.generatedAt,
       privacy:
-        "вывод очищен; токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются",
+        "вывод очищен; секретные ключи, закрытые ссылки, почта, имена пациентов, места хранения и служебные значения не печатаются",
     },
     null,
     2,
@@ -811,7 +811,7 @@ export function buildReleaseStatusHtml(
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Готовность релиза</title>
+  <title>Готовность публикации</title>
   <style>
     body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f6f8fb; color: #17202c; }
     main { max-width: 920px; margin: 0 auto; padding: 32px 20px; }
@@ -823,8 +823,8 @@ export function buildReleaseStatusHtml(
 </head>
 <body>
   <main>
-    <h1>Готовность релиза</h1>
-    <p>Очищенный снимок релиза. Токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются.</p>
+    <h1>Готовность публикации</h1>
+    <p>Очищенный снимок публикации. Секретные ключи, закрытые ссылки, почта, имена пациентов, места хранения и служебные значения не печатаются.</p>
     <section>
       <h2>Итог</h2>
       <p><span class="status">${htmlEscape(releaseStatusLevelLabel(level))}</span></p>
@@ -1038,7 +1038,7 @@ export function buildReleaseHistoryPresetExportJson(
   );
   return `${JSON.stringify(
     {
-      title: "Release history filter presets",
+      title: "Наборы фильтров журнала публикации",
       version: 1,
       exportedAt: new Date().toISOString(),
       presetCount: safePresets.length,
@@ -1062,7 +1062,7 @@ export function parseReleaseHistoryPresetExportJson(
       skippedCount: 0,
       privacy,
       status: "blocked",
-      message: `Импорт пресетов заблокирован: проверка данных нашла ${privacy.findingCount} совпадений.`,
+      message: `Импорт наборов фильтров заблокирован: проверка данных нашла ${privacy.findingCount} совпадений.`,
     };
   }
 
@@ -1076,7 +1076,7 @@ export function parseReleaseHistoryPresetExportJson(
       skippedCount: 1,
       privacy,
       status: "empty",
-      message: "Импорт пресетов не выполнен: данные некорректны.",
+      message: "Импорт наборов фильтров не выполнен: данные некорректны.",
     };
   }
 
@@ -1110,8 +1110,8 @@ export function parseReleaseHistoryPresetExportJson(
     status,
     message:
       presets.length === 0
-        ? "Импорт пресетов не нашёл безопасных записей."
-        : `Импорт пресетов готов: ${presets.length} принято, ${skippedCount} пропущено.`,
+        ? "Импорт наборов фильтров не нашёл безопасных записей."
+        : `Импорт наборов фильтров готов: ${presets.length} принято, ${skippedCount} пропущено.`,
   };
 }
 
@@ -1176,7 +1176,7 @@ export function planReleaseHistoryPresetImport(
     message:
       result.acceptedCount === 0
         ? result.message
-        : `План импорта: ${result.presets.length} будет добавлено/обновлено, ${duplicateNames.length} заменит существующие, ${willTrimExistingCount} старых пресетов будет вытеснено.`,
+        : `План импорта: ${result.presets.length} будет добавлено/обновлено, ${duplicateNames.length} заменит существующие, ${willTrimExistingCount} старых наборов фильтров будет вытеснено.`,
   };
 }
 
@@ -1515,7 +1515,7 @@ export function buildReleaseImportAuditReport(
 
   return `${JSON.stringify(
     {
-      title: "Release history import audit",
+      title: "Аудит импорта журнала публикации",
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
       privacy:
@@ -1667,7 +1667,7 @@ export function buildFilteredReleaseHistoryXlsxBytes(
 ): Uint8Array {
   return buildTableXlsxBytes(
     buildFilteredReleaseHistoryMatrix(records, context),
-    "Release history",
+    "Журнал публикации",
   );
 }
 
@@ -1733,7 +1733,7 @@ export function buildReleaseHistoryPresetAuditReport(
   }));
   return `${JSON.stringify(
     {
-      title: "Release history preset audit",
+      title: "Аудит наборов фильтров журнала публикации",
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
       privacy:
@@ -1990,7 +1990,7 @@ export function detectReleaseStatusUiPrivacyLeaks(
       re: /Authorization\s*[:=]\s*Bearer\s+(?!\[redacted)[A-Za-z0-9._~+/=-]{8,}/gi,
     },
     {
-      label: "cookie header",
+      label: "Служебный заголовок",
       re: /(?:Cookie|Set-Cookie)\s*:\s*(?!\s*\[redacted)[^\n\r]{6,}/gi,
     },
     {
