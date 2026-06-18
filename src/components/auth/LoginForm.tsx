@@ -1,8 +1,8 @@
 // Stage 1G-B · LoginForm.
 //
-// Email/password + Google sign-in built on top of AuthContext. Does not
+// Почта/пароль + Google sign-in built on top of AuthContext. Does not
 // touch the Supabase client directly. When env vars are missing, renders
-// a muted disabled state pointing to Lovable Cloud setup.
+// a muted disabled state without exposing implementation details.
 
 import { useState, type FormEvent } from "react";
 import { AlertCircle, LogIn } from "lucide-react";
@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
 
-const UNCONFIGURED_COPY = "Подключите Lovable Cloud для входа";
+const UNCONFIGURED_COPY = "Вход через систему клиники пока не настроен.";
 
 export interface LoginFormProps {
   onSuccess?: () => void;
@@ -73,7 +73,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     <form className="space-y-3" onSubmit={handleSubmit} aria-label="Форма входа">
       <div className="space-y-1.5">
         <Label htmlFor="login-email" className="text-[12px]">
-          Email
+          Эл. почта
         </Label>
         <Input
           id="login-email"

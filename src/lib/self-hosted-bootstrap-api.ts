@@ -52,14 +52,14 @@ function validateBaseUrl(baseUrl: string | null | undefined): SelfHostedApiError
     return {
       kind: "validation",
       code: "base_url_required",
-      message: "Укажите адрес сервера клиники.",
+      message: "Укажите адрес системы клиники.",
     };
   }
   if (!/^https?:\/\//i.test(value)) {
     return {
       kind: "validation",
       code: "base_url_invalid",
-      message: "Адрес сервера должен начинаться с http:// или https://.",
+      message: "Адрес системы должен начинаться с http:// или https://.",
     };
   }
   return null;
@@ -88,7 +88,7 @@ async function fetchPublicJson(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к серверу клиники.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -97,7 +97,7 @@ async function fetchPublicJson(
       kind: "http",
       status: response.status,
       code: `http_${response.status}`,
-      message: `Сервер клиники вернул HTTP ${response.status}.`,
+      message: `Система клиники вернула HTTP ${response.status}.`,
       correlationId: isRecord(body) && typeof body.correlationId === "string" ? body.correlationId : undefined,
     });
   }
@@ -125,7 +125,7 @@ function toStatus(data: {
   const health = isRecord(data.health)
     ? {
         status: typeof data.health.status === "string" ? data.health.status : "unknown",
-        service: typeof data.health.service === "string" ? data.health.service : "сервер клиники",
+        service: typeof data.health.service === "string" ? data.health.service : "система клиники",
       }
     : null;
 
@@ -198,9 +198,9 @@ export function buildProductionBootstrapChecklist(
   return [
     {
       key: "backend",
-      label: "Сервер клиники доступен",
+      label: "Система клиники доступна",
       status: status?.health?.status === "ok" ? "ready" : "unknown",
-      detail: status?.health?.status === "ok" ? "Сервер отвечает." : "Проверьте адрес сервера клиники.",
+      detail: status?.health?.status === "ok" ? "Система отвечает." : "Проверьте адрес системы клиники.",
     },
     {
       key: "postgres",
@@ -210,15 +210,15 @@ export function buildProductionBootstrapChecklist(
     },
     {
       key: "object-storage",
-      label: "Хранилище файлов настроено",
+      label: "Файлы клиники готовы",
       status: objectStorage?.configured ? "ready" : "unknown",
-      detail: objectStorage?.configured ? "Хранилище готово." : "Настройте локальное хранилище файлов.",
+      detail: objectStorage?.configured ? "Файлы доступны." : "Настройте файлы клиники.",
     },
     {
       key: "auth",
       label: "Локальная авторизация включена",
       status: jwt?.configured && status?.meta?.capabilities.auth === "local-jwt" ? "ready" : "attention",
-      detail: jwt?.configured ? "Ключ входа задан." : "Задайте локальный ключ входа на сервере.",
+      detail: jwt?.configured ? "Ключ входа задан." : "Задайте локальный ключ входа в системе клиники.",
     },
     {
       key: "system-admin",

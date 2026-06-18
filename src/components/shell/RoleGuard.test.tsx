@@ -105,7 +105,7 @@ describe("RoleGuard · configured + auth-aware", () => {
   it("renders the loading state while auth status is loading", () => {
     configured = true;
     renderAt("/desk", authValue({ status: "loading" }), "doctor");
-    expect(screen.getByText(/Проверяем сессию/)).toBeInTheDocument();
+    expect(screen.getByText(/Проверяем вход/)).toBeInTheDocument();
     expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
   });
 

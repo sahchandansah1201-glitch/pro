@@ -18,8 +18,8 @@ import { UserCog, LogOut } from "lucide-react";
  * Учебный переключатель роли. Учебная симуляция, не настоящая авторизация.
  * Используется только для показа интерфейса разных ролей.
  *
- * Stage 1G-C: при наличии аутентифицированной сессии Lovable Cloud рядом
- * показывается кнопка «Выйти», которая завершает реальную сессию.
+ * Stage 1G-C: при наличии рабочего входа рядом показывается кнопка
+ * «Выйти», которая завершает текущий вход.
  */
 export function RoleSwitcher() {
   const { role, setRole, label, currentUser } = useRole();
@@ -27,7 +27,7 @@ export function RoleSwitcher() {
   const navigate = useNavigate();
 
   const showLogout = status === "authenticated";
-  const showSession = status === "authenticated";
+  const showEntry = status === "authenticated";
   const sessionEmail = user?.email ?? null;
 
   const [pending, setPending] = useState(false);
@@ -77,15 +77,15 @@ export function RoleSwitcher() {
           ))}
         </SelectContent>
       </Select>
-      {showSession ? (
+      {showEntry ? (
         <span
           data-testid="auth-session-chip"
           className="hidden items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
-          title={sessionEmail ?? "Сессия активна"}
-          aria-label={sessionEmail ? `Сессия активна: ${sessionEmail}` : "Сессия активна"}
+          title={sessionEmail ?? "Вход активен"}
+          aria-label={sessionEmail ? `Вход активен: ${sessionEmail}` : "Вход активен"}
         >
           <ShieldCheck className="h-3 w-3 text-success" aria-hidden />
-          <span>Сессия активна</span>
+          <span>Вход активен</span>
         </span>
       ) : null}
       {showLogout ? (

@@ -10,14 +10,14 @@ export const PatientsPage = () => (
 );
 export const PatientDetailPage = () => {
   const { id } = useParams();
-  return <PlaceholderPage title={`Пациент №${id ?? "—"}`} subtitle="Карточка пациента: визиты, lesions, фото, отчёты." />;
+  return <PlaceholderPage title={`Пациент №${id ?? "—"}`} subtitle="Карточка пациента: визиты, образования, фото, отчёты." />;
 };
 export const VisitWorkspacePage = () => {
   const { id, visitId } = useParams();
   return (
     <PlaceholderPage
       title={`Визит ${visitId ?? "—"} · пациент ${id ?? "—"}`}
-      subtitle="6 вкладок: Intake · Body Map · Imaging · Assessment · Conclusion · Report."
+      subtitle="6 вкладок: первичный приём, карта тела, снимки, оценка, заключение, отчёт."
     />
   );
 };
@@ -44,10 +44,11 @@ export const VisitWorkspacePage = () => {
 // ───────── Защищённый просмотр и бот-симулятор ─────────
 export const AnalysisTokenPage = () => {
   const { token } = useParams();
+  const hiddenLabel = token ? "код доступа скрыт" : "код доступа не указан";
   return (
     <PlaceholderPage
       title="Защищённый просмотр анализа"
-      subtitle={`Токен: ${token ?? "—"}. Ограниченный доступ по ссылке.`}
+      subtitle={`${hiddenLabel}. Ограниченный доступ по ссылке.`}
     />
   );
 };

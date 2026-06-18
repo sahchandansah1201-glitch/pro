@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
  *
  * Показывает:
  *  - заголовок («Ничего не найдено»);
- *  - перечисление активных фильтров и поискового запроса (демо-чипы);
+ *  - перечисление активных фильтров и поискового запроса;
  *  - подсказку с дальнейшими шагами;
- *  - кнопку «Сбросить фильтры» (демо-действие через onReset).
+ *  - кнопку «Сбросить фильтры» (учебное действие через onReset).
  *
- * Без сетевых вызовов, clipboard, storage, медиа.
+ * Без сетевых вызовов, буфера обмена, локальных файлов, медиа.
  */
 
 export interface ListEmptyStateProps {
@@ -53,7 +53,7 @@ export function ListEmptyState({
           Ничего не найдено
         </div>
         <p className="max-w-md text-[12px] text-muted-foreground">
-          По текущим условиям нет {itemNoun}. Всего в демо-каталоге:{" "}
+          По текущим условиям нет {itemNoun}. Всего в учебном каталоге:{" "}
           <span className="tabular-nums">{totalUnfiltered}</span>.
         </p>
       </div>
@@ -97,7 +97,7 @@ export function ListEmptyState({
       )}
 
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        Демо-режим
+        Учебный режим
       </div>
     </Card>
   );

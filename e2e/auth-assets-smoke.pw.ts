@@ -54,7 +54,7 @@ test.describe("Stage 2A · real-auth doctor assets smoke", () => {
     // 1. Login.
     await page.goto("/login", { waitUntil: "networkidle" });
 
-    const emailInput = page.getByLabel("Email");
+    const emailInput = page.getByLabel("Эл. почта");
     const passwordInput = page.getByLabel("Пароль");
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();

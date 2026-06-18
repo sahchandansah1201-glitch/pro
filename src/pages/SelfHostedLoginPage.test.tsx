@@ -43,10 +43,10 @@ describe("SelfHostedLoginPage", () => {
   it("renders the self-hosted login form", () => {
     renderPage();
     expect(
-      screen.getByRole("heading", { name: "Дерматолог Pro — рабочий вход" }),
+      screen.getByRole("heading", { name: "Дерматолог Про — рабочий вход" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Готовность входа" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Адрес сервера клиники")).toBeInTheDocument();
+    expect(screen.getByLabelText("Адрес системы клиники")).toBeInTheDocument();
     expect(screen.getByLabelText("Эл. почта")).toBeInTheDocument();
     expect(screen.getByLabelText("Пароль")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/production|self-hosted|backend|readiness|bootstrap/i);
@@ -70,12 +70,12 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
-    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.clear(screen.getByLabelText("Адрес системы клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес системы клиники"), "http://localhost:8080");
     await userEvent.type(screen.getByLabelText("Эл. почта"), "doctor@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "secret");
     await userEvent.click(
-      screen.getByRole("button", { name: /Войти в продукт/i }),
+      screen.getByRole("button", { name: /Войти/i }),
     );
 
     await waitFor(() => {
@@ -108,16 +108,16 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
-    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.clear(screen.getByLabelText("Адрес системы клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес системы клиники"), "http://localhost:8080");
     await userEvent.type(screen.getByLabelText("Эл. почта"), "admin@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "secret");
-    await userEvent.click(screen.getByRole("button", { name: /Войти в продукт/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Войти/i }));
 
     await waitFor(() => {
       expect(screen.getByTestId("home-route")).toBeInTheDocument();
     });
-    expect(screen.queryByText("К демо-логину")).not.toBeInTheDocument();
+    expect(screen.queryByText("К учебному входу")).not.toBeInTheDocument();
   });
 
   it("checks production bootstrap readiness without sending auth headers", async () => {
@@ -146,14 +146,14 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
-    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.clear(screen.getByLabelText("Адрес системы клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес системы клиники"), "http://localhost:8080");
     await userEvent.click(
       screen.getByRole("button", { name: "Проверить готовность входа" }),
     );
 
     expect(await screen.findByText("База данных отвечает.")).toBeInTheDocument();
-    expect(screen.getByText("Хранилище готово.")).toBeInTheDocument();
+    expect(screen.getByText("Файлы доступны.")).toBeInTheDocument();
     for (const [, init] of fetchMock.mock.calls) {
       expect(JSON.stringify(init)).not.toContain("Authorization");
     }
@@ -170,12 +170,12 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
-    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.clear(screen.getByLabelText("Адрес системы клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес системы клиники"), "http://localhost:8080");
     await userEvent.type(screen.getByLabelText("Эл. почта"), "doctor@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "wrong");
     await userEvent.click(
-      screen.getByRole("button", { name: /Войти в продукт/i }),
+      screen.getByRole("button", { name: /Войти/i }),
     );
 
     const alert = await screen.findByRole("alert");
@@ -193,7 +193,7 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    expect(screen.getByText("Активная сессия")).toBeInTheDocument();
+    expect(screen.getByText("Вход активен")).toBeInTheDocument();
     expect(screen.getByText("Демо Доктор")).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /Выйти из системы клиники/i }),

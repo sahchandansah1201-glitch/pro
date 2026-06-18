@@ -1,12 +1,12 @@
-// UX-only for demo role access; the real-session gate added in Stage 1H-A
+// UX-only for учебный role access; the real-entry gate added in Stage 1H-A
 // is the only auth-aware piece here.
 //
 // RoleGuard показывает аккуратный экран "Нет доступа в демо-режиме",
 // если активная демо-роль не имеет права на маршрут. Это UX-симуляция.
 //
-// Stage 1H-A: когда Lovable Cloud сконфигурирован, неаутентифицированных
-// пользователей редиректим на /login до проверки демо-роли. Когда Cloud
-// не сконфигурирован — поведение прежнее, чисто демо.
+// Stage 1H-A: когда рабочий вход сконфигурирован, неаутентифицированных
+// пользователей редиректим на /login до проверки учебной роли. Когда вход
+// не сконфигурирован — поведение прежнее, чисто учебное.
 
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Loader2 } from "lucide-react";
@@ -89,7 +89,7 @@ function AuthLoadingScreen() {
     >
       <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-        <span>Проверяем сессию…</span>
+        <span>Проверяем вход…</span>
       </div>
     </div>
   );

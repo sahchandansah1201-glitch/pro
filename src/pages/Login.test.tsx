@@ -109,13 +109,13 @@ describe("LoginPage", () => {
   it("keeps the demo picker visible alongside the real login form", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: /Вход в Дерматолог Про/ })).toBeInTheDocument();
-    expect(screen.getByText(/Войти как/)).toBeInTheDocument();
+    expect(screen.getByText(/Выбрать учебную роль/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Дерматолог/ }).length).toBeGreaterThan(0);
   });
 
   it("after real sign-in with no role metadata, falls back to doctor and navigates /desk", async () => {
     const { setAuth } = renderControlled();
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "doc@x.co" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "doc@x.co" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
 
@@ -137,7 +137,7 @@ describe("LoginPage", () => {
 
   it("maps app_metadata.role=clinic_admin and navigates to /admin", async () => {
     const { setAuth } = renderControlled();
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@x" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
 
@@ -159,7 +159,7 @@ describe("LoginPage", () => {
 
   it("falls back to user_metadata.role when app_metadata.role missing", async () => {
     const { setAuth } = renderControlled();
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@x" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
 
@@ -181,7 +181,7 @@ describe("LoginPage", () => {
 
   it("unknown role falls back to doctor", async () => {
     const { setAuth } = renderControlled();
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@x" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
 

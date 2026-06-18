@@ -21,8 +21,8 @@ function safeFromPath(value: unknown): string | null {
 }
 
 /**
- * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
- * Stage 1G-C: над демо-пикером смонтирована реальная форма входа через Lovable Cloud.
+ * Учебный вход с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
+ * Stage 1G-C: над учебным выбором роли смонтирована рабочая форма входа.
  * Stage 1H-A: уже аутентифицированных пользователей редиректим на роль-home.
  * Stage 1H-B: при наличии безопасного location.state.from возвращаем туда,
  * если маппированная роль имеет доступ к этому маршруту.
@@ -74,7 +74,7 @@ export default function LoginPage() {
           }}
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>Демо-режим. Доступ не является реальной защитой.</span>
+          <span>Учебный режим. Доступ не является реальной защитой.</span>
         </div>
 
         <section aria-labelledby="login-real-heading" className="mb-6">
@@ -88,7 +88,7 @@ export default function LoginPage() {
         </section>
 
         <div className="text-[12px] uppercase tracking-wide text-muted-foreground">
-          Войти как
+          Выбрать учебную роль
         </div>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ROLES.map((r) => {
@@ -104,9 +104,6 @@ export default function LoginPage() {
                   <span className="truncate text-[13px] font-medium">{r.label}</span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {u.fullName}
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground/80">
-                    {u.email}
                   </span>
                 </div>
               </Button>

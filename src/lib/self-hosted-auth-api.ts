@@ -50,14 +50,14 @@ function safeAuthErrorMessage(code: string, status: number, message: unknown): s
   const byCode: Record<string, string> = {
     invalid_credentials: "Неверная эл. почта или пароль.",
     credentials_required: "Укажите эл. почту и пароль.",
-    base_url_required: "Укажите адрес сервера клиники.",
-    base_url_invalid: "Проверьте адрес сервера клиники.",
+    base_url_required: "Укажите адрес системы клиники.",
+    base_url_invalid: "Проверьте адрес системы клиники.",
   };
   if (byCode[code]) return byCode[code];
   const text = typeof message === "string" ? message.trim() : "";
   if (text && !/[A-Za-z]/.test(text)) return text;
   if (status === 401) return "Неверная эл. почта или пароль.";
-  return `Сервер клиники вернул HTTP ${status}.`;
+  return `Система клиники вернула HTTP ${status}.`;
 }
 
 function publicErrorFromBody(response: Response, body: unknown): SelfHostedApiError {
@@ -102,14 +102,14 @@ function validateBaseUrl(baseUrl: string | null | undefined): SelfHostedApiError
     return {
       kind: "validation",
       code: "base_url_required",
-      message: "Укажите адрес сервера клиники.",
+      message: "Укажите адрес системы клиники.",
     };
   }
   if (!/^https?:\/\//i.test(value)) {
     return {
       kind: "validation",
       code: "base_url_invalid",
-      message: "Адрес сервера должен начинаться с http:// или https://.",
+      message: "Адрес системы должен начинаться с http:// или https://.",
     };
   }
   return null;
@@ -145,7 +145,7 @@ export async function loginToSelfHostedBackend(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к серверу клиники.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -156,7 +156,7 @@ export async function loginToSelfHostedBackend(
     return fail({
       kind: "http",
       code: "empty_token",
-      message: "Сервер клиники не вернул ключ входа.",
+      message: "Система клиники не вернула ключ входа.",
       status: response.status,
     });
   }
@@ -178,7 +178,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "not_configured",
       code: "not_configured",
-      message: "Сессия системы клиники не подключена.",
+      message: "Вход в систему клиники не подключён.",
     });
   }
   const baseUrlError = validateBaseUrl(args.apiBaseUrl);
@@ -198,7 +198,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к серверу клиники.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -209,7 +209,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "http",
       code: "empty_response",
-      message: "Сервер клиники не вернул карточку пользователя.",
+      message: "Система клиники не вернула карточку пользователя.",
     });
   }
   return ok(user);

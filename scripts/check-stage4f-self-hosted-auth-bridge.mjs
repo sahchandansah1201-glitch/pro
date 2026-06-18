@@ -32,7 +32,7 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/SelfHostedLoginPage.tsx": [
     "SELF_HOSTED_LOGIN_HEADING",
-    "Дерматолог Pro — production вход",
+    "Дерматолог Про — рабочий вход",
     "loginToSelfHostedBackend",
     "writeSelfHostedApiSession",
     "/patients",
@@ -49,13 +49,13 @@ const REQUIRED_TEXT = {
   "src/pages/doctor/PatientsPage.tsx": [
     "clearSelfHostedApiSession",
     "/self-hosted/login",
-    "Выйти из self-hosted",
-    "Войти в self-hosted backend",
+    "Выйти из системы клиники",
+    "Войти в систему клиники",
   ],
   "e2e/self-hosted-stage4f.pw.ts": [
     "/api/v1/auth/login",
     "/api/v1/patients",
-    "Stage 4F self-hosted patient flow",
+    "Stage 4F clinic-system patient flow",
   ],
   "docs/backend/stage-4f-self-hosted-auth-bridge.md": [
     "Stage 4F",

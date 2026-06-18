@@ -158,13 +158,13 @@ test.describe("Stage 4F clinic-system patient flow", () => {
     await page.goto("/self-hosted/login");
 
     await expect(
-      page.getByRole("heading", { name: "Дерматолог Pro — рабочий вход" }),
+      page.getByRole("heading", { name: "Дерматолог Про — рабочий вход" }),
     ).toBeVisible();
 
-    await page.getByLabel("Адрес сервера клиники").fill(BASE_URL);
+    await page.getByLabel("Адрес системы клиники").fill(BASE_URL);
     await page.getByLabel("Эл. почта").fill("doctor@example.com");
     await page.getByLabel("Пароль").fill("secret");
-    await page.getByRole("button", { name: /Войти в продукт/i }).click();
+    await page.getByRole("button", { name: /Войти/i }).click();
 
     await expect(page).toHaveURL(/\/patients$/);
     await expect(

@@ -61,7 +61,7 @@ describe("RoleSwitcher", () => {
 
   it("does not show the session chip when anonymous", () => {
     renderSwitcher();
-    expect(screen.queryByText(/Сессия активна/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Вход активен/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("auth-session-chip")).not.toBeInTheDocument();
   });
 
@@ -80,7 +80,7 @@ describe("RoleSwitcher", () => {
     );
     const chip = screen.getByTestId("auth-session-chip");
     expect(chip).toBeInTheDocument();
-    expect(chip).toHaveTextContent(/Сессия активна/);
+    expect(chip).toHaveTextContent(/Вход активен/);
     expect(chip.getAttribute("aria-label")).toMatch(/doc@x\.co/);
   });
 

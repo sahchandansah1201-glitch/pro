@@ -21,9 +21,9 @@ import {
 
 const DEFAULT_BASE_URL = String(import.meta.env.VITE_SELF_HOSTED_API_BASE_URL ?? "").trim();
 
-export const SELF_HOSTED_LOGIN_HEADING = "Дерматолог Pro — рабочий вход";
+export const SELF_HOSTED_LOGIN_HEADING = "Дерматолог Про — рабочий вход";
 export const SELF_HOSTED_LOGIN_SUBTITLE =
-  "Вход в систему клиники через локальный сервер и базу данных клиники.";
+  "Вход в систему клиники через рабочий контур клиники.";
 
 function roleLabel(role: string): string {
   const labels: Record<string, string> = {
@@ -100,7 +100,7 @@ export default function SelfHostedLoginPage() {
             <ServerCog className="h-5 w-5 text-primary" aria-hidden />
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {productionMode ? "Рабочий режим" : "Демо-режим"}
+                {productionMode ? "Рабочий режим" : "Учебный режим"}
               </p>
               <h1 className="text-[18px] font-semibold leading-tight">
                 {SELF_HOSTED_LOGIN_HEADING}
@@ -122,7 +122,7 @@ export default function SelfHostedLoginPage() {
           <ServerCog className="h-5 w-5 text-primary" aria-hidden />
           <div>
             <h2 className="text-[15px] font-semibold leading-tight">
-              Войти в продукт
+              Войти в систему клиники
             </h2>
             <p className="text-[12px] text-muted-foreground">Используйте учётку администратора или сотрудника клиники.</p>
           </div>
@@ -139,8 +139,7 @@ export default function SelfHostedLoginPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            Вход выполняется через локальный сервер клиники. Ключ сессии хранится только
-            в текущем браузере.
+            Вход выполняется через систему клиники. Данные входа хранятся только в текущем браузере.
           </span>
         </div>
 
@@ -150,7 +149,7 @@ export default function SelfHostedLoginPage() {
             className="mb-4 rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground"
           >
             <h2 id="self-hosted-active-session" className="mb-1 text-[13px] font-medium text-foreground">
-              Активная сессия
+              Вход активен
             </h2>
             <p>
               Текущий пользователь:{" "}
@@ -179,7 +178,7 @@ export default function SelfHostedLoginPage() {
         <form aria-label="Форма входа в систему клиники" onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="self-hosted-base-url" className="text-[12px]">
-              Адрес сервера клиники
+              Адрес системы клиники
             </Label>
             <Input
               id="self-hosted-base-url"
@@ -192,8 +191,7 @@ export default function SelfHostedLoginPage() {
               required
             />
             <p className="text-[11px] text-muted-foreground">
-              По умолчанию используется адрес из настроек окружения. Поле меняет адрес
-              только для текущего браузера.
+              По умолчанию используется адрес, заданный при установке. Поле меняет адрес только для текущего браузера.
             </p>
           </div>
 
@@ -240,14 +238,14 @@ export default function SelfHostedLoginPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <Button type="submit" size="sm" disabled={submitting} className="min-h-11 gap-1.5 text-[13px]">
               <LogIn className="h-4 w-4" aria-hidden />
-              {submitting ? "Входим…" : "Войти в продукт"}
+              {submitting ? "Входим…" : "Войти"}
             </Button>
             {!productionMode ? (
               <Link
                 to="/login"
-                className="text-[12px] text-muted-foreground underline-offset-2 hover:underline"
+                className="inline-flex min-h-11 min-w-11 items-center rounded-md px-2 text-[12px] text-muted-foreground underline-offset-2 hover:underline"
               >
-                К демо-логину
+                К учебному входу
               </Link>
             ) : null}
           </div>
@@ -276,8 +274,8 @@ function ProductionBootstrapPanel({
           Готовность входа
         </h2>
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Перед первым входом проверьте сервер клиники, базу данных, хранилище файлов
-          и локальную авторизацию.
+          Перед первым входом проверьте систему клиники, базу данных, файлы клиники
+          и локальный вход.
         </p>
       </div>
 
@@ -324,7 +322,7 @@ function ProductionBootstrapPanel({
         <div className="mb-1 font-medium text-foreground">Первый администратор</div>
         <p>
           Если вход ещё невозможен, создайте первого администратора по инструкции развёртывания,
-          затем удалите временный секрет.
+          затем удалите временный ключ доступа.
         </p>
       </div>
     </section>

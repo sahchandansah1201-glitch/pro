@@ -97,10 +97,10 @@ function ProductionSessionChip({
         data-testid="production-session-chip"
         className="hidden max-w-[260px] items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
         title={connected ? `${displayName ?? "Пользователь"} · ${roleLabel}` : "Нужен рабочий вход"}
-        aria-label={connected ? `Рабочая сессия активна: ${displayName ?? roleLabel}` : "Рабочая сессия не подключена"}
+        aria-label={connected ? `Рабочий вход активен: ${displayName ?? roleLabel}` : "Рабочий вход не подключён"}
       >
         <ShieldCheck className={connected ? "h-3 w-3 text-success" : "h-3 w-3 text-muted-foreground"} aria-hidden />
-        <span className="truncate">{connected ? (displayName ?? roleLabel) : "Нет рабочей сессии"}</span>
+        <span className="truncate">{connected ? (displayName ?? roleLabel) : "Нет рабочего входа"}</span>
       </span>
       {connected ? (
         <Button

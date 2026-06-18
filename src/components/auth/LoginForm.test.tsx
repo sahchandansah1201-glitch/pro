@@ -39,7 +39,7 @@ beforeEach(() => {
 describe("LoginForm", () => {
   it("renders email/password fields and both buttons", () => {
     renderWith({});
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/эл. почта/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/пароль/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /войти$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /google/i })).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("LoginForm", () => {
     const onSuccess = vi.fn();
     renderWith({ signInWithPassword }, <LoginForm onSuccess={onSuccess} />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.co" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@b.co" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /войти$/i }));
 
@@ -62,7 +62,7 @@ describe("LoginForm", () => {
     const signInWithPassword = vi.fn(async () => ({ error: new Error("bad creds") }));
     renderWith({ signInWithPassword });
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.co" } });
+    fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@b.co" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /войти$/i }));
 
@@ -71,7 +71,7 @@ describe("LoginForm", () => {
 
   it("disables controls while status === 'loading'", () => {
     renderWith({ status: "loading" });
-    expect(screen.getByLabelText(/email/i)).toBeDisabled();
+    expect(screen.getByLabelText(/эл. почта/i)).toBeDisabled();
     expect(screen.getByLabelText(/пароль/i)).toBeDisabled();
     expect(screen.getByRole("button", { name: /войти$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /google/i })).toBeDisabled();
@@ -87,7 +87,7 @@ describe("LoginForm", () => {
   it("shows unconfigured copy when supabase is not configured", () => {
     isConfiguredMock.mockReturnValue(false);
     renderWith({});
-    expect(screen.getByText(/Подключите Lovable Cloud для входа/)).toBeInTheDocument();
+    expect(screen.getByText(/Вход через систему клиники пока не настроен/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
   });
 });
