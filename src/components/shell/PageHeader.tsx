@@ -10,12 +10,12 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   const isString = typeof subtitle === "string";
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border bg-surface px-6 py-4">
-      <div className="min-w-0">
+    <div className="flex flex-col gap-3 border-b border-border bg-surface px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6">
+      <div className="min-w-0 sm:flex-1">
         <h1 className="h-page">{title}</h1>
         {subtitle && (isString ? <p className="h-page-sub">{subtitle}</p> : <div className="mt-1">{subtitle}</div>)}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">{actions}</div>}
     </div>
   );
 }

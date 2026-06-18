@@ -51,23 +51,23 @@ function statusLabel(status: string): string {
 
 function systemTermLabel(value: string): string {
   const labels: Record<string, string> = {
-    postgres: "PostgreSQL",
+    postgres: "База данных",
     "jwt-signing-key": "Ключ подписи",
-    "object-storage": "Хранилище объектов",
-    "PostgreSQL connectivity": "Связь с PostgreSQL",
-    "PostgreSQL connection verified": "Связь с PostgreSQL проверена",
-    "Migration bundle": "Пакет миграций",
-    "Self-hosted PostgreSQL migration bundle is present": "Пакет миграций PostgreSQL найден",
+    "object-storage": "Файлы клиники",
+    "PostgreSQL connectivity": "Связь с базой данных",
+    "PostgreSQL connection verified": "Связь с базой данных проверена",
+    "Migration bundle": "Пакет обновлений",
+    "Self-hosted PostgreSQL migration bundle is present": "Пакет обновлений базы найден",
     "Backup dry-run": "План резервной копии",
     "Deploy smoke dry-run": "Проверка развёртывания",
     "Plan backup": "Проверить план резервной копии",
     "Plan smoke": "Проверить план развёртывания",
     "Full deterministic preflight": "Полная предварительная проверка",
-    "Self-hosted compose smoke": "Проверка локального состава",
+    "Self-hosted compose smoke": "Проверка состава системы",
     "React frontend": "Интерфейс продукта",
-    "Device Bridge worker operations": "Операции моста устройств",
-    "dist build": "сборка готова",
-    "audit export": "экспорт аудита",
+    "Device Bridge worker operations": "Связь с приборами",
+    "dist build": "интерфейс собран",
+    "audit export": "служебный журнал готов",
   };
   return labels[value] ?? value;
 }
@@ -81,9 +81,9 @@ function systemValueLabel(value: string | undefined): string {
     "append-only": "только добавление",
     "single self-hosted product": "единый продукт клиники",
     "static React build served by nginx": "статическая сборка интерфейса",
-    "Node self-hosted API": "сервер продукта",
-    "operator-owned PostgreSQL": "PostgreSQL клиники",
-    "operator-owned object storage": "хранилище клиники",
+    "Node self-hosted API": "рабочая система клиники",
+    "operator-owned PostgreSQL": "база данных клиники",
+    "operator-owned object storage": "файлы клиники",
     "metadata-only operational readiness": "только служебная готовность",
   };
   return labels[value] ?? value;
@@ -175,11 +175,7 @@ export default function SysSelfHostedOpsPage() {
       return;
     }
     setProductReadiness(productResult.value);
-    setStatusMessage(
-      `Состояние, проверки среды и готовность продукта обновлены. Код сверки: ${
-        productResult.value.correlationId || runtimeResult.value.correlationId || statusResult.value.correlationId || "нет"
-      }.`,
-    );
+    setStatusMessage("Состояние, проверки среды и готовность продукта обновлены. Служебный код скрыт.");
   }
 
   useEffect(() => {
@@ -209,21 +205,21 @@ export default function SysSelfHostedOpsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Рабочий контур"
-        subtitle="Состояние продукта: сервер, база данных, хранилище, аудит и сверка событий."
+        subtitle="Состояние продукта: рабочая система, база данных, файлы клиники, аудит и сверка событий."
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-[12px]"
+              className="min-h-11 gap-1.5 text-[12px]"
               onClick={refresh}
               disabled={loading}
             >
               <RefreshCw className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} aria-hidden />
               Обновить
             </Button>
-            <Button asChild size="sm" className="h-8 gap-1.5 text-[12px]">
+            <Button asChild size="sm" className="min-h-11 gap-1.5 text-[12px]">
               <Link to="/self-hosted/login">
                 <ServerCog className="h-3.5 w-3.5" aria-hidden />
                 Рабочий вход
@@ -243,7 +239,7 @@ export default function SysSelfHostedOpsPage() {
           <div>
             <div className="font-medium text-foreground">Граница рабочего контура</div>
             <p>
-              Страница читает только серверные проверки продукта. Внешние управляемые среды,
+              Страница читает только служебные проверки продукта. Внешние управляемые среды,
               облачные базы и сторонние функции здесь не используются.
             </p>
           </div>
@@ -268,7 +264,7 @@ export default function SysSelfHostedOpsPage() {
             <p className="text-meta">
               {DEMO_SYS_BANNER} Для рабочего статуса войдите пользователем с ролью системного администратора.
             </p>
-            <Button asChild size="sm" className="mt-3 h-8 text-[12px]">
+            <Button asChild size="sm" className="mt-3 min-h-11 text-[12px]">
               <Link to="/self-hosted/login">Открыть рабочий вход</Link>
             </Button>
           </section>
@@ -281,7 +277,7 @@ export default function SysSelfHostedOpsPage() {
               <h2 className="h-section">Нужна роль системного администратора</h2>
             </div>
             <p className="text-meta">
-              Текущая рабочая сессия не содержит роль системного администратора. Сервер
+              Текущая рабочая сессия не содержит роль системного администратора. Рабочая система
               дополнительно проверит доступ и отклонит запрос без нужной роли.
             </p>
           </section>
@@ -303,7 +299,7 @@ export default function SysSelfHostedOpsPage() {
           aria-label="Сводка рабочего контура"
         >
           <MetricTile
-            label="Сервер"
+            label="Система"
             value={opsStatus ? statusLabel(opsStatus.status) : "Нет сессии"}
             hint={opsStatus?.source ? "рабочая система" : "нет подключения"}
           />
@@ -314,8 +310,8 @@ export default function SysSelfHostedOpsPage() {
           />
           <MetricTile
             label="Код сверки"
-            value={opsStatus?.observability.correlationHeader ?? "ожидает"}
-            hint={opsStatus?.correlationId || "ожидает запроса"}
+            value={opsStatus ? "скрыт" : "ожидает"}
+            hint={opsStatus ? "служебный код" : "ожидает запроса"}
           />
           <MetricTile
             label="Аудит"
@@ -330,7 +326,7 @@ export default function SysSelfHostedOpsPage() {
           <MetricTile
             label="Готовность продукта"
             value={productReadiness ? "Готов" : "Ожидает"}
-            hint={productReadiness?.status ?? "ожидает"}
+            hint={productReadiness ? statusLabel(productReadiness.status) : "ожидает"}
           />
         </section>
 
@@ -339,7 +335,7 @@ export default function SysSelfHostedOpsPage() {
             <div>
               <h2 className="h-section">Готовность продукта</h2>
               <p className="h-section-hint">
-                Единая проверка: интерфейс, сервер, база данных, хранилище и мост устройств
+                Единая проверка: интерфейс, рабочая система, база данных, файлы клиники и связь с приборами
                 разворачиваются как цельный продукт клиники.
               </p>
             </div>
@@ -351,7 +347,7 @@ export default function SysSelfHostedOpsPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
+                className="min-h-11 gap-1.5 text-[12px]"
                 onClick={downloadProductReadinessPlan}
               >
                 <Download className="h-3.5 w-3.5" aria-hidden />
@@ -431,7 +427,7 @@ export default function SysSelfHostedOpsPage() {
               <div>
                 <h2 className="h-section">Зависимости готовности</h2>
                 <p className="h-section-hint">
-                  Проверка сервера, базы данных, ключа подписи и хранилища.
+                  Проверка рабочей системы, базы данных, ключа подписи и файлов клиники.
                 </p>
               </div>
               <Badge variant={opsStatus?.ready ? "default" : "secondary"}>
@@ -477,7 +473,7 @@ export default function SysSelfHostedOpsPage() {
             <div className="section-bar">
               <div>
                 <h2 className="h-section">Договор наблюдаемости</h2>
-                <p className="h-section-hint">Что сервер не раскрывает в интерфейсе и журналах.</p>
+                <p className="h-section-hint">Что рабочая система не раскрывает в интерфейсе и журналах.</p>
               </div>
             </div>
             <div className="space-y-3 p-4 text-[13px]">
@@ -503,7 +499,7 @@ export default function SysSelfHostedOpsPage() {
               />
               <StatusLine
                 icon={<FileText className="h-4 w-4" aria-hidden />}
-                label="Схема сервера"
+                label="Служебная схема"
                 value="служебная схема"
               />
               <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground">
@@ -520,7 +516,7 @@ export default function SysSelfHostedOpsPage() {
               <div>
                 <h2 className="h-section">Проверки рабочей среды</h2>
                 <p className="h-section-hint">
-                  Серверные проверки базы данных, хранилища, миграций и пакета развёртывания.
+                  Служебные проверки базы данных, файлов клиники, обновлений и пакета развёртывания.
                 </p>
               </div>
               <Badge variant={runtimeChecks?.ready ? "default" : "secondary"}>
@@ -577,14 +573,14 @@ export default function SysSelfHostedOpsPage() {
               <div>
                 <h2 className="h-section">Планы операций</h2>
                 <p className="h-section-hint">
-                  Команды запускаются оператором сервера, UI показывает безопасный план.
+                  Операции запускает ответственный сотрудник, интерфейс показывает безопасный план.
                 </p>
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
+                className="min-h-11 gap-1.5 text-[12px]"
                 onClick={downloadOperationsPlan}
               >
                 <Download className="h-3.5 w-3.5" aria-hidden />
@@ -630,7 +626,7 @@ export default function SysSelfHostedOpsPage() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-[12px]"
+              className="min-h-11 gap-1.5 text-[12px]"
               onClick={downloadAuditPlan}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />

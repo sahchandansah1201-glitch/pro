@@ -168,8 +168,8 @@ test.describe("/sys/self-hosted-ops", () => {
 
     await expect(page.getByRole("heading", { name: "Рабочий контур" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Сводка рабочего контура" })).toContainText("Готов");
-    await expect(page.getByRole("region", { name: "Зависимости рабочего контура" })).toContainText("PostgreSQL");
-    await expect(page.getByRole("region", { name: "Проверки рабочей среды" })).toContainText("Связь с PostgreSQL");
+    await expect(page.getByRole("region", { name: "Зависимости рабочего контура" })).toContainText("База данных");
+    await expect(page.getByRole("region", { name: "Проверки рабочей среды" })).toContainText("Связь с базой данных");
     await expect(page.getByRole("region", { name: "Планы операций" })).toContainText("План резервной копии");
     await expect(page.getByRole("region", { name: "Планы операций" })).toContainText(
       "Служебная команда скрыта с экрана.",

@@ -143,9 +143,20 @@ function opsPreviewLabel(value: string | undefined): string {
     "Plan backup": "Проверить план резервной копии",
     "Plan smoke": "Проверить план развёртывания",
     "Full deterministic preflight": "Полная предварительная проверка",
-    "Self-hosted compose smoke": "Проверка локального состава",
+    "Self-hosted compose smoke": "Проверка состава системы",
   };
   return labels[value] ?? value;
+}
+
+function opsPreviewFieldLabel(value: string): string {
+  const labels: Record<string, string> = {
+    created_at: "дата события",
+    action: "действие",
+    entity_type: "тип объекта",
+    entity_id: "код объекта",
+    correlation_id: "код сверки",
+  };
+  return labels[value] ?? "служебное поле";
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -421,7 +432,7 @@ async function getJson<T>(
     : fail({
         kind: "http",
         code: "empty_response",
-        message: "Сервер вернул пустой или неизвестный ответ.",
+        message: "Рабочая система вернула пустой или неизвестный ответ.",
       });
 }
 
@@ -454,8 +465,8 @@ export function buildStage4OAuditExportPreview(status: SelfHostedOpsStatus | nul
     "# Предпросмотр экспорта аудита",
     "",
     "- Локальный запуск: команда скрыта с экрана администратора.",
-    `- Контракт сервера: ${status?.audit.safeExport ? "безопасная выгрузка включена" : "проверяется без вывода служебной команды"}`,
-    `- Безопасные колонки: ${fields.join(", ")}`,
+    `- Контракт рабочей системы: ${status?.audit.safeExport ? "безопасная выгрузка включена" : "проверяется без вывода служебной команды"}`,
+    `- Безопасные колонки: ${fields.map(opsPreviewFieldLabel).join(", ")}`,
     "- Не выгружаем: тела запросов, токены, пароли, имена пациентов, ключи объектов, пути хранения, сырые значения окружения",
     "",
   ].join("\n");
@@ -482,7 +493,7 @@ export function buildStage4POperationsPreview(runtime: SelfHostedOpsRuntimeCheck
     "# Предпросмотр операционного плана",
     "",
     `- Статус среды: ${opsPreviewLabel(runtime?.status ?? "unknown")}`,
-    "- Область: интерфейс, сервер, база данных и хранилище клиники",
+    "- Область: интерфейс, рабочая система, база данных и файлы клиники",
     "- Внешняя управляемая база данных: нет",
     "",
     ...commands.flatMap((item) => [
@@ -502,13 +513,13 @@ export function buildStage4ZProductReadinessPreview(readiness: SelfHostedProduct
     ? readiness.gates
     : [
         { label: "Полная предварительная проверка", command: "npm run preflight:all", required: true },
-        { label: "Проверка локального состава", command: "npm run smoke:stage4k", required: true },
+        { label: "Проверка состава системы", command: "npm run smoke:stage4k", required: true },
       ];
   return [
     "# Предпросмотр готовности продукта",
     "",
     `- Статус: ${opsPreviewLabel(readiness?.status ?? "unknown")}`,
-    "- Граница: интерфейс, сервер, база данных и хранилище клиники",
+    "- Граница: интерфейс, рабочая система, база данных и файлы клиники",
     "- Управляемая внешняя среда: нет",
     "- Управляемая внешняя база: нет",
     "- Связь с внешней средой приложения: нет",

@@ -172,7 +172,7 @@ describe("SysSelfHostedOpsPage", () => {
     expect(screen.getByRole("heading", { name: "Рабочий контур" })).toBeInTheDocument();
     expect(
       screen.getByRole("note", { name: "Граница рабочего контура" }),
-    ).toHaveTextContent(/только серверные проверки продукта/);
+    ).toHaveTextContent(/только служебные проверки продукта/);
     expect(
       screen.getByRole("region", { name: "Подключение рабочего контура" }),
     ).toHaveTextContent(/Рабочая сессия не подключена/);
@@ -204,7 +204,7 @@ describe("SysSelfHostedOpsPage", () => {
     const { container } = renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Сервер" })).toHaveTextContent("Готов");
+      expect(screen.getByRole("region", { name: "Система" })).toHaveTextContent("Готов");
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/api/v1/ops/status",
@@ -227,9 +227,9 @@ describe("SysSelfHostedOpsPage", () => {
         headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
       }),
     );
-    expect(screen.getByRole("region", { name: "Зависимости рабочего контура" })).toHaveTextContent("PostgreSQL");
+    expect(screen.getByRole("region", { name: "Зависимости рабочего контура" })).toHaveTextContent("База данных");
     expect(screen.getByRole("region", { name: "Проверки рабочей среды" })).toHaveTextContent(
-      "Связь с PostgreSQL",
+      "Связь с базой данных",
     );
     expect(screen.getByRole("region", { name: "Планы операций" })).toHaveTextContent(
       "Служебная команда скрыта с экрана",
@@ -318,7 +318,7 @@ describe("SysSelfHostedOpsPage", () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Сервер" })).toHaveTextContent("Готов");
+      expect(screen.getByRole("region", { name: "Система" })).toHaveTextContent("Готов");
     });
     await userEvent.click(screen.getByRole("button", { name: "Скачать предпросмотр" }));
 
@@ -342,7 +342,7 @@ describe("SysSelfHostedOpsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole("region", { name: "Проверки рабочей среды" })).toHaveTextContent(
-        "Пакет миграций",
+        "Пакет обновлений",
       );
     });
     await userEvent.click(screen.getByRole("button", { name: "Скачать план" }));
@@ -367,7 +367,7 @@ describe("SysSelfHostedOpsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
-        "Проверка локального состава",
+        "Проверка состава системы",
       );
     });
     await userEvent.click(screen.getByRole("button", { name: "Скачать готовность" }));
