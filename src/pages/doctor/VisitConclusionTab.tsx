@@ -47,9 +47,9 @@ function qualityStatus(images: ClinicalImage[]): QualityStatus {
 }
 
 function qualityLabel(s: QualityStatus): string {
-  if (s === "ok") return "ok";
-  if (s === "review") return "needs review";
-  return "no images";
+  if (s === "ok") return "готово";
+  if (s === "review") return "нужна проверка";
+  return "нет снимков";
 }
 
 interface Props {
