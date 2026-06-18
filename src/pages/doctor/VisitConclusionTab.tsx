@@ -433,7 +433,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
               <dd className="sm:col-span-2">{saved.followUpPlan || "—"}</dd>
               <dt className="text-muted-foreground">Комментарий для пациента</dt>
               <dd className="sm:col-span-2">{saved.patientComment || "—"}</dd>
-              <dt className="text-muted-foreground">Время (демо)</dt>
+              <dt className="text-muted-foreground">Время (учебное)</dt>
               <dd className="tabular-nums sm:col-span-2">{formatDateTime(saved.createdAt)}</dd>
             </dl>
           </div>
