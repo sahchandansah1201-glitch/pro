@@ -63,7 +63,7 @@ const ROWS: KeyRow[] = [
   },
   {
     id: "key-003",
-    label: "CRM коннектор",
+    label: "Связь с заявками",
     masked: "ключ •••• 03",
     owner: "Система заявок",
     env: "staging",
@@ -98,7 +98,7 @@ export default function SysApiKeysPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Сервисные ключи" subtitle="Доступы для интеграций и внутренних сервисов." />
+      <PageHeader title="Служебные ключи" subtitle="Доступы для интеграций и внутренних служб." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div
@@ -240,12 +240,12 @@ export default function SysApiKeysPage() {
         {/* Rotation policy */}
         <section className="space-y-2">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Политика ротации
+            Правила обновления
           </h2>
           <Card className="p-3 text-[12px] text-muted-foreground">
             <ul className="list-disc space-y-1 pl-4">
               <li>Плановое обновление: каждые 90 дней для рабочих ключей, 30 дней для внешних подключений.</li>
-              <li>Внеплановая ротация: при смене владельца сервиса или признаках компрометации.</li>
+              <li>Внеплановое обновление: при смене владельца службы или признаках компрометации.</li>
               <li>Ключи выдаются с минимальными правами и ограничены средой использования.</li>
             </ul>
           </Card>
@@ -254,7 +254,7 @@ export default function SysApiKeysPage() {
         {/* Data policy */}
         <section className="space-y-2">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Политика данных
+            Правила данных
           </h2>
           <Card className="p-3 text-[12px] text-muted-foreground">
             По умолчанию во внешние интеграции не передаются: персональные медицинские данные,

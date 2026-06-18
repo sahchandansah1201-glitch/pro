@@ -32,9 +32,9 @@ describe("Sys pages — render & safety", () => {
     ["SysUsersPage", <SysUsersPage />, /Пользователи и роли/],
     ["SysDevicesPage", <SysDevicesPage />, /Устройства/],
     ["SysAuditPage", <SysAuditPage />, /Аудит/],
-    ["SysReleaseStatusPage", <SysReleaseStatusPage />, /Готовность релиза/],
+    ["SysReleaseStatusPage", <SysReleaseStatusPage />, /Готовность публикации/],
     ["SysSelfHostedOpsPage", <SysSelfHostedOpsPage />, /Рабочий контур/],
-    ["SysApiKeysPage", <SysApiKeysPage />, /Сервисные ключи/],
+    ["SysApiKeysPage", <SysApiKeysPage />, /Служебные ключи/],
   ])("%s renders demo banner and is not a placeholder", (_n, ui, headingRe) => {
     const { container, unmount } = renderRouted(ui);
     expect(screen.getAllByRole("heading", { name: headingRe }).length).toBeGreaterThan(0);

@@ -503,7 +503,7 @@ export default function SysSelfHostedOpsPage() {
                 value="служебная схема"
               />
               <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground">
-                Не выводим тела запросов, служебные токены, пароли, ФИО пациентов,
+                Не выводим тела запросов, секретные ключи, пароли, ФИО пациентов,
                 ключи объектов, пути хранения и сырые значения окружения.
               </div>
             </div>

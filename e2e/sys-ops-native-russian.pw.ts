@@ -183,7 +183,7 @@ test.describe("System operations — native Russian UI", () => {
       const pageErrors = collectPageErrors(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await seedSystemSession(page);
-      await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
+      await page.goto("/sys/self-hosted-ops", { waitUntil: "domcontentloaded" });
 
       await expect(page.getByRole("heading", { name: "Рабочий контур" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Сводка рабочего контура" })).toContainText("Система");
@@ -203,7 +203,8 @@ test.describe("System operations — native Russian UI", () => {
       await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
       await page.screenshot({
         path: `test-results/ux-batch-29-sys-ops-${viewport.name}.png`,
-        fullPage: true,
+        fullPage: viewport.width >= 640,
+        timeout: 15_000,
       });
     });
   }

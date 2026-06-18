@@ -268,16 +268,16 @@ function workflowConclusionLabel(conclusion: string): string {
 
 function privacyCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
-    "bearer token": "Ключ авторизации",
-    "cookie header": "Служебный заголовок",
-    "url token parameter": "Ключ в ссылке",
-    "email address": "Эл. почта",
-    "patient full-name field": "Полное имя пациента",
-    "actor email field": "Эл. почта сотрудника",
-    "storage object path": "Путь к хранилищу",
-    "supabase key": "Ключ Supabase",
-    "service role env": "Служебная переменная",
-    "jwt-shaped value": "Похоже на JWT",
+    "секретный заголовок доступа": "Ключ авторизации",
+    "служебный заголовок": "Служебный заголовок",
+    "секретный параметр ссылки": "Ключ в ссылке",
+    "адрес почты": "Эл. почта",
+    "ФИО пациента": "Полное имя пациента",
+    "почта участника": "Эл. почта сотрудника",
+    "место хранения файла": "Место хранения файла",
+    "ключ платформы": "Ключ платформы",
+    "служебный ключ окружения": "Служебная переменная",
+    "значение доступа": "Значение доступа",
   };
   return labels[category] ?? category;
 }

@@ -12,9 +12,9 @@ import { ROLE_BY_ID } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
 
 /**
- * Sys Audit — журнал действий (MVP, демо).
+ * Sys Audit — журнал действий в учебном режиме.
  * SAFETY: только action / entity / id / безопасный summary.
- * Без имён пациентов, фото, текстов отчётов, токенов, AI-метаданных.
+ * Без имён пациентов, фото, текстов отчётов, секретных ключей и служебных данных.
  */
 
 const DEMO_BANNER =
@@ -133,7 +133,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "reports", label: "Отчёты" },
   { key: "devices", label: "Устройства" },
   { key: "integrations", label: "Интеграции" },
-  { key: "leads_dialogs", label: "Лиды и диалоги" },
+  { key: "leads_dialogs", label: "Заявки и обращения" },
 ];
 
 const ENTITY_BUCKET: Record<string, FilterKey> = {
@@ -241,7 +241,7 @@ export default function SysAuditPage() {
               className="h-9 min-h-[44px] sm:min-h-[32px]"
               onClick={checkIntegrity}
             >
-              Проверить целостность (демо)
+              Проверить целостность
             </Button>
             <Button
               size="sm"

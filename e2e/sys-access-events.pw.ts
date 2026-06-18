@@ -99,7 +99,7 @@ test.describe("/sys/access-events", () => {
       /Будет экспортировано 1 событий/,
     );
     await expect(page.getByRole("region", { name: "Журнал запросов событий доступа" })).toContainText(
-      /Демо-журнал: локальные события загружены/,
+      /Учебный журнал: локальные события загружены/,
     );
 
     await page.getByRole("button", { name: /Подробнее о событии al-009/i }).first().click();

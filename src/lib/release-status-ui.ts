@@ -301,16 +301,16 @@ export const RELEASE_STATUS_PREFLIGHT_COMMAND =
   "npm run preflight:release-status";
 export const RELEASE_STATUS_ALLOWED_ROLES = ["system_admin"] as const;
 export const RELEASE_STATUS_PRIVACY_CATEGORIES = [
-  "bearer token",
-  "cookie header",
-  "url token parameter",
-  "email address",
-  "patient full-name field",
-  "actor email field",
-  "storage object path",
-  "supabase key",
-  "service role env",
-  "jwt-shaped value",
+  "секретный заголовок доступа",
+  "служебный заголовок",
+  "секретный параметр ссылки",
+  "адрес почты",
+  "ФИО пациента",
+  "почта участника",
+  "место хранения файла",
+  "ключ платформы",
+  "служебный ключ окружения",
+  "значение доступа",
 ] as const;
 
 export const RELEASE_HISTORY_FILTER_PRESET_LIMIT = 8;
@@ -965,7 +965,7 @@ function normalizeHistoryFilterState(
     deno,
     artifact,
     workflow,
-    query: safeQuery.startsWith("redacted text") ? "" : safeQuery,
+    query: safeQuery.startsWith("скрытый текст") ? "" : safeQuery,
   };
 }
 
@@ -1043,7 +1043,7 @@ export function buildReleaseHistoryPresetExportJson(
       exportedAt: new Date().toISOString(),
       presetCount: safePresets.length,
       privacy:
-        "sanitized; preset names and filter queries are checked before export",
+        "очищено; названия наборов и запросы фильтров проверяются перед экспортом",
       presets: safePresets,
     },
     null,
@@ -1477,7 +1477,7 @@ function sanitizeAuditText(value: string): string {
   const compact = value.replace(/\s+/g, " ").slice(0, 240);
   const privacy = summarizeReleasePrivacy(compact);
   if (privacy.findingCount === 0) return compact;
-  return `redacted text; privacy categories: ${privacy.labels.join(", ")}`;
+  return `скрытый текст; категории защиты: ${privacy.labels.join(", ")}`;
 }
 
 export function buildReleaseImportAuditReport(
@@ -1494,8 +1494,8 @@ export function buildReleaseImportAuditReport(
       Math.floor(entry.privacyFindingCount || 0),
     ),
     message: sanitizeAuditText(entry.message).replace(
-      /^redacted text;/,
-      "redacted message;",
+      /^скрытый текст;/,
+      "скрытое сообщение;",
     ),
   }));
   const statusCounts = safeEntries.reduce<Record<string, number>>(
@@ -1519,7 +1519,7 @@ export function buildReleaseImportAuditReport(
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
       privacy:
-        "sanitized; report stores counts and generated status messages only",
+        "очищено; отчёт хранит только счётчики и безопасные служебные сообщения",
       summary: {
         totalAttempts: safeEntries.length,
         statusCounts,
@@ -1727,8 +1727,8 @@ export function buildReleaseHistoryPresetAuditReport(
     action: /^[a-z_]{1,32}$/i.test(entry.action) ? entry.action : "unknown",
     presetCount: Math.max(0, Math.floor(entry.presetCount || 0)),
     message: sanitizeAuditText(entry.message).replace(
-      /^redacted text;/,
-      "redacted message;",
+      /^скрытый текст;/,
+      "скрытое сообщение;",
     ),
   }));
   return `${JSON.stringify(
@@ -1737,7 +1737,7 @@ export function buildReleaseHistoryPresetAuditReport(
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
       privacy:
-        "sanitized; report stores preset action labels, counts, and safe messages only",
+        "очищено; отчёт хранит только действия наборов, счётчики и безопасные сообщения",
       entries: safeEntries,
     },
     null,
@@ -1986,46 +1986,46 @@ export function detectReleaseStatusUiPrivacyLeaks(
   const tokenParamPattern = TOKEN_PARAM_NAMES.join("|");
   const patterns: { label: string; re: RegExp }[] = [
     {
-      label: "bearer token",
+      label: "секретный заголовок доступа",
       re: /Authorization\s*[:=]\s*Bearer\s+(?!\[redacted)[A-Za-z0-9._~+/=-]{8,}/gi,
     },
     {
-      label: "Служебный заголовок",
+      label: "служебный заголовок",
       re: /(?:Cookie|Set-Cookie)\s*:\s*(?!\s*\[redacted)[^\n\r]{6,}/gi,
     },
     {
-      label: "url token parameter",
+      label: "секретный параметр ссылки",
       re: new RegExp(
         "(?:".concat(tokenParamPattern, ")=((?!\\[redacted)[^\\s&\"'`<>]+)"),
         "gi",
       ),
     },
     {
-      label: "email address",
+      label: "адрес почты",
       re: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
     },
     {
-      label: "patient full-name field",
+      label: "ФИО пациента",
       re: /patient_full_name\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
     },
     {
-      label: "actor email field",
+      label: "почта участника",
       re: /actor_email\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
     },
     {
-      label: "storage object path",
+      label: "место хранения файла",
       re: /storage_object_path\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
     },
     {
-      label: "supabase key",
+      label: "ключ платформы",
       re: /\bsb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}\b/gi,
     },
     {
-      label: "service role env",
+      label: "служебный ключ окружения",
       re: /\bSUPABASE_SERVICE_ROLE_KEY\s*=\s*(?!\[redacted)[^\s]+/gi,
     },
     {
-      label: "jwt-shaped value",
+      label: "значение доступа",
       re: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
     },
   ];

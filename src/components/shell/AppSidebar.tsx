@@ -54,7 +54,7 @@ interface NavGroup {
 
 /**
  * Меню разбито по ролевым зонам (UX-only).
- * Сайдбар показывает только зону(ы) активной демо-роли —
+ * Сайдбар показывает только зону(ы) активной учебной роли —
  * никакой смеси /admin, /operator, /sys, /me с общими путями.
  */
 const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
@@ -147,7 +147,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },
         { title: "Готовность публикации", url: "/sys/release-status", icon: MonitorCheck },
         { title: "Рабочий контур", url: "/sys/self-hosted-ops", icon: ServerCog },
-        { title: "Сервисные ключи", url: "/sys/api-keys", icon: KeyRound },
+        { title: "Служебные ключи", url: "/sys/api-keys", icon: KeyRound },
       ],
     },
   ],

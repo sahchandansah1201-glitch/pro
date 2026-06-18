@@ -57,7 +57,7 @@ describe("release-status-ui", () => {
     const history = buildReleaseHistoryJsonl(RELEASE_STATUS_DEMO_SNAPSHOT);
     const combined = `${markdown}\n${json}\n${html}\n${history}`;
 
-    expect(markdown).toContain("## Готовность релиза");
+    expect(markdown).toContain("## Готовность публикации");
     expect(JSON.parse(json).overallStatus).toBe("Готово");
     expect(html).toMatch(/<!doctype html>/i);
     expect(JSON.parse(history).currentSha).toBe("5ce9cf1");
@@ -81,14 +81,15 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
 
     expect(findings.map((item) => item.label)).toEqual(
       expect.arrayContaining([
-        "bearer token",
-        "cookie header",
-        "url token parameter",
-        "email address",
-        "patient full-name field",
-        "storage object path",
-        "service role env",
-        "jwt-shaped value",
+        "секретный заголовок доступа",
+        "служебный заголовок",
+        "секретный параметр ссылки",
+        "адрес почты",
+        "ФИО пациента",
+        "почта участника",
+        "место хранения файла",
+        "служебный ключ окружения",
+        "значение доступа",
       ]),
     );
   });
@@ -139,7 +140,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(blocked.blockedReasons).toEqual(
       expect.arrayContaining([
         "Условие успешной проверки",
-        "Проверка релиза",
+        "Проверка публикации",
         "Сверка синхронизации",
         "Проверка лишних служебных файлов",
       ]),
@@ -240,10 +241,10 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       RELEASE_STATUS_DEMO_SNAPSHOT,
     );
 
-    expect(RELEASE_STATUS_PRIVACY_CATEGORIES).toContain("service role env");
+    expect(RELEASE_STATUS_PRIVACY_CATEGORIES).toContain("служебный ключ окружения");
     expect(summary.findingCount).toBeGreaterThan(0);
     expect(summary.labels).toEqual(
-      expect.arrayContaining(["actor email field", "email address"]),
+      expect.arrayContaining(["почта участника", "адрес почты"]),
     );
     expect(comparison.previousLevel).toBe("fail");
     expect(comparison.currentLevel).toBe("ok");
@@ -310,7 +311,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.skippedCount).toBeGreaterThan(0);
     expect(result.message).toMatch(/проверка данных/);
     expect(result.privacy.labels).toEqual(
-      expect.arrayContaining(["email address"]),
+      expect.arrayContaining(["адрес почты"]),
     );
     expect(preview.privacyFindingCount).toBeGreaterThan(0);
     expect(result.issues[0]).toEqual(
@@ -411,7 +412,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(csv).toContain('"recorded_at"');
     expect(csv).toContain('"e2e-smoke:failure"');
     expect(csv).not.toContain("doctor@example.com");
-    expect(csv).toContain("redacted text");
+    expect(csv).toContain("скрытый текст");
     expect(detectReleaseStatusUiPrivacyLeaks(`${jsonl}\n${csv}`)).toEqual([]);
     expect(releaseHistoryFilteredJsonlFilename()).toMatch(
       /^release-history-filtered-\d{4}-\d{2}-\d{2}\.jsonl$/,
@@ -546,7 +547,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(Array.from(xlsx.slice(0, 2))).toEqual([80, 75]);
     expect(JSON.parse(audit)).toEqual(
       expect.objectContaining({
-        title: "Release history preset audit",
+        title: "Аудит наборов фильтров журнала публикации",
         rowCount: 1,
         entries: [
           expect.objectContaining({
@@ -557,7 +558,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       }),
     );
     expect(audit).not.toContain("doctor@example.com");
-    expect(audit).toContain("redacted");
+    expect(audit).toContain("скрытое сообщение");
     expect(releaseHistoryPresetsJsonFilename()).toMatch(
       /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.json$/,
     );
@@ -609,7 +610,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         acceptedCount: 1,
         skippedCount: 0,
         privacyFindingCount: 0,
-        message: "Dry-run импорт выполнен.",
+        message: "Пробный импорт выполнен.",
       },
       {
         at: "2026-05-12T11:00:00Z",
@@ -624,14 +625,14 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       filterReleaseImportAuditEntries(auditEntries, {
         status: "dry_run",
         privacy: "clean",
-        query: "dry",
+        query: "пробный",
       }),
     ).toHaveLength(1);
     expect(
       filterReleaseImportAuditEntries(auditEntries, {
         status: "all",
         privacy: "with_privacy",
-        query: "email",
+        query: "почта",
       }),
     ).toHaveLength(1);
   });
@@ -645,7 +646,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
           acceptedCount: 1,
           skippedCount: 0,
           privacyFindingCount: 0,
-          message: "Dry-run импорт: 1 безопасная запись.",
+          message: "Пробный импорт: 1 безопасная запись.",
         },
         {
           at: "2026-05-12T11:00:00Z",
@@ -666,7 +667,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     );
 
     const parsed = JSON.parse(report);
-    expect(parsed.title).toBe("Release history import audit");
+    expect(parsed.title).toBe("Аудит импорта журнала публикации");
     expect(parsed.rowCount).toBe(2);
     expect(parsed.summary.statusCounts).toEqual({ dry_run: 1, blocked: 1 });
     expect(parsed.summary.acceptedTotal).toBe(1);
@@ -676,12 +677,12 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(parsed.summary.filters).toEqual(
       expect.objectContaining({
         status: "fail",
-        query: expect.stringContaining("redacted text"),
+        query: expect.stringContaining("скрытый текст"),
       }),
     );
     expect(parsed.entries[0].status).toBe("dry_run");
     expect(report).not.toContain("doctor@example.com");
-    expect(report).toContain("redacted message");
+    expect(report).toContain("скрытое сообщение");
   });
 
   it("builds a sanitized CSV audit report with summary rows", () => {
@@ -710,6 +711,6 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(csv).toContain('"status"');
     expect(csv).toContain('"blocked"');
     expect(csv).not.toContain("doctor@example.com");
-    expect(csv).toContain("redacted message");
+    expect(csv).toContain("скрытое сообщение");
   });
 });

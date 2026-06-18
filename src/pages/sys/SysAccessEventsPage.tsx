@@ -830,7 +830,7 @@ export default function SysAccessEventsPage() {
       setError(null);
       setLoading(false);
       setLastRefreshAt(new Date().toISOString());
-      appendQueryLog("Демо-журнал", "локальные события загружены");
+      appendQueryLog("Учебный журнал", "локальные события загружены");
       return;
     }
 
@@ -1450,7 +1450,7 @@ export default function SysAccessEventsPage() {
           >
             <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
             <span>
-              Этот раздел доступен только роли system_admin. Переключите демо-роль на
+              Этот раздел доступен только роли system_admin. Переключите учебную роль на
               системного администратора, чтобы открыть журнал.
             </span>
           </div>
@@ -1471,7 +1471,7 @@ export default function SysAccessEventsPage() {
             type="button"
             size="sm"
             variant="outline"
-            className="gap-1"
+            className="min-h-11 gap-1 sm:min-h-9"
             onClick={handleRefresh}
             disabled={refreshDisabled}
             aria-busy={loading || undefined}
@@ -1502,7 +1502,7 @@ export default function SysAccessEventsPage() {
           <span>
             {source === "api"
               ? `Данные читаются из рабочей системы клиники. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
-              : `Учебный режим. В рабочем контуре этот экран показывает события доступа с серверной проверкой роли. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
+              : `Учебный режим. В рабочем контуре этот экран показывает события доступа с проверкой роли в рабочей системе. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
           </span>
         </div>
 
@@ -1718,7 +1718,7 @@ export default function SysAccessEventsPage() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
               onClick={() => handleDatePreset("today")}
               aria-label="Показать события за сегодня"
             >
@@ -1728,7 +1728,7 @@ export default function SysAccessEventsPage() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
               onClick={() => handleDatePreset("last30")}
               aria-label="Показать события за последние 30 дней"
             >
@@ -1738,7 +1738,7 @@ export default function SysAccessEventsPage() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
               onClick={() => handleDatePreset("demoMarch")}
               aria-label="Показать события за март 2026"
             >
@@ -1748,7 +1748,7 @@ export default function SysAccessEventsPage() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
               onClick={() => handleDatePreset("clear")}
               aria-label="Сбросить фильтр даты событий"
               disabled={!dateFrom && !dateTo}
@@ -1761,7 +1761,7 @@ export default function SysAccessEventsPage() {
               Активный срез: {currentFilterLabel}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <label className="flex min-h-[36px] items-center gap-2 text-[12px] text-muted-foreground">
+              <label className="flex min-h-11 items-center gap-2 text-[12px] text-muted-foreground sm:min-h-9">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -1774,7 +1774,7 @@ export default function SysAccessEventsPage() {
                     );
                   }}
                   aria-label="Автообновление событий доступа"
-                  className="h-4 w-4 rounded border-input"
+                  className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
                 />
                 Автообновление
               </label>
@@ -1785,7 +1785,7 @@ export default function SysAccessEventsPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1 text-[12px]"
+                className="min-h-11 gap-1 text-[12px] sm:h-8 sm:min-h-8"
                 onClick={handleManualRefresh}
                 disabled={refreshDisabled}
                 aria-busy={loading || undefined}
@@ -1802,7 +1802,7 @@ export default function SysAccessEventsPage() {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
                 onClick={handleResetFilters}
                 disabled={!hasActiveFilters}
                 aria-label="Сбросить фильтры событий доступа"
@@ -1877,7 +1877,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-[11px]"
+                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
                     onClick={handleSelectCoreColumns}
                     aria-label="Выбрать основные колонки экспорта"
                   >
@@ -1887,7 +1887,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-[11px]"
+                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
                     onClick={handleSelectAllColumns}
                     aria-label="Выбрать все колонки экспорта"
                   >
@@ -1899,14 +1899,14 @@ export default function SysAccessEventsPage() {
                 {ACCESS_EVENT_EXPORT_COLUMNS.map((column) => (
                   <label
                     key={column.key}
-                    className="flex min-h-[32px] items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground"
+                    className="flex min-h-11 items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground sm:min-h-8"
                   >
                     <input
                       type="checkbox"
                       checked={selectedExportColumns.includes(column.key)}
                       onChange={() => handleToggleExportColumn(column.key)}
                       aria-label={`Колонка экспорта: ${column.label}`}
-                      className="h-4 w-4 rounded border-input"
+                      className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
                     />
                     {column.label}
                   </label>
@@ -1945,7 +1945,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-[11px]"
+                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
                     onClick={handleCancelExport}
                     aria-label={`Отменить выгрузку событий доступа: ${exportFormatLabel(exportProgress.format).toLowerCase()}`}
                   >
@@ -2036,7 +2036,7 @@ export default function SysAccessEventsPage() {
                   value={exportLogQuery}
                   onChange={(e) => setExportLogQuery(e.target.value)}
                   placeholder="файл, статус, формат"
-                  className="h-9 text-[12px]"
+                  className="h-11 text-[12px] sm:h-9"
                   aria-label="Поиск по журналу экспортов"
                 />
               </label>
@@ -2045,7 +2045,7 @@ export default function SysAccessEventsPage() {
                 <select
                   value={exportLogFilter}
                   onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
                   aria-label="Фильтр журнала экспортов"
                 >
                   {EXPORT_LOG_FILTERS.map((item) => (
@@ -2060,7 +2060,7 @@ export default function SysAccessEventsPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-9 text-[12px]"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
                   onClick={handleExportExportLogCsv}
                   disabled={filteredExportLog.length === 0}
                   aria-label="Скачать журнал экспортов таблицей"
@@ -2071,7 +2071,7 @@ export default function SysAccessEventsPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-9 text-[12px]"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
                   onClick={handleExportExportLogXlsx}
                   disabled={filteredExportLog.length === 0}
                   aria-label="Скачать журнал экспортов книгой"
@@ -2082,7 +2082,7 @@ export default function SysAccessEventsPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-9 text-[12px]"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
                   onClick={handleClearExportLog}
                   disabled={exportLog.length === 0}
                   aria-label={
@@ -2096,7 +2096,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-9 text-[12px]"
+                    className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
                     onClick={handleCancelClearExportLog}
                     aria-label="Отменить очистку журнала экспортов"
                   >
@@ -2126,7 +2126,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 shrink-0 text-[12px]"
+                    className="min-h-11 shrink-0 text-[12px] sm:h-8 sm:min-h-8"
                     onClick={() => handleRepeatExport(entry)}
                     disabled={exportBusy}
                     aria-label={`Повторить выгрузку: ${exportFormatLabel(entry.format).toLowerCase()}`}
@@ -2260,7 +2260,7 @@ export default function SysAccessEventsPage() {
           <DrawerHeader>
             <DrawerTitle>Детали события</DrawerTitle>
             <DrawerDescription id="access-event-details-description">
-              Безопасный контекст системного журнала. Почта, ФИО пациента, токены и пути хранения не выводятся.
+              Безопасный контекст системного журнала. Почта, ФИО пациента, секретные ключи и места хранения не выводятся.
             </DrawerDescription>
           </DrawerHeader>
           {selectedRow ? (

@@ -52,7 +52,7 @@ describe("SysAccessEventsPage", () => {
     const { container } = renderPage();
 
     expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
-    expect(screen.getByText(/серверной проверкой роли/)).toBeInTheDocument();
+    expect(screen.getByText(/проверкой роли в рабочей системе/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeEnabled();
     expect(screen.getAllByText("Отчёт открыт по ссылке").length).toBeGreaterThan(0);
 
@@ -211,7 +211,7 @@ describe("SysAccessEventsPage", () => {
 
     expect(screen.getByText(/Лимит: 200 событий/i)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
-      /Демо-журнал: локальные события загружены/i,
+      /Учебный журнал: локальные события загружены/i,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Обновить события доступа" }));
@@ -377,7 +377,7 @@ describe("SysAccessEventsPage", () => {
     expect(screen.queryByText("al-005")).not.toBeInTheDocument();
     expect(screen.getAllByText("код скрыт").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Отчёт открыт по ссылке").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Почта, ФИО пациента, токены и пути хранения не выводятся/i)).toBeInTheDocument();
+    expect(screen.getByText(/Почта, ФИО пациента, секретные ключи и места хранения не выводятся/i)).toBeInTheDocument();
 
     const html = container.innerHTML;
     expect(html).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
