@@ -5,6 +5,7 @@ import { Camera, ChevronRight, ServerCog } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
 import {
   bookSelfHostedLeadAppointment,
@@ -76,12 +77,14 @@ function statusLabel(status: string): string {
 }
 
 function deviceStatusLabel(status: string | null | undefined): string {
-  return status ? DEVICE_STATUS_LABEL[status] ?? "статус не указан" : "статус не указан";
+  return status
+    ? (DEVICE_STATUS_LABEL[status] ?? "статус не указан")
+    : "статус не указан";
 }
 
 const LEAD_SOURCE_LABEL: Record<string, string> = {
-  telegram: "Telegram",
-  whatsapp: "WhatsApp",
+  telegram: "Телеграм",
+  whatsapp: "Вотсап",
   site: "Сайт",
   operator: "Оператор",
   phone: "Телефон",
@@ -149,7 +152,7 @@ export default function DeskPageLive() {
     useState<SelfHostedApiError | null>(null);
   const [leadBusy, setLeadBusy] = useState<string | null>(null);
   const [leadStatus, setLeadStatus] = useState(
-    "Лиды сохраняются в системе клиники.",
+    "Заявки сохраняются в системе клиники.",
   );
   const [newLeadSummary, setNewLeadSummary] = useState("");
   const [newLeadSource, setNewLeadSource] = useState("operator");
@@ -237,7 +240,7 @@ export default function DeskPageLive() {
     if (result.ok) {
       setNewLeadSummary("");
       setLeadStatus(
-        `Лид ${result.value?.safeSummary ?? ""} создан в системе клиники.`,
+        `Заявка ${result.value?.safeSummary ?? ""} создана в системе клиники.`,
       );
       await refreshLeadsAppointments();
     } else {
@@ -255,7 +258,7 @@ export default function DeskPageLive() {
     setLeadBusy(null);
     setLeadStatus(
       result.ok
-        ? `Лид ${result.value?.safeSummary ?? lead.id} квалифицирован.`
+        ? `Заявка ${result.value?.safeSummary ?? "без описания"} квалифицирована.`
         : publicLeadMessage(result.error),
     );
     if (result.ok) await refreshLeadsAppointments();
@@ -277,7 +280,7 @@ export default function DeskPageLive() {
     setLeadBusy(null);
     setLeadStatus(
       result.ok
-        ? `Лид ${result.value?.lead.safeSummary ?? lead.id} записан на визит.`
+        ? `Заявка ${result.value?.lead.safeSummary ?? "без описания"} записана на визит.`
         : publicLeadMessage(result.error),
     );
     if (result.ok) await refreshLeadsAppointments();
@@ -503,13 +506,13 @@ export default function DeskPageLive() {
           <BandHeader
             id="desk-practice-heading"
             title="Практика и оборудование"
-            hint="записи, лиды и готовность устройств"
+            hint="записи, заявки и готовность устройств"
           />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <Card
               id="desk-leads"
               className="lg:col-span-6"
-              title="Лиды и записи"
+              title="Заявки и записи"
               hint="система клиники"
             >
               <div className="border-b border-border px-4 py-2 text-meta">
@@ -525,7 +528,7 @@ export default function DeskPageLive() {
                       className="mb-1 block text-[12px] font-medium"
                       htmlFor="stage5l-lead-summary"
                     >
-                      Краткое описание лида
+                      Краткое описание заявки
                     </label>
                     <Textarea
                       id="stage5l-lead-summary"
@@ -568,7 +571,7 @@ export default function DeskPageLive() {
                     }
                     className="h-9 text-[12px]"
                   >
-                    {leadBusy === "create" ? "Создаём…" : "Добавить лид"}
+                    {leadBusy === "create" ? "Создаём…" : "Добавить заявку"}
                   </Button>
                 </div>
                 <div
@@ -585,12 +588,12 @@ export default function DeskPageLive() {
                   role="alert"
                   className="px-4 py-3 text-row text-destructive"
                 >
-                  Не удалось загрузить лиды и записи из системы клиники.
+                  Не удалось загрузить заявки и записи из системы клиники.
                 </div>
               )}
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-row">
                 <Stat
-                  term="Лиды всего"
+                  term="Заявки всего"
                   value={leadsAppointments.kpis.leadsTotal}
                 />
                 <Stat
@@ -611,7 +614,7 @@ export default function DeskPageLive() {
                 <div className="grid grid-cols-1 border-t border-border md:grid-cols-2">
                   <div className="min-w-0 border-b border-border md:border-b-0 md:border-r">
                     <div className="px-4 py-2 text-[12px] font-medium text-muted-foreground">
-                      Последние лиды
+                      Последние заявки
                     </div>
                     <ul className="divide-y divide-border">
                       {leadsAppointments.leads.slice(0, 3).map((lead) => (
@@ -680,7 +683,7 @@ function VisitRow({ visit }: { visit: SelfHostedDashboardVisit }) {
           {visit.patientFullName || "Пациент"}
         </div>
         <div className="truncate text-meta">
-          <span className="font-mono">{visit.patientCode || "—"}</span> ·{" "}
+          {formatCardNumber(visit.patientCode)} ·{" "}
           {visit.clinicName || "Клиника"}
         </div>
       </div>
@@ -719,7 +722,7 @@ function RecentPatientRow({
           {patient.fullName || "Пациент"}
         </div>
         <div className="truncate text-meta">
-          <span className="font-mono">{patient.code || "—"}</span>
+          {formatCardNumber(patient.code)}
           {patient.sex && (
             <> · {SEX_LABEL_SHORT[patient.sex] ?? "пол не указан"}</>
           )}
@@ -766,16 +769,19 @@ function AssetIssueRow({ issue }: { issue: SelfHostedDashboardAssetIssue }) {
 function publicLeadMessage(
   error: { code?: string; message?: string } | null | undefined,
 ): string {
-  if (!error) return "Не удалось сохранить лид.";
+  if (!error) return "Не удалось сохранить заявку.";
   if (error.code === "forbidden")
-    return "Недостаточно прав для изменения лидов.";
+    return "Недостаточно прав для изменения заявок.";
   if (error.code === "validation_error")
-    return "Проверьте поля лида: система клиники вернула ошибку проверки.";
-  return error.message || "Не удалось сохранить лид.";
+    return "Проверьте поля заявки: система клиники вернула ошибку проверки.";
+  return error.message || "Не удалось сохранить заявку.";
 }
 
-function leadActionLabel(action: string, lead: SelfHostedLeadOverviewDTO): string {
-  return `${action}: ${lead.safeSummary || lead.patient.fullName || "лид без описания"}`;
+function leadActionLabel(
+  action: string,
+  lead: SelfHostedLeadOverviewDTO,
+): string {
+  return `${action}: ${lead.safeSummary || lead.patient.fullName || "заявка без описания"}`;
 }
 
 function CurrentActionBand({ action }: { action: CurrentAction }) {
@@ -848,7 +854,7 @@ function LeadRow({
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2">
       <div className="min-w-0">
         <div className="truncate text-row font-medium">
-          {lead.patient.fullName || lead.safeSummary || "Лид"}
+          {lead.patient.fullName || lead.safeSummary || "Заявка"}
         </div>
         <div className="truncate text-meta">
           {LEAD_SOURCE_LABEL[lead.source] ?? lead.source} ·{" "}
@@ -863,7 +869,7 @@ function LeadRow({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            aria-label={leadActionLabel("Квалифицировать лид", lead)}
+            aria-label={leadActionLabel("Квалифицировать заявку", lead)}
             disabled={busy === `qualify:${lead.id}`}
             onClick={() => {
               void onQualify(lead);
@@ -878,7 +884,7 @@ function LeadRow({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            aria-label={leadActionLabel("Создать запись из лида", lead)}
+            aria-label={leadActionLabel("Создать запись из заявки", lead)}
             disabled={busy === `book:${lead.id}`}
             onClick={() => {
               void onBook(lead);
@@ -908,7 +914,8 @@ function AppointmentRow({
           {appointment.patient.fullName || "Пациент"}
         </div>
         <div className="truncate text-meta">
-          {formatMaybeDate(appointment.slotAt)} · {statusLabel(appointment.status)}
+          {formatMaybeDate(appointment.slotAt)} ·{" "}
+          {statusLabel(appointment.status)}
         </div>
       </div>
       {patientId ? (
@@ -931,8 +938,7 @@ function DeviceRow({ device }: { device: SelfHostedDashboardDevice }) {
           {device.model || "Устройство"}
         </div>
         <div className="truncate text-meta">
-          <span className="font-mono">{device.serial || "—"}</span> ·{" "}
-          {deviceStatusLabel(device.status)}
+          служебный код скрыт · {deviceStatusLabel(device.status)}
         </div>
       </div>
       <span className="text-meta tabular-nums">

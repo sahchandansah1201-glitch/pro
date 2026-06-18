@@ -40,7 +40,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 id: "lead-created-1",
                 source: "operator",
                 status: "new",
-                safeSummary: "Новый лид из системы клиники",
+                safeSummary: "Новая заявка из системы клиники",
               },
             }),
             { status: 201, headers: { "content-type": "application/json" } },
@@ -249,19 +249,23 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     expect(document.querySelector("#desk-recent-patients")).toBeTruthy();
     expect(document.querySelector("#desk-leads")).toBeTruthy();
     expect(document.querySelector("#desk-devices")).toBeTruthy();
-    expect(screen.getAllByText("Источник данных: система клиники.").length)
-      .toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Источник данных: система клиники.").length,
+    ).toBeGreaterThanOrEqual(1);
     expect(
       await screen.findByRole("button", {
-        name: "Квалифицировать лид: Запрос с сайта",
+        name: "Квалифицировать заявку: Запрос с сайта",
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Источник данных: система клиники.").length)
-      .toBeGreaterThanOrEqual(2);
+    expect(
+      screen.getAllByText("Источник данных: система клиники.").length,
+    ).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1/1")).toBeInTheDocument();
     expect(screen.getByText("Дерматоскоп рабочий")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Иванова Наталья Олеговна");
     expect(document.body.textContent).not.toContain("Демо-режим");
+    expect(document.body.textContent).not.toContain("DP-LIVE-1");
+    expect(document.body.textContent).not.toContain("DL-LIVE");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/doctor/dashboard",
       {
@@ -283,10 +287,10 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       },
     );
 
-    fireEvent.change(screen.getByLabelText("Краткое описание лида"), {
-      target: { value: "Новый лид из системы клиники" },
+    fireEvent.change(screen.getByLabelText("Краткое описание заявки"), {
+      target: { value: "Новая заявка из системы клиники" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить лид" }));
+    fireEvent.click(screen.getByRole("button", { name: "Добавить заявку" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "https://clinic.local/api/v1/leads",
@@ -300,12 +304,12 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       ),
     );
     expect(
-      await screen.findByText(/создан в системе клиники/i),
+      await screen.findByText(/создана в системе клиники/i),
     ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Квалифицировать лид: Запрос с сайта",
+        name: "Квалифицировать заявку: Запрос с сайта",
       }),
     );
     await waitFor(() =>
@@ -319,7 +323,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Создать запись из лида: Запрос с сайта",
+        name: "Создать запись из заявки: Запрос с сайта",
       }),
     );
     await waitFor(() =>

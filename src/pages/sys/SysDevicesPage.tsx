@@ -1544,7 +1544,7 @@ export default function SysDevicesPage() {
                     <td className="px-3 py-2 text-muted-foreground">{d.firmware}</td>
                     <td className="px-3 py-2 text-muted-foreground">{d.magnification}</td>
                     <td className="px-3 py-2 text-muted-foreground">{polarizationLabel(d.polarization)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{d.calibrationProfile}</td>
+                    <td className="px-3 py-2 text-muted-foreground">скрыт</td>
                     <td className="px-3 py-2 text-muted-foreground">{bridgeLabel(bridges, d.bridgeId)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateTime(d.lastSeenAt)}</td>
                     <td className="px-3 py-2">
@@ -1613,7 +1613,7 @@ export default function SysDevicesPage() {
                   <dt className="text-muted-foreground">Поляризация</dt>
                   <dd className="text-right">{polarizationLabel(d.polarization)}</dd>
                   <dt className="text-muted-foreground">Калибровка</dt>
-                  <dd className="text-right">{d.calibrationProfile}</dd>
+                  <dd className="text-right">скрыт</dd>
                   <dt className="text-muted-foreground">Мост</dt>
                   <dd className="text-right">{bridgeLabel(bridges, d.bridgeId)}</dd>
                   <dt className="text-muted-foreground">Последняя связь</dt>

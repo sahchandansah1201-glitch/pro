@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Eye, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
-
 import { ListPagination } from "@/components/admin/ListPagination";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,7 @@ import {
   type XlsxCellValue,
 } from "@/lib/admin-access-events";
 import { blobFromParts } from "@/lib/blob-utils";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
 import {
   getAuditLogs,
@@ -462,7 +462,7 @@ function filterLabel(
   if (clinicFilter !== "all") parts.push(`клиника: ${clinicFilter}`);
   if (actorFilter !== "all") parts.push(`актор: ${actorFilter}`);
   if (actionFilter !== "all") parts.push(`действие: ${actionLabel(actionFilter)}`);
-  if (patientCodeFilter.trim()) parts.push(`код пациента: ${patientCodeFilter.trim()}`);
+  if (patientCodeFilter.trim()) parts.push(`номер карты: ${formatCardNumber(patientCodeFilter.trim())}`);
   if (dateFrom) parts.push(`с ${dateFrom}`);
   if (dateTo) parts.push(`по ${dateTo}`);
   return parts.join(" · ");
@@ -1661,12 +1661,12 @@ export default function SysAccessEventsPage() {
               </select>
             </label>
             <label className="grid gap-1 text-[11px] text-muted-foreground">
-              Код пациента
+              Номер карты
               <Input
                 value={patientCodeFilter}
                 onChange={(e) => setPatientCodeFilter(e.target.value)}
-                placeholder="DP-2026-0001"
-                aria-label="Код пациента события"
+                placeholder="карта 0001"
+                aria-label="Номер карты в событии"
                 className="h-11 text-[12px] sm:h-9"
               />
             </label>
@@ -2162,7 +2162,7 @@ export default function SysAccessEventsPage() {
                 <th className="px-3 py-2">Актор</th>
                 <th className="px-3 py-2">Действие</th>
                 <th className="px-3 py-2">Сущность</th>
-                <th className="px-3 py-2">Пациент</th>
+                <th className="px-3 py-2">Номер карты</th>
                 <th className="px-3 py-2">Контекст</th>
                 <th className="px-3 py-2 text-right">Детали</th>
               </tr>
@@ -2180,8 +2180,8 @@ export default function SysAccessEventsPage() {
                       код скрыт
                     </span>
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                    {row.patientCode ?? "—"}
+                  <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                    {formatCardNumber(row.patientCode)}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {contextLabel(row)}
@@ -2224,8 +2224,8 @@ export default function SysAccessEventsPage() {
                 <dd className="text-right">{row.clinicName}</dd>
                 <dt className="text-muted-foreground">Сущность</dt>
                 <dd className="text-right">{entityLabel(row.entity)}</dd>
-                <dt className="text-muted-foreground">Пациент</dt>
-                <dd className="text-right font-mono text-[11px]">{row.patientCode ?? "—"}</dd>
+                <dt className="text-muted-foreground">Номер карты</dt>
+                <dd className="text-right text-[11px]">{formatCardNumber(row.patientCode)}</dd>
                 <dt className="text-muted-foreground">Контекст</dt>
                 <dd className="text-right">{contextLabel(row)}</dd>
               </dl>
@@ -2283,8 +2283,8 @@ export default function SysAccessEventsPage() {
                     код скрыт
                   </span>
                 </dd>
-                <dt className="text-muted-foreground">Пациент</dt>
-                <dd className="font-mono text-[12px]">{selectedRow.patientCode ?? "—"}</dd>
+                <dt className="text-muted-foreground">Номер карты</dt>
+                <dd className="text-[12px]">{formatCardNumber(selectedRow.patientCode)}</dd>
                 <dt className="text-muted-foreground">Контекст</dt>
                 <dd>{contextLabel(selectedRow)}</dd>
                 <dt className="text-muted-foreground">Источник</dt>

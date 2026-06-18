@@ -179,7 +179,9 @@ function cardLabel(card: AnalysisCard): string {
 }
 
 function clinicName(id: string): string {
-  return CLINICS.find((clinic) => clinic.id === id)?.name ?? "Клиника не выбрана";
+  return (
+    CLINICS.find((clinic) => clinic.id === id)?.name ?? "Клиника не выбрана"
+  );
 }
 
 export default function AdminBotSettingsPage() {
@@ -187,7 +189,8 @@ export default function AdminBotSettingsPage() {
   const leads = getLeads();
   const cards = getAnalysisCards();
 
-  const [templates, setTemplates] = useState<Record<TemplateKey, string>>(DEFAULT_TEMPLATES);
+  const [templates, setTemplates] =
+    useState<Record<TemplateKey, string>>(DEFAULT_TEMPLATES);
   const [enabledSteps, setEnabledSteps] = useState<Record<string, boolean>>(
     () => Object.fromEntries(INTAKE_STEPS.map((step) => [step.id, true])),
   );
@@ -232,7 +235,10 @@ export default function AdminBotSettingsPage() {
   );
 
   const botLeads = useMemo(
-    () => leads.filter((lead) => lead.source === "telegram" || lead.source === "whatsapp"),
+    () =>
+      leads.filter(
+        (lead) => lead.source === "telegram" || lead.source === "whatsapp",
+      ),
     [leads],
   );
 
@@ -264,10 +270,12 @@ export default function AdminBotSettingsPage() {
   ] as const;
 
   function appendAudit(text: string) {
-    setAudit((items) => [
-      { id: `${Date.now()}-${items.length}`, ts: nowIso(), text },
-      ...items,
-    ].slice(0, 24));
+    setAudit((items) =>
+      [
+        { id: `${Date.now()}-${items.length}`, ts: nowIso(), text },
+        ...items,
+      ].slice(0, 24),
+    );
   }
 
   function localAction(text: string) {
@@ -276,17 +284,23 @@ export default function AdminBotSettingsPage() {
   }
 
   function requestRetake(card: AnalysisCard) {
-    localAction(`Запрос повторного фото сформирован локально для ${cardLabel(card)}`);
+    localAction(
+      `Запрос повторного фото сформирован локально для ${cardLabel(card)}`,
+    );
   }
 
   function handoffOperator(card: AnalysisCard) {
-    localAction(`Передача оператору подготовлена локально для ${cardLabel(card)}`);
+    localAction(
+      `Передача оператору подготовлена локально для ${cardLabel(card)}`,
+    );
   }
 
   function toggleStep(step: IntakeStep) {
     setEnabledSteps((current) => {
       const nextValue = !current[step.id];
-      appendAudit(`Шаг сбора данных «${step.label}» ${nextValue ? "включён" : "выключен"} локально.`);
+      appendAudit(
+        `Шаг сбора данных «${step.label}» ${nextValue ? "включён" : "выключен"} локально.`,
+      );
       return { ...current, [step.id]: nextValue };
     });
   }
@@ -301,13 +315,15 @@ export default function AdminBotSettingsPage() {
   }
 
   function buildDryRun() {
-    const enabledCount = INTAKE_STEPS.filter((step) => enabledSteps[step.id]).length;
+    const enabledCount = INTAKE_STEPS.filter(
+      (step) => enabledSteps[step.id],
+    ).length;
     const preview = [
       "Пробная проверка сценария",
       "Граница: только локальная проверка, сообщения не отправляются.",
       `Шаги сбора данных: включено ${enabledCount} из ${INTAKE_STEPS.length}.`,
       `Очередь фото: ${photoQueue.length}; передача оператору: ${escalationQueue.length}; заявки из мессенджеров: ${botLeads.length}.`,
-      "Безопасность: диагноз, риск, прогноз, служебные коды и внешние идентификаторы не показываются.",
+      "Безопасность: медицинские выводы, служебные коды и внешние идентификаторы не показываются.",
     ].join("\n");
     setDryRun(preview);
     appendAudit("Пробная проверка сценария сформирована локально.");
@@ -322,14 +338,18 @@ export default function AdminBotSettingsPage() {
 
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200">
         Учебный режим: бот помогает собрать данные, проверить фото и передать
-        обращение оператору. Сообщения не отправляются, бот не ставит диагноз
-        и не показывает пациенту риск или прогноз.
+        обращение оператору. Сообщения не отправляются, бот не делает
+        медицинские выводы.
       </div>
 
       <section aria-label="Операционный статус бота" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[13px] font-semibold">Операционный статус бота</h2>
-          <div className="text-[11px] text-muted-foreground">учебные агрегаты</div>
+          <h2 className="text-[13px] font-semibold">
+            Операционный статус бота
+          </h2>
+          <div className="text-[11px] text-muted-foreground">
+            учебные агрегаты
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {statusCards.map((item) => (
@@ -373,10 +393,15 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Передача оператору" hint={`${escalationQueue.length} в работе`}>
+          <SectionCard
+            title="Передача оператору"
+            hint={`${escalationQueue.length} в работе`}
+          >
             <div className="space-y-2">
               {escalationQueue.map((card) => {
-                const dialog = dialogs.find((item) => item.id === card.dialogId);
+                const dialog = dialogs.find(
+                  (item) => item.id === card.dialogId,
+                );
                 return (
                   <div
                     key={card.id}
@@ -386,8 +411,10 @@ export default function AdminBotSettingsPage() {
                       <div className="min-w-0">
                         <div className="font-medium">{cardLabel(card)}</div>
                         <div className="mt-0.5 text-[12px] text-muted-foreground">
-                          {dialog ? DIALOG_STATE_LABEL[dialog.state] : "Статус неизвестен"} ·{" "}
-                          {clinicName(card.recommendedClinicId)}
+                          {dialog
+                            ? DIALOG_STATE_LABEL[dialog.state]
+                            : "Статус неизвестен"}{" "}
+                          · {clinicName(card.recommendedClinicId)}
                         </div>
                       </div>
                       <Badge className={PRIORITY_TONE[card.routingRisk]}>
@@ -412,7 +439,9 @@ export default function AdminBotSettingsPage() {
                         variant="outline"
                         className="min-h-[44px] sm:min-h-[32px]"
                         onClick={() =>
-                          localAction(`Приоритетная запись подготовлена локально для ${cardLabel(card)}`)
+                          localAction(
+                            `Приоритетная запись подготовлена локально для ${cardLabel(card)}`,
+                          )
                         }
                       >
                         <ClipboardList className="size-4" aria-hidden />
@@ -428,11 +457,16 @@ export default function AdminBotSettingsPage() {
           <SectionCard title="Сценарии сбора данных" hint="обязательные шаги">
             <div className="grid gap-2 md:grid-cols-2">
               {INTAKE_STEPS.map((step) => (
-                <div key={step.id} className="rounded-md border bg-card px-3 py-2">
+                <div
+                  key={step.id}
+                  className="rounded-md border bg-card px-3 py-2"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[13px] font-medium">{step.label}</span>
+                        <span className="text-[13px] font-medium">
+                          {step.label}
+                        </span>
                         {step.required && (
                           <Badge variant="outline" className="text-[10px]">
                             обязательно
@@ -469,13 +503,18 @@ export default function AdminBotSettingsPage() {
               </div>
               {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map((key) => (
                 <div key={key} className="space-y-1.5">
-                  <Label htmlFor={`bot-template-${key}`} className="text-[13px]">
+                  <Label
+                    htmlFor={`bot-template-${key}`}
+                    className="text-[13px]"
+                  >
                     {TEMPLATE_LABELS[key]}
                   </Label>
                   <Textarea
                     id={`bot-template-${key}`}
                     value={templates[key]}
-                    onChange={(event) => updateTemplate(key, event.target.value)}
+                    onChange={(event) =>
+                      updateTemplate(key, event.target.value)
+                    }
                     rows={key === "photo_instruction" ? 4 : 3}
                     className="text-[13px] leading-snug"
                   />
@@ -493,7 +532,10 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Пробная проверка и журнал" hint="без внешних отправок">
+          <SectionCard
+            title="Пробная проверка и журнал"
+            hint="без внешних отправок"
+          >
             <div className="space-y-3">
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
@@ -503,7 +545,8 @@ export default function AdminBotSettingsPage() {
                   onClick={() =>
                     localAction(
                       `Проверка сценариев: включено ${
-                        INTAKE_STEPS.filter((step) => enabledSteps[step.id]).length
+                        INTAKE_STEPS.filter((step) => enabledSteps[step.id])
+                          .length
                       } из ${INTAKE_STEPS.length} шагов`,
                     )
                   }
@@ -528,9 +571,15 @@ export default function AdminBotSettingsPage() {
                 </pre>
               )}
 
-              <ul className="max-h-72 space-y-1 overflow-auto text-[12px]" aria-label="Журнал аудита бота">
+              <ul
+                className="max-h-72 space-y-1 overflow-auto text-[12px]"
+                aria-label="Журнал аудита бота"
+              >
                 {audit.map((item) => (
-                  <li key={item.id} className="rounded border bg-card px-2 py-1">
+                  <li
+                    key={item.id}
+                    className="rounded border bg-card px-2 py-1"
+                  >
                     <span className="text-muted-foreground">
                       {new Date(item.ts).toLocaleTimeString("ru-RU")}
                     </span>{" "}
@@ -541,9 +590,12 @@ export default function AdminBotSettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Безопасность сценария" hint="границы безопасности">
+          <SectionCard
+            title="Безопасность сценария"
+            hint="границы безопасности"
+          >
             <div className="space-y-2 text-[12px] leading-relaxed">
-              <SafetyRow text="Нет автоматического диагноза, риска или прогноза для пациента." />
+              <SafetyRow text="Нет автоматических медицинских выводов для пациента." />
               <SafetyRow text="Сообщения не отправляются из этого экрана." />
               <SafetyRow text="Служебные коды, ссылки, внешние идентификаторы и пути к фото скрыты." />
               <SafetyRow text="Передача оператору означает организационную проверку, не врачебное заключение." />
@@ -557,10 +609,15 @@ export default function AdminBotSettingsPage() {
           {botLeads.map((lead, index) => {
             const dialog = dialogs.find((item) => item.id === lead.dialogId);
             return (
-              <div key={lead.id} className="rounded-md border bg-card px-3 py-2 text-[13px]">
+              <div
+                key={lead.id}
+                className="rounded-md border bg-card px-3 py-2 text-[13px]"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-medium">Заявка {index + 1}</div>
-                  <Badge variant="outline">{LEAD_STATUS_LABEL[lead.status]}</Badge>
+                  <Badge variant="outline">
+                    {LEAD_STATUS_LABEL[lead.status]}
+                  </Badge>
                 </div>
                 <div className="mt-1 text-[12px] text-muted-foreground">
                   мессенджер ·{" "}
@@ -589,7 +646,9 @@ function SectionCard({
     <Card className="p-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[13px] font-semibold">{title}</h2>
-        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+        {hint && (
+          <div className="text-[11px] text-muted-foreground">{hint}</div>
+        )}
       </div>
       {children}
     </Card>
@@ -616,7 +675,9 @@ function StatusCard({
 
   return (
     <div className={`rounded-md border p-3 ${toneClass}`}>
-      <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
+      <div className="text-[11px] font-medium uppercase tracking-wide">
+        {label}
+      </div>
       <div className="mt-1 text-[22px] font-semibold leading-tight tabular-nums text-foreground">
         {value}
       </div>
@@ -688,7 +749,10 @@ function QueueRow({
 function SafetyRow({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-2 rounded border bg-card px-2 py-1.5">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+      <AlertTriangle
+        className="mt-0.5 size-4 shrink-0 text-warning"
+        aria-hidden
+      />
       <span>{text}</span>
     </div>
   );

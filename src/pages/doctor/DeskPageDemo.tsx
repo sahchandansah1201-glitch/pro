@@ -15,6 +15,7 @@ import {
   getDevices,
   getPatientById,
 } from "@/lib/mock-data";
+import { formatCardNumber } from "@/lib/card-number";
 import { calcAge, formatDateTime } from "@/lib/format";
 import type { Visit } from "@/lib/domain";
 import { BODY_MAP_DEMO_NOW } from "@/pages/doctor/body-map-model";
@@ -29,7 +30,7 @@ function patientName(id: string): string {
   return getPatientById(id)?.fullName ?? "—";
 }
 function patientCode(id: string): string {
-  return getPatientById(id)?.code ?? "—";
+  return formatCardNumber(getPatientById(id)?.code);
 }
 function clinicName(id: string): string {
   return getClinicById(id)?.name ?? "—";
@@ -193,9 +194,9 @@ export default function DeskPageDemo() {
               hint="закрытые без отчёта"
             />
             <Kpi
-              label="Лиды нов./квал./зап."
+              label="Заявки нов./квал./зап."
               value={`${leadsNew}/${leadsQualified}/${leadsBooked}`}
-              hint="бот и сайт"
+              hint="помощник и сайт"
             />
             <Kpi
               label="Записи в работе"
@@ -229,10 +230,7 @@ export default function DeskPageDemo() {
                           {patientName(v.patientId)}
                         </div>
                         <div className="truncate text-meta">
-                          <span className="font-mono">
-                            {patientCode(v.patientId)}
-                          </span>{" "}
-                          · {clinicName(v.clinicId)}
+                          {patientCode(v.patientId)} · {clinicName(v.clinicId)}
                         </div>
                       </div>
                       <div className="min-w-0">
@@ -314,7 +312,7 @@ export default function DeskPageDemo() {
                         {patient.fullName}
                       </div>
                       <div className="truncate text-meta">
-                        <span className="font-mono">{patient.code}</span> ·{" "}
+                        {formatCardNumber(patient.code)} ·{" "}
                         {SEX_LABEL_SHORT[patient.sex] ?? "пол не указан"} ·{" "}
                         {calcAge(patient.birthDate)} лет
                       </div>
@@ -389,18 +387,18 @@ export default function DeskPageDemo() {
           <BandHeader
             id="desk-practice-heading"
             title="Практика и оборудование"
-            hint="записи, лиды и готовность устройств"
+            hint="записи, заявки и готовность устройств"
           />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <Card
               id="desk-leads"
               className="lg:col-span-6"
-              title="Лиды и записи"
-              hint="из бота и партнёрских каналов"
+              title="Заявки и записи"
+              hint="из помощника и партнёрских каналов"
             >
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-row">
                 <Stat term="Пациентов в базе" value={PATIENTS.length} />
-                <Stat term="Лиды всего" value={LEADS.length} />
+                <Stat term="Заявки всего" value={LEADS.length} />
                 <Stat term="Записи запланированы" value={apptPlanned} />
                 <Stat
                   term="Записи выполнены"
@@ -432,8 +430,8 @@ export default function DeskPageDemo() {
                         {d.model}
                       </div>
                       <div className="truncate text-meta">
-                        <span className="font-mono">{d.serial}</span> ·{" "}
-                        увеличение {d.magnification} · {polarizationLabel(d.polarization)}
+                        служебный код скрыт · увеличение {d.magnification} ·{" "}
+                        {polarizationLabel(d.polarization)}
                       </div>
                     </div>
                     <span className="text-meta tabular-nums">

@@ -27,10 +27,22 @@ import {
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { RiskBadge } from "@/components/clinical/RiskBadge";
-import { BodySilhouette, pickFigure, FIGURE_LABEL, type Figure } from "@/components/clinical/BodySilhouette";
+import {
+  BodySilhouette,
+  pickFigure,
+  FIGURE_LABEL,
+  type Figure,
+} from "@/components/clinical/BodySilhouette";
+import { formatCardNumber } from "@/lib/card-number";
 import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAssessmentsByLesionId,
@@ -122,7 +134,7 @@ const IMAGE_SOURCE: Record<ClinicalImage["source"], string> = {
   file: "Файл",
   camera: "Камера",
   device_bridge: "Дерматоскоп",
-  local_transfer: "Local transfer",
+  local_transfer: "Локальная передача",
 };
 const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
   front: "перед",
@@ -133,17 +145,64 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
 };
 type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
-type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type ViewerQaBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type ViewerQaReviewBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type ViewerQaReviewStatus = "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
-type ViewerQaReviewerWorkflowBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type ViewerQaReviewerWorkflowStatus = "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
-type MeasurementPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type MeasurementPolicyStatus = "not_approved" | "review_required" | "approved_for_technical_review";
-type ProductionAnalysisPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
-type ProductionAnalysisPolicyStatus = "not_approved" | "review_required" | "approved_for_production_analysis";
-type ReviewerAssignmentBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ComparisonBackendDraftStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type ViewerQaBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type ViewerQaReviewBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type ViewerQaReviewStatus =
+  | "technical_ready"
+  | "needs_recapture"
+  | "not_suitable_for_comparison";
+type ViewerQaReviewerWorkflowBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type ViewerQaReviewerWorkflowStatus =
+  | "ready_for_reviewer"
+  | "reviewer_accepted"
+  | "reviewer_rejected";
+type MeasurementPolicyBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type MeasurementPolicyStatus =
+  | "not_approved"
+  | "review_required"
+  | "approved_for_technical_review";
+type ProductionAnalysisPolicyBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
+type ProductionAnalysisPolicyStatus =
+  | "not_approved"
+  | "review_required"
+  | "approved_for_production_analysis";
+type ReviewerAssignmentBackendStatus =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "local_only"
+  | "error";
 type ReviewerAssignmentStatus =
   | "unassigned"
   | "assigned"
@@ -151,7 +210,12 @@ type ReviewerAssignmentStatus =
   | "second_review_assigned"
   | "second_review_completed"
   | "assignment_blocked";
-type SecondReviewStatus = "not_required" | "required" | "assigned" | "completed" | "blocked";
+type SecondReviewStatus =
+  | "not_required"
+  | "required"
+  | "assigned"
+  | "completed"
+  | "blocked";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type ViewerQaSavePayload = {
   technicalMarkers: TechnicalGeometryMarker[];
@@ -203,9 +267,24 @@ const COMPARISON_ACTIONS: Array<{
   icon: typeof RefreshCw;
   variant: "outline" | "secondary";
 }> = [
-  { action: "retake", label: "Запросить переснимок", icon: RefreshCw, variant: "outline" },
-  { action: "excluded", label: "Исключить из сравнения", icon: XCircle, variant: "outline" },
-  { action: "report_limit", label: "Добавить ограничение в отчёт", icon: FileText, variant: "secondary" },
+  {
+    action: "retake",
+    label: "Запросить переснимок",
+    icon: RefreshCw,
+    variant: "outline",
+  },
+  {
+    action: "excluded",
+    label: "Исключить из сравнения",
+    icon: XCircle,
+    variant: "outline",
+  },
+  {
+    action: "report_limit",
+    label: "Добавить ограничение в отчёт",
+    icon: FileText,
+    variant: "secondary",
+  },
 ];
 
 const COMPARISON_OVERLAY_LABEL: Record<ComparisonOverlay, string> = {
@@ -213,7 +292,10 @@ const COMPARISON_OVERLAY_LABEL: Record<ComparisonOverlay, string> = {
   center: "центр",
   off: "скрыта",
 };
-const TECHNICAL_GEOMETRY_PRESETS: Record<TechnicalGeometryMarker["target"], TechnicalGeometryMarker> = {
+const TECHNICAL_GEOMETRY_PRESETS: Record<
+  TechnicalGeometryMarker["target"],
+  TechnicalGeometryMarker
+> = {
   A: { target: "A", x: 48, y: 52 },
   B: { target: "B", x: 52, y: 52 },
 };
@@ -222,7 +304,10 @@ const MEASUREMENT_POLICY_LABEL: Record<MeasurementPolicyStatus, string> = {
   review_required: "Нужен разбор правил",
   approved_for_technical_review: "Правила утверждены для технической проверки",
 };
-const PRODUCTION_ANALYSIS_POLICY_LABEL: Record<ProductionAnalysisPolicyStatus, string> = {
+const PRODUCTION_ANALYSIS_POLICY_LABEL: Record<
+  ProductionAnalysisPolicyStatus,
+  string
+> = {
   not_approved: "Правила анализа не утверждены",
   review_required: "Нужен разбор правил анализа",
   approved_for_production_analysis: "Правила анализа утверждены",
@@ -244,19 +329,29 @@ const SECOND_REVIEW_LABEL: Record<SecondReviewStatus, string> = {
 };
 const REVIEWER_ASSIGNMENT_PRIMARY_ID = "10000000-0000-4000-8000-000000000201";
 const REVIEWER_ASSIGNMENT_SECOND_ID = "10000000-0000-4000-8000-000000000202";
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
-const DEVICE_LABEL_BY_ID = new Map(getDevices().map((device) => [device.id, device.model]));
+const DEVICE_LABEL_BY_ID = new Map(
+  getDevices().map((device) => [device.id, device.model]),
+);
 const deviceDisplayLabel = (deviceId: string | null | undefined) =>
-  deviceId ? DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано" : "без устройства";
+  deviceId
+    ? (DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано")
+    : "без устройства";
 const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
   marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
 const imageDisplayMeta = (image: ClinicalImage) =>
   `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${deviceDisplayLabel(image.deviceId)}`;
 const systemHintDisclaimer = (value: string) =>
-  value.replace(/AI-поддержка принятия решений/gi, "Подсказка системы для принятия решений");
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
+  value.replace(
+    /AI-поддержка принятия решений/gi,
+    "Подсказка системы для принятия решений",
+  );
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUuid = (value: string | null | undefined) =>
+  UUID_PATTERN.test(String(value || ""));
 const createPreviewObjectUrl = (blob: Blob) =>
   typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : "";
 const revokePreviewUrls = (urls: Record<string, string>) => {
@@ -287,20 +382,26 @@ function viewerQaReviewReasons({
     !calibrationReady ? "calibration_not_ready" : null,
     markerCount < 2 ? "technical_markers_missing" : null,
   ].filter((item): item is string => Boolean(item));
-  if (status === "needs_recapture") return uniqueReasons(blockers.length > 0 ? blockers : ["repeat_capture_required"]);
+  if (status === "needs_recapture")
+    return uniqueReasons(
+      blockers.length > 0 ? blockers : ["repeat_capture_required"],
+    );
   return uniqueReasons(["dynamic_comparison_disabled", ...blockers]);
 }
 
 function imageQualityLabel(image: ClinicalImage) {
-  if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
+  if (image.quality.score >= 0.8 && image.quality.issues.length === 0)
+    return "Готово";
   if (image.quality.score >= 0.72) return "С предупреждением";
   return "Нужен переснимок";
 }
 
 function imageQualityTone(image: ClinicalImage) {
   const label = imageQualityLabel(image);
-  if (label === "Готово") return "border-risk-low/30 bg-risk-low-soft text-risk-low";
-  if (label === "С предупреждением") return "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate";
+  if (label === "Готово")
+    return "border-risk-low/30 bg-risk-low-soft text-risk-low";
+  if (label === "С предупреждением")
+    return "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate";
   return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
@@ -311,37 +412,50 @@ function minutesBetween(imageA: ClinicalImage, imageB: ClinicalImage) {
   return Math.round(Math.abs(a - b) / 60000);
 }
 
-function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): CaptureConditionCheck[] {
+function captureConditionChecks(
+  imageA: ClinicalImage,
+  imageB: ClinicalImage,
+): CaptureConditionCheck[] {
   const deviceA = deviceDisplayLabel(imageA.deviceId);
   const deviceB = deviceDisplayLabel(imageB.deviceId);
   const minQuality = Math.min(imageA.quality.score, imageB.quality.score);
-  const qualityIssues = Array.from(new Set([...imageA.quality.issues, ...imageB.quality.issues]));
+  const qualityIssues = Array.from(
+    new Set([...imageA.quality.issues, ...imageB.quality.issues]),
+  );
   const intervalMinutes = minutesBetween(imageA, imageB);
 
   return [
     {
       label: "Тип снимка",
       ready: imageA.kind === imageB.kind,
-      detail: imageA.kind === imageB.kind
-        ? `один тип снимка: ${IMAGE_KIND[imageA.kind]}`
-        : `разный тип снимка: ${IMAGE_KIND[imageA.kind]} / ${IMAGE_KIND[imageB.kind]}`,
+      detail:
+        imageA.kind === imageB.kind
+          ? `один тип снимка: ${IMAGE_KIND[imageA.kind]}`
+          : `разный тип снимка: ${IMAGE_KIND[imageA.kind]} / ${IMAGE_KIND[imageB.kind]}`,
     },
     {
       label: "Источник",
       ready: imageA.source === imageB.source,
-      detail: imageA.source === imageB.source
-        ? `один источник: ${IMAGE_SOURCE[imageA.source]}`
-        : `разные источники: ${IMAGE_SOURCE[imageA.source]} / ${IMAGE_SOURCE[imageB.source]}`,
+      detail:
+        imageA.source === imageB.source
+          ? `один источник: ${IMAGE_SOURCE[imageA.source]}`
+          : `разные источники: ${IMAGE_SOURCE[imageA.source]} / ${IMAGE_SOURCE[imageB.source]}`,
     },
     {
       label: "Устройство",
       ready: deviceA === deviceB,
-      detail: deviceA === deviceB ? `одно устройство: ${deviceA}` : `${deviceA} / ${deviceB}`,
+      detail:
+        deviceA === deviceB
+          ? `одно устройство: ${deviceA}`
+          : `${deviceA} / ${deviceB}`,
     },
     {
       label: "Интервал",
       ready: intervalMinutes !== null && intervalMinutes <= 10,
-      detail: intervalMinutes === null ? "нет времени съёмки" : `${intervalMinutes} мин между снимками`,
+      detail:
+        intervalMinutes === null
+          ? "нет времени съёмки"
+          : `${intervalMinutes} мин между снимками`,
     },
     {
       label: "Качество",
@@ -351,36 +465,51 @@ function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): C
     {
       label: "Замечания качества",
       ready: qualityIssues.length === 0,
-      detail: qualityIssues.length === 0 ? "нет замечаний качества" : qualityIssues.join(", "),
+      detail:
+        qualityIssues.length === 0
+          ? "нет замечаний качества"
+          : qualityIssues.join(", "),
     },
   ];
 }
 
-const imageFrameSize = (image: ClinicalImage) => `${image.exifMeta.width}×${image.exifMeta.height}`;
+const imageFrameSize = (image: ClinicalImage) =>
+  `${image.exifMeta.width}×${image.exifMeta.height}`;
 
-function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage): CalibrationReadinessCheck[] {
+function calibrationReadinessChecks(
+  imageA: ClinicalImage,
+  imageB: ClinicalImage,
+): CalibrationReadinessCheck[] {
   const deviceA = deviceDisplayLabel(imageA.deviceId);
   const deviceB = deviceDisplayLabel(imageB.deviceId);
-  const sameDevice = Boolean(imageA.deviceId && imageB.deviceId && imageA.deviceId === imageB.deviceId);
+  const sameDevice = Boolean(
+    imageA.deviceId && imageB.deviceId && imageA.deviceId === imageB.deviceId,
+  );
   const frameSizeA = imageFrameSize(imageA);
   const frameSizeB = imageFrameSize(imageB);
   const sameFrameSize = frameSizeA === frameSizeB;
-  const scaleMarkerReady = imageA.viewerCalibration?.scaleMarkerDetected === true
-    && imageB.viewerCalibration?.scaleMarkerDetected === true;
-  const millimetersReady = imageA.viewerCalibration?.millimetersAvailable === true
-    && imageB.viewerCalibration?.millimetersAvailable === true
-    && scaleMarkerReady;
+  const scaleMarkerReady =
+    imageA.viewerCalibration?.scaleMarkerDetected === true &&
+    imageB.viewerCalibration?.scaleMarkerDetected === true;
+  const millimetersReady =
+    imageA.viewerCalibration?.millimetersAvailable === true &&
+    imageB.viewerCalibration?.millimetersAvailable === true &&
+    scaleMarkerReady;
 
   return [
     {
       label: "Профиль устройства",
       ready: sameDevice,
-      detail: sameDevice ? `одно устройство: ${deviceA}` : `${deviceA} / ${deviceB}`,
+      detail: sameDevice
+        ? `одно устройство: ${deviceA}`
+        : `${deviceA} / ${deviceB}`,
     },
     {
       label: "Размер кадра",
       ready: sameFrameSize,
-      detail: sameFrameSize ? `один размер: ${frameSizeA}` : `${frameSizeA} / ${frameSizeB}`,
+      detail: sameFrameSize
+        ? `один размер: ${frameSizeA}`
+        : `${frameSizeA} / ${frameSizeB}`,
     },
     {
       label: "Масштабная шкала",
@@ -390,7 +519,9 @@ function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage
     {
       label: "Миллиметры",
       ready: millimetersReady,
-      detail: millimetersReady ? "миллиметры доступны для проверки просмотра" : "миллиметры недоступны",
+      detail: millimetersReady
+        ? "миллиметры доступны для проверки просмотра"
+        : "миллиметры недоступны",
     },
   ];
 }
@@ -409,7 +540,9 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
   const qualityA = `${imageQualityLabel(imageA)} · ${Math.round(imageA.quality.score * 100)}%`;
   const qualityB = `${imageQualityLabel(imageB)} · ${Math.round(imageB.quality.score * 100)}%`;
   const conditionsDiffer =
-    imageA.deviceId !== imageB.deviceId || imageA.source !== imageB.source || imageA.kind !== imageB.kind;
+    imageA.deviceId !== imageB.deviceId ||
+    imageA.source !== imageB.source ||
+    imageA.kind !== imageB.kind;
 
   return [
     {
@@ -422,25 +555,33 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       label: "Дата",
       a: formatDateTime(imageA.capturedAt),
       b: formatDateTime(imageB.capturedAt),
-      result: imageA.capturedAt === imageB.capturedAt ? "Та же дата и время" : "Разная точка времени",
+      result:
+        imageA.capturedAt === imageB.capturedAt
+          ? "Та же дата и время"
+          : "Разная точка времени",
     },
     {
       label: "Тип снимка",
       a: IMAGE_KIND[imageA.kind],
       b: IMAGE_KIND[imageB.kind],
-      result: imageA.kind === imageB.kind ? "Тип совпадает" : "Разный тип снимка",
+      result:
+        imageA.kind === imageB.kind ? "Тип совпадает" : "Разный тип снимка",
     },
     {
       label: "Источник",
       a: IMAGE_SOURCE[imageA.source],
       b: IMAGE_SOURCE[imageB.source],
-      result: imageA.source === imageB.source ? "Источник совпадает" : "Разные источники",
+      result:
+        imageA.source === imageB.source
+          ? "Источник совпадает"
+          : "Разные источники",
     },
     {
       label: "Устройство",
       a: deviceA,
       b: deviceB,
-      result: deviceA === deviceB ? "Устройство совпадает" : "Разные устройства",
+      result:
+        deviceA === deviceB ? "Устройство совпадает" : "Разные устройства",
     },
     {
       label: "Качество",
@@ -455,7 +596,9 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       label: "Сопоставимость",
       a: conditionsDiffer ? "условия A отличаются" : "условия A совпадают",
       b: conditionsDiffer ? "условия B отличаются" : "условия B совпадают",
-      result: conditionsDiffer ? "Разные условия съёмки" : "Сопоставимо по условиям",
+      result: conditionsDiffer
+        ? "Разные условия съёмки"
+        : "Сопоставимо по условиям",
     },
   ];
 }
@@ -468,7 +611,10 @@ function buildLongitudinalVisitGroups(
   const visitMap = new Map(visits.map((visit) => [visit.id, visit]));
   const assessmentCounts = new Map<string, number>();
   for (const assessment of assessments) {
-    assessmentCounts.set(assessment.visitId, (assessmentCounts.get(assessment.visitId) ?? 0) + 1);
+    assessmentCounts.set(
+      assessment.visitId,
+      (assessmentCounts.get(assessment.visitId) ?? 0) + 1,
+    );
   }
 
   const byVisit = new Map<string, ClinicalImage[]>();
@@ -481,9 +627,14 @@ function buildLongitudinalVisitGroups(
   return Array.from(byVisit.entries())
     .map(([visitId, groupImages]) => {
       const visit = visitMap.get(visitId) ?? null;
-      const sortedImages = [...groupImages].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const sortedImages = [...groupImages].sort((a, b) =>
+        a.capturedAt.localeCompare(b.capturedAt),
+      );
       const date = visit?.startedAt ?? sortedImages[0]?.capturedAt ?? "";
-      const bestQuality = sortedImages.reduce((best, image) => Math.max(best, image.quality.score), 0);
+      const bestQuality = sortedImages.reduce(
+        (best, image) => Math.max(best, image.quality.score),
+        0,
+      );
       return {
         visitId,
         visit,
@@ -491,15 +642,25 @@ function buildLongitudinalVisitGroups(
         images: sortedImages,
         assessmentCount: assessmentCounts.get(visitId) ?? 0,
         bestQuality,
-        devices: Array.from(new Set(sortedImages.map((image) => deviceDisplayLabel(image.deviceId)))),
-        kinds: Array.from(new Set(sortedImages.map((image) => IMAGE_KIND[image.kind]))),
-        sources: Array.from(new Set(sortedImages.map((image) => IMAGE_SOURCE[image.source]))),
+        devices: Array.from(
+          new Set(
+            sortedImages.map((image) => deviceDisplayLabel(image.deviceId)),
+          ),
+        ),
+        kinds: Array.from(
+          new Set(sortedImages.map((image) => IMAGE_KIND[image.kind])),
+        ),
+        sources: Array.from(
+          new Set(sortedImages.map((image) => IMAGE_SOURCE[image.source])),
+        ),
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function buildLongitudinalPairs(groups: LongitudinalVisitGroup[]): LongitudinalPair[] {
+function buildLongitudinalPairs(
+  groups: LongitudinalVisitGroup[],
+): LongitudinalPair[] {
   const pairs: LongitudinalPair[] = [];
   for (let index = 1; index < groups.length; index += 1) {
     const previous = groups[index - 1];
@@ -507,16 +668,25 @@ function buildLongitudinalPairs(groups: LongitudinalVisitGroup[]): LongitudinalP
     for (const currentImage of current.images) {
       const previousImage = previous.images.find(
         (candidate) =>
-          candidate.kind === currentImage.kind
-          && candidate.source === currentImage.source
-          && (candidate.deviceId ?? "без устройства") === (currentImage.deviceId ?? "без устройства"),
+          candidate.kind === currentImage.kind &&
+          candidate.source === currentImage.source &&
+          (candidate.deviceId ?? "без устройства") ===
+            (currentImage.deviceId ?? "без устройства"),
       );
       if (!previousImage) continue;
 
       const comparedImages = [previousImage, currentImage];
-      const lowQuality = comparedImages.some((image) => image.quality.score < 0.75);
-      const hasQualityIssues = comparedImages.some((image) => image.quality.issues.length > 0);
-      const status: LongitudinalPairStatus = lowQuality ? "blocked" : hasQualityIssues ? "warning" : "ready";
+      const lowQuality = comparedImages.some(
+        (image) => image.quality.score < 0.75,
+      );
+      const hasQualityIssues = comparedImages.some(
+        (image) => image.quality.issues.length > 0,
+      );
+      const status: LongitudinalPairStatus = lowQuality
+        ? "blocked"
+        : hasQualityIssues
+          ? "warning"
+          : "ready";
       const reasons = [
         lowQuality ? "Качество ниже порога" : null,
         hasQualityIssues ? "Есть технические замечания" : null,
@@ -548,49 +718,93 @@ function buildLocalLongitudinalQaGate({
   groups: LongitudinalVisitGroup[];
   pairs: LongitudinalPair[];
 }): SelfHostedLesionLongitudinalQaDTO {
-  const imageCount = groups.reduce((sum, group) => sum + group.images.length, 0);
-  const technicalReadyPairCount = pairs.filter((pair) => pair.status === "ready").length;
-  const needsRecaptureCount = pairs.filter((pair) => pair.status === "warning" || pair.status === "blocked").length;
-  const notSuitableForComparisonCount = pairs.filter((pair) => pair.status === "blocked").length;
-  const unreviewedPairCount = pairs.filter((pair) => pair.status === "warning").length;
+  const imageCount = groups.reduce(
+    (sum, group) => sum + group.images.length,
+    0,
+  );
+  const technicalReadyPairCount = pairs.filter(
+    (pair) => pair.status === "ready",
+  ).length;
+  const needsRecaptureCount = pairs.filter(
+    (pair) => pair.status === "warning" || pair.status === "blocked",
+  ).length;
+  const notSuitableForComparisonCount = pairs.filter(
+    (pair) => pair.status === "blocked",
+  ).length;
+  const unreviewedPairCount = pairs.filter(
+    (pair) => pair.status === "warning",
+  ).length;
   const candidatePairCount = pairs.length;
   const calibrationBlockedCount = needsRecaptureCount;
   const markerMissingCount = needsRecaptureCount;
   const status: SelfHostedLesionLongitudinalQaDTO["readiness"]["status"] =
-    candidatePairCount === 0 || needsRecaptureCount > 0 || calibrationBlockedCount > 0 || markerMissingCount > 0
+    candidatePairCount === 0 ||
+    needsRecaptureCount > 0 ||
+    calibrationBlockedCount > 0 ||
+    markerMissingCount > 0
       ? "blocked"
       : unreviewedPairCount > 0
         ? "needs_review"
         : "technical_ready";
-  const technicalRolloutReady = status === "technical_ready" && candidatePairCount > 0;
+  const technicalRolloutReady =
+    status === "technical_ready" && candidatePairCount > 0;
   const blockers: SelfHostedLesionLongitudinalQaDTO["blockers"] = [
     candidatePairCount === 0
-      ? { code: "no_candidate_pairs", label: "Нет пар для продольной проверки", count: 1, nextAction: "review_queue" }
+      ? {
+          code: "no_candidate_pairs",
+          label: "Нет пар для продольной проверки",
+          count: 1,
+          nextAction: "review_queue",
+        }
       : null,
     needsRecaptureCount > 0
-      ? { code: "recapture_required", label: "Нужен переснимок", count: needsRecaptureCount, nextAction: "request_recapture" }
+      ? {
+          code: "recapture_required",
+          label: "Нужен переснимок",
+          count: needsRecaptureCount,
+          nextAction: "request_recapture",
+        }
       : null,
     notSuitableForComparisonCount > 0
       ? {
-        code: "not_suitable_for_comparison",
-        label: "Не использовать для динамики",
-        count: notSuitableForComparisonCount,
-        nextAction: "exclude_from_dynamic_review",
-      }
+          code: "not_suitable_for_comparison",
+          label: "Не использовать для динамики",
+          count: notSuitableForComparisonCount,
+          nextAction: "exclude_from_dynamic_review",
+        }
       : null,
     unreviewedPairCount > 0
-      ? { code: "unreviewed_pairs", label: "Нужен технический разбор", count: unreviewedPairCount, nextAction: "review_queue" }
+      ? {
+          code: "unreviewed_pairs",
+          label: "Нужен технический разбор",
+          count: unreviewedPairCount,
+          nextAction: "review_queue",
+        }
       : null,
     calibrationBlockedCount > 0
-      ? { code: "calibration_not_ready", label: "Калибровка не готова", count: calibrationBlockedCount, nextAction: "complete_calibration" }
+      ? {
+          code: "calibration_not_ready",
+          label: "Калибровка не готова",
+          count: calibrationBlockedCount,
+          nextAction: "complete_calibration",
+        }
       : null,
     markerMissingCount > 0
-      ? { code: "technical_markers_missing", label: "Не хватает технических маркеров", count: markerMissingCount, nextAction: "place_markers" }
+      ? {
+          code: "technical_markers_missing",
+          label: "Не хватает технических маркеров",
+          count: markerMissingCount,
+          nextAction: "place_markers",
+        }
       : null,
-  ].filter((item): item is SelfHostedLesionLongitudinalQaDTO["blockers"][number] => Boolean(item));
-  const nextActions = blockers.length > 0
-    ? Array.from(new Set(blockers.map((blocker) => blocker.nextAction)))
-    : (["continue_review"] as SelfHostedLesionLongitudinalQaAction[]);
+  ].filter(
+    (item): item is SelfHostedLesionLongitudinalQaDTO["blockers"][number] =>
+      Boolean(item),
+  );
+  const nextActions =
+    blockers.length > 0
+      ? Array.from(new Set(blockers.map((blocker) => blocker.nextAction)))
+      : (["continue_review"] as SelfHostedLesionLongitudinalQaAction[]);
 
   return {
     clinicId: null,
@@ -641,13 +855,20 @@ function ComparisonImagePanel({
   geometryMarker?: TechnicalGeometryMarker;
 }) {
   return (
-    <section aria-label={`Снимок ${marker}`} className="min-w-0 rounded-md border border-border bg-background">
+    <section
+      aria-label={`Снимок ${marker}`}
+      className="min-w-0 rounded-md border border-border bg-background"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold">Снимок {marker}</div>
-          <div className="text-[11px] text-muted-foreground">{imageDisplayMeta(image)}</div>
+          <div className="text-[11px] text-muted-foreground">
+            {imageDisplayMeta(image)}
+          </div>
         </div>
-        <span className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(image)}`}>
+        <span
+          className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(image)}`}
+        >
           {imageQualityLabel(image)} · {(image.quality.score * 100).toFixed(0)}%
         </span>
       </div>
@@ -676,8 +897,13 @@ function ComparisonImagePanel({
                 <div className="absolute right-[22%] top-[34%] h-10 w-10 rounded-full border border-risk-moderate/50 bg-risk-moderate-soft/60" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-center">
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
-                    <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
+                    <ImageIcon
+                      className="h-8 w-8 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <div className="text-[12px] font-medium">
+                      {IMAGE_KIND[image.kind]}
+                    </div>
                     <div className="text-[11px] text-muted-foreground">
                       Исходный файл скрыт; доступны параметры снимка.
                     </div>
@@ -719,24 +945,35 @@ function ComparisonImagePanel({
             {marker}
           </div>
           <div className="absolute bottom-2 right-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-            {Math.round(viewport.zoom * 100)}% · x{formatPan(viewport.panX)} / y{formatPan(viewport.panY)}
+            {Math.round(viewport.zoom * 100)}% · x{formatPan(viewport.panX)} / y
+            {formatPan(viewport.panY)}
           </div>
         </div>
         <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2">
           <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Дата</dt>
-            <dd className="mt-0.5 tabular-nums">{formatDateTime(image.capturedAt)}</dd>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Дата
+            </dt>
+            <dd className="mt-0.5 tabular-nums">
+              {formatDateTime(image.capturedAt)}
+            </dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Источник</dt>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Источник
+            </dt>
             <dd className="mt-0.5">{IMAGE_SOURCE[image.source]}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройство</dt>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Устройство
+            </dt>
             <dd className="mt-0.5">{deviceDisplayLabel(image.deviceId)}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Размер</dt>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Размер
+            </dt>
             <dd className="mt-0.5 tabular-nums">
               {image.exifMeta.width}×{image.exifMeta.height}
             </dd>
@@ -833,7 +1070,9 @@ function ComparisonFullScreenDialog({
   measurementPolicyBackendStatus: MeasurementPolicyBackendStatus;
   measurementPolicyMessage: string;
   productionAnalysisPolicyStatus: ProductionAnalysisPolicyStatus;
-  onReviewProductionAnalysisPolicy: (payload: ProductionAnalysisPolicyPayload) => void;
+  onReviewProductionAnalysisPolicy: (
+    payload: ProductionAnalysisPolicyPayload,
+  ) => void;
   productionAnalysisPolicyBackendStatus: ProductionAnalysisPolicyBackendStatus;
   productionAnalysisPolicyMessage: string;
   reviewerAssignmentStatus: ReviewerAssignmentStatus;
@@ -851,10 +1090,17 @@ function ComparisonFullScreenDialog({
   protectedImageUrls: Record<string, string>;
   onLoadProtectedImages: () => void;
 }) {
-  const [viewport, setViewport] = useState<ComparisonViewport>({ zoom: 1, panX: 0, panY: 0, overlay: "grid" });
+  const [viewport, setViewport] = useState<ComparisonViewport>({
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    overlay: "grid",
+  });
   const [technicalNote, setTechnicalNote] = useState("");
   const [savedTechnicalNote, setSavedTechnicalNote] = useState("");
-  const [geometryMarkers, setGeometryMarkers] = useState<TechnicalGeometryMarker[]>([]);
+  const [geometryMarkers, setGeometryMarkers] = useState<
+    TechnicalGeometryMarker[]
+  >([]);
   const [calibrationLimitSaved, setCalibrationLimitSaved] = useState(false);
   const imageAId = images?.[0].id ?? "";
   const imageBId = images?.[1].id ?? "";
@@ -865,7 +1111,10 @@ function ComparisonFullScreenDialog({
   }, [imageAId, imageBId]);
 
   const updateZoom = (delta: number) => {
-    setViewport((current) => ({ ...current, zoom: clamp(current.zoom + delta, 1, 3) }));
+    setViewport((current) => ({
+      ...current,
+      zoom: clamp(current.zoom + delta, 1, 3),
+    }));
   };
   const updatePan = (panX: number, panY: number) => {
     setViewport((current) => ({
@@ -884,15 +1133,18 @@ function ComparisonFullScreenDialog({
   };
   const setGeometryMarker = (target: TechnicalGeometryMarker["target"]) => {
     const marker = TECHNICAL_GEOMETRY_PRESETS[target];
-    setGeometryMarkers((current) => [...current.filter((item) => item.target !== target), marker]);
+    setGeometryMarkers((current) => [
+      ...current.filter((item) => item.target !== target),
+      marker,
+    ]);
   };
   const currentViewerQaPayload = (): ViewerQaSavePayload => ({
-      technicalMarkers: geometryMarkers,
-      calibrationStatus: calibrationReady ? "ready" : "not_ready",
-      calibrationReasons: calibrationChecks
-        .filter((item) => !item.ready)
-        .map(calibrationReasonCode),
-      captureMetadataStatus: captureReady ? "ready" : "needs_review",
+    technicalMarkers: geometryMarkers,
+    calibrationStatus: calibrationReady ? "ready" : "not_ready",
+    calibrationReasons: calibrationChecks
+      .filter((item) => !item.ready)
+      .map(calibrationReasonCode),
+    captureMetadataStatus: captureReady ? "ready" : "needs_review",
   });
   const saveViewerQa = () => {
     setCalibrationLimitSaved(true);
@@ -911,14 +1163,17 @@ function ComparisonFullScreenDialog({
       }),
     });
   };
-  const reviewViewerWorkflow = (workflowStatus: ViewerQaReviewerWorkflowStatus) => {
+  const reviewViewerWorkflow = (
+    workflowStatus: ViewerQaReviewerWorkflowStatus,
+  ) => {
     setCalibrationLimitSaved(true);
     onReviewViewerWorkflow({
       ...currentViewerQaPayload(),
       workflowStatus,
-      workflowReasons: workflowStatus === "reviewer_rejected"
-        ? ["reviewer_workflow_rejected"]
-        : ["calibrated_reviewer_workflow_ready"],
+      workflowReasons:
+        workflowStatus === "reviewer_rejected"
+          ? ["reviewer_workflow_rejected"]
+          : ["calibrated_reviewer_workflow_ready"],
     });
   };
   const reviewMeasurementPolicy = (policyStatus: MeasurementPolicyStatus) => {
@@ -926,33 +1181,54 @@ function ComparisonFullScreenDialog({
     onReviewMeasurementPolicy({
       ...currentViewerQaPayload(),
       measurementPolicyStatus: policyStatus,
-      measurementPolicyReasons: policyStatus === "approved_for_technical_review"
-        ? ["technical_measurement_policy_approved_no_mm_output"]
-        : ["measurement_policy_requires_review"],
+      measurementPolicyReasons:
+        policyStatus === "approved_for_technical_review"
+          ? ["technical_measurement_policy_approved_no_mm_output"]
+          : ["measurement_policy_requires_review"],
     });
   };
-  const reviewProductionAnalysisPolicy = (policyStatus: ProductionAnalysisPolicyStatus) => {
+  const reviewProductionAnalysisPolicy = (
+    policyStatus: ProductionAnalysisPolicyStatus,
+  ) => {
     setCalibrationLimitSaved(true);
     onReviewProductionAnalysisPolicy({
       ...currentViewerQaPayload(),
       productionAnalysisPolicyStatus: policyStatus,
-      productionAnalysisPolicyReasons: policyStatus === "approved_for_production_analysis"
-        ? ["production_analysis_policy_approved_no_dynamic_conclusion"]
-        : ["production_analysis_policy_requires_review"],
+      productionAnalysisPolicyReasons:
+        policyStatus === "approved_for_production_analysis"
+          ? ["production_analysis_policy_approved_no_dynamic_conclusion"]
+          : ["production_analysis_policy_requires_review"],
     });
   };
-  const assignReviewer = (mode: "primary" | "second_required" | "second_completed") => {
+  const assignReviewer = (
+    mode: "primary" | "second_required" | "second_completed",
+  ) => {
     setCalibrationLimitSaved(true);
     onAssignReviewer({
       ...currentViewerQaPayload(),
-      assignmentStatus: mode === "primary" ? "assigned" : mode === "second_required" ? "second_review_required" : "second_review_completed",
-      assignmentReasons: mode === "primary"
-        ? ["primary_reviewer_assigned"]
-        : ["second_review_required_for_clinical_grade_workflow"],
+      assignmentStatus:
+        mode === "primary"
+          ? "assigned"
+          : mode === "second_required"
+            ? "second_review_required"
+            : "second_review_completed",
+      assignmentReasons:
+        mode === "primary"
+          ? ["primary_reviewer_assigned"]
+          : ["second_review_required_for_clinical_grade_workflow"],
       assignedReviewerUserId: REVIEWER_ASSIGNMENT_PRIMARY_ID,
-      secondReviewStatus: mode === "primary" ? "not_required" : mode === "second_required" ? "required" : "completed",
-      secondReviewReasons: mode === "second_completed" ? ["second_review_completed_metadata_only"] : [],
-      secondReviewerUserId: mode === "primary" ? null : REVIEWER_ASSIGNMENT_SECOND_ID,
+      secondReviewStatus:
+        mode === "primary"
+          ? "not_required"
+          : mode === "second_required"
+            ? "required"
+            : "completed",
+      secondReviewReasons:
+        mode === "second_completed"
+          ? ["second_review_completed_metadata_only"]
+          : [],
+      secondReviewerUserId:
+        mode === "primary" ? null : REVIEWER_ASSIGNMENT_SECOND_ID,
     });
   };
   const markerFor = (target: TechnicalGeometryMarker["target"]) =>
@@ -963,31 +1239,36 @@ function ComparisonFullScreenDialog({
   const captureReady = captureChecks.every((item) => item.ready);
   const calibrationChecks = calibrationReadinessChecks(imageA, imageB);
   const calibrationReady = calibrationChecks.every((item) => item.ready);
-  const measurementPolicyApproved = measurementPolicyStatus === "approved_for_technical_review";
+  const measurementPolicyApproved =
+    measurementPolicyStatus === "approved_for_technical_review";
   const productionAnalysisPolicyApproved =
     productionAnalysisPolicyStatus === "approved_for_production_analysis";
   const reviewerAssigned =
-    reviewerAssignmentStatus === "assigned"
-    || reviewerAssignmentStatus === "second_review_assigned"
-    || reviewerAssignmentStatus === "second_review_completed";
-  const secondReviewReady = secondReviewStatus === "not_required" || secondReviewStatus === "completed";
+    reviewerAssignmentStatus === "assigned" ||
+    reviewerAssignmentStatus === "second_review_assigned" ||
+    reviewerAssignmentStatus === "second_review_completed";
+  const secondReviewReady =
+    secondReviewStatus === "not_required" || secondReviewStatus === "completed";
   const reviewerWorkflowReady =
-    technicalReviewReady
-    && captureReady
-    && calibrationReady
-    && geometryMarkers.length === 2
-    && measurementPolicyApproved
-    && reviewerAssigned
-    && secondReviewReady
-    && productionAnalysisPolicyApproved;
-  const protectedPreviewReady = !canLoadProtectedImages || protectedRenderStatus === "ready";
+    technicalReviewReady &&
+    captureReady &&
+    calibrationReady &&
+    geometryMarkers.length === 2 &&
+    measurementPolicyApproved &&
+    reviewerAssigned &&
+    secondReviewReady &&
+    productionAnalysisPolicyApproved;
+  const protectedPreviewReady =
+    !canLoadProtectedImages || protectedRenderStatus === "ready";
   const comparisonWorkflowSteps: ComparisonWorkflowStep[] = [
     {
       key: "protected-preview",
       label: "Превью",
       done: protectedPreviewReady,
       statusLabel: canLoadProtectedImages
-        ? protectedRenderStatus === "ready" ? "готово" : "подготовить"
+        ? protectedRenderStatus === "ready"
+          ? "готово"
+          : "подготовить"
         : "не требуется",
       nextActionLabel: "Подготовить защищённые превью",
       actionLabel: "Открыть защищённые превью",
@@ -1051,7 +1332,9 @@ function ComparisonFullScreenDialog({
       key: "analysis-policy",
       label: "Анализ",
       done: productionAnalysisPolicyApproved,
-      statusLabel: productionAnalysisPolicyApproved ? "утверждена" : "выключена",
+      statusLabel: productionAnalysisPolicyApproved
+        ? "утверждена"
+        : "выключена",
       nextActionLabel: "Закрыть правила анализа",
       actionLabel: "Открыть правила анализа",
       actionHref: "#comparison-analysis-policy",
@@ -1059,36 +1342,39 @@ function ComparisonFullScreenDialog({
   ];
   const firstCaptureBlocker = captureChecks.find((item) => !item.ready);
   const firstCalibrationBlocker = calibrationChecks.find((item) => !item.ready);
-  const firstComparisonBlocker =
-    !protectedPreviewReady
-      ? "Защищённые превью · подготовьте превью врача"
-      : firstCaptureBlocker
-        ? `${firstCaptureBlocker.label} · ${firstCaptureBlocker.detail}`
-        : geometryMarkers.length < 2
-          ? `Технические маркеры · осталось ${2 - geometryMarkers.length}`
-          : firstCalibrationBlocker
-            ? `${firstCalibrationBlocker.label} · ${firstCalibrationBlocker.detail}`
-            : !technicalReviewReady
-              ? "Технический разбор · нажмите «Технически готово»"
-              : !measurementPolicyApproved
-                ? "Правила измерений · нужны технические правила"
-                : !reviewerAssigned
-                  ? "Проверяющий · назначьте проверяющего"
-                  : !secondReviewReady
-                    ? "Повторная проверка · закройте второй просмотр"
-                : !productionAnalysisPolicyApproved
-                  ? "Правила анализа · вывод о динамике остаётся выключен"
-                  : null;
+  const firstComparisonBlocker = !protectedPreviewReady
+    ? "Защищённые превью · подготовьте превью врача"
+    : firstCaptureBlocker
+      ? `${firstCaptureBlocker.label} · ${firstCaptureBlocker.detail}`
+      : geometryMarkers.length < 2
+        ? `Технические маркеры · осталось ${2 - geometryMarkers.length}`
+        : firstCalibrationBlocker
+          ? `${firstCalibrationBlocker.label} · ${firstCalibrationBlocker.detail}`
+          : !technicalReviewReady
+            ? "Технический разбор · нажмите «Технически готово»"
+            : !measurementPolicyApproved
+              ? "Правила измерений · нужны технические правила"
+              : !reviewerAssigned
+                ? "Проверяющий · назначьте проверяющего"
+                : !secondReviewReady
+                  ? "Повторная проверка · закройте второй просмотр"
+                  : !productionAnalysisPolicyApproved
+                    ? "Правила анализа · вывод о динамике остаётся выключен"
+                    : null;
   const workflowGateItems = [
     {
       label: "Технический разбор",
       ready: technicalReviewReady,
-      detail: technicalReviewReady ? "решение сохранено" : "сначала нажмите «Технически готово»",
+      detail: technicalReviewReady
+        ? "решение сохранено"
+        : "сначала нажмите «Технически готово»",
     },
     {
       label: "Калибровка",
       ready: calibrationReady,
-      detail: calibrationReady ? "проверка просмотра готова" : "нужна шкала и доступность миллиметров",
+      detail: calibrationReady
+        ? "проверка просмотра готова"
+        : "нужна шкала и доступность миллиметров",
     },
     {
       label: "Данные съёмки",
@@ -1103,22 +1389,30 @@ function ComparisonFullScreenDialog({
     {
       label: "Правила измерений",
       ready: measurementPolicyApproved,
-      detail: measurementPolicyApproved ? "технические правила утверждены" : "измерения остаются выключены",
+      detail: measurementPolicyApproved
+        ? "технические правила утверждены"
+        : "измерения остаются выключены",
     },
     {
       label: "Назначение проверяющего",
       ready: reviewerAssigned,
-      detail: reviewerAssigned ? "проверяющий назначен; личность скрыта" : "назначьте проверяющего",
+      detail: reviewerAssigned
+        ? "проверяющий назначен; личность скрыта"
+        : "назначьте проверяющего",
     },
     {
       label: "Повторная проверка",
       ready: secondReviewReady,
-      detail: secondReviewReady ? "не требуется или закрыта" : "нужна повторная проверка",
+      detail: secondReviewReady
+        ? "не требуется или закрыта"
+        : "нужна повторная проверка",
     },
     {
       label: "Правила анализа",
       ready: productionAnalysisPolicyApproved,
-      detail: productionAnalysisPolicyApproved ? "рабочие правила утверждены" : "вывод о динамике остаётся выключен",
+      detail: productionAnalysisPolicyApproved
+        ? "рабочие правила утверждены"
+        : "вывод о динамике остаётся выключен",
     },
   ];
 
@@ -1126,9 +1420,12 @@ function ComparisonFullScreenDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[1240px] overflow-y-auto p-3 sm:p-4">
         <DialogHeader className="pr-8">
-          <DialogTitle className="text-[14px]">Полноэкранное сравнение</DialogTitle>
+          <DialogTitle className="text-[14px]">
+            Полноэкранное сравнение
+          </DialogTitle>
           <DialogDescription className="text-[12px]">
-            Крупное A/B-сравнение выбранной пары очага. Это технический режим проверки условий съёмки.
+            Крупное A/B-сравнение выбранной пары очага. Это технический режим
+            проверки условий съёмки.
           </DialogDescription>
         </DialogHeader>
 
@@ -1156,10 +1453,17 @@ function ComparisonFullScreenDialog({
             />
           </div>
 
-          <aside aria-label="Условия съёмки" className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
-            <section aria-label="Инструменты просмотра" className="mb-3 rounded-md border border-border bg-background p-2">
+          <aside
+            aria-label="Условия съёмки"
+            className="min-w-0 rounded-md border border-border bg-muted/20 p-3"
+          >
+            <section
+              aria-label="Инструменты просмотра"
+              className="mb-3 rounded-md border border-border bg-background p-2"
+            >
               <div className="flex items-center gap-1 text-[12px] font-semibold">
-                <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Инструменты просмотра
+                <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Инструменты
+                просмотра
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1">
                 <Button
@@ -1238,29 +1542,47 @@ function ComparisonFullScreenDialog({
                 <Button
                   type="button"
                   size="sm"
-                  variant={viewport.overlay === "grid" ? "secondary" : "outline"}
+                  variant={
+                    viewport.overlay === "grid" ? "secondary" : "outline"
+                  }
                   className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                  onClick={() => setViewport((current) => ({ ...current, overlay: "grid" }))}
+                  onClick={() =>
+                    setViewport((current) => ({ ...current, overlay: "grid" }))
+                  }
                 >
                   <Grid3X3 className="h-3.5 w-3.5" aria-hidden /> Показать сетку
                 </Button>
                 <Button
                   type="button"
                   size="sm"
-                  variant={viewport.overlay === "center" ? "secondary" : "outline"}
+                  variant={
+                    viewport.overlay === "center" ? "secondary" : "outline"
+                  }
                   className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                  onClick={() => setViewport((current) => ({ ...current, overlay: "center" }))}
+                  onClick={() =>
+                    setViewport((current) => ({
+                      ...current,
+                      overlay: "center",
+                    }))
+                  }
                 >
-                  <Crosshair className="h-3.5 w-3.5" aria-hidden /> Показать центр
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden /> Показать
+                  центр
                 </Button>
               </div>
               <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
                 <span>Масштаб {Math.round(viewport.zoom * 100)}%</span>
                 <span>
-                  Смещение x{formatPan(viewport.panX)} / y{formatPan(viewport.panY)}
+                  Смещение x{formatPan(viewport.panX)} / y
+                  {formatPan(viewport.panY)}
                 </span>
-                <span>Разметка: {COMPARISON_OVERLAY_LABEL[viewport.overlay]}</span>
-                <span>Измерения отключены: разметка не является медицинским измерением.</span>
+                <span>
+                  Разметка: {COMPARISON_OVERLAY_LABEL[viewport.overlay]}
+                </span>
+                <span>
+                  Измерения отключены: разметка не является медицинским
+                  измерением.
+                </span>
               </div>
               <ComparisonGeometryPanel
                 markers={geometryMarkers}
@@ -1278,29 +1600,56 @@ function ComparisonFullScreenDialog({
               <ComparisonTechnicalReviewPanel
                 backendStatus={viewerQaReviewStatus}
                 message={viewerQaReviewMessage}
-                readyDisabled={!(captureReady && calibrationReady && geometryMarkers.length === 2)}
+                readyDisabled={
+                  !(
+                    captureReady &&
+                    calibrationReady &&
+                    geometryMarkers.length === 2
+                  )
+                }
                 onReview={reviewViewerQa}
               />
               <ComparisonMeasurementPolicyPanel
                 statusLabel={MEASUREMENT_POLICY_LABEL[measurementPolicyStatus]}
                 backendStatus={measurementPolicyBackendStatus}
                 message={measurementPolicyMessage}
-                approveDisabled={!(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2)}
+                approveDisabled={
+                  !(
+                    technicalReviewReady &&
+                    captureReady &&
+                    calibrationReady &&
+                    geometryMarkers.length === 2
+                  )
+                }
                 onReview={reviewMeasurementPolicy}
               />
               <ComparisonReviewerAssignmentPanel
-                assignmentStatusLabel={REVIEWER_ASSIGNMENT_LABEL[reviewerAssignmentStatus]}
-                secondReviewStatusLabel={SECOND_REVIEW_LABEL[secondReviewStatus]}
+                assignmentStatusLabel={
+                  REVIEWER_ASSIGNMENT_LABEL[reviewerAssignmentStatus]
+                }
+                secondReviewStatusLabel={
+                  SECOND_REVIEW_LABEL[secondReviewStatus]
+                }
                 backendStatus={reviewerAssignmentBackendStatus}
                 message={reviewerAssignmentMessage}
                 disabled={!measurementPolicyApproved}
                 onAssign={assignReviewer}
               />
               <ComparisonAnalysisPolicyPanel
-                statusLabel={PRODUCTION_ANALYSIS_POLICY_LABEL[productionAnalysisPolicyStatus]}
+                statusLabel={
+                  PRODUCTION_ANALYSIS_POLICY_LABEL[
+                    productionAnalysisPolicyStatus
+                  ]
+                }
                 backendStatus={productionAnalysisPolicyBackendStatus}
                 message={productionAnalysisPolicyMessage}
-                approveDisabled={!(measurementPolicyApproved && reviewerAssigned && secondReviewReady)}
+                approveDisabled={
+                  !(
+                    measurementPolicyApproved &&
+                    reviewerAssigned &&
+                    secondReviewReady
+                  )
+                }
                 onReview={reviewProductionAnalysisPolicy}
               />
               <ComparisonWorkflowGatePanel
@@ -1318,7 +1667,10 @@ function ComparisonFullScreenDialog({
                   readiness={protectedReadiness}
                   onLoad={onLoadProtectedImages}
                 />
-                <label htmlFor="comparison-technical-note" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                <label
+                  htmlFor="comparison-technical-note"
+                  className="text-[11px] uppercase tracking-wide text-muted-foreground"
+                >
                   Техническая заметка
                 </label>
                 <Textarea
@@ -1339,12 +1691,18 @@ function ComparisonFullScreenDialog({
                     disabled={technicalNote.trim().length === 0}
                     onClick={saveTechnicalNote}
                   >
-                    <StickyNote className="h-3.5 w-3.5" aria-hidden /> Зафиксировать техническую заметку
+                    <StickyNote className="h-3.5 w-3.5" aria-hidden />{" "}
+                    Зафиксировать техническую заметку
                   </Button>
-                  <span className="text-[11px] text-muted-foreground">Выдача пациенту: выключена</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Выдача пациенту: выключена
+                  </span>
                 </div>
                 {savedTechnicalNote && (
-                  <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                  <p
+                    className="mt-1 text-[12px] font-medium text-primary"
+                    role="status"
+                  >
                     Техническая заметка зафиксирована локально
                   </p>
                 )}
@@ -1353,7 +1711,9 @@ function ComparisonFullScreenDialog({
 
             <div className="text-[12px] font-semibold">Условия съёмки</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px]">
-              <span className="text-muted-foreground">Техническая сопоставимость:</span>
+              <span className="text-muted-foreground">
+                Техническая сопоставимость:
+              </span>
               <span
                 className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
                   isComparable
@@ -1371,44 +1731,75 @@ function ComparisonFullScreenDialog({
             </div>
 
             <div className="mt-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Причины</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Причины
+              </div>
               <div className="mt-1 flex flex-wrap gap-1">
-                {(reasons.length > 0 ? reasons : ["Условия повторяемы"]).map((reason) => (
-                  <span key={reason} className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]">
-                    {reason}
-                  </span>
-                ))}
+                {(reasons.length > 0 ? reasons : ["Условия повторяемы"]).map(
+                  (reason) => (
+                    <span
+                      key={reason}
+                      className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                    >
+                      {reason}
+                    </span>
+                  ),
+                )}
               </div>
             </div>
 
-            <ComparisonCaptureQaPanel checks={captureChecks} ready={captureReady} />
+            <ComparisonCaptureQaPanel
+              checks={captureChecks}
+              ready={captureReady}
+            />
 
             <dl className="mt-3 space-y-2 text-[12px]">
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Типы</dt>
-                <dd>{IMAGE_KIND[imageA.kind]} / {IMAGE_KIND[imageB.kind]}</dd>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Типы
+                </dt>
+                <dd>
+                  {IMAGE_KIND[imageA.kind]} / {IMAGE_KIND[imageB.kind]}
+                </dd>
               </div>
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Источники</dt>
-                <dd>{IMAGE_SOURCE[imageA.source]} / {IMAGE_SOURCE[imageB.source]}</dd>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Источники
+                </dt>
+                <dd>
+                  {IMAGE_SOURCE[imageA.source]} / {IMAGE_SOURCE[imageB.source]}
+                </dd>
               </div>
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройства</dt>
-                <dd>{deviceDisplayLabel(imageA.deviceId)} / {deviceDisplayLabel(imageB.deviceId)}</dd>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Устройства
+                </dt>
+                <dd>
+                  {deviceDisplayLabel(imageA.deviceId)} /{" "}
+                  {deviceDisplayLabel(imageB.deviceId)}
+                </dd>
               </div>
             </dl>
 
             <p
               className="mt-3 rounded-md border px-2 py-1.5 text-[12px]"
-              style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}
+              style={{
+                background: "hsl(var(--warning) / 0.08)",
+                borderColor: "hsl(var(--warning) / 0.30)",
+                color: "hsl(var(--warning))",
+              }}
             >
-              Не оценивайте динамику по этой паре без врачебной проверки и повторяемых условий съёмки.
+              Не оценивайте динамику по этой паре без врачебной проверки и
+              повторяемых условий съёмки.
             </p>
 
             <div className="mt-3">
               <ComparisonActionButtons onAction={onAction} />
               {action && (
-                <p className="mt-2 text-[12px] font-medium text-primary" role="status">
+                <p
+                  className="mt-2 text-[12px] font-medium text-primary"
+                  role="status"
+                >
                   {COMPARISON_ACTION_LABEL[action]}
                 </p>
               )}
@@ -1420,10 +1811,14 @@ function ComparisonFullScreenDialog({
                 disabled={!canSaveDraft}
                 onClick={onSaveDraft}
               >
-                <FileText className="h-3.5 w-3.5" aria-hidden /> Сохранить черновик решения
+                <FileText className="h-3.5 w-3.5" aria-hidden /> Сохранить
+                черновик решения
               </Button>
               {draftStatus === "saved" && (
-                <p className="mt-2 text-[12px] font-medium text-primary" role="status">
+                <p
+                  className="mt-2 text-[12px] font-medium text-primary"
+                  role="status"
+                >
                   Черновик решения сохранён
                 </p>
               )}
@@ -1435,7 +1830,15 @@ function ComparisonFullScreenDialog({
   );
 }
 
-function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: number; y: number }) {
+function BodyMapMini({
+  view,
+  x,
+  y,
+}: {
+  view: Lesion["mapPoint"]["view"];
+  x: number;
+  y: number;
+}) {
   const cx = Math.max(0, Math.min(1, x)) * 60;
   const cy = Math.max(0, Math.min(1, y)) * 88;
   const silhouette =
@@ -1455,16 +1858,34 @@ function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: numb
       aria-label={`Карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
       className="shrink-0 rounded border bg-muted/30"
     >
-      <g fill="hsl(var(--muted-foreground) / 0.25)" stroke="hsl(var(--muted-foreground) / 0.6)" strokeWidth="1">
+      <g
+        fill="hsl(var(--muted-foreground) / 0.25)"
+        stroke="hsl(var(--muted-foreground) / 0.6)"
+        strokeWidth="1"
+      >
         {silhouette}
       </g>
-      <circle cx={cx} cy={cy} r="3.5" fill="hsl(var(--destructive))" stroke="hsl(var(--background))" strokeWidth="1.2" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r="3.5"
+        fill="hsl(var(--destructive))"
+        stroke="hsl(var(--background))"
+        strokeWidth="1.2"
+      />
     </svg>
   );
 }
 
 function BodyMapDialog({
-  open, onOpenChange, figure, view, x, y, bodyZone, label,
+  open,
+  onOpenChange,
+  figure,
+  view,
+  x,
+  y,
+  bodyZone,
+  label,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -1493,9 +1914,13 @@ function BodyMapDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-[14px]">Карта тела · {label}</DialogTitle>
+          <DialogTitle className="text-[14px]">
+            Карта тела · {label}
+          </DialogTitle>
           <DialogDescription className="text-[12px]">
-            {bodyZone} · проекция {VIEW_LABEL[view]} · координаты x{(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · силуэт: {FIGURE_LABEL[figure]}
+            {bodyZone} · проекция {VIEW_LABEL[view]} · координаты x
+            {(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · силуэт:{" "}
+            {FIGURE_LABEL[figure]}
           </DialogDescription>
         </DialogHeader>
         <div className="mx-auto w-full max-w-[360px]">
@@ -1507,7 +1932,11 @@ function BodyMapDialog({
           >
             <BodySilhouette view={projected} figure={figure} />
             {/* Прицельные линии X/Y */}
-            <g stroke="hsl(var(--destructive) / 0.45)" strokeDasharray="3 3" strokeWidth={0.8}>
+            <g
+              stroke="hsl(var(--destructive) / 0.45)"
+              strokeDasharray="3 3"
+              strokeWidth={0.8}
+            >
               <line x1={0} y1={cy} x2={200} y2={cy} />
               <line x1={cx} y1={0} x2={cx} y2={400} />
             </g>
@@ -1530,7 +1959,9 @@ function BodyMapDialog({
             />
           </svg>
           {note && (
-            <p className="mt-2 text-center text-[11px] italic text-muted-foreground">{note}</p>
+            <p className="mt-2 text-center text-[11px] italic text-muted-foreground">
+              {note}
+            </p>
           )}
         </div>
       </DialogContent>
@@ -1542,7 +1973,12 @@ const NotFound = ({ title, hint }: { title: string; hint: string }) => (
   <div className="flex h-full flex-col">
     <PageHeader title={title} subtitle={hint} />
     <div className="p-4">
-      <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
+      <Button
+        asChild
+        size="sm"
+        variant="secondary"
+        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+      >
         <Link to="/patients">К списку пациентов</Link>
       </Button>
     </div>
@@ -1550,7 +1986,10 @@ const NotFound = ({ title, hint }: { title: string; hint: string }) => (
 );
 
 export default function LesionDetailPage() {
-  const { id = "", lesionId = "" } = useParams<{ id: string; lesionId: string }>();
+  const { id = "", lesionId = "" } = useParams<{
+    id: string;
+    lesionId: string;
+  }>();
   const selfHostedSession = useSelfHostedApiSession();
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
   const patient = getPatientById(id);
@@ -1559,90 +1998,138 @@ export default function LesionDetailPage() {
   // Локальный UI-state для демо-действий (не сетевой и не storage).
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
-  const [comparisonAction, setComparisonAction] = useState<ComparisonAction | null>(null);
-  const [comparisonDraft, setComparisonDraft] = useState<LesionComparisonDecisionDraft | null>(null);
-  const [comparisonDraftStatus, setComparisonDraftStatus] = useState<ComparisonDraftStatus>("idle");
-  const [comparisonBackendStatus, setComparisonBackendStatus] = useState<ComparisonBackendDraftStatus>("idle");
+  const [comparisonAction, setComparisonAction] =
+    useState<ComparisonAction | null>(null);
+  const [comparisonDraft, setComparisonDraft] =
+    useState<LesionComparisonDecisionDraft | null>(null);
+  const [comparisonDraftStatus, setComparisonDraftStatus] =
+    useState<ComparisonDraftStatus>("idle");
+  const [comparisonBackendStatus, setComparisonBackendStatus] =
+    useState<ComparisonBackendDraftStatus>("idle");
   const [comparisonBackendMessage, setComparisonBackendMessage] = useState("");
-  const [viewerQaStatus, setViewerQaStatus] = useState<ViewerQaBackendStatus>("idle");
+  const [viewerQaStatus, setViewerQaStatus] =
+    useState<ViewerQaBackendStatus>("idle");
   const [viewerQaMessage, setViewerQaMessage] = useState("");
-  const [viewerQaReviewStatus, setViewerQaReviewStatus] = useState<ViewerQaReviewBackendStatus>("idle");
+  const [viewerQaReviewStatus, setViewerQaReviewStatus] =
+    useState<ViewerQaReviewBackendStatus>("idle");
   const [viewerQaReviewMessage, setViewerQaReviewMessage] = useState("");
-  const [viewerQaLatestReviewStatus, setViewerQaLatestReviewStatus] = useState<ViewerQaReviewStatus | null>(null);
+  const [viewerQaLatestReviewStatus, setViewerQaLatestReviewStatus] =
+    useState<ViewerQaReviewStatus | null>(null);
   const [viewerQaReviewerWorkflowStatus, setViewerQaReviewerWorkflowStatus] =
     useState<ViewerQaReviewerWorkflowBackendStatus>("idle");
-  const [viewerQaReviewerWorkflowMessage, setViewerQaReviewerWorkflowMessage] = useState("");
+  const [viewerQaReviewerWorkflowMessage, setViewerQaReviewerWorkflowMessage] =
+    useState("");
   const [measurementPolicyBackendStatus, setMeasurementPolicyBackendStatus] =
     useState<MeasurementPolicyBackendStatus>("idle");
   const [measurementPolicyMessage, setMeasurementPolicyMessage] = useState("");
-  const [measurementPolicyStatus, setMeasurementPolicyStatus] = useState<MeasurementPolicyStatus>("not_approved");
-  const [productionAnalysisPolicyBackendStatus, setProductionAnalysisPolicyBackendStatus] =
-    useState<ProductionAnalysisPolicyBackendStatus>("idle");
-  const [productionAnalysisPolicyMessage, setProductionAnalysisPolicyMessage] = useState("");
+  const [measurementPolicyStatus, setMeasurementPolicyStatus] =
+    useState<MeasurementPolicyStatus>("not_approved");
+  const [
+    productionAnalysisPolicyBackendStatus,
+    setProductionAnalysisPolicyBackendStatus,
+  ] = useState<ProductionAnalysisPolicyBackendStatus>("idle");
+  const [productionAnalysisPolicyMessage, setProductionAnalysisPolicyMessage] =
+    useState("");
   const [productionAnalysisPolicyStatus, setProductionAnalysisPolicyStatus] =
     useState<ProductionAnalysisPolicyStatus>("not_approved");
   const [reviewerAssignmentBackendStatus, setReviewerAssignmentBackendStatus] =
     useState<ReviewerAssignmentBackendStatus>("idle");
-  const [reviewerAssignmentMessage, setReviewerAssignmentMessage] = useState("");
-  const [reviewerAssignmentStatus, setReviewerAssignmentStatus] = useState<ReviewerAssignmentStatus>("unassigned");
-  const [secondReviewStatus, setSecondReviewStatus] = useState<SecondReviewStatus>("not_required");
-  const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
+  const [reviewerAssignmentMessage, setReviewerAssignmentMessage] =
+    useState("");
+  const [reviewerAssignmentStatus, setReviewerAssignmentStatus] =
+    useState<ReviewerAssignmentStatus>("unassigned");
+  const [secondReviewStatus, setSecondReviewStatus] =
+    useState<SecondReviewStatus>("not_required");
+  const [protectedRenderStatus, setProtectedRenderStatus] =
+    useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
-  const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
-  const [productionLongitudinalQa, setProductionLongitudinalQa] = useState<SelfHostedLesionLongitudinalQaDTO | null>(null);
-  const [longitudinalQaLoadStatus, setLongitudinalQaLoadStatus] = useState<LongitudinalQaLoadStatus>("idle");
+  const [protectedImageUrls, setProtectedImageUrls] = useState<
+    Record<string, string>
+  >({});
+  const [productionLongitudinalQa, setProductionLongitudinalQa] =
+    useState<SelfHostedLesionLongitudinalQaDTO | null>(null);
+  const [longitudinalQaLoadStatus, setLongitudinalQaLoadStatus] =
+    useState<LongitudinalQaLoadStatus>("idle");
   const [longitudinalQaMessage, setLongitudinalQaMessage] = useState("");
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
   const images = useMemo(
-    () => [...getImagesByLesionId(lesionId)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+    () =>
+      [...getImagesByLesionId(lesionId)].sort((a, b) =>
+        a.capturedAt.localeCompare(b.capturedAt),
+      ),
     [lesionId],
   );
   const assessments = useMemo(
-    () => [...getAssessmentsByLesionId(lesionId)].sort((a, b) => a.decidedAt.localeCompare(b.decidedAt)),
+    () =>
+      [...getAssessmentsByLesionId(lesionId)].sort((a, b) =>
+        a.decidedAt.localeCompare(b.decidedAt),
+      ),
     [lesionId],
   );
-  const visits = useMemo(() => (patient ? getVisitsByPatientId(patient.id) : []), [patient]);
+  const visits = useMemo(
+    () => (patient ? getVisitsByPatientId(patient.id) : []),
+    [patient],
+  );
 
   const compareImages = compareIds
     .map((imgId) => images.find((img) => img.id === imgId))
     .filter((img): img is ClinicalImage => Boolean(img));
   const hasComparablePair = compareImages.length === 2;
   const captureConditionsDiffer = hasComparablePair
-    ? compareImages[0].deviceId !== compareImages[1].deviceId
-      || compareImages[0].source !== compareImages[1].source
-      || compareImages[0].kind !== compareImages[1].kind
+    ? compareImages[0].deviceId !== compareImages[1].deviceId ||
+      compareImages[0].source !== compareImages[1].source ||
+      compareImages[0].kind !== compareImages[1].kind
     : false;
-  const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
-  const comparePair = hasComparablePair ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage]) : null;
+  const matrixRows = hasComparablePair
+    ? comparisonRows(compareImages[0], compareImages[1])
+    : [];
+  const comparePair = hasComparablePair
+    ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage])
+    : null;
   const selectedPairHasQualityIssues = hasComparablePair
-    ? compareImages.some((img) => img.quality.score < 0.75 || img.quality.issues.length > 0)
+    ? compareImages.some(
+        (img) => img.quality.score < 0.75 || img.quality.issues.length > 0,
+      )
     : false;
-  const selectedPairIsComparable = hasComparablePair && !captureConditionsDiffer && !selectedPairHasQualityIssues;
+  const selectedPairIsComparable =
+    hasComparablePair &&
+    !captureConditionsDiffer &&
+    !selectedPairHasQualityIssues;
   const comparisonReasons = [
     captureConditionsDiffer ? "Разные условия съёмки" : null,
     selectedPairHasQualityIssues ? "Есть технические замечания" : null,
   ].filter((reason): reason is string => Boolean(reason));
   const selectedPairDraftKey = hasComparablePair
-    ? buildLesionComparisonDraftKey(lesionId, compareImages.map((img) => img.id))
+    ? buildLesionComparisonDraftKey(
+        lesionId,
+        compareImages.map((img) => img.id),
+      )
     : null;
   const canLoadProtectedImages = Boolean(
-    comparePair
-      && selfHostedConfigured
-      && isUuid(patient?.id)
-      && isUuid(lesion?.id)
-      && comparePair.every((image) => isUuid(image.id)),
+    comparePair &&
+    selfHostedConfigured &&
+    isUuid(patient?.id) &&
+    isUuid(lesion?.id) &&
+    comparePair.every((image) => isUuid(image.id)),
   );
   const protectedReadiness: ProtectedRenderReadinessItem[] = [
     {
       label: "Вход в систему клиники",
       ready: selfHostedConfigured,
-      detail: selfHostedConfigured ? "вход настроен" : "нужен вход в систему клиники",
+      detail: selfHostedConfigured
+        ? "вход настроен"
+        : "нужен вход в систему клиники",
     },
     {
       label: "Внутренние коды",
-      ready: Boolean(comparePair && isUuid(patient?.id) && isUuid(lesion?.id) && comparePair.every((image) => isUuid(image.id))),
+      ready: Boolean(
+        comparePair &&
+        isUuid(patient?.id) &&
+        isUuid(lesion?.id) &&
+        comparePair.every((image) => isUuid(image.id)),
+      ),
       detail: "пациент, очаг и снимки должны быть из рабочей системы",
     },
     {
@@ -1698,7 +2185,10 @@ export default function LesionDetailPage() {
     }
   }, [selectedPairDraftKey]);
 
-  useEffect(() => () => revokePreviewUrls(protectedImageUrls), [protectedImageUrls]);
+  useEffect(
+    () => () => revokePreviewUrls(protectedImageUrls),
+    [protectedImageUrls],
+  );
 
   useEffect(() => {
     setProductionLongitudinalQa(null);
@@ -1707,14 +2197,27 @@ export default function LesionDetailPage() {
   }, [id, lesionId]);
 
   if (!patient) {
-    return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
+    return (
+      <NotFound
+        title="Пациент не найден"
+        hint="Карточка пациента отсутствует в демо-данных."
+      />
+    );
   }
   if (!lesion || lesion.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title="Образование не найдено" subtitle="Запись отсутствует или не принадлежит пациенту." />
+        <PageHeader
+          title="Образование не найдено"
+          subtitle="Запись отсутствует или не принадлежит пациенту."
+        />
         <div className="p-4">
-          <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+          >
             <Link to={`/patients/${patient.id}`}>К карточке пациента</Link>
           </Button>
         </div>
@@ -1724,13 +2227,21 @@ export default function LesionDetailPage() {
 
   const visitById = (vid: string) => visits.find((v) => v.id === vid);
 
-  const needReview = images.filter((i) => i.quality.score < 0.75 || i.quality.issues.length > 0).length;
+  const needReview = images.filter(
+    (i) => i.quality.score < 0.75 || i.quality.issues.length > 0,
+  ).length;
 
   // Визиты, в которых были снимки этого образования, но нет структурированной оценки.
   const visitsWithImages = Array.from(new Set(images.map((i) => i.visitId)));
   const visitsWithAssessment = new Set(assessments.map((a) => a.visitId));
-  const orphanVisits = visitsWithImages.filter((v) => !visitsWithAssessment.has(v));
-  const longitudinalGroups = buildLongitudinalVisitGroups(images, visits, assessments);
+  const orphanVisits = visitsWithImages.filter(
+    (v) => !visitsWithAssessment.has(v),
+  );
+  const longitudinalGroups = buildLongitudinalVisitGroups(
+    images,
+    visits,
+    assessments,
+  );
   const longitudinalPairs = buildLongitudinalPairs(longitudinalGroups);
   const localLongitudinalQa = buildLocalLongitudinalQaGate({
     patientId: patient.id,
@@ -1739,10 +2250,13 @@ export default function LesionDetailPage() {
     pairs: longitudinalPairs,
   });
   const activeLongitudinalQa = productionLongitudinalQa ?? localLongitudinalQa;
-  const canRefreshLongitudinalQa = Boolean(selfHostedConfigured && isUuid(patient.id) && isUuid(lesion.id));
+  const canRefreshLongitudinalQa = Boolean(
+    selfHostedConfigured && isUuid(patient.id) && isUuid(lesion.id),
+  );
 
-  const latestVisit = visits.find((v) => visitsWithImages.includes(v.id))
-    ?? visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  const latestVisit =
+    visits.find((v) => visitsWithImages.includes(v.id)) ??
+    visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
   const bodyMapHref = latestVisit
     ? `/patients/${patient.id}/visits/${latestVisit.id}?tab=bodymap&lesion=${lesion.id}`
     : `/patients/${patient.id}`;
@@ -1821,36 +2335,48 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setViewerQaStatus("saved");
-      setViewerQaMessage("Проверка просмотра сохранена в системе клиники. Выдача пациенту: выключена.");
+      setViewerQaMessage(
+        "Проверка просмотра сохранена в системе клиники. Выдача пациенту: выключена.",
+      );
     } else {
       setViewerQaStatus("error");
-      setViewerQaMessage(result.error?.message ?? "Проверка просмотра не сохранена.");
+      setViewerQaMessage(
+        result.error?.message ?? "Проверка просмотра не сохранена.",
+      );
     }
   };
 
-	  const reviewViewerQa = async (payload: ViewerQaReviewPayload) => {
+  const reviewViewerQa = async (payload: ViewerQaReviewPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage(
+        "Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.",
+      );
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     if (!selfHostedConfigured) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage(
+        "Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.",
+      );
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage(
+        "Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.",
+      );
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
 
     setViewerQaReviewStatus("saving");
-    setViewerQaReviewMessage("Технический разбор просмотра сохраняется в системе клиники.");
+    setViewerQaReviewMessage(
+      "Технический разбор просмотра сохраняется в системе клиники.",
+    );
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1859,7 +2385,10 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед разбором.");
+      setViewerQaReviewMessage(
+        saveResult.error?.message ??
+          "Черновик проверки просмотра не сохранён перед разбором.",
+      );
       return;
     }
     const reviewResult = await reviewSelfHostedLesionComparisonViewerQa({
@@ -1876,44 +2405,57 @@ export default function LesionDetailPage() {
     });
     if (reviewResult.ok) {
       setViewerQaReviewStatus("saved");
-      setViewerQaReviewMessage("Технический разбор просмотра сохранён в системе клиники. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage(
+        "Технический разбор просмотра сохранён в системе клиники. Выдача пациенту: выключена.",
+      );
       const persistedReviewStatus = reviewResult.value?.review.status;
       setViewerQaLatestReviewStatus(
-        persistedReviewStatus === "technical_ready"
-          || persistedReviewStatus === "needs_recapture"
-          || persistedReviewStatus === "not_suitable_for_comparison"
+        persistedReviewStatus === "technical_ready" ||
+          persistedReviewStatus === "needs_recapture" ||
+          persistedReviewStatus === "not_suitable_for_comparison"
           ? persistedReviewStatus
           : payload.reviewStatus,
       );
     } else {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(reviewResult.error?.message ?? "Технический разбор просмотра не сохранён.");
+      setViewerQaReviewMessage(
+        reviewResult.error?.message ??
+          "Технический разбор просмотра не сохранён.",
+      );
     }
-	  };
+  };
 
   const reviewMeasurementPolicy = async (payload: MeasurementPolicyPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage(
+        "Правила измерений зафиксированы локально. Измерения остаются выключены.",
+      );
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
     if (!selfHostedConfigured) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage(
+        "Правила измерений зафиксированы локально. Измерения остаются выключены.",
+      );
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage(
+        "Правила измерений зафиксированы локально. Измерения остаются выключены.",
+      );
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
 
     setMeasurementPolicyBackendStatus("saving");
-    setMeasurementPolicyMessage("Правила измерений сохраняются в системе клиники.");
+    setMeasurementPolicyMessage(
+      "Правила измерений сохраняются в системе клиники.",
+    );
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1922,7 +2464,10 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед разбором правил.");
+      setMeasurementPolicyMessage(
+        saveResult.error?.message ??
+          "Черновик проверки просмотра не сохранён перед разбором правил.",
+      );
       return;
     }
     const result = await reviewSelfHostedLesionComparisonMeasurementPolicy({
@@ -1939,36 +2484,53 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setMeasurementPolicyBackendStatus("saved");
-      setMeasurementPolicyStatus(result.value?.measurementPolicy.status ?? payload.measurementPolicyStatus);
-      setMeasurementPolicyMessage("Правила измерений сохранены в системе клиники. Медицинские измерения выключены.");
+      setMeasurementPolicyStatus(
+        result.value?.measurementPolicy.status ??
+          payload.measurementPolicyStatus,
+      );
+      setMeasurementPolicyMessage(
+        "Правила измерений сохранены в системе клиники. Медицинские измерения выключены.",
+      );
     } else {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(result.error?.message ?? "Правила измерений не сохранены.");
+      setMeasurementPolicyMessage(
+        result.error?.message ?? "Правила измерений не сохранены.",
+      );
     }
   };
 
-  const reviewProductionAnalysisPolicy = async (payload: ProductionAnalysisPolicyPayload) => {
+  const reviewProductionAnalysisPolicy = async (
+    payload: ProductionAnalysisPolicyPayload,
+  ) => {
     const applyLocal = (message: string) => {
       setProductionAnalysisPolicyBackendStatus("local_only");
       setProductionAnalysisPolicyMessage(message);
       setProductionAnalysisPolicyStatus(payload.productionAnalysisPolicyStatus);
     };
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
-      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
+      applyLocal(
+        "Правила анализа зафиксированы локально. Вывод о динамике выключен.",
+      );
       return;
     }
     if (!selfHostedConfigured) {
-      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
+      applyLocal(
+        "Правила анализа зафиксированы локально. Вывод о динамике выключен.",
+      );
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
-      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
+      applyLocal(
+        "Правила анализа зафиксированы локально. Вывод о динамике выключен.",
+      );
       return;
     }
 
     setProductionAnalysisPolicyBackendStatus("saving");
-    setProductionAnalysisPolicyMessage("Правила анализа сохраняются в системе клиники.");
+    setProductionAnalysisPolicyMessage(
+      "Правила анализа сохраняются в системе клиники.",
+    );
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1978,33 +2540,40 @@ export default function LesionDetailPage() {
     if (!saveResult.ok) {
       setProductionAnalysisPolicyBackendStatus("error");
       setProductionAnalysisPolicyMessage(
-        saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед правилами анализа.",
+        saveResult.error?.message ??
+          "Черновик проверки просмотра не сохранён перед правилами анализа.",
       );
       return;
     }
-    const result = await reviewSelfHostedLesionComparisonProductionAnalysisPolicy({
-      apiBaseUrl: selfHostedSession.apiBaseUrl,
-      apiToken: selfHostedSession.apiToken,
-      visitId: latestVisit.id,
-      payload: {
-        lesionId,
-        pairKey: selectedPairDraftKey,
-        imageIds: [comparePair[0].id, comparePair[1].id],
-        productionAnalysisPolicyStatus: payload.productionAnalysisPolicyStatus,
-        productionAnalysisPolicyReasons: payload.productionAnalysisPolicyReasons,
-      },
-    });
+    const result =
+      await reviewSelfHostedLesionComparisonProductionAnalysisPolicy({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+        visitId: latestVisit.id,
+        payload: {
+          lesionId,
+          pairKey: selectedPairDraftKey,
+          imageIds: [comparePair[0].id, comparePair[1].id],
+          productionAnalysisPolicyStatus:
+            payload.productionAnalysisPolicyStatus,
+          productionAnalysisPolicyReasons:
+            payload.productionAnalysisPolicyReasons,
+        },
+      });
     if (result.ok) {
       setProductionAnalysisPolicyBackendStatus("saved");
       setProductionAnalysisPolicyStatus(
-        result.value?.productionAnalysisPolicy.status ?? payload.productionAnalysisPolicyStatus,
+        result.value?.productionAnalysisPolicy.status ??
+          payload.productionAnalysisPolicyStatus,
       );
       setProductionAnalysisPolicyMessage(
         "Правила анализа сохранены в системе клиники. Клинический вывод о динамике выключен.",
       );
     } else {
       setProductionAnalysisPolicyBackendStatus("error");
-      setProductionAnalysisPolicyMessage(result.error?.message ?? "Правила анализа не сохранены.");
+      setProductionAnalysisPolicyMessage(
+        result.error?.message ?? "Правила анализа не сохранены.",
+      );
     }
   };
 
@@ -2016,21 +2585,29 @@ export default function LesionDetailPage() {
       setSecondReviewStatus(payload.secondReviewStatus);
     };
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
-      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
+      applyLocal(
+        "Назначение проверяющего зафиксировано локально. Личность скрыта.",
+      );
       return;
     }
     if (!selfHostedConfigured) {
-      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
+      applyLocal(
+        "Назначение проверяющего зафиксировано локально. Личность скрыта.",
+      );
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
-      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
+      applyLocal(
+        "Назначение проверяющего зафиксировано локально. Личность скрыта.",
+      );
       return;
     }
 
     setReviewerAssignmentBackendStatus("saving");
-    setReviewerAssignmentMessage("Назначение проверяющего сохраняется в системе клиники.");
+    setReviewerAssignmentMessage(
+      "Назначение проверяющего сохраняется в системе клиники.",
+    );
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2039,7 +2616,10 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед назначением проверяющего.");
+      setReviewerAssignmentMessage(
+        saveResult.error?.message ??
+          "Черновик проверки просмотра не сохранён перед назначением проверяющего.",
+      );
       return;
     }
     const result = await reviewSelfHostedLesionComparisonReviewerAssignment({
@@ -2060,47 +2640,66 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setReviewerAssignmentBackendStatus("saved");
-      setReviewerAssignmentStatus(result.value?.reviewerAssignment.status ?? payload.assignmentStatus);
-      setSecondReviewStatus(result.value?.secondReview.status ?? payload.secondReviewStatus);
-      setReviewerAssignmentMessage("Назначение проверяющего сохранено в системе клиники. Личность скрыта.");
+      setReviewerAssignmentStatus(
+        result.value?.reviewerAssignment.status ?? payload.assignmentStatus,
+      );
+      setSecondReviewStatus(
+        result.value?.secondReview.status ?? payload.secondReviewStatus,
+      );
+      setReviewerAssignmentMessage(
+        "Назначение проверяющего сохранено в системе клиники. Личность скрыта.",
+      );
     } else {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(result.error?.message ?? "Назначение проверяющего не сохранено.");
+      setReviewerAssignmentMessage(
+        result.error?.message ?? "Назначение проверяющего не сохранено.",
+      );
     }
   };
 
-  const reviewReviewerWorkflow = async (payload: ViewerQaReviewerWorkflowPayload) => {
+  const reviewReviewerWorkflow = async (
+    payload: ViewerQaReviewerWorkflowPayload,
+  ) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage(
+        "Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.",
+      );
       return;
     }
     if (!selfHostedConfigured) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage(
+        "Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.",
+      );
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage(
+        "Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.",
+      );
       return;
     }
 
     setViewerQaReviewerWorkflowStatus("saving");
-    setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки сохраняется в системе клиники.");
-    const result = await reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow({
-      apiBaseUrl: selfHostedSession.apiBaseUrl,
-      apiToken: selfHostedSession.apiToken,
-      visitId: latestVisit.id,
-      payload: {
-        lesionId,
-        pairKey: selectedPairDraftKey,
-        imageIds: [comparePair[0].id, comparePair[1].id],
-        workflowStatus: payload.workflowStatus,
-        workflowReasons: payload.workflowReasons,
-      },
-    });
+    setViewerQaReviewerWorkflowMessage(
+      "Врачебный порядок проверки сохраняется в системе клиники.",
+    );
+    const result =
+      await reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+        visitId: latestVisit.id,
+        payload: {
+          lesionId,
+          pairKey: selectedPairDraftKey,
+          imageIds: [comparePair[0].id, comparePair[1].id],
+          workflowStatus: payload.workflowStatus,
+          workflowReasons: payload.workflowReasons,
+        },
+      });
     if (result.ok) {
       setViewerQaReviewerWorkflowStatus("saved");
       setViewerQaReviewerWorkflowMessage(
@@ -2110,7 +2709,9 @@ export default function LesionDetailPage() {
       );
     } else {
       setViewerQaReviewerWorkflowStatus("error");
-      setViewerQaReviewerWorkflowMessage(result.error?.message ?? "Врачебный порядок проверки не сохранён.");
+      setViewerQaReviewerWorkflowMessage(
+        result.error?.message ?? "Врачебный порядок проверки не сохранён.",
+      );
     }
   };
 
@@ -2130,7 +2731,9 @@ export default function LesionDetailPage() {
     }
     if (!latestVisit || !selfHostedConfigured) {
       setComparisonBackendStatus("local_only");
-      setComparisonBackendMessage("Журнал проверки не отправлен: система клиники не подключена.");
+      setComparisonBackendMessage(
+        "Журнал проверки не отправлен: система клиники не подключена.",
+      );
       return;
     }
 
@@ -2151,10 +2754,14 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setComparisonBackendStatus("saved");
-      setComparisonBackendMessage("Журнал проверки сохранён в системе клиники.");
+      setComparisonBackendMessage(
+        "Журнал проверки сохранён в системе клиники.",
+      );
     } else {
       setComparisonBackendStatus("error");
-      setComparisonBackendMessage(result.error?.message ?? "Журнал проверки не сохранён.");
+      setComparisonBackendMessage(
+        result.error?.message ?? "Журнал проверки не сохранён.",
+      );
     }
   };
 
@@ -2177,25 +2784,31 @@ export default function LesionDetailPage() {
     }
     if (!canLoadProtectedImages) {
       setProtectedRenderStatus("error");
-      setProtectedRenderMessage("Защищённые превью доступны только для рабочих снимков из системы клиники.");
+      setProtectedRenderMessage(
+        "Защищённые превью доступны только для рабочих снимков из системы клиники.",
+      );
       return;
     }
 
     setProtectedRenderStatus("loading");
     setProtectedRenderMessage("Загрузка через систему клиники.");
-    const results = await Promise.all(comparePair.map((image) =>
-      downloadSelfHostedProtectedLesionImage({
-        apiBaseUrl: selfHostedSession.apiBaseUrl,
-        apiToken: selfHostedSession.apiToken,
-        patientId: patient.id,
-        lesionId: lesion.id,
-        assetId: image.id,
-      }),
-    ));
+    const results = await Promise.all(
+      comparePair.map((image) =>
+        downloadSelfHostedProtectedLesionImage({
+          apiBaseUrl: selfHostedSession.apiBaseUrl,
+          apiToken: selfHostedSession.apiToken,
+          patientId: patient.id,
+          lesionId: lesion.id,
+          assetId: image.id,
+        }),
+      ),
+    );
     const failed = results.find((result) => !result.ok || !result.value);
     if (failed) {
       setProtectedRenderStatus("error");
-      setProtectedRenderMessage(failed.error?.message ?? "Защищённые превью не загружены.");
+      setProtectedRenderMessage(
+        failed.error?.message ?? "Защищённые превью не загружены.",
+      );
       return;
     }
 
@@ -2209,18 +2822,24 @@ export default function LesionDetailPage() {
       return next;
     });
     setProtectedRenderStatus("ready");
-    setProtectedRenderMessage("Защищённые превью загружены через систему клиники. Выдача пациенту: выключена.");
+    setProtectedRenderMessage(
+      "Защищённые превью загружены через систему клиники. Выдача пациенту: выключена.",
+    );
   };
 
   const refreshProductionLongitudinalQa = async () => {
     if (!canRefreshLongitudinalQa) {
       setLongitudinalQaLoadStatus("error");
-      setLongitudinalQaMessage("Рабочая проверка доступна только для карточки из системы клиники.");
+      setLongitudinalQaMessage(
+        "Рабочая проверка доступна только для карточки из системы клиники.",
+      );
       return;
     }
 
     setLongitudinalQaLoadStatus("loading");
-    setLongitudinalQaMessage("Рабочая проверка обновляется из системы клиники.");
+    setLongitudinalQaMessage(
+      "Рабочая проверка обновляется из системы клиники.",
+    );
     const result = await getSelfHostedLesionLongitudinalQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2230,10 +2849,14 @@ export default function LesionDetailPage() {
     if (result.ok && result.value) {
       setProductionLongitudinalQa(result.value);
       setLongitudinalQaLoadStatus("loaded");
-      setLongitudinalQaMessage("Рабочая проверка обновлена. Выдача пациенту: выключена.");
+      setLongitudinalQaMessage(
+        "Рабочая проверка обновлена. Выдача пациенту: выключена.",
+      );
     } else {
       setLongitudinalQaLoadStatus("error");
-      setLongitudinalQaMessage(result.error?.message ?? "Рабочая проверка не обновлена.");
+      setLongitudinalQaMessage(
+        result.error?.message ?? "Рабочая проверка не обновлена.",
+      );
     }
   };
 
@@ -2241,25 +2864,43 @@ export default function LesionDetailPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={`${lesion.label} · ${lesion.bodyZone}`}
-        subtitle={`${patient.fullName} · ${patient.code} · с ${formatDate(lesion.firstSeenAt)} · ${LESION_STATUS[lesion.status]}`}
+        subtitle={`${patient.fullName} · ${formatCardNumber(patient.code)} · с ${formatDate(lesion.firstSeenAt)} · ${LESION_STATUS[lesion.status]}`}
       />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline" className="min-h-[44px] sm:min-h-[32px]">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] sm:min-h-[32px]"
+          >
             <Link to={`/patients/${patient.id}`}>
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> К карточке пациента
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> К карточке
+              пациента
             </Link>
           </Button>
-          <Button asChild size="sm" variant="secondary" className="min-h-[44px] sm:min-h-[32px]">
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="min-h-[44px] sm:min-h-[32px]"
+          >
             <Link to={bodyMapHref}>
-              <MapPin className="h-3.5 w-3.5" aria-hidden /> Открыть на карте тела
+              <MapPin className="h-3.5 w-3.5" aria-hidden /> Открыть на карте
+              тела
             </Link>
           </Button>
           {latestVisit && (
-            <Button asChild size="sm" variant="outline" className="min-h-[44px] sm:min-h-[32px]">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="min-h-[44px] sm:min-h-[32px]"
+            >
               <Link to={`/patients/${patient.id}/visits/${latestVisit.id}`}>
-                Открыть визит {formatDate(latestVisit.startedAt)} <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                Открыть визит {formatDate(latestVisit.startedAt)}{" "}
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             </Button>
           )}
@@ -2278,7 +2919,11 @@ export default function LesionDetailPage() {
                   aria-label="Открыть увеличенную карту тела"
                   className="group relative shrink-0 rounded border bg-muted/30 p-0 transition hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <BodyMapMini view={lesion.mapPoint.view} x={lesion.mapPoint.x} y={lesion.mapPoint.y} />
+                  <BodyMapMini
+                    view={lesion.mapPoint.view}
+                    x={lesion.mapPoint.x}
+                    y={lesion.mapPoint.y}
+                  />
                   <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 rounded-b bg-background/85 py-0.5 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
                     <Maximize2 className="h-2.5 w-2.5" aria-hidden /> увеличить
                   </span>
@@ -2289,7 +2934,8 @@ export default function LesionDetailPage() {
                     Проекция: {VIEW_LABEL[lesion.mapPoint.view]}
                   </div>
                   <div className="text-[12px] text-muted-foreground tabular-nums">
-                    x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
+                    x{(lesion.mapPoint.x * 100).toFixed(0)}% / y
+                    {(lesion.mapPoint.y * 100).toFixed(0)}%
                   </div>
                   <button
                     type="button"
@@ -2302,28 +2948,48 @@ export default function LesionDetailPage() {
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Связь данных</div>
-              <div className="mt-1 text-[13px]">Карта, снимки и отчёт связаны</div>
-              <div className="text-[12px] text-muted-foreground">Служебный код скрыт</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Связь данных
+              </div>
+              <div className="mt-1 text-[13px]">
+                Карта, снимки и отчёт связаны
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                Служебный код скрыт
+              </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Статус</div>
-              <div className="mt-1 text-[13px]">{LESION_STATUS[lesion.status]}</div>
-              <div className="text-[12px] text-muted-foreground">Первое появление: {formatDate(lesion.firstSeenAt)}</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Статус
+              </div>
+              <div className="mt-1 text-[13px]">
+                {LESION_STATUS[lesion.status]}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                Первое появление: {formatDate(lesion.firstSeenAt)}
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <ImageIcon className="h-3.5 w-3.5" aria-hidden /> Снимки
               </div>
-              <div className="mt-1 text-[13px] tabular-nums">{images.length}</div>
-              <div className="text-[12px] text-muted-foreground">Требуют пересмотра: {needReview}</div>
+              <div className="mt-1 text-[13px] tabular-nums">
+                {images.length}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                Требуют пересмотра: {needReview}
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <ClipboardList className="h-3.5 w-3.5" aria-hidden /> Оценки
               </div>
-              <div className="mt-1 text-[13px] tabular-nums">{assessments.length}</div>
-              <div className="text-[12px] text-muted-foreground">Визитов с этим очагом: {visitsWithImages.length}</div>
+              <div className="mt-1 text-[13px] tabular-nums">
+                {assessments.length}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                Визитов с этим очагом: {visitsWithImages.length}
+              </div>
             </div>
           </div>
         </Card>
@@ -2350,7 +3016,8 @@ export default function LesionDetailPage() {
             <div>
               <h2 className="text-[13px] font-semibold">Лента дат очага</h2>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Один очаг, даты съёмки, устройство, источник и техническое качество снимков.
+                Один очаг, даты съёмки, устройство, источник и техническое
+                качество снимков.
               </p>
             </div>
             {compareImages.length > 0 && (
@@ -2361,29 +3028,44 @@ export default function LesionDetailPage() {
           </div>
 
           {images.length === 0 ? (
-            <p className="mt-2 text-[12px] text-muted-foreground">Лента появится после привязки снимков к очагу.</p>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Лента появится после привязки снимков к очагу.
+            </p>
           ) : (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Лента дат очага">
+            <div
+              className="mt-3 flex gap-2 overflow-x-auto pb-1"
+              aria-label="Лента дат очага"
+            >
               {images.map((img) => {
                 const isActive = activeImageId === img.id;
                 return (
                   <button
                     key={img.id}
                     type="button"
-                    onClick={() => setActiveImageId((prev) => (prev === img.id ? null : img.id))}
+                    onClick={() =>
+                      setActiveImageId((prev) =>
+                        prev === img.id ? null : img.id,
+                      )
+                    }
                     aria-pressed={isActive}
                     className={`min-w-[180px] rounded-md border p-2 text-left text-[12px] transition ${
-                      isActive ? "border-primary bg-[hsl(var(--primary-soft))]" : "border-border bg-background hover:bg-muted/30"
+                      isActive
+                        ? "border-primary bg-[hsl(var(--primary-soft))]"
+                        : "border-border bg-background hover:bg-muted/30"
                     }`}
                   >
-                    <div className="font-medium tabular-nums">{formatDate(img.capturedAt)}</div>
+                    <div className="font-medium tabular-nums">
+                      {formatDate(img.capturedAt)}
+                    </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
                       {IMAGE_KIND[img.kind]} · {IMAGE_SOURCE[img.source]}
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
                       {deviceDisplayLabel(img.deviceId)}
                     </div>
-                    <span className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(img)}`}>
+                    <span
+                      className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(img)}`}
+                    >
                       {imageQualityLabel(img)}
                     </span>
                   </button>
@@ -2394,33 +3076,66 @@ export default function LesionDetailPage() {
 
           {compareImages.length > 0 && (
             <div className="mt-3 rounded-md border border-border bg-muted/20 p-2">
-              <div className="text-[12px] font-semibold">Сравнение по датам</div>
+              <div className="text-[12px] font-semibold">
+                Сравнение по датам
+              </div>
               <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-muted-foreground">
                 {compareImages.map((img) => (
-                  <span key={img.id} className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                    {formatDate(img.capturedAt)} · {deviceDisplayLabel(img.deviceId)} · {IMAGE_KIND[img.kind]}
+                  <span
+                    key={img.id}
+                    className="rounded-sm border border-border bg-background px-1.5 py-0.5"
+                  >
+                    {formatDate(img.capturedAt)} ·{" "}
+                    {deviceDisplayLabel(img.deviceId)} · {IMAGE_KIND[img.kind]}
                   </span>
                 ))}
               </div>
               {hasComparablePair ? (
                 <div className="mt-2 overflow-x-auto">
-                  <div className="mb-1 text-[12px] font-semibold text-foreground">Матрица сравнения</div>
-                  <table aria-label="Матрица сравнения" className="w-full min-w-[680px] border-collapse text-left text-[12px]">
+                  <div className="mb-1 text-[12px] font-semibold text-foreground">
+                    Матрица сравнения
+                  </div>
+                  <table
+                    aria-label="Матрица сравнения"
+                    className="w-full min-w-[680px] border-collapse text-left text-[12px]"
+                  >
                     <thead>
                       <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                        <th scope="col" className="px-2 py-1 font-medium">Параметр</th>
-                        <th scope="col" className="px-2 py-1 font-medium">Снимок A</th>
-                        <th scope="col" className="px-2 py-1 font-medium">Снимок B</th>
-                        <th scope="col" className="px-2 py-1 font-medium">Вывод</th>
+                        <th scope="col" className="px-2 py-1 font-medium">
+                          Параметр
+                        </th>
+                        <th scope="col" className="px-2 py-1 font-medium">
+                          Снимок A
+                        </th>
+                        <th scope="col" className="px-2 py-1 font-medium">
+                          Снимок B
+                        </th>
+                        <th scope="col" className="px-2 py-1 font-medium">
+                          Вывод
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {matrixRows.map((row) => (
-                        <tr key={row.label} className="border-b border-border/70 last:border-0">
-                          <th scope="row" className="px-2 py-1.5 font-medium text-foreground">{row.label}</th>
-                          <td className="px-2 py-1.5 text-muted-foreground">{row.a}</td>
-                          <td className="px-2 py-1.5 text-muted-foreground">{row.b}</td>
-                          <td className="px-2 py-1.5 text-foreground">{row.result}</td>
+                        <tr
+                          key={row.label}
+                          className="border-b border-border/70 last:border-0"
+                        >
+                          <th
+                            scope="row"
+                            className="px-2 py-1.5 font-medium text-foreground"
+                          >
+                            {row.label}
+                          </th>
+                          <td className="px-2 py-1.5 text-muted-foreground">
+                            {row.a}
+                          </td>
+                          <td className="px-2 py-1.5 text-muted-foreground">
+                            {row.b}
+                          </td>
+                          <td className="px-2 py-1.5 text-foreground">
+                            {row.result}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2432,11 +3147,22 @@ export default function LesionDetailPage() {
                 </p>
               )}
               {captureConditionsDiffer && (
-                <p className="mt-2 flex items-start gap-2 rounded-md border px-2 py-1.5 text-[12px]"
-                  style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}>
-                  <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                <p
+                  className="mt-2 flex items-start gap-2 rounded-md border px-2 py-1.5 text-[12px]"
+                  style={{
+                    background: "hsl(var(--warning) / 0.08)",
+                    borderColor: "hsl(var(--warning) / 0.30)",
+                    color: "hsl(var(--warning))",
+                  }}
+                >
+                  <ShieldAlert
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                    aria-hidden
+                  />
                   <span>
-                    Условия съёмки не сопоставимы: разные устройства, источник или тип снимка. Нельзя оценивать динамику без врачебной проверки.
+                    Условия съёмки не сопоставимы: разные устройства, источник
+                    или тип снимка. Нельзя оценивать динамику без врачебной
+                    проверки.
                   </span>
                 </p>
               )}
@@ -2447,9 +3173,13 @@ export default function LesionDetailPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold">Рабочий разбор пары</div>
+                      <div className="text-[12px] font-semibold">
+                        Рабочий разбор пары
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
-                        <span className="text-muted-foreground">Техническая сопоставимость:</span>
+                        <span className="text-muted-foreground">
+                          Техническая сопоставимость:
+                        </span>
                         <span
                           className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
                             selectedPairIsComparable
@@ -2462,7 +3192,9 @@ export default function LesionDetailPage() {
                           ) : (
                             <ShieldAlert className="h-3 w-3" aria-hidden />
                           )}
-                          {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
+                          {selectedPairIsComparable
+                            ? "Сопоставимо"
+                            : "Не сопоставимо"}
                         </span>
                       </div>
                     </div>
@@ -2474,35 +3206,52 @@ export default function LesionDetailPage() {
                         className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                         onClick={() => setCompareDialogOpen(true)}
                       >
-                        <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Открыть полноэкранное сравнение
+                        <Maximize2 className="h-3.5 w-3.5" aria-hidden />{" "}
+                        Открыть полноэкранное сравнение
                       </Button>
-                      <ComparisonActionButtons onAction={handleComparisonAction} />
+                      <ComparisonActionButtons
+                        onAction={handleComparisonAction}
+                      />
                     </div>
                   </div>
 
                   <div className="mt-2 grid gap-2 text-[12px] sm:grid-cols-[minmax(0,1fr)_minmax(180px,240px)]">
                     <div className="min-w-0 rounded-sm border border-border bg-muted/20 p-2">
-                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Причины</div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Причины
+                      </div>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {(comparisonReasons.length > 0 ? comparisonReasons : ["Условия повторяемы"]).map((reason) => (
-                          <span key={reason} className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]">
+                        {(comparisonReasons.length > 0
+                          ? comparisonReasons
+                          : ["Условия повторяемы"]
+                        ).map((reason) => (
+                          <span
+                            key={reason}
+                            className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                          >
                             {reason}
                           </span>
                         ))}
                       </div>
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        Не оценивайте динамику по этой паре без врачебной проверки и повторяемых условий съёмки.
+                        Не оценивайте динамику по этой паре без врачебной
+                        проверки и повторяемых условий съёмки.
                       </p>
                     </div>
                     <div className="min-w-0 rounded-sm border border-border bg-muted/20 p-2">
-                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Следующее действие</div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Следующее действие
+                      </div>
                       <p className="mt-1 text-[12px]">
                         {selectedPairIsComparable
                           ? "Можно использовать пару для врачебного сравнения."
                           : "Сначала закройте техническое ограничение или запросите переснимок."}
                       </p>
                       {comparisonAction && (
-                        <p className="mt-1.5 text-[12px] font-medium text-primary" role="status">
+                        <p
+                          className="mt-1.5 text-[12px] font-medium text-primary"
+                          role="status"
+                        >
                           {COMPARISON_ACTION_LABEL[comparisonAction]}
                         </p>
                       )}
@@ -2519,10 +3268,12 @@ export default function LesionDetailPage() {
                           Черновик решения врача
                         </div>
                         <p className="mt-1 text-[12px]">
-                          Сохраняется локально: служебный код пары, технический статус, причины и выбранное действие.
+                          Сохраняется локально: служебный код пары, технический
+                          статус, причины и выбранное действие.
                         </p>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          Выдача пациенту: выключена · журнал клиники: только служебные метки · защищённые поля скрыты.
+                          Выдача пациенту: выключена · журнал клиники: только
+                          служебные метки · защищённые поля скрыты.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -2534,7 +3285,8 @@ export default function LesionDetailPage() {
                           disabled={!comparisonAction}
                           onClick={saveComparisonDraft}
                         >
-                          <FileText className="h-3.5 w-3.5" aria-hidden /> Сохранить черновик решения
+                          <FileText className="h-3.5 w-3.5" aria-hidden />{" "}
+                          Сохранить черновик решения
                         </Button>
                         {comparisonDraft && (
                           <Button
@@ -2544,20 +3296,24 @@ export default function LesionDetailPage() {
                             className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                             onClick={clearComparisonDraft}
                           >
-                            <XCircle className="h-3.5 w-3.5" aria-hidden /> Удалить черновик
+                            <XCircle className="h-3.5 w-3.5" aria-hidden />{" "}
+                            Удалить черновик
                           </Button>
                         )}
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                        Пара: {imageDisplayLabel(compareImages[0], "A")} + {imageDisplayLabel(compareImages[1], "B")}
+                        Пара: {imageDisplayLabel(compareImages[0], "A")} +{" "}
+                        {imageDisplayLabel(compareImages[1], "B")}
                       </span>
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
                         Внутренние коды снимков скрыты
                       </span>
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                        {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
+                        {selectedPairIsComparable
+                          ? "Сопоставимо"
+                          : "Не сопоставимо"}
                       </span>
                       {comparisonAction && (
                         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
@@ -2567,29 +3323,41 @@ export default function LesionDetailPage() {
                     </div>
                     {comparisonDraft && (
                       <p className="mt-2 text-[12px] text-muted-foreground">
-                        Сохранено: {formatDateTime(comparisonDraft.savedAt)} · действие:{" "}
+                        Сохранено: {formatDateTime(comparisonDraft.savedAt)} ·
+                        действие:{" "}
                         {COMPARISON_ACTION_LABEL[comparisonDraft.action]}
                       </p>
                     )}
                     {comparisonDraftStatus === "saved" && (
-                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                      <p
+                        className="mt-1 text-[12px] font-medium text-primary"
+                        role="status"
+                      >
                         Черновик решения сохранён
                       </p>
                     )}
                     {comparisonDraftStatus === "loaded" && (
-                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                      <p
+                        className="mt-1 text-[12px] font-medium text-primary"
+                        role="status"
+                      >
                         Черновик решения загружен
                       </p>
                     )}
                     {comparisonDraftStatus === "cleared" && (
-                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                      <p
+                        className="mt-1 text-[12px] font-medium text-primary"
+                        role="status"
+                      >
                         Черновик решения удалён
                       </p>
                     )}
                     {comparisonBackendStatus !== "idle" && (
                       <p
                         className={`mt-1 text-[12px] font-medium ${
-                          comparisonBackendStatus === "error" ? "text-destructive" : "text-primary"
+                          comparisonBackendStatus === "error"
+                            ? "text-destructive"
+                            : "text-primary"
                         }`}
                         role="status"
                       >
@@ -2606,7 +3374,9 @@ export default function LesionDetailPage() {
         <Card className="p-3 sm:p-4">
           <h2 className="text-[13px] font-semibold">Снимки (хронология)</h2>
           {images.length === 0 ? (
-            <p className="mt-2 text-[12px] text-muted-foreground">Снимков по образованию пока нет.</p>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Снимков по образованию пока нет.
+            </p>
           ) : (
             <ul className="mt-2 divide-y divide-border">
               {images.map((img) => {
@@ -2621,16 +3391,26 @@ export default function LesionDetailPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                        <span className="font-medium tabular-nums">{imageDisplayLabel(img)}</span>
+                        <span className="font-medium tabular-nums">
+                          {imageDisplayLabel(img)}
+                        </span>
                         <span className="text-muted-foreground">·</span>
                         <span>{IMAGE_KIND[img.kind]}</span>
                         <span className="text-muted-foreground">·</span>
-                        <span className="text-muted-foreground">{IMAGE_SOURCE[img.source]}</span>
+                        <span className="text-muted-foreground">
+                          {IMAGE_SOURCE[img.source]}
+                        </span>
                       </div>
                       <div className="text-[12px] text-muted-foreground">
                         {formatDateTime(img.capturedAt)}
                         <> · {deviceDisplayLabel(img.deviceId)}</>
-                        {v && <> · визит {formatDate(v.startedAt)} ({VISIT_STATUS[v.status]})</>}
+                        {v && (
+                          <>
+                            {" "}
+                            · визит {formatDate(v.startedAt)} (
+                            {VISIT_STATUS[v.status]})
+                          </>
+                        )}
                       </div>
                       <div className="text-[12px] text-muted-foreground">
                         Качество: {(img.quality.score * 100).toFixed(0)}%
@@ -2639,9 +3419,12 @@ export default function LesionDetailPage() {
                         )}
                       </div>
                       {(isActive || isCompare) && (
-                        <div className="mt-1 text-[11px]" style={{ color: "hsl(var(--info))" }}>
-                          {isActive && "Открыт в просмотрщике (демо). "}
-                          {isCompare && "Добавлен к сравнению (демо)."}
+                        <div
+                          className="mt-1 text-[11px]"
+                          style={{ color: "hsl(var(--info))" }}
+                        >
+                          {isActive && "Открыт в просмотрщике. "}
+                          {isCompare && "Добавлен к сравнению."}
                         </div>
                       )}
                     </div>
@@ -2652,9 +3435,13 @@ export default function LesionDetailPage() {
                         variant={isActive ? "default" : "outline"}
                         aria-pressed={isActive}
                         className="min-h-[44px] sm:min-h-[32px]"
-                        onClick={() => setActiveImageId((prev) => (prev === img.id ? null : img.id))}
+                        onClick={() =>
+                          setActiveImageId((prev) =>
+                            prev === img.id ? null : img.id,
+                          )
+                        }
                       >
-                        Открыть снимок (демо)
+                        Открыть снимок
                       </Button>
                       <Button
                         type="button"
@@ -2664,7 +3451,7 @@ export default function LesionDetailPage() {
                         className="min-h-[44px] sm:min-h-[32px]"
                         onClick={() => toggleCompare(img.id)}
                       >
-                        Сравнить (демо)
+                        Сравнить
                       </Button>
                     </div>
                   </li>
@@ -2673,9 +3460,18 @@ export default function LesionDetailPage() {
             </ul>
           )}
           {orphanVisits.length > 0 && (
-            <p className="mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
-              style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}>
-              <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <p
+              className="mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
+              style={{
+                background: "hsl(var(--warning) / 0.08)",
+                borderColor: "hsl(var(--warning) / 0.30)",
+                color: "hsl(var(--warning))",
+              }}
+            >
+              <ShieldAlert
+                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                aria-hidden
+              />
               <span>
                 Структурированная оценка не зафиксирована для визитов:{" "}
                 {orphanVisits
@@ -2683,7 +3479,8 @@ export default function LesionDetailPage() {
                     const v = visitById(vid);
                     return v ? formatDate(v.startedAt) : vid;
                   })
-                  .join(", ")}.
+                  .join(", ")}
+                .
               </span>
             </p>
           )}
@@ -2692,35 +3489,69 @@ export default function LesionDetailPage() {
         <Card className="p-3 sm:p-4">
           <h2 className="text-[13px] font-semibold">Оценки (хронология)</h2>
           {assessments.length === 0 ? (
-            <p className="mt-2 text-[12px] text-muted-foreground">Оценок по образованию пока нет.</p>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Оценок по образованию пока нет.
+            </p>
           ) : (
             <ul className="mt-2 divide-y divide-border">
               {assessments.map((a) => {
                 const v = visitById(a.visitId);
-                const clinic = v ? getClinicById(v.clinicId)?.name ?? "—" : "—";
+                const clinic = v
+                  ? (getClinicById(v.clinicId)?.name ?? "—")
+                  : "—";
                 return (
-                  <li key={a.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <li
+                    key={a.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 text-[13px]">
                         <span className="font-medium">Оценка врача</span>
-                        <span className="text-muted-foreground tabular-nums">{formatDateTime(a.decidedAt)}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {formatDateTime(a.decidedAt)}
+                        </span>
                         <RiskBadge level={a.aiSupport.riskLevel} />
                         <span className="text-[11px] text-muted-foreground">
-                          Подсказка системы · уверенность {(a.aiSupport.confidence * 100).toFixed(0)}%
+                          Подсказка системы · уверенность{" "}
+                          {(a.aiSupport.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div className="mt-1 text-[12px] text-muted-foreground">
-                        Оценка ABCD: <span className="tabular-nums">{a.abcd.total.toFixed(1)}</span>
-                        {" · "}7 признаков: <span className="tabular-nums">{a.sevenPoint.total}</span>
-                        {v && <> · {clinic} · {VISIT_STATUS[v.status]}</>}
+                        Оценка ABCD:{" "}
+                        <span className="tabular-nums">
+                          {a.abcd.total.toFixed(1)}
+                        </span>
+                        {" · "}7 признаков:{" "}
+                        <span className="tabular-nums">
+                          {a.sevenPoint.total}
+                        </span>
+                        {v && (
+                          <>
+                            {" "}
+                            · {clinic} · {VISIT_STATUS[v.status]}
+                          </>
+                        )}
                       </div>
-                      <p className="mt-1 text-[13px]">{a.doctorConclusion}</p>
-                      <p className="text-[12px] text-muted-foreground">План: {a.followUpPlan}</p>
-                      <p className="mt-1 text-[11px] italic text-muted-foreground">{systemHintDisclaimer(a.aiSupport.disclaimer)}</p>
+                      <p className="mt-1 text-[13px]">
+                        Врачебный текст скрыт на обзорном экране.
+                      </p>
+                      <p className="text-[12px] text-muted-foreground">
+                        План наблюдения скрыт до открытия визита.
+                      </p>
+                      <p className="mt-1 text-[11px] italic text-muted-foreground">
+                        {systemHintDisclaimer(a.aiSupport.disclaimer)}
+                      </p>
                     </div>
                     {v && (
-                      <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
-                        <Link to={`/patients/${patient.id}/visits/${v.id}`}>К визиту</Link>
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 min-h-[44px] sm:min-h-[32px]"
+                      >
+                        <Link to={`/patients/${patient.id}/visits/${v.id}`}>
+                          К визиту
+                        </Link>
                       </Button>
                     )}
                   </li>
@@ -2765,7 +3596,9 @@ export default function LesionDetailPage() {
         measurementPolicyMessage={measurementPolicyMessage}
         productionAnalysisPolicyStatus={productionAnalysisPolicyStatus}
         onReviewProductionAnalysisPolicy={reviewProductionAnalysisPolicy}
-        productionAnalysisPolicyBackendStatus={productionAnalysisPolicyBackendStatus}
+        productionAnalysisPolicyBackendStatus={
+          productionAnalysisPolicyBackendStatus
+        }
         productionAnalysisPolicyMessage={productionAnalysisPolicyMessage}
         reviewerAssignmentStatus={reviewerAssignmentStatus}
         secondReviewStatus={secondReviewStatus}

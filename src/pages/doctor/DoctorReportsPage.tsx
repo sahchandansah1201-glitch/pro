@@ -69,7 +69,11 @@ function hasTechnicalQualityIssue(image: ClinicalImage): boolean {
 }
 
 function blockerCount(row: ReportRow): number {
-  return Number(row.weakImageCount > 0) + Number(row.missingConsent) + Number(row.expired);
+  return (
+    Number(row.weakImageCount > 0) +
+    Number(row.missingConsent) +
+    Number(row.expired)
+  );
 }
 
 function packetStatus(row: ReportRow): string {
@@ -83,7 +87,8 @@ function statusTone(row: ReportRow): string {
   if (row.weakImageCount > 0 || row.missingConsent) {
     return "border-warning/40 bg-warning/10 text-warning";
   }
-  if (row.expired) return "border-muted-foreground/30 bg-muted text-muted-foreground";
+  if (row.expired)
+    return "border-muted-foreground/30 bg-muted text-muted-foreground";
   return "border-success/40 bg-success/10 text-success";
 }
 
@@ -94,11 +99,7 @@ export default function DoctorReportsPage() {
     const needle = query.trim().toLocaleLowerCase("ru-RU");
     if (!needle) return rows;
     return rows.filter((row) =>
-      [
-        row.patient.fullName,
-        row.clinicName,
-        packetStatus(row),
-      ]
+      [row.patient.fullName, row.clinicName, packetStatus(row)]
         .join(" ")
         .toLocaleLowerCase("ru-RU")
         .includes(needle),
@@ -114,7 +115,12 @@ export default function DoctorReportsPage() {
         title="Центр отчётов"
         subtitle="Очередь врача: что готово к проверке, что мешает выпуску и где открыть отчёт визита."
         actions={
-          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-10">
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="min-h-11 text-[12px] sm:min-h-10"
+          >
             <Link to="/visits">К визитам</Link>
           </Button>
         }
@@ -126,18 +132,47 @@ export default function DoctorReportsPage() {
           aria-label="Граница учебной очереди отчётов"
           className="surface-card flex items-start gap-3 px-4 py-3 text-[13px] leading-relaxed text-muted-foreground"
         >
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <ShieldCheck
+            className="mt-0.5 size-4 shrink-0 text-primary"
+            aria-hidden
+          />
           <span>{SAFETY_NOTE}</span>
         </section>
 
-        <section aria-label="Сводка отчётов" className="grid gap-3 md:grid-cols-4">
-          <SummaryTile label="Всего отчётов" value={filteredRows.length} hint="в текущем фильтре" icon={FileText} />
-          <SummaryTile label="Качество фото" value={weakRows.length} hint="проверить перед выпуском" icon={AlertTriangle} />
-          <SummaryTile label="Согласие" value={consentRows.length} hint="нужно закрыть" icon={ShieldCheck} />
-          <SummaryTile label="Срок доступа" value={expiredRows.length} hint="требует перевыпуска" icon={Clock} />
+        <section
+          aria-label="Сводка отчётов"
+          className="grid gap-3 md:grid-cols-4"
+        >
+          <SummaryTile
+            label="Всего отчётов"
+            value={filteredRows.length}
+            hint="в текущем фильтре"
+            icon={FileText}
+          />
+          <SummaryTile
+            label="Качество фото"
+            value={weakRows.length}
+            hint="проверить перед выпуском"
+            icon={AlertTriangle}
+          />
+          <SummaryTile
+            label="Согласие"
+            value={consentRows.length}
+            hint="нужно закрыть"
+            icon={ShieldCheck}
+          />
+          <SummaryTile
+            label="Срок доступа"
+            value={expiredRows.length}
+            hint="требует перевыпуска"
+            icon={Clock}
+          />
         </section>
 
-        <section className="surface-card overflow-hidden" aria-label="Очередь отчётов">
+        <section
+          className="surface-card overflow-hidden"
+          aria-label="Очередь отчётов"
+        >
           <div className="section-bar flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="h-section">Очередь отчётов</h2>
@@ -153,7 +188,7 @@ export default function DoctorReportsPage() {
                 onChange={(event) => setQuery(event.target.value)}
                 aria-label="Поиск отчёта"
                 placeholder="Поиск отчёта"
-                className="h-9 text-[13px]"
+                className="h-11 text-[13px] sm:h-9"
               />
             </div>
             <div
@@ -176,14 +211,17 @@ export default function DoctorReportsPage() {
                       <div className="min-w-0 text-[14px] font-semibold">
                         <span className="truncate">{row.patient.fullName}</span>
                       </div>
-                      <Badge className={statusTone(row)}>{packetStatus(row)}</Badge>
+                      <Badge className={statusTone(row)}>
+                        {packetStatus(row)}
+                      </Badge>
                     </div>
                     <div className="mt-1 text-[12px] text-muted-foreground">
-                      {formatDateTime(row.report.generatedAt)} · {row.clinicName}
+                      {formatDateTime(row.report.generatedAt)} ·{" "}
+                      {row.clinicName}
                     </div>
                     <p className="mt-2 line-clamp-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-                      Краткая версия открывается только внутри отчёта визита после
-                      врачебной проверки.
+                      Краткая версия открывается только внутри отчёта визита
+                      после врачебной проверки.
                     </p>
                   </div>
 
@@ -198,13 +236,26 @@ export default function DoctorReportsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Button asChild size="sm" className="min-h-[44px] w-full sm:min-h-9">
-                      <Link to={`/patients/${row.patient.id}/visits/${row.visit.id}?tab=report`}>
+                    <Button
+                      asChild
+                      size="sm"
+                      className="min-h-[44px] w-full sm:min-h-9"
+                    >
+                      <Link
+                        to={`/patients/${row.patient.id}/visits/${row.visit.id}?tab=report`}
+                      >
                         Открыть отчёт в визите
                       </Link>
                     </Button>
-                    <Button asChild size="sm" variant="outline" className="min-h-[44px] w-full sm:min-h-9">
-                      <Link to={`/patients/${row.patient.id}`}>Карточка пациента</Link>
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="min-h-[44px] w-full sm:min-h-9"
+                    >
+                      <Link to={`/patients/${row.patient.id}`}>
+                        Карточка пациента
+                      </Link>
                     </Button>
                   </div>
                 </div>
@@ -218,7 +269,9 @@ export default function DoctorReportsPage() {
             title="Блокеры выпуска"
             rows={filteredRows.filter((row) => blockerCount(row) > 0)}
           />
-          <ReadyPanel rows={filteredRows.filter((row) => blockerCount(row) === 0)} />
+          <ReadyPanel
+            rows={filteredRows.filter((row) => blockerCount(row) === 0)}
+          />
         </section>
       </main>
     </div>
@@ -243,7 +296,9 @@ function SummaryTile({
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {label}
           </div>
-          <div className="mt-1 text-[24px] font-semibold tabular-nums">{value}</div>
+          <div className="mt-1 text-[24px] font-semibold tabular-nums">
+            {value}
+          </div>
           <div className="text-[12px] text-muted-foreground">{hint}</div>
         </div>
         <Icon className="size-4 text-primary" aria-hidden />
@@ -259,7 +314,9 @@ function BlockerPanel({ title, rows }: { title: string; rows: ReportRow[] }) {
         <h2 className="h-section">{title}</h2>
       </div>
       {rows.length === 0 ? (
-        <div className="px-4 py-4 text-[13px] text-muted-foreground">Блокеров нет.</div>
+        <div className="px-4 py-4 text-[13px] text-muted-foreground">
+          Блокеров нет.
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {rows.map((row) => (
@@ -267,12 +324,20 @@ function BlockerPanel({ title, rows }: { title: string; rows: ReportRow[] }) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-medium">{row.patient.fullName}</div>
-                  <div className="text-[12px] text-muted-foreground">{formatDateTime(row.report.generatedAt)}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {formatDateTime(row.report.generatedAt)}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {row.weakImageCount > 0 && <Badge variant="outline">Фото · {row.weakImageCount}</Badge>}
-                  {row.missingConsent && <Badge variant="outline">Согласие</Badge>}
-                  {row.expired && <Badge variant="outline">{EXPIRED_LABEL}</Badge>}
+                  {row.weakImageCount > 0 && (
+                    <Badge variant="outline">Фото · {row.weakImageCount}</Badge>
+                  )}
+                  {row.missingConsent && (
+                    <Badge variant="outline">Согласие</Badge>
+                  )}
+                  {row.expired && (
+                    <Badge variant="outline">{EXPIRED_LABEL}</Badge>
+                  )}
                 </div>
               </div>
             </li>
@@ -285,7 +350,10 @@ function BlockerPanel({ title, rows }: { title: string; rows: ReportRow[] }) {
 
 function ReadyPanel({ rows }: { rows: ReportRow[] }) {
   return (
-    <section className="surface-card overflow-hidden" aria-label="Готовые отчёты">
+    <section
+      className="surface-card overflow-hidden"
+      aria-label="Готовые отчёты"
+    >
       <div className="section-bar">
         <h2 className="h-section">Готовые отчёты</h2>
       </div>
@@ -296,9 +364,17 @@ function ReadyPanel({ rows }: { rows: ReportRow[] }) {
       ) : (
         <ul className="divide-y divide-border">
           {rows.map((row) => (
-            <li key={row.report.id} className="flex items-start gap-2 px-4 py-3 text-[13px]">
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-              <span>{row.patient.fullName} · пакет готов к выпуску врачом.</span>
+            <li
+              key={row.report.id}
+              className="flex items-start gap-2 px-4 py-3 text-[13px]"
+            >
+              <CheckCircle2
+                className="mt-0.5 size-4 shrink-0 text-success"
+                aria-hidden
+              />
+              <span>
+                {row.patient.fullName} · пакет готов к выпуску врачом.
+              </span>
             </li>
           ))}
         </ul>

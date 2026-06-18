@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -29,7 +35,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogClose,
@@ -41,14 +51,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  APPOINTMENTS,
-  LESIONS,
-  PATIENTS,
-  VISITS,
-} from "@/lib/mock-data";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { APPOINTMENTS, LESIONS, PATIENTS, VISITS } from "@/lib/mock-data";
+import { formatCardNumber } from "@/lib/card-number";
 import { calcAge, formatDate, sexShort } from "@/lib/format";
 import type { Patient, Phototype, Sex } from "@/lib/domain";
 import {
@@ -81,7 +93,12 @@ const PATIENT_PRODUCTION_GATE_MESSAGE =
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
-type SortMode = "name_asc" | "name_desc" | "age_asc" | "age_desc" | "last_visit_desc";
+type SortMode =
+  | "name_asc"
+  | "name_desc"
+  | "age_asc"
+  | "age_desc"
+  | "last_visit_desc";
 
 const PAGE_SIZE_OPTIONS = [4, 8] as const;
 
@@ -134,16 +151,20 @@ function buildRow(patient: Patient): Row {
     .reverse();
   const future = [
     ...visits.filter((v) => v.status === "scheduled").map((v) => v.startedAt),
-    ...APPOINTMENTS.filter((a) => a.patientId === patient.id && (a.status === "planned" || a.status === "confirmed")).map(
-      (a) => a.slotAt,
-    ),
+    ...APPOINTMENTS.filter(
+      (a) =>
+        a.patientId === patient.id &&
+        (a.status === "planned" || a.status === "confirmed"),
+    ).map((a) => a.slotAt),
   ].sort();
 
   return {
     patient,
     age: calcAge(patient.birthDate),
     lesionCount: lesions.length,
-    hasActive: lesions.some((l) => l.status === "active" || l.status === "monitoring"),
+    hasActive: lesions.some(
+      (l) => l.status === "active" || l.status === "monitoring",
+    ),
     lastVisit: past[0] ?? null,
     nextVisit: future[0] ?? null,
   };
@@ -163,10 +184,13 @@ function patientToDraft(patient: Patient): PatientEditDraft {
 function validatePatientDraft(draft: PatientEditDraft): string | null {
   const fullName = draft.fullName.trim();
   if (!fullName) return "Укажите ФИО пациента.";
-  if (fullName.split(/\s+/).length < 2) return "Укажите фамилию и имя пациента.";
+  if (fullName.split(/\s+/).length < 2)
+    return "Укажите фамилию и имя пациента.";
   if (!draft.birthDate) return "Укажите дату рождения пациента.";
-  if (draft.birthDate < "1900-01-01") return "Дата рождения выглядит слишком ранней.";
-  if (draft.birthDate > PATIENT_EDIT_DEMO_TODAY) return "Дата рождения не может быть в будущем.";
+  if (draft.birthDate < "1900-01-01")
+    return "Дата рождения выглядит слишком ранней.";
+  if (draft.birthDate > PATIENT_EDIT_DEMO_TODAY)
+    return "Дата рождения не может быть в будущем.";
   return null;
 }
 
@@ -185,11 +209,20 @@ function sortRows(rows: Row[], mode: SortMode): Row[] {
       case "name_desc":
         return b.patient.fullName.localeCompare(a.patient.fullName, "ru");
       case "age_asc":
-        return a.age - b.age || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+        return (
+          a.age - b.age ||
+          a.patient.fullName.localeCompare(b.patient.fullName, "ru")
+        );
       case "age_desc":
-        return b.age - a.age || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+        return (
+          b.age - a.age ||
+          a.patient.fullName.localeCompare(b.patient.fullName, "ru")
+        );
       case "last_visit_desc":
-        return compareNullableIsoDesc(a.lastVisit, b.lastVisit) || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+        return (
+          compareNullableIsoDesc(a.lastVisit, b.lastVisit) ||
+          a.patient.fullName.localeCompare(b.patient.fullName, "ru")
+        );
     }
   });
 }
@@ -197,7 +230,10 @@ function sortRows(rows: Row[], mode: SortMode): Row[] {
 function formatChangeLogExport(entries: ChangeLogEntry[]): string {
   if (entries.length === 0) return "Журнал изменений пуст.";
   return entries
-    .map((entry, index) => `${index + 1}. ${entry.patientCode} ${entry.patientName}: ${entry.message}`)
+    .map(
+      (entry, index) =>
+        `${index + 1}. ${formatCardNumber(entry.patientCode)} ${entry.patientName}: ${entry.message}`,
+    )
     .join("\n");
 }
 
@@ -222,12 +258,17 @@ function patientDraftToPayload(draft: PatientEditDraft) {
   };
 }
 
-function patientApiErrorText(error: SelfHostedApiError | null | undefined): string {
+function patientApiErrorText(
+  error: SelfHostedApiError | null | undefined,
+): string {
   if (!error) return "Система клиники не вернула описание ошибки.";
   if (error.status === 401) return "Система клиники требует повторного входа.";
-  if (error.status === 403) return "Недостаточно прав для действия с пациентами.";
+  if (error.status === 403)
+    return "Недостаточно прав для действия с пациентами.";
   if (error.kind === "validation" && error.details?.length) {
-    return error.details.map((item) => `${item.field}: ${item.message}`).join("; ");
+    return error.details
+      .map((item) => `${item.field}: ${item.message}`)
+      .join("; ");
   }
   return error.message;
 }
@@ -237,7 +278,9 @@ export default function PatientsPage() {
   const selfHostedSession = useSelfHostedApiSession();
   const productionMode = isProductionAppMode();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
-  const [patients, setPatients] = useState<Patient[]>(() => (productionMode ? [] : PATIENTS));
+  const [patients, setPatients] = useState<Patient[]>(() =>
+    productionMode ? [] : PATIENTS,
+  );
   const [query, setQuery] = useState("");
   const [advancedSearch, setAdvancedSearch] = useState<AdvancedSearchState>({
     code: "",
@@ -250,19 +293,23 @@ export default function PatientsPage() {
   const [consent, setConsent] = useState<ConsentFilter>("any");
   const [lesionsFilter, setLesionsFilter] = useState<LesionsFilter>("any");
   const [sortMode, setSortMode] = useState<SortMode>("name_asc");
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(4);
+  const [pageSize, setPageSize] =
+    useState<(typeof PAGE_SIZE_OPTIONS)[number]>(4);
   const [page, setPage] = useState(1);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Patient | null>(null);
-  const [lastDeleted, setLastDeleted] = useState<DeletedPatientSnapshot | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<DeletedPatientSnapshot | null>(
+    null,
+  );
   const [createDraft, setCreateDraft] = useState<PatientEditDraft | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<PatientEditDraft | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
-  const [backendLoadState, setBackendLoadState] = useState<BackendLoadState>("idle");
+  const [backendLoadState, setBackendLoadState] =
+    useState<BackendLoadState>("idle");
   const [saving, setSaving] = useState(false);
   const [busyPatientId, setBusyPatientId] = useState<string | null>(null);
 
@@ -290,13 +337,20 @@ export default function PatientsPage() {
       }
       setBackendLoadState("error");
       if (productionMode) setPatients([]);
-      setStatusMessage(`Не удалось загрузить пациентов из системы клиники: ${patientApiErrorText(result.error)}`);
+      setStatusMessage(
+        `Не удалось загрузить пациентов из системы клиники: ${patientApiErrorText(result.error)}`,
+      );
     });
 
     return () => {
       cancelled = true;
     };
-  }, [liveBackend, productionMode, selfHostedSession.apiBaseUrl, selfHostedSession.apiToken]);
+  }, [
+    liveBackend,
+    productionMode,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+  ]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -306,7 +360,9 @@ export default function PatientsPage() {
     const ageTo = Number.parseInt(advancedSearch.ageTo, 10);
     return patients.map(buildRow).filter(({ patient, hasActive }) => {
       if (q) {
-        const consentText = patient.consents.imaging ? "согласие есть" : "согласия нет";
+        const consentText = patient.consents.imaging
+          ? "согласие есть"
+          : "согласия нет";
         const sexText = patient.sex === "female" ? "женский ж" : "мужской м";
         const hay = [
           patient.fullName,
@@ -315,7 +371,9 @@ export default function PatientsPage() {
           sexText,
           consentText,
           patient.riskFactors.join(" "),
-        ].join(" ").toLowerCase();
+        ]
+          .join(" ")
+          .toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (code && !patient.code.toLowerCase().includes(code)) return false;
@@ -331,21 +389,29 @@ export default function PatientsPage() {
       return true;
     });
   }, [advancedSearch, patients, query, phototype, consent, lesionsFilter]);
-  const rows = useMemo(() => sortRows(filteredRows, sortMode), [filteredRows, sortMode]);
+  const rows = useMemo(
+    () => sortRows(filteredRows, sortMode),
+    [filteredRows, sortMode],
+  );
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedRows = useMemo(
     () => rows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [currentPage, pageSize, rows],
   );
-  const changeLogExport = useMemo(() => formatChangeLogExport(changeLog), [changeLog]);
+  const changeLogExport = useMemo(
+    () => formatChangeLogExport(changeLog),
+    [changeLog],
+  );
   const previewRow = useMemo(
     () => (previewPatient ? buildRow(previewPatient) : null),
     [previewPatient],
   );
   const firstActionRow = rows[0] ?? null;
   const activeRowsCount = rows.filter((row) => row.hasActive).length;
-  const noImagingConsentRowsCount = rows.filter((row) => !row.patient.consents.imaging).length;
+  const noImagingConsentRowsCount = rows.filter(
+    (row) => !row.patient.consents.imaging,
+  ).length;
   const upcomingRowsCount = rows.filter((row) => row.nextVisit).length;
 
   function handleCreateOpen() {
@@ -378,7 +444,10 @@ export default function PatientsPage() {
       return;
     }
     const patient = selfHostedPatientToDomain(result.value);
-    setPatients((current) => [patient, ...current.filter((item) => item.id !== patient.id)]);
+    setPatients((current) => [
+      patient,
+      ...current.filter((item) => item.id !== patient.id),
+    ]);
     setStatusMessage(`Пациент ${patient.fullName} создан в системе клиники.`);
     setChangeLog((current) => [
       {
@@ -413,7 +482,9 @@ export default function PatientsPage() {
     });
     setBusyPatientId(null);
     if (!result.ok || !result.value) {
-      setStatusMessage(`Не удалось открыть карточку из системы клиники: ${patientApiErrorText(result.error)}`);
+      setStatusMessage(
+        `Не удалось открыть карточку из системы клиники: ${patientApiErrorText(result.error)}`,
+      );
       return;
     }
     setPreviewPatient(selfHostedPatientToDomain(result.value));
@@ -443,8 +514,14 @@ export default function PatientsPage() {
         return;
       }
       const updated = selfHostedPatientToDomain(result.value);
-      setPatients((current) => current.map((patient) => (patient.id === updated.id ? updated : patient)));
-      setStatusMessage(`Изменения по пациенту ${updated.fullName} сохранены в системе клиники.`);
+      setPatients((current) =>
+        current.map((patient) =>
+          patient.id === updated.id ? updated : patient,
+        ),
+      );
+      setStatusMessage(
+        `Изменения по пациенту ${updated.fullName} сохранены в системе клиники.`,
+      );
       setChangeLog((current) => [
         {
           id: `edit-${updated.id}-${current.length + 1}`,
@@ -477,7 +554,9 @@ export default function PatientsPage() {
           : patient,
       ),
     );
-    setStatusMessage(`Изменения по пациенту ${fullName} сохранены только на этом экране.`);
+    setStatusMessage(
+      `Изменения по пациенту ${fullName} сохранены только на этом экране.`,
+    );
     setChangeLog((current) => [
       {
         id: `edit-${editDraft.id}-${current.length + 1}`,
@@ -505,15 +584,21 @@ export default function PatientsPage() {
       });
       setSaving(false);
       if (!result.ok) {
-        setStatusMessage(`Не удалось архивировать пациента в системе клиники: ${patientApiErrorText(result.error)}`);
+        setStatusMessage(
+          `Не удалось архивировать пациента в системе клиники: ${patientApiErrorText(result.error)}`,
+        );
         setDeleteCandidate(null);
         return;
       }
       setPatients((current) => current.filter((p) => p.id !== patient.id));
-      setPreviewPatient((current) => (current?.id === patient.id ? null : current));
+      setPreviewPatient((current) =>
+        current?.id === patient.id ? null : current,
+      );
       setEditDraft((current) => (current?.id === patient.id ? null : current));
       setLastDeleted(null);
-      setStatusMessage(`Пациент ${patient.fullName} архивирован в системе клиники.`);
+      setStatusMessage(
+        `Пациент ${patient.fullName} архивирован в системе клиники.`,
+      );
       setChangeLog((current) => [
         {
           id: `archive-${patient.id}-${current.length + 1}`,
@@ -529,10 +614,14 @@ export default function PatientsPage() {
     }
 
     setPatients((current) => current.filter((p) => p.id !== patient.id));
-    setPreviewPatient((current) => (current?.id === patient.id ? null : current));
+    setPreviewPatient((current) =>
+      current?.id === patient.id ? null : current,
+    );
     setEditDraft((current) => (current?.id === patient.id ? null : current));
     setLastDeleted({ patient });
-    setStatusMessage(`Пациент ${patient.fullName} скрыт только на этом экране.`);
+    setStatusMessage(
+      `Пациент ${patient.fullName} скрыт только на этом экране.`,
+    );
     setChangeLog((current) => [
       {
         id: `delete-${patient.id}-${current.length + 1}`,
@@ -551,9 +640,13 @@ export default function PatientsPage() {
     const restored = lastDeleted.patient;
     setPatients((current) => {
       if (current.some((patient) => patient.id === restored.id)) return current;
-      const order = new Map(PATIENTS.map((patient, index) => [patient.id, index]));
+      const order = new Map(
+        PATIENTS.map((patient, index) => [patient.id, index]),
+      );
       return [...current, restored].sort(
-        (a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+        (a, b) =>
+          (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(b.id) ?? Number.MAX_SAFE_INTEGER),
       );
     });
     setStatusMessage(`Скрытие пациента ${restored.fullName} отменено.`);
@@ -592,7 +685,10 @@ export default function PatientsPage() {
                 size="sm"
                 className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
               >
-                <Link to="/self-hosted/login" aria-label="Войти в систему клиники">
+                <Link
+                  to="/self-hosted/login"
+                  aria-label="Войти в систему клиники"
+                >
                   <ServerCog className="h-3.5 w-3.5" aria-hidden />
                   Войти
                 </Link>
@@ -618,7 +714,9 @@ export default function PatientsPage() {
                 aria-label="Выйти из системы клиники"
                 onClick={() => {
                   clearSelfHostedApiSession();
-                  setStatusMessage("Рабочий вход завершён. Открыт учебный режим.");
+                  setStatusMessage(
+                    "Рабочий вход завершён. Открыт учебный режим.",
+                  );
                   navigate("/self-hosted/login");
                 }}
               >
@@ -633,7 +731,10 @@ export default function PatientsPage() {
                 variant="outline"
                 className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
               >
-                <Link to="/self-hosted/login" aria-label="Войти в систему клиники">
+                <Link
+                  to="/self-hosted/login"
+                  aria-label="Войти в систему клиники"
+                >
                   <ServerCog className="h-3.5 w-3.5" aria-hidden />
                   Войти
                 </Link>
@@ -650,7 +751,9 @@ export default function PatientsPage() {
         className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
       >
         <span className="font-medium text-foreground">
-          {productionMode || liveBackend ? "Рабочий режим: " : "Учебный режим: "}
+          {productionMode || liveBackend
+            ? "Рабочий режим: "
+            : "Учебный режим: "}
         </span>
         {productionMode
           ? liveBackend
@@ -668,21 +771,38 @@ export default function PatientsPage() {
       >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">
+              Что делать сейчас
+            </p>
             <h2 className="mt-1 text-[14px] font-semibold">
-              {firstActionRow ? "Открыть карточку пациента" : "Уточнить поиск пациента"}
+              {firstActionRow
+                ? "Открыть карточку пациента"
+                : "Уточнить поиск пациента"}
             </h2>
             <p className="mt-1 text-muted-foreground">
-              Найдено: <span className="font-medium text-foreground">{rows.length}</span> · активное наблюдение:{" "}
-              <span className="font-medium text-foreground">{activeRowsCount}</span> · без согласия на съёмку:{" "}
-              <span className="font-medium text-foreground">{noImagingConsentRowsCount}</span> · с ближайшим приёмом:{" "}
-              <span className="font-medium text-foreground">{upcomingRowsCount}</span>.
+              Найдено:{" "}
+              <span className="font-medium text-foreground">{rows.length}</span>{" "}
+              · активное наблюдение:{" "}
+              <span className="font-medium text-foreground">
+                {activeRowsCount}
+              </span>{" "}
+              · без согласия на съёмку:{" "}
+              <span className="font-medium text-foreground">
+                {noImagingConsentRowsCount}
+              </span>{" "}
+              · с ближайшим приёмом:{" "}
+              <span className="font-medium text-foreground">
+                {upcomingRowsCount}
+              </span>
+              .
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-2 lg:justify-end">
             {firstActionRow ? (
               <Button asChild className="min-h-11 text-[12px]">
-                <Link to={`/patients/${firstActionRow.patient.id}`}>Открыть карточку</Link>
+                <Link to={`/patients/${firstActionRow.patient.id}`}>
+                  Открыть карточку
+                </Link>
               </Button>
             ) : (
               <Button
@@ -691,7 +811,12 @@ export default function PatientsPage() {
                 className="min-h-11 text-[12px]"
                 onClick={() => {
                   setQuery("");
-                  setAdvancedSearch({ code: "", name: "", ageFrom: "", ageTo: "" });
+                  setAdvancedSearch({
+                    code: "",
+                    name: "",
+                    ageFrom: "",
+                    ageTo: "",
+                  });
                   setPhototype("any");
                   setConsent("any");
                   setLesionsFilter("any");
@@ -701,7 +826,12 @@ export default function PatientsPage() {
                 Сбросить фильтры
               </Button>
             )}
-            <Button type="button" variant="outline" className="min-h-11 text-[12px]" onClick={handleCreateOpen}>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 text-[12px]"
+              onClick={handleCreateOpen}
+            >
               Создать пациента
             </Button>
           </div>
@@ -768,7 +898,10 @@ export default function PatientsPage() {
               setPage(1);
               setPhototype(v as typeof phototype);
             }}
-            options={[{ value: "any", label: "Любой фототип" }, ...PHOTOTYPES.map((p) => ({ value: p, label: `Фототип ${p}` }))]}
+            options={[
+              { value: "any", label: "Любой фототип" },
+              ...PHOTOTYPES.map((p) => ({ value: p, label: `Фототип ${p}` })),
+            ]}
           />
 
           <FilterSelect
@@ -848,7 +981,8 @@ export default function PatientsPage() {
           </Collapsible>
 
           <span className="ml-auto text-meta">
-            Найдено: <span className="text-foreground tabular-nums">{rows.length}</span>
+            Найдено:{" "}
+            <span className="text-foreground tabular-nums">{rows.length}</span>
           </span>
         </div>
 
@@ -874,7 +1008,9 @@ export default function PatientsPage() {
               />
               <Input
                 value={advancedSearch.ageFrom}
-                onChange={(e) => updateAdvancedSearch("ageFrom", e.target.value)}
+                onChange={(e) =>
+                  updateAdvancedSearch("ageFrom", e.target.value)
+                }
                 placeholder="Возраст от"
                 inputMode="numeric"
                 className="min-h-11 text-[13px] sm:min-h-8"
@@ -900,7 +1036,10 @@ export default function PatientsPage() {
         >
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
-              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <History
+                className="h-3.5 w-3.5 text-muted-foreground"
+                aria-hidden
+              />
               Журнал изменений
             </div>
             <Button
@@ -917,8 +1056,11 @@ export default function PatientsPage() {
           <ul className="mt-1 space-y-1 text-[12px] text-muted-foreground">
             {changeLog.slice(0, 3).map((entry) => (
               <li key={entry.id}>
-                <span className="font-mono text-[11px]">{entry.patientCode}</span>{" "}
-                <span className="text-foreground">{entry.patientName}</span>: {entry.message}
+                <span className="text-[11px] text-muted-foreground">
+                  {formatCardNumber(entry.patientCode)}
+                </span>{" "}
+                <span className="text-foreground">{entry.patientName}</span>:{" "}
+                {entry.message}
               </li>
             ))}
           </ul>
@@ -956,22 +1098,33 @@ export default function PatientsPage() {
                   <tbody>
                     {pagedRows.map((r) => (
                       <tr key={r.patient.id}>
-                        <td className="text-[12px] text-muted-foreground">№ {r.patient.code}</td>
+                        <td className="text-[12px] text-muted-foreground">
+                          {formatCardNumber(r.patient.code)}
+                        </td>
                         <td>
-                          <Link to={`/patients/${r.patient.id}`} className="font-medium hover:underline">
+                          <Link
+                            to={`/patients/${r.patient.id}`}
+                            className="font-medium hover:underline"
+                          >
                             {r.patient.fullName}
                           </Link>
                         </td>
                         <td className="tabular-nums">{r.age}</td>
                         <td>{sexShort(r.patient.sex)}</td>
                         <td>{r.patient.phototype}</td>
-                        <td className="tabular-nums">{r.patient.riskFactors.length}</td>
+                        <td className="tabular-nums">
+                          {r.patient.riskFactors.length}
+                        </td>
                         <td>
                           <ConsentChip ok={r.patient.consents.imaging} />
                         </td>
                         <td className="tabular-nums">{r.lesionCount}</td>
-                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.lastVisit)}</td>
-                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.nextVisit)}</td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">
+                          {formatDate(r.lastVisit)}
+                        </td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">
+                          {formatDate(r.nextVisit)}
+                        </td>
                         <td>
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -1032,16 +1185,25 @@ export default function PatientsPage() {
                         className="min-w-0 flex-1 active:bg-surface-muted"
                       >
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate text-row font-medium">{r.patient.fullName}</span>
-                          <span className="shrink-0 text-[11px] text-muted-foreground">№ {r.patient.code}</span>
+                          <span className="truncate text-row font-medium">
+                            {r.patient.fullName}
+                          </span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {formatCardNumber(r.patient.code)}
+                          </span>
                         </div>
                         <div className="mt-0.5 text-meta">
-                          {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · очагов {r.lesionCount}
+                          {sexShort(r.patient.sex)} · {r.age} лет · фототип{" "}
+                          {r.patient.phototype} · очагов {r.lesionCount}
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           <ConsentChip ok={r.patient.consents.imaging} />
-                          <span className="tabular-nums">Посл. {formatDate(r.lastVisit)}</span>
-                          <span className="tabular-nums">След. {formatDate(r.nextVisit)}</span>
+                          <span className="tabular-nums">
+                            Посл. {formatDate(r.lastVisit)}
+                          </span>
+                          <span className="tabular-nums">
+                            След. {formatDate(r.nextVisit)}
+                          </span>
                         </div>
                       </Link>
                       <div className="flex shrink-0 items-center gap-1">
@@ -1090,7 +1252,11 @@ export default function PatientsPage() {
             aria-label="Пагинация пациентов"
           >
             <span>
-              Страница <span className="text-foreground tabular-nums">{currentPage}</span> из{" "}
+              Страница{" "}
+              <span className="text-foreground tabular-nums">
+                {currentPage}
+              </span>{" "}
+              из{" "}
               <span className="text-foreground tabular-nums">{totalPages}</span>
             </span>
             <div className="flex items-center gap-2">
@@ -1124,7 +1290,8 @@ export default function PatientsPage() {
           <DialogHeader>
             <DialogTitle>Экспорт журнала изменений</DialogTitle>
             <DialogDescription>
-              Текст подготовлен для ручного копирования без доступа к буферу обмена или файловой системе.
+              Текст подготовлен для ручного копирования без доступа к буферу
+              обмена или файловой системе.
             </DialogDescription>
           </DialogHeader>
           <Textarea
@@ -1157,18 +1324,36 @@ export default function PatientsPage() {
             </DialogHeader>
 
             <div className="grid gap-3 text-[13px] sm:grid-cols-2">
-              <PreviewField label="Номер карты" value={previewRow.patient.code} />
+              <PreviewField
+                label="Номер карты"
+                value={formatCardNumber(previewRow.patient.code)}
+              />
               <PreviewField label="ФИО" value={previewRow.patient.fullName} />
               <PreviewField label="Возраст" value={`${previewRow.age} лет`} />
-              <PreviewField label="Пол" value={sexShort(previewRow.patient.sex)} />
-              <PreviewField label="Фототип" value={previewRow.patient.phototype} />
+              <PreviewField
+                label="Пол"
+                value={sexShort(previewRow.patient.sex)}
+              />
+              <PreviewField
+                label="Фототип"
+                value={previewRow.patient.phototype}
+              />
               <PreviewField
                 label="Согласие на съёмку"
                 value={previewRow.patient.consents.imaging ? "Есть" : "Нет"}
               />
-              <PreviewField label="Очаги" value={String(previewRow.lesionCount)} />
-              <PreviewField label="Последний визит" value={formatDate(previewRow.lastVisit)} />
-              <PreviewField label="Следующий визит" value={formatDate(previewRow.nextVisit)} />
+              <PreviewField
+                label="Очаги"
+                value={String(previewRow.lesionCount)}
+              />
+              <PreviewField
+                label="Последний визит"
+                value={formatDate(previewRow.lastVisit)}
+              />
+              <PreviewField
+                label="Следующий визит"
+                value={formatDate(previewRow.nextVisit)}
+              />
             </div>
 
             <DialogFooter>
@@ -1178,7 +1363,9 @@ export default function PatientsPage() {
                 </Button>
               </DialogClose>
               <Button asChild>
-                <Link to={`/patients/${previewRow.patient.id}`}>Открыть карточку</Link>
+                <Link to={`/patients/${previewRow.patient.id}`}>
+                  Открыть карточку
+                </Link>
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1195,7 +1382,9 @@ export default function PatientsPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {liveBackend ? "Архивировать пациента?" : "Скрыть пациента на этом экране?"}
+                {liveBackend
+                  ? "Архивировать пациента?"
+                  : "Скрыть пациента на этом экране?"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {liveBackend
@@ -1231,7 +1420,8 @@ export default function PatientsPage() {
             <DialogHeader>
               <DialogTitle>Новый пациент</DialogTitle>
               <DialogDescription>
-                Пациент будет создан в системе клиники. Не используйте форму без рабочего входа.
+                Пациент будет создан в системе клиники. Не используйте форму без
+                рабочего входа.
               </DialogDescription>
             </DialogHeader>
 
@@ -1341,7 +1531,11 @@ function PreviewField({
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className={`mt-1 text-foreground ${mono ? "font-mono text-[12px]" : ""}`}>{value}</div>
+      <div
+        className={`mt-1 text-foreground ${mono ? "font-mono text-[12px]" : ""}`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -1401,7 +1595,10 @@ function PatientDraftFields({
               )
             }
           >
-            <SelectTrigger className="h-9 text-[13px]" aria-label="Пол пациента">
+            <SelectTrigger
+              className="h-9 text-[13px]"
+              aria-label="Пол пациента"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1417,11 +1614,16 @@ function PatientDraftFields({
             value={draft.phototype}
             onValueChange={(value) =>
               setDraft((current) =>
-                current ? { ...current, phototype: value as Phototype } : current,
+                current
+                  ? { ...current, phototype: value as Phototype }
+                  : current,
               )
             }
           >
-            <SelectTrigger className="h-9 text-[13px]" aria-label="Фототип пациента">
+            <SelectTrigger
+              className="h-9 text-[13px]"
+              aria-label="Фототип пациента"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1441,7 +1643,9 @@ function PatientDraftFields({
           checked={draft.imagingConsent}
           onCheckedChange={(checked) =>
             setDraft((current) =>
-              current ? { ...current, imagingConsent: checked === true } : current,
+              current
+                ? { ...current, imagingConsent: checked === true }
+                : current,
             )
           }
         />
@@ -1473,7 +1677,10 @@ function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="min-h-11 min-w-[160px] text-[12px] sm:min-h-8" aria-label={label}>
+      <SelectTrigger
+        className="min-h-11 min-w-[160px] text-[12px] sm:min-h-8"
+        aria-label={label}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -1493,8 +1700,16 @@ function ConsentChip({ ok }: { ok: boolean }) {
       className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium leading-none"
       style={
         ok
-          ? { background: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))", borderColor: "hsl(var(--success) / 0.35)" }
-          : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", borderColor: "hsl(var(--border))" }
+          ? {
+              background: "hsl(var(--success) / 0.1)",
+              color: "hsl(var(--success))",
+              borderColor: "hsl(var(--success) / 0.35)",
+            }
+          : {
+              background: "hsl(var(--muted))",
+              color: "hsl(var(--muted-foreground))",
+              borderColor: "hsl(var(--border))",
+            }
       }
     >
       {ok ? "Есть" : "Нет"}
