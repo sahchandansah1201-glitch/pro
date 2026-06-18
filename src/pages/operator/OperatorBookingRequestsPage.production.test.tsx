@@ -158,7 +158,8 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     expect(screen.getByText("Дубликаты 24ч")).toBeInTheDocument();
     expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
     expect(screen.getByText(/Доктор Иванова · Система клиники/i)).toBeInTheDocument();
-    expect(screen.getByText("Иван Пациент · DP-LIVE-BOOK")).toBeInTheDocument();
+    expect(screen.getByText("Иван Пациент · номер скрыт")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("DP-LIVE-BOOK");
     expect(screen.getByText("Данные загружены из системы клиники.")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");
     expect(fetchMock).toHaveBeenCalledWith(

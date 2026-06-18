@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
 import {
   bookSelfHostedClinicBookingRequestFromSlot,
@@ -493,10 +494,10 @@ export default function OperatorBookingRequestsPageLive() {
                       type="button"
                       className="min-w-0 text-left"
                       onClick={() => chooseRequest(request)}
-                      aria-label={`Открыть заявку на запись: ${request.patient.fullName || request.patient.code || "без имени"}`}
+                      aria-label={`Открыть заявку на запись: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
                     >
                       <div className="truncate text-[14px] font-semibold">
-                        {request.patient.fullName || "Пациент"} · {request.patient.code || "без кода"}
+                        {request.patient.fullName || "Пациент"} · {request.patient.code ? formatCardNumber(request.patient.code) : "без кода"}
                       </div>
                       <div className="mt-1 text-[13px] text-muted-foreground">
                         {formatDateTime(request.preferredFrom)} · {STATUS_LABEL[request.status] || request.status}
@@ -510,10 +511,10 @@ export default function OperatorBookingRequestsPageLive() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-8 text-[12px]"
+                        className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
                         disabled={busyKey === `reviewing:${request.id}`}
                         onClick={() => void updateRequest(request, "reviewing", { clinicNote: request.clinicNote })}
-                        aria-label={`Взять в работу заявку: ${request.patient.fullName || request.patient.code || "без имени"}`}
+                        aria-label={`Взять в работу заявку: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
                       >
                         В работу
                       </Button>
@@ -521,10 +522,10 @@ export default function OperatorBookingRequestsPageLive() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-8 text-[12px]"
+                        className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
                         disabled={busyKey === `cancelled:${request.id}`}
                         onClick={() => void updateRequest(request, "cancelled", { clinicNote: request.clinicNote })}
-                        aria-label={`Отменить заявку: ${request.patient.fullName || request.patient.code || "без имени"}`}
+                        aria-label={`Отменить заявку: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
                       >
                         Отменить
                       </Button>
@@ -547,7 +548,7 @@ export default function OperatorBookingRequestsPageLive() {
                 <div>
                   <div className="text-[14px] font-semibold">{selected.patient.fullName || "Пациент"}</div>
                   <div className="text-[13px] text-muted-foreground">
-                    {selected.patient.code || "без кода"} · {formatDateTime(selected.preferredFrom)}
+                    {selected.patient.code ? formatCardNumber(selected.patient.code) : "без кода"} · {formatDateTime(selected.preferredFrom)}
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">

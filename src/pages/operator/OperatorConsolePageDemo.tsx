@@ -29,8 +29,8 @@ const STATE_FILTERS: { value: "all" | BotDialogState; label: string }[] = [
 
 const CHANNEL_FILTERS: { value: "all" | BotChannel; label: string }[] = [
   { value: "all", label: "Все каналы" },
-  { value: "telegram", label: "Telegram" },
-  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telegram", label: "Телеграм" },
+  { value: "whatsapp", label: "Вотсап" },
   { value: "web", label: "Сайт" },
 ];
 
@@ -53,8 +53,8 @@ const LEAD_LABEL: Record<string, string> = {
 };
 
 const CHANNEL_LABEL: Record<BotChannel, string> = {
-  telegram: "Telegram",
-  whatsapp: "WhatsApp",
+  telegram: "Телеграм",
+  whatsapp: "Вотсап",
   web: "Сайт",
 };
 

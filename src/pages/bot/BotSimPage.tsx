@@ -42,7 +42,7 @@ const SCENARIOS: Scenario[] = [
     routing: "moderate",
     cta: "book",
     safeSummary:
-      "Фото пригодно для предварительной оценки. Рекомендуется очный осмотр дерматолога в плановом порядке.",
+      "Фото пригодно для предварительной сводки. Рекомендуется очный осмотр дерматолога в плановом порядке.",
     recommendedClinicId: CLINICS[0].id,
   },
   {
@@ -54,7 +54,7 @@ const SCENARIOS: Scenario[] = [
     routing: "low",
     cta: "repeat_photo",
     safeSummary:
-      "Фото не подходит для предварительной оценки. Сделайте новое фото по инструкции.",
+      "Фото не подходит для предварительной сводки. Сделайте новое фото по инструкции.",
     recommendedClinicId: CLINICS[0].id,
   },
   {
@@ -66,7 +66,7 @@ const SCENARIOS: Scenario[] = [
     routing: "urgent",
     cta: "urgent",
     safeSummary:
-      "Признаки требуют срочной очной оценки врача. Это не диагноз, но откладывать визит не следует.",
+      "Сводка требует срочной очной проверки врачом. Это не диагноз, но откладывать визит не следует.",
     recommendedClinicId: CLINICS[1].id,
   },
 ];
@@ -97,6 +97,14 @@ const SAFETY_LINES = [
   "Окончательное решение принимает врач.",
   "При тревожных симптомах обратитесь в клинику очно.",
 ];
+
+const STEP_LABEL: Record<Step, string> = {
+  start: "начало",
+  instruction: "инструкция",
+  quality: "проверка фото",
+  recommendation: "следующий шаг",
+  done: "заявка подготовлена",
+};
 
 export default function BotSimPage() {
   const [step, setStep] = useState<Step>("start");
@@ -200,7 +208,7 @@ export default function BotSimPage() {
       push({
         side: "bot",
         text:
-          "Для записи сначала пришлите фото — я подготовлю безопасную подсказку и следующий шаг.",
+          "Для записи сначала пришлите фото — я подготовлю безопасную сводку и следующий шаг.",
       });
       setStep("instruction");
       return;
@@ -490,7 +498,7 @@ function DemoPanel({
     <div className="space-y-2 text-[12px]">
       <div>
         <span className="text-muted-foreground">Состояние диалога: </span>
-        {step}
+        {STEP_LABEL[step]}
       </div>
       <div>
         <span className="text-muted-foreground">Канал: </span>
@@ -502,7 +510,7 @@ function DemoPanel({
       </div>
       <div>
         <span className="text-muted-foreground">Заявка на запись: </span>
-        {ctaStatus ? "подготовлен" : "не создан"}
+        {ctaStatus ? "подготовлена" : "не создана"}
       </div>
       <div>
         <span className="text-muted-foreground">Рекомендуемая клиника: </span>

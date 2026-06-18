@@ -10,7 +10,7 @@ export default function OperatorBookingRequestsPageDemo() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Запросы на запись"
-        subtitle="Демо-режим · рабочая очередь доступна после входа в систему"
+        subtitle="Учебный режим · рабочая очередь доступна после входа в систему"
         actions={
           <Button asChild size="sm" variant="outline" className="min-h-[44px] text-[12px]">
             <Link to="/self-hosted/login">Вход в систему</Link>
@@ -24,7 +24,7 @@ export default function OperatorBookingRequestsPageDemo() {
             Очередь заявок включается в рабочем режиме
           </div>
           <p className="mt-2 text-[13px] text-muted-foreground">
-            В демо-режиме данные не пишутся в клиническую очередь. В рабочем режиме эта
+            В учебном режиме данные не пишутся в клиническую очередь. В рабочем режиме эта
             страница читает и обновляет только защищённую очередь клиники.
           </p>
         </Card>

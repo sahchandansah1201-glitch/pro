@@ -36,7 +36,7 @@ describe("OperatorDialogPage", () => {
     expect(screen.getByText(/Переписка/)).toBeInTheDocument();
     expect(screen.getByText(/Безопасность данных/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Передать запись \(демо, отключено\)/ }),
+      screen.getByRole("button", { name: /Передача записи отключена/ }),
     ).toBeDisabled();
     expectClean(container.innerHTML);
   });
@@ -47,7 +47,7 @@ describe("OperatorDialogPage", () => {
     expectClean(container.innerHTML);
   });
 
-  it("локальные демо-действия меняют локальный state, без вызовов сети", () => {
+  it("учебные действия меняют локальный state, без вызовов сети", () => {
     const { container } = renderAt("/operator/dialogs/bd-001");
     fireEvent.click(screen.getByRole("button", { name: /^Взять в работу$/ }));
     expect(screen.getByText(/Локальный статус:/)).toBeInTheDocument();

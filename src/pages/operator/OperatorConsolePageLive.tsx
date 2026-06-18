@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
 import {
   bookSelfHostedLeadAppointment,
@@ -25,8 +26,8 @@ import {
 } from "@/lib/self-hosted-api-session";
 
 const SOURCE_LABEL: Record<string, string> = {
-  telegram: "Telegram",
-  whatsapp: "WhatsApp",
+  telegram: "Телеграм",
+  whatsapp: "Вотсап",
   site: "Сайт",
   operator: "Оператор",
   phone: "Телефон",
@@ -393,7 +394,7 @@ function LeadQueueRow({
           {SOURCE_LABEL[lead.source] ?? lead.source} · {STATUS_LABEL[lead.status] ?? lead.status} · {lead.clinic.name || "Клиника"}
         </div>
         <div className="truncate text-meta">
-          {lead.patient.code || "пациент не связан"} · {formatMaybeDate(lead.createdAt)}
+          {lead.patient.code ? formatCardNumber(lead.patient.code) : "пациент не связан"} · {formatMaybeDate(lead.createdAt)}
         </div>
       </div>
       <div className="flex max-w-sm flex-wrap justify-end gap-1">

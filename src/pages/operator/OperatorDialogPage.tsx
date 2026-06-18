@@ -44,17 +44,17 @@ const NEXT_ACTION_LABEL: Record<string, string> = {
 };
 
 const SAFETY_NOTE =
-  "Предварительный анализ не является диагнозом. Окончательное решение принимает врач.";
+  "Предварительная сводка не является диагнозом. Окончательное решение принимает врач.";
 
 const CHANNEL_LABEL: Record<BotChannel, string> = {
-  telegram: "Telegram",
-  whatsapp: "WhatsApp",
+  telegram: "Телеграм",
+  whatsapp: "Вотсап",
   web: "Сайт",
 };
 
 const LEAD_SOURCE_LABEL: Record<string, string> = {
-  telegram: "Telegram",
-  whatsapp: "WhatsApp",
+  telegram: "Телеграм",
+  whatsapp: "Вотсап",
   site: "Сайт",
   operator: "Оператор",
   phone: "Телефон",
@@ -63,8 +63,8 @@ const LEAD_SOURCE_LABEL: Record<string, string> = {
 };
 
 const UTM_VALUE_LABEL: Record<string, string> = {
-  tg: "Telegram",
-  wa: "WhatsApp",
+  tg: "Телеграм",
+  wa: "Вотсап",
   bot: "бот",
   miniapp: "форма записи",
   form: "форма",
@@ -140,7 +140,7 @@ export default function OperatorDialogPage() {
   function logAction(label: string, status?: string) {
     if (status) setLocalState(status);
     setAudit((a) => [
-      `${formatDateTime(DEMO_NOW.toISOString())} · ${label} · Демо-действие записано локально`,
+      `${formatDateTime(DEMO_NOW.toISOString())} · ${label} · Учебное действие записано локально`,
       ...a,
     ]);
   }
@@ -196,7 +196,7 @@ export default function OperatorDialogPage() {
 
           <Card className="p-3 text-[13px]">
             <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-              Локальные демо-действия
+              Учебные действия
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -255,7 +255,7 @@ export default function OperatorDialogPage() {
                 после подключения клиники.
               </p>
               <Button size="sm" disabled className="mt-2 min-h-[44px]">
-                Передать запись (демо, отключено)
+                Передача записи отключена
               </Button>
             </Card>
           )}
@@ -309,7 +309,7 @@ export default function OperatorDialogPage() {
           {card ? (
             <Card className="p-3 text-[13px]">
               <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
-                <span>Предварительный анализ</span>
+                <span>Предварительная сводка</span>
                 <RiskBadge level={card.routingRisk} />
               </div>
               <p className="text-foreground">{card.safeSummary}</p>

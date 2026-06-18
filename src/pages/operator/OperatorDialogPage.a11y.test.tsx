@@ -21,9 +21,9 @@ describe("OperatorDialogPage a11y", () => {
     expect(h1s[0]).toHaveTextContent(/Обращение 001/);
   });
 
-  it("кнопка 'Передать запись' имеет disabled-состояние, доступное скринридерам", () => {
+  it("кнопка отключённой передачи записи имеет disabled-состояние, доступное скринридерам", () => {
     renderAt("/operator/dialogs/bd-001");
-    const btn = screen.getByRole("button", { name: /Передать запись/ });
+    const btn = screen.getByRole("button", { name: /Передача записи отключена/ });
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute("disabled");
   });
@@ -44,7 +44,7 @@ describe("OperatorDialogPage a11y", () => {
     }
   });
 
-  it("Tab последовательно фокусирует кнопки демо-действий", async () => {
+  it("Tab последовательно фокусирует кнопки учебных действий", async () => {
     const user = userEvent.setup();
     renderAt("/operator/dialogs/bd-001");
     const take = screen.getByRole("button", { name: /^Взять в работу$/ });

@@ -175,7 +175,7 @@ const PRODUCTION_NAV_BY_ROLE: Partial<Record<Role, NavGroup[]>> = {
     {
       label: "Поддержка",
       items: [
-        { title: "Лиды", url: "/operator", icon: Headphones },
+        { title: "Заявки", url: "/operator", icon: Headphones },
         { title: "Запросы на запись", url: "/operator/booking-requests", icon: CalendarPlus },
       ],
     },
