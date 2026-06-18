@@ -195,19 +195,22 @@ const REQUIRED_TEXT = {
     "MeHomePageDemo",
   ],
   "src/pages/patient/MeHomePageLive.tsx": [
-    "Production portal подключён",
-    "/api/v1/me/portal",
+    "Данные личного кабинета загружены из системы клиники.",
+    "Открыть историю очагов",
   ],
   "src/pages/patient/MeHistoryPageLive.tsx": [
     "fetchSelfHostedPatientPortalHistory",
     "Очаги под наблюдением",
     "Хронология визитов",
-    "Контур политики доступа к фото",
+    "Доступ к фотографиям",
+    "Срок хранения подтверждён",
+    "Текст для пациента проверен",
     "Операции сравнения",
     "Жизненный цикл доступа",
   ],
   "src/pages/patient/MeReportsPageLive.tsx": [
-    "patient-safe reports",
+    "Контур безопасной выдачи",
+    "Служебные данные и врачебная версия скрыты",
     "usePatientPortalOverview",
   ],
   "src/pages/patient/MeReportPageLive.tsx": [
@@ -220,7 +223,7 @@ const REQUIRED_TEXT = {
     "Доступ подтверждён",
     "Завершить доступ",
     "Доступ к фото завершён",
-    "Подготовить фото",
+    "Загрузить фото",
     "Открыть фото",
     "Отзыв и журнал доступа",
     "URL.createObjectURL",
@@ -231,7 +234,8 @@ const REQUIRED_TEXT = {
     "Отправить запрос",
   ],
   "src/pages/patient/MeRemindersPageLive.tsx": [
-    "self-hosted reminder preferences",
+    "Настройки напоминаний",
+    "Сохранить настройки",
     "usePatientPortalOverview",
   ],
   "docs/backend/stage-5n-production-patient-portal-contracts.md": [
