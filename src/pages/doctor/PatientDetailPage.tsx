@@ -240,7 +240,7 @@ export default function PatientDetailPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <Section title="Данные пациента" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
-              <Field term="Номер карты" value={patient.code} />
+              <Field term="Номер карты" value={formatCardNumber(patient.code)} />
               <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
               <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
               <Field term="Фототип" value={patient.phototype} />
