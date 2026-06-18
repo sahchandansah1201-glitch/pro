@@ -4299,7 +4299,7 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 
       <Section title="Демография" className="lg:col-span-5">
         <Field term="ФИО" value={patient.fullName} />
-        <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
+        <Field term="Карта" value={formatCardNumber(patient.code)} />
         <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
         <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
         <Field term="Фототип" value={patient.phototype} />
