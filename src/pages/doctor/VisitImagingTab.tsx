@@ -89,7 +89,7 @@ const SOURCE_LABEL: Record<ClinicalImage["source"], string> = {
   phone: "Телефон",
   file: "Файл",
   camera: "Камера",
-  device_bridge: "Связь с устройством",
+  device_bridge: "Прибор",
   local_transfer: "Локальный перенос",
 };
 
@@ -277,7 +277,7 @@ export function VisitImagingTab({
                 { value: "all", label: "Все" },
                 { value: "phone", label: "Телефон" },
                 { value: "camera", label: "Камера" },
-                { value: "device_bridge", label: "Связь с устройством" },
+                { value: "device_bridge", label: "Прибор" },
                 { value: "local_transfer", label: "Локальный перенос" },
                 { value: "file", label: "Файл" },
               ]}
@@ -1322,6 +1322,7 @@ function ApiAssetsPanel({
         <ul className="divide-y divide-border">
           {assets.map((a, idx) => {
             const openingThisAsset = openingAssetId === a.id;
+            const actionLabel = assetActionLabel(a);
             return (
               <li
                 key={a.id}
@@ -1340,14 +1341,14 @@ function ApiAssetsPanel({
                   ref={idx === 0 ? firstOpenButtonRef : undefined}
                   size="sm"
                   variant="secondary"
-                  className="h-10 gap-1.5 text-[12px] sm:h-8"
+                  className="min-h-11 gap-1.5 text-[12px]"
                   onClick={(e) => handleOpen(a, e.currentTarget)}
                   disabled={busy}
                   aria-busy={openingThisAsset || undefined}
                   aria-label={
                     openingThisAsset
-                      ? `Готовим ссылку для снимка ${a.id}`
-                      : `Открыть снимок ${a.id}`
+                      ? `Готовим снимок: ${actionLabel}`
+                      : `Открыть снимок: ${actionLabel}`
                   }
                 >
                   {openingThisAsset ? (
@@ -1574,10 +1575,10 @@ function AssetPreviewActions({
           ref={refreshButtonRef}
           size="sm"
           variant="secondary"
-          className="h-9 gap-1.5 text-[12px]"
+          className="min-h-11 gap-1.5 text-[12px]"
           onClick={onRefresh}
           disabled={refreshing}
-          aria-label={`Получить новую ссылку для снимка ${preview.asset.id}`}
+          aria-label={`Получить новую ссылку для снимка: ${assetActionLabel(preview.asset)}`}
         >
           {refreshing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -1591,7 +1592,7 @@ function AssetPreviewActions({
         ref={openInNewTabButtonRef}
         size="sm"
         variant="secondary"
-        className="h-9 gap-1.5 text-[12px]"
+        className="min-h-11 gap-1.5 text-[12px]"
         onClick={onOpenInNewTab}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Открыть в новой вкладке
@@ -1599,7 +1600,7 @@ function AssetPreviewActions({
       <Button
         size="sm"
         variant="ghost"
-        className="h-9 text-[12px]"
+        className="min-h-11 text-[12px]"
         onClick={onClose}
       >
         Закрыть
@@ -1620,6 +1621,10 @@ function scrubLeaks(s: string): string {
     .replace(/\bclinic\/[^\s"'<>]+/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function assetActionLabel(asset: SafeAssetDTO): string {
+  return `${KIND_LABEL[asset.kind]} · ${SOURCE_LABEL[asset.source]} · ${formatDateTime(asset.capturedAt)}`;
 }
 
 function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
@@ -1862,7 +1867,7 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
     ["Источник", SOURCE_LABEL[image.source]],
     ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Карта тела / без привязки"],
     ["Снято", formatDateTime(image.capturedAt)],
-    ["Устройство", image.deviceId ?? "—"],
+    ["Устройство", image.deviceId ? "код скрыт" : "не указано"],
     ["Размер", `${e.width} × ${e.height}`],
     ["ISO", e.iso ?? "—"],
     ["Выдержка", e.shutter ?? "—"],
