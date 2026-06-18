@@ -106,7 +106,7 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
       <section className="rounded-md border border-border bg-surface p-3">
         <h2 className="mb-2 text-[13px] font-semibold">Сводка по визиту</h2>
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
-          <Field term="Пациент" value={`${patient.fullName} · ${patient.code}`} />
+          <Field term="Пациент" value={`${patient.fullName} · ${formatCardNumber(patient.code)}`} />
           <Field term="Статус" value={VISIT_STATUS[visit.status]} />
           <Field term="Дата визита" value={formatDate(visit.startedAt)} />
           <Field term="Врач" value={userName(visit.doctorId)} />
