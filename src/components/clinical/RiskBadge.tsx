@@ -33,7 +33,7 @@ export function RiskBadge({ level, className }: RiskBadgeProps) {
         STYLES[level],
         className,
       )}
-      aria-label={`Уровень риска: ${LABELS[level]}`}
+      aria-label={`Уровень внимания: ${LABELS[level]}`}
     >
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {LABELS[level]}
