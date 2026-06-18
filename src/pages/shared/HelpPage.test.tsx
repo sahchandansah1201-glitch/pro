@@ -44,7 +44,7 @@ describe("HelpPage", () => {
     renderHelp();
     expect(screen.getByText("Справка")).toBeInTheDocument();
     expect(screen.getByText(/Проверка доступа на экране.+учебная/i)).toBeInTheDocument();
-    expect(screen.getByText(/Автоматическая подсказка.+не диагноз/i)).toBeInTheDocument();
+    expect(screen.getByText(/Сводка помощника.+не диагноз/i)).toBeInTheDocument();
     expect(screen.getByText(/Финальное медицинское решение/i)).toBeInTheDocument();
   });
 

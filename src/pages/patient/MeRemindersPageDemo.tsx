@@ -20,7 +20,7 @@ const SOURCE_LABEL = {
 } as const;
 
 const DEMO_BANNER =
-  "Учебный режим. Напоминания показывают пример работы кабинета. Решения о лечении принимает врач.";
+  "Учебный режим. Напоминания показывают пример работы кабинета. Дальнейшие шаги определяет врач.";
 
 export default function MeRemindersPage() {
   const reminders = useMemo(() => getDerivedReminders(), []);

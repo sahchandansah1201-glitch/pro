@@ -5,7 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { getPublicAnalysisView } from "@/lib/public-analysis-access";
 
 const DISCLAIMER =
-  "Автоматическая подсказка не является диагнозом. Окончательное решение принимает врач.";
+  "Эта сводка не является диагнозом. Окончательное решение принимает врач.";
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
@@ -124,7 +124,7 @@ export default function AnalysisPublicPage() {
           <h2 className="text-sm font-semibold">Качество снимка</h2>
           <div className="mt-2 text-sm">
             {view.qualityPassed
-              ? "Фото подходит для предварительной оценки"
+              ? "Фото подходит для предварительной сводки"
               : "Фото требует повторения"}
           </div>
         </section>

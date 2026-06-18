@@ -16,7 +16,7 @@ const VIEWPORTS = [
 ] as const;
 
 const FORBIDDEN_VISIBLE =
-  /AI|XAI|demo|Demo|демо|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|token|токен|credential|session|signedUrl|storagePath|accessToken|qrToken|doctorVersionText|patientSafeText|safeSummary|protectedLink|raw ID|raw id|MVP/i;
+  /AI|XAI|demo|Demo|демо|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|token|токен|credential|session|signedUrl|storagePath|accessToken|qrToken|doctorVersionText|patientSafeText|safeSummary|protectedLink|raw ID|raw id|MVP|автоматическая подсказка|предварительная оценка|план лечения/i;
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page, label: string) {
   const overflow = await page.evaluate(() => ({

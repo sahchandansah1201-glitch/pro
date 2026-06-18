@@ -26,7 +26,7 @@ const SIZES = [
 ] as const;
 
 const FORBIDDEN_VISIBLE =
-  /AI|XAI|demo|Demo|демо|follow-up|CRM|SMS|push|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|MVP|raw ID|raw id|token|токен|credential|session|signedUrl|storagePath|accessToken|qrToken|doctorVersionText|patientSafeText|safeSummary|protectedLink/i;
+  /AI|XAI|demo|Demo|демо|follow-up|CRM|SMS|push|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|MVP|raw ID|raw id|token|токен|credential|session|signedUrl|storagePath|accessToken|qrToken|doctorVersionText|patientSafeText|safeSummary|protectedLink|план лечения|Решения о лечении|автоматическая подсказка|предварительная оценка/i;
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page, label: string) {
   const overflow = await page.evaluate(() => ({
@@ -81,7 +81,7 @@ test.describe("Patient portal — native Russian UI", () => {
 
         await page.setViewportSize({ width: size.width, height: size.height });
         await setDemoRole(page, "patient");
-        await page.goto(route, { waitUntil: "networkidle" });
+        await page.goto(route, { waitUntil: "domcontentloaded" });
 
         expect(page.url(), `${route}: не должен редиректить на /login`).not.toMatch(
           /\/login(\?|$)/,

@@ -7,7 +7,7 @@ if (process.env.PW_CHROMIUM_PATH) {
 }
 
 const FORBIDDEN_VISIBLE =
-  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|Telegram|CRM|ERP|RoleGuard|raw ID|Lead ID|lead|quality gate|CTA)\b|демо|бэкенд|лид/i;
+  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|Telegram|CRM|ERP|RoleGuard|raw ID|Lead ID|lead|quality gate|CTA)\b|демо|бэкенд|лид|автоматическая подсказка|предварительная оценка|план лечения/i;
 
 const ROUTES: { path: string; role: DemoRole; title: string; action: string; screenshot: string }[] = [
   {
@@ -89,7 +89,7 @@ test.describe("Help and booking assistant — native Russian UI", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       for (const route of ROUTES) {
         await setDemoRole(page, route.role);
-        await page.goto(route.path, { waitUntil: "networkidle" });
+        await page.goto(route.path, { waitUntil: "domcontentloaded" });
 
         expect(page.url(), `${route.path}: не должен редиректить на /login`).not.toMatch(/\/login(\?|$)/);
         await expect(page.locator("body")).toContainText(route.title);

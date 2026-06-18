@@ -49,6 +49,7 @@ describe("Patient portal pages", () => {
     const { container } = renderRouted(<MeHomePage />, "/me");
     expect(screen.getByRole("heading", { name: /Личный кабинет/ })).toBeInTheDocument();
     expect(screen.queryByText(/Раздел будет реализован/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Дальнейшие шаги определяет врач/)).toBeInTheDocument();
     expect(screen.getByText(/Ближайший приём/)).toBeInTheDocument();
     expect(screen.getByText(/Последнее заключение/)).toBeInTheDocument();
     expect(screen.getByText(/История очагов/)).toBeInTheDocument();
@@ -72,7 +73,7 @@ describe("Patient portal pages", () => {
     const { container } = renderRouted(<MeReportPage />, "/me/reports/r-001");
     expect(screen.getByRole("heading", { name: /Заключение/ })).toBeInTheDocument();
     expect(screen.getByText(/подготовлен план наблюдения/)).toBeInTheDocument();
-    expect(container.textContent || "").not.toMatch(/доброкачествен|злокачествен|меланома|рак кожи|биопсия/i);
+    expect(container.textContent || "").not.toMatch(/доброкачествен|злокачествен|меланома|рак кожи|биопсия|план лечения/i);
     expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
     expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
@@ -123,7 +124,7 @@ describe("Patient portal pages", () => {
     for (const route of routes) {
       const view = renderRouted(<MeHomePage />, route);
       expect(document.body.textContent || "", route).not.toMatch(
-        /AI|XAI|follow-up|demo|демо|CRM|SMS|push|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation/i,
+        /AI|XAI|follow-up|demo|демо|CRM|SMS|push|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|план лечения|Решения о лечении/i,
       );
       view.unmount();
     }

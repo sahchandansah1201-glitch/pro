@@ -737,7 +737,7 @@ export const ANALYSIS_CARDS: AnalysisCard[] = [
       modelVersion: "triage-v0.4.1",
     },
     safeSummary:
-      "Признаков, требующих срочной реакции, не выявлено. Предварительная оценка не является диагнозом, рекомендована плановая очная оценка врача.",
+      "Признаков, требующих срочной реакции, не выявлено. Предварительная сводка не является диагнозом, рекомендована плановая очная проверка врача.",
     routingRisk: "low",
     recommendedClinicId: CLINIC_MAIN,
     ctaType: "book",
@@ -756,7 +756,7 @@ export const ANALYSIS_CARDS: AnalysisCard[] = [
       modelVersion: "triage-v0.4.1",
     },
     safeSummary:
-      "Есть признаки, требующие внимания специалиста. Требуется очная оценка врача. Предварительная оценка не является диагнозом.",
+      "Есть признаки, требующие внимания специалиста. Требуется очная проверка врача. Предварительная сводка не является диагнозом.",
     routingRisk: "moderate",
     recommendedClinicId: CLINIC_MAIN,
     ctaType: "book",
@@ -775,7 +775,7 @@ export const ANALYSIS_CARDS: AnalysisCard[] = [
       modelVersion: "triage-v0.4.1",
     },
     safeSummary:
-      "Выявлены признаки, требующие срочной очной оценки врача. Предварительная оценка не является диагнозом.",
+      "Выявлены признаки, требующие срочной очной проверки врача. Предварительная сводка не является диагнозом.",
     routingRisk: "urgent",
     recommendedClinicId: CLINIC_MAIN,
     ctaType: "urgent",
@@ -793,7 +793,7 @@ export const ANALYSIS_CARDS: AnalysisCard[] = [
       modelVersion: "triage-v0.4.1",
     },
     safeSummary:
-      "Снимок требует повторения: качество фото недостаточно для предварительной оценки.",
+      "Снимок требует повторения: качество фото недостаточно для предварительной сводки.",
     routingRisk: "low",
     recommendedClinicId: CLINIC_NORTH,
     ctaType: "repeat_photo",
@@ -811,7 +811,7 @@ export const ANALYSIS_CARDS: AnalysisCard[] = [
       modelVersion: "triage-v0.4.1",
     },
     safeSummary:
-      "Есть признаки, требующие внимания специалиста. Требуется очная оценка врача. Предварительная оценка не является диагнозом.",
+      "Есть признаки, требующие внимания специалиста. Требуется очная проверка врача. Предварительная сводка не является диагнозом.",
     routingRisk: "moderate",
     recommendedClinicId: CLINIC_NORTH,
     ctaType: "book",

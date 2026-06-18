@@ -44,7 +44,7 @@ describe("AnalysisPublicPage", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Не является диагнозом/i).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Автоматическая подсказка не является диагнозом\. Окончательное решение принимает врач\./)
+      screen.getByText(/Эта сводка не является диагнозом\. Окончательное решение принимает врач\./)
     ).toBeInTheDocument();
     expect(container.textContent || "").not.toContain(VALID);
   });
@@ -90,5 +90,6 @@ describe("AnalysisPublicPage", () => {
   it("видимый текст остаётся нативно русским без англо-технических терминов", () => {
     const { container } = renderAt(VALID);
     expect(container.textContent || "").not.toMatch(/AI|XAI|demo|демо|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation/i);
+    expect(container.textContent || "").not.toMatch(/автоматическая подсказка|предварительной оценки/i);
   });
 });
