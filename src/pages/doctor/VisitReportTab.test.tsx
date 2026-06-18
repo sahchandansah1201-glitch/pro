@@ -171,36 +171,35 @@ describe("VisitReportTab · Patient Visit Packet", () => {
   it("blocks packet release when selected photos need quality review", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
-    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
-    expect(within(packet).getByText(/Выпуск заблокирован/)).toBeInTheDocument();
+    const packet = screen.getByRole("region", { name: /Пакет визита для проверки/ });
+    expect(within(packet).getByText(/Проверка заблокирована/)).toBeInTheDocument();
     expect(within(packet).getByText(/Нужно переснять или проверить качество/)).toBeInTheDocument();
     expect(
-      within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }),
+      within(packet).getByRole("button", { name: /Подготовить пакет к проверке/ }),
     ).toBeDisabled();
   });
 
-  it("releases a ready visit packet without exposing raw access token", () => {
+  it("prepares a ready visit packet without exposing raw access token", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
 
-    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
-    expect(within(packet).getByText(/Готов к выпуску/)).toBeInTheDocument();
-    fireEvent.click(within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }));
+    const packet = screen.getByRole("region", { name: /Пакет визита для проверки/ });
+    expect(within(packet).getByText(/Готов к проверке/)).toBeInTheDocument();
+    fireEvent.click(within(packet).getByRole("button", { name: /Подготовить пакет к проверке/ }));
 
-    expect(within(packet).getByText(/Пакет выпущен пациенту/)).toBeInTheDocument();
-    expect(within(packet).getByText(/Код доступа пациента/)).toBeInTheDocument();
-    expect(within(packet).getByText(/Доступ пациенту выдан/)).toBeInTheDocument();
+    expect(within(packet).getAllByText(/Пакет подготовлен к проверке/).length).toBeGreaterThan(0);
+    expect(within(packet).getByText(/Доступ пациента/)).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("tok-r001-demo");
   });
 
   it("lets the doctor revoke a released visit packet and records audit state", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
 
-    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
-    fireEvent.click(within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }));
+    const packet = screen.getByRole("region", { name: /Пакет визита для проверки/ });
+    fireEvent.click(within(packet).getByRole("button", { name: /Подготовить пакет к проверке/ }));
     fireEvent.click(within(packet).getByRole("button", { name: /Отозвать доступ/ }));
 
     expect(within(packet).getByText(/Доступ отозван/)).toBeInTheDocument();
-    expect(within(packet).getByText(/Повторный выпуск создаст новую запись аудита/)).toBeInTheDocument();
+    expect(within(packet).getByText(/Повторная подготовка создаст новую запись аудита/)).toBeInTheDocument();
   });
 });
 
@@ -208,18 +207,18 @@ describe("VisitReportTab · patient photo release readiness", () => {
   it("blocks patient photo access when selected photos still need quality review", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
-    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
+    const packet = screen.getByRole("region", { name: /Пакет визита для проверки/ });
     const photoAccess = screen.getByRole("region", {
-      name: /Контур фото для пациента/,
+      name: /Контур фото для проверки/,
     });
     expect(within(photoAccess).getByText(/Доступ к фото заблокирован/)).toBeInTheDocument();
     expect(within(photoAccess).getByText(/Фото выбирает врач/)).toBeInTheDocument();
     expect(within(photoAccess).getByText(/качество фото требует проверки/)).toBeInTheDocument();
     expect(
-      within(photoAccess).getByText(/Сырые файлы и защищённые ссылки скрыты/),
+      within(photoAccess).getByText(/Исходные файлы и защищённые ссылки скрыты/),
     ).toBeInTheDocument();
     expect(
-      within(photoAccess).getByRole("button", { name: /Подготовить метаданные фото/ }),
+      within(photoAccess).getByRole("button", { name: /Подготовить данные фото/ }),
     ).toBeDisabled();
     expect(packet.textContent).not.toContain("i-011");
     expect(packet.textContent).not.toContain("i-012");
@@ -231,7 +230,7 @@ describe("VisitReportTab · patient photo release readiness", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
 
     const photoAccess = screen.getByRole("region", {
-      name: /Контур фото для пациента/,
+      name: /Контур фото для проверки/,
     });
     expect(
       within(photoAccess).getByText(/Данные фото готовы для системы клиники/),
@@ -241,14 +240,14 @@ describe("VisitReportTab · patient photo release readiness", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(
-      within(photoAccess).getByRole("button", { name: /Подготовить метаданные фото/ }),
+      within(photoAccess).getByRole("button", { name: /Подготовить данные фото/ }),
     );
 
     expect(
       within(photoAccess).getByText(/Контур фото подготовлен локально/),
     ).toBeInTheDocument();
     expect(
-      within(photoAccess).getByText(/Файлы, токены и защищённые ссылки не выводятся/),
+      within(photoAccess).getByText(/Файлы, ключи доступа и защищённые ссылки не выводятся/),
     ).toBeInTheDocument();
 
     const j = (...p: string[]) => p.join("");
@@ -265,6 +264,22 @@ describe("VisitReportTab · patient photo release readiness", () => {
     for (const token of forbidden) {
       expect(html.includes(token)).toBe(false);
     }
+  });
+});
+
+describe("VisitReportTab · native Russian safeguards", () => {
+  it("keeps visible report UI free of raw cards and technical release wording", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+
+    const visible = document.body.textContent ?? "";
+    expect(visible).toContain("карта 0004");
+    expect(visible).not.toMatch(/DP-2026-\d+/);
+    expect(visible).not.toMatch(
+      /Пакет визита пациенту|Выпустить пакет пациенту|Выпуск заблокирован|Готов к выпуску|Пакет выпущен пациенту|Доступ пациенту выдан|Токен|токены|сервер|метаданные|ABCD total|7-point total|needs review|no images|\bok\b/i,
+    );
+    expect(visible).not.toMatch(
+      /backend|self-hosted|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness/i,
+    );
   });
 });
 

@@ -15,6 +15,7 @@ import {
 import type { Assessment, ClinicalImage, Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { formatCardNumber } from "@/lib/card-number";
 import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
 import { BODY_MAP_DEMO_NOW, bodyMapSurfaceLabel } from "@/pages/doctor/body-map-model";
 
@@ -162,7 +163,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
       <section className="rounded-md border border-border bg-surface p-3">
         <h2 className="mb-2 text-[13px] font-semibold">Контекст отчёта</h2>
         <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
-          <Field term="Пациент" value={`${patient.fullName} · ${patient.code}`} />
+          <Field term="Пациент" value={`${patient.fullName} · ${formatCardNumber(patient.code)}`} />
           <Field term="Статус визита" value={VISIT_STATUS[visit.status]} />
           <Field term="Дата визита" value={formatDate(visit.startedAt)} />
           <Field term="Врач" value={userName(visit.doctorId)} />
@@ -557,7 +558,7 @@ function DemoReportForm({
     >
       <h2 className="mb-2 text-[13px] font-semibold">Локальный учебный отчёт</h2>
       <p className="mb-3 text-[12px] text-muted-foreground">
-        Форма существует только в UI. Данные не сохраняются на сервере.
+        Учебная форма. Данные остаются только на этом экране.
       </p>
 
       <div className="grid grid-cols-1 gap-3">
@@ -761,7 +762,7 @@ function DemoReportForm({
               {saved.internalNote || "Внутренняя заметка не заполнена."}
             </p>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Без защищённых ссылок, токенов и файловых ссылок.
+              Без ключей доступа, защищённых ссылок и файловых ссылок.
             </p>
           </div>
         </div>
@@ -833,7 +834,7 @@ function VisitPacketPanel({
       const label = row.action === "report.generate"
         ? "Отчёт сформирован"
         : row.action === "report.share"
-          ? "Доступ пациенту выдан"
+          ? "Действие доступа отмечено"
           : "Действие с отчётом";
       return `${label} · ${formatDateTime(row.createdAt)}`;
     });
@@ -871,18 +872,18 @@ function VisitPacketPanel({
     : `${selectedImages.length} из ${images.length}`;
   const qualityCopy =
     selectedQuality === "ok"
-      ? "ок"
+      ? "хорошее качество"
       : selectedQuality === "review"
         ? "проверка качества требуется"
         : "нет снимков";
   const stateLabel =
     packetState === "released"
-      ? "Выпущен"
+      ? "Подготовлен"
       : packetState === "revoked"
         ? "Отозван"
         : canRelease
-          ? "Готов к выпуску"
-          : "Выпуск заблокирован";
+          ? "Готов к проверке"
+          : "Проверка заблокирована";
 
   const toggleImage = (imageId: string) => {
     setSelectedImageIds((prev) =>
@@ -893,7 +894,10 @@ function VisitPacketPanel({
   const releasePacket = () => {
     if (!canRelease) return;
     setPacketState("released");
-    setAuditRows((prev) => [`Доступ пациенту выдан · ${formatDateTime(BODY_MAP_DEMO_NOW)}`, ...prev]);
+    setAuditRows((prev) => [
+      `Пакет подготовлен к проверке · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
+      ...prev,
+    ]);
   };
 
   const revokePacket = () => {
@@ -914,21 +918,21 @@ function VisitPacketPanel({
     if (!photoMetadataReady) return;
     setPhotoHandoffState("prepared");
     setAuditRows((prev) => [
-      `Метаданные фото подготовлены · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
+      `Данные фото подготовлены · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
       ...prev,
     ]);
   };
 
   return (
     <section
-      aria-label="Пакет визита пациенту"
+      aria-label="Пакет визита для проверки"
       className="rounded-md border border-border bg-surface p-3"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">Пакет визита пациенту</h2>
+          <h2 className="text-[13px] font-semibold">Пакет визита для проверки</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            Врач выпускает пациенту только проверенный текст, выбранные снимки и срок доступа.
+            Врач проверяет текст, выбранные снимки и срок доступа перед передачей в систему клиники.
           </p>
         </div>
         <span
@@ -953,7 +957,7 @@ function VisitPacketPanel({
 
       {missing.length > 0 ? (
         <div className="mt-3 rounded-sm border border-dashed border-[hsl(var(--risk-medium))] bg-surface-muted p-2">
-          <div className="text-[12px] font-medium">Что нужно закрыть перед выпуском</div>
+          <div className="text-[12px] font-medium">Что нужно закрыть перед проверкой</div>
           <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
             {missing.map((item) => (
               <li key={item} className="flex items-start gap-1.5">
@@ -1005,24 +1009,24 @@ function VisitPacketPanel({
         </div>
 
         <div className="rounded-sm border border-border bg-surface p-3">
-          <div className="text-[12px] font-medium">Код доступа пациента</div>
+          <div className="text-[12px] font-medium">Доступ пациента</div>
           <DemoQr />
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Токен доступа скрыт. В учебном пакете отображается только факт выпуска и срок.
+            Ключ доступа скрыт. В учебном пакете отображается только факт подготовки и срок.
           </p>
         </div>
       </div>
 
       <section
-        aria-label="Контур фото для пациента"
+        aria-label="Контур фото для проверки"
         className="mt-3 rounded-sm border border-border bg-surface p-3"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-[12px] font-medium">Контур фото для пациента</h3>
+            <h3 className="text-[12px] font-medium">Контур фото для проверки</h3>
             <p className="mt-1 text-[12px] text-muted-foreground">
               Интерфейс готовит только данные выбранных врачом снимков. Реальная выдача
-              файлов должна идти через систему клиники с журналом и отзывом доступа.
+              доступ к файлам должен идти через систему клиники с журналом и отзывом доступа.
             </p>
           </div>
           <span
@@ -1039,18 +1043,18 @@ function VisitPacketPanel({
         <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
           <Field term="Фото выбирает врач" value={selectedLabel} />
           <Field term="Состав" value={imageKindSummary(selectedImages)} />
-          <Field term="Сырые файлы и защищённые ссылки" value="скрыты" />
+          <Field term="Исходные файлы и защищённые ссылки" value="скрыты" />
           <Field term="Срок доступа" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
-          <Field term="Контур" value="только метаданные" />
+          <Field term="Контур" value="только описание" />
           <Field term="План" value="фото и протокол" />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Сырые файлы и защищённые ссылки скрыты. Пациентский доступ появится только
+          Исходные файлы и защищённые ссылки скрыты. Доступ откроется только
           после всех проверок клиники.
         </p>
 
         <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
-          <div className="text-[12px] font-medium">Что блокирует выдачу фото</div>
+          <div className="text-[12px] font-medium">Что блокирует проверку фото</div>
           <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
             {photoReleaseMissing.map((item) => (
               <li key={`photo-${item}`} className="flex items-start gap-1.5">
@@ -1072,7 +1076,7 @@ function VisitPacketPanel({
           >
             <div className="font-medium">Контур фото подготовлен локально</div>
             <div className="mt-1 text-muted-foreground">
-              Файлы, токены и защищённые ссылки не выводятся. Следующий шаг —
+              Файлы, ключи доступа и защищённые ссылки не выводятся. Следующий шаг —
               договор выдачи, журнал открытия и отзыв доступа.
             </div>
           </div>
@@ -1087,7 +1091,7 @@ function VisitPacketPanel({
             disabled={!photoMetadataReady}
             onClick={preparePhotoHandoff}
           >
-            Подготовить метаданные фото
+            Подготовить данные фото
           </Button>
           <span className="text-[11px] text-muted-foreground">
             Учебное действие не открывает фото пациенту и не создаёт ссылку.
@@ -1100,7 +1104,7 @@ function VisitPacketPanel({
           role="status"
           className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
         >
-          Пакет выпущен пациенту. Доступ действует до {expiresAt ? formatDateTime(expiresAt) : "заданного срока"}.
+          Пакет подготовлен к проверке. Срок доступа — {expiresAt ? formatDateTime(expiresAt) : "заданный срок"}.
         </div>
       )}
       {packetState === "revoked" && (
@@ -1108,7 +1112,7 @@ function VisitPacketPanel({
           role="status"
           className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
         >
-          Доступ отозван. Повторный выпуск создаст новую запись аудита.
+          Доступ отозван. Повторная подготовка создаст новую запись аудита.
         </div>
       )}
 
@@ -1121,7 +1125,7 @@ function VisitPacketPanel({
           disabled={!canRelease}
           onClick={releasePacket}
         >
-          Выпустить пакет пациенту
+          Подготовить пакет к проверке
         </Button>
         {packetState === "released" && (
           <Button
@@ -1164,7 +1168,7 @@ function VisitPacketPanel({
           <Field term="Снимки" value={selectedLabel} />
           <Field term="Текст" value={patientText ? "версия для пациента готова" : "нет безопасной версии"} />
           <Field term="Система клиники" value="обязательна" />
-          <Field term="Ссылки" value="токены и ссылки скрыты" />
+          <Field term="Ссылки" value="ключи доступа и ссылки скрыты" />
           <Field term="Аудит" value={backendJobState === "prepared" ? "подготовлен" : "ожидает"} />
         </div>
 
@@ -1189,7 +1193,7 @@ function VisitPacketPanel({
           >
             <div className="font-medium">Задача отчёта подготовлена локально</div>
             <div className="mt-1 text-muted-foreground">
-              Задача ожидает систему клиники. Токены, защищённые ссылки и файловые пути
+              Задача ожидает систему клиники. Ключи доступа, защищённые ссылки и файловые пути
               не выводятся.
             </div>
           </div>
@@ -1207,7 +1211,7 @@ function VisitPacketPanel({
             Подготовить задачу отчёта
           </Button>
           <span className="text-[11px] text-muted-foreground">
-            Учебное действие не делает сетевых вызовов и не выпускает документ пациенту.
+            Учебное действие не отправляет данные из браузера и не передаёт документ пациенту.
           </span>
         </div>
       </section>
