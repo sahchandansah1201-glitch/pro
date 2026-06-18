@@ -17,6 +17,7 @@ import {
   getVisitById,
 } from "@/lib/mock-data";
 import { calcAge, formatDate, formatDateTime } from "@/lib/format";
+import { formatCardNumber } from "@/lib/card-number";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { useApiSession } from "@/lib/api-session";
