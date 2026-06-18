@@ -20,6 +20,7 @@ import {
 import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
+import { formatCardNumber } from "@/lib/card-number";
 import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
