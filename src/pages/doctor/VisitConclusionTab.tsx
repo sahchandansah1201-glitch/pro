@@ -366,10 +366,10 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
 
   return (
     <section
-      aria-label="Локальное демо-заключение"
+      aria-label="Локальное учебное заключение"
       className="rounded-md border border-border bg-surface p-3"
     >
-      <h2 className="mb-2 text-[13px] font-semibold">Локальное демо-заключение</h2>
+      <h2 className="mb-2 text-[13px] font-semibold">Локальное учебное заключение</h2>
       <p className="mb-3 text-[12px] text-muted-foreground">
         Форма существует только в UI текущего визита. Данные не сохраняются на сервере.
       </p>
@@ -381,7 +381,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
             value={clinicalSummary}
             onChange={(e) => setClinicalSummary(e.target.value)}
             rows={2}
-            placeholder="Например: подозрение на атипичные изменения; рекомендована эксцизионная биопсия."
+            placeholder="Например: структурные изменения, рекомендован очный осмотр специалистом."
           />
         </FormField>
         <FormField id="demo-conc-followup" label="План наблюдения">
