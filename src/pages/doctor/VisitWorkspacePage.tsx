@@ -314,7 +314,7 @@ export default function VisitWorkspacePage() {
   const lesionParam = searchParams.get("lesion");
 
   const headerMeta: Array<{ label: string; value: string }> = [
-    { label: "Код", value: patient.code },
+    { label: "Карта", value: formatCardNumber(patient.code) },
     { label: "Пол / возраст", value: `${SEX_LABEL_SHORT[patient.sex]} · ${calcAge(patient.birthDate)} лет` },
     { label: "Фототип", value: String(patient.phototype) },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
