@@ -12,6 +12,7 @@ import {
 } from "@/lib/mock-data";
 import type { Assessment, ClinicalImage, Lesion, Patient, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { BODY_MAP_DEMO_NOW, bodyMapSurfaceLabel } from "@/pages/doctor/body-map-model";
 
