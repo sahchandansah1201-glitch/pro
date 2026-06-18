@@ -411,7 +411,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
           className="min-h-[44px] sm:min-h-[32px]"
           onClick={onSave}
         >
-          Сохранить демо-заключение
+          Сохранить учебное заключение
         </Button>
         <span className="text-[11px] text-muted-foreground">
           Локально, без сети и хранилища.
