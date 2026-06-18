@@ -425,7 +425,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
           className="mt-3 space-y-3"
         >
           <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px]">
-            <div className="mb-1 text-[12px] font-medium">Демо-заключение создано локально</div>
+            <div className="mb-1 text-[12px] font-medium">Учебное заключение создано локально</div>
             <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
               <dt className="text-muted-foreground">Клиническое резюме</dt>
               <dd className="sm:col-span-2">{saved.clinicalSummary || "—"}</dd>
