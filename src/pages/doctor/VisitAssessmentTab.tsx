@@ -52,6 +52,7 @@ function qualityLabel(s: QualityStatus): string {
 
 function safeSystemHintText(value: string): string {
   return value
+    .replace(/AI-поддержка/gi, "Подсказка системы")
     .replace(/\bXAI\b/gi, "карты внимания")
     .replace(/\bAI\b/gi, "системная")
     .replace(/XAI-карты/gi, "карты внимания")
@@ -280,12 +281,15 @@ function ExistingAssessmentPanels({ assessment }: { assessment: Assessment }) {
       </Section>
 
       <Section title="Решение врача (только просмотр)" className="lg:col-span-2">
-        <Field term="Заключение" value={assessment.doctorConclusion || "—"} />
-        <Field term="План наблюдения" value={assessment.followUpPlan || "—"} />
+        <Field
+          term="Врачебная запись"
+          value={assessment.doctorConclusion ? "есть · текст скрыт в учебном режиме" : "—"}
+        />
+        <Field term="План наблюдения" value={assessment.followUpPlan ? "есть · текст скрыт" : "—"} />
         <Field term="Принял" value={userName(assessment.decidedBy)} />
         <Field term="Когда" value={formatDateTime(assessment.decidedAt)} />
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Существующая запись врача. Редактирование доступно на вкладке «Заключение».
+          Существующая запись врача скрыта на учебном экране. Редактирование доступно на вкладке «Заключение».
         </p>
       </Section>
     </>

@@ -281,8 +281,16 @@ function SelectedLesionPanel({
             term="Итог по семи признакам"
             value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
           />
-          <Field term="План наблюдения" value={assessment.followUpPlan || "—"} wide />
-          <Field term="Комментарий врача" value={assessment.doctorConclusion || "—"} wide />
+          <Field
+            term="План наблюдения"
+            value={assessment.followUpPlan ? "есть · текст скрыт в учебном режиме" : "—"}
+            wide
+          />
+          <Field
+            term="Врачебная запись"
+            value={assessment.doctorConclusion ? "есть · текст скрыт в учебном режиме" : "—"}
+            wide
+          />
           <Field term="Когда" value={formatDateTime(assessment.decidedAt)} />
         </div>
       ) : (
@@ -366,16 +374,16 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
 
   return (
     <section
-      aria-label="Локальное учебное заключение"
+      aria-label="Учебное заключение на экране"
       className="rounded-md border border-border bg-surface p-3"
     >
-      <h2 className="mb-2 text-[13px] font-semibold">Локальное учебное заключение</h2>
+      <h2 className="mb-2 text-[13px] font-semibold">Учебное заключение на экране</h2>
       <p className="mb-3 text-[12px] text-muted-foreground">
-        Форма существует только в UI текущего визита. Данные не сохраняются на сервере.
+        Форма существует только в текущем визите. Данные не сохраняются в системе клиники.
       </p>
 
       <div className="grid grid-cols-1 gap-3">
-        <FormField id="demo-conc-summary" label="Клиническое резюме">
+        <FormField id="demo-conc-summary" label="Врачебная заметка">
           <Textarea
             id="demo-conc-summary"
             value={clinicalSummary}
@@ -425,9 +433,9 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
           className="mt-3 space-y-3"
         >
           <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px]">
-            <div className="mb-1 text-[12px] font-medium">Учебное заключение создано локально</div>
+            <div className="mb-1 text-[12px] font-medium">Учебное заключение создано на экране</div>
             <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
-              <dt className="text-muted-foreground">Клиническое резюме</dt>
+              <dt className="text-muted-foreground">Врачебная заметка</dt>
               <dd className="sm:col-span-2">{saved.clinicalSummary || "—"}</dd>
               <dt className="text-muted-foreground">План наблюдения</dt>
               <dd className="sm:col-span-2">{saved.followUpPlan || "—"}</dd>

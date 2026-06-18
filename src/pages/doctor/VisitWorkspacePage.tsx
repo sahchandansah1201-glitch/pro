@@ -233,14 +233,14 @@ export default function VisitWorkspacePage() {
       if (!visitResult.ok || !visitResult.value) {
         setLiveState({
           kind: "error",
-          message: visitResult.error?.message ?? "Не удалось загрузить визит с сервера клиники.",
+          message: visitResult.error?.message ?? "Не удалось загрузить визит из системы клиники.",
         });
         return;
       }
       if (!lesionsResult.ok) {
         setLiveState({
           kind: "error",
-          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита с сервера клиники.",
+          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита из системы клиники.",
         });
         return;
       }

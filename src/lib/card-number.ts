@@ -6,5 +6,5 @@
 export function formatCardNumber(code?: string | null): string {
   if (!code) return "номер скрыт";
   const match = code.match(/^DP-\d{4}-(\d+)$/);
-  return match ? `карта ${match[1]}` : `карта ${code}`;
+  return match ? `карта ${match[1]}` : "номер скрыт";
 }

@@ -104,7 +104,7 @@ describe("VisitConclusionTab · learning conclusion form", () => {
     const beforeA = getAssessmentsByVisitId("v-005").length;
 
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.change(screen.getByLabelText(/Клиническое резюме/), {
+    fireEvent.change(screen.getByLabelText(/Врачебная заметка/), {
       target: { value: "Внутренние детали для врача." },
     });
     fireEvent.change(screen.getByLabelText(/Комментарий для пациента/), {
@@ -113,7 +113,7 @@ describe("VisitConclusionTab · learning conclusion form", () => {
     fireEvent.click(screen.getByRole("button", { name: /Сохранить учебное заключение/ }));
 
     const preview = screen.getByTestId("demo-conclusion-preview");
-    expect(preview.textContent).toMatch(/Учебное заключение создано локально/);
+    expect(preview.textContent).toMatch(/Учебное заключение создано на экране/);
 
     const afterA = getAssessmentsByVisitId("v-005").length;
     expect(afterA).toBe(beforeA);
@@ -121,7 +121,7 @@ describe("VisitConclusionTab · learning conclusion form", () => {
 
   it("patient-facing preview only contains the plain-language patient comment", () => {
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.change(screen.getByLabelText(/Клиническое резюме/), {
+    fireEvent.change(screen.getByLabelText(/Врачебная заметка/), {
       target: { value: "ABCD высокий, биопсия 10 дней." },
     });
     fireEvent.change(screen.getByLabelText(/Комментарий для пациента/), {
