@@ -12,6 +12,7 @@ import {
 } from "@/lib/mock-data";
 import type { Assessment, ClinicalImage, Lesion, Patient, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
+import { formatCardNumber } from "@/lib/card-number";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { BODY_MAP_DEMO_NOW, bodyMapSurfaceLabel } from "@/pages/doctor/body-map-model";
 
@@ -47,9 +48,9 @@ function qualityStatus(images: ClinicalImage[]): QualityStatus {
 }
 
 function qualityLabel(s: QualityStatus): string {
-  if (s === "ok") return "ok";
-  if (s === "review") return "needs review";
-  return "no images";
+  if (s === "ok") return "готово";
+  if (s === "review") return "нужна проверка";
+  return "нет снимков";
 }
 
 interface Props {
@@ -106,7 +107,7 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
       <section className="rounded-md border border-border bg-surface p-3">
         <h2 className="mb-2 text-[13px] font-semibold">Сводка по визиту</h2>
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
-          <Field term="Пациент" value={`${patient.fullName} · ${patient.code}`} />
+          <Field term="Пациент" value={`${patient.fullName} · ${formatCardNumber(patient.code)}`} />
           <Field term="Статус" value={VISIT_STATUS[visit.status]} />
           <Field term="Дата визита" value={formatDate(visit.startedAt)} />
           <Field term="Врач" value={userName(visit.doctorId)} />
@@ -206,7 +207,7 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
       </div>
 
       <p className="text-[12px] text-muted-foreground">
-        Заключение в MVP отображает мок-данные. В реальной системе решение фиксируется врачом и попадает в аудит.
+        Заключение в учебном режиме показывает справочные данные. В реальной системе решение фиксируется врачом и попадает в журнал клиники.
       </p>
     </div>
   );
@@ -273,11 +274,11 @@ function SelectedLesionPanel({
       {assessment ? (
         <div className="mt-3 grid grid-cols-1 gap-2 rounded-sm border border-border bg-surface-muted p-3 sm:grid-cols-2">
           <Field
-            term="ABCD total"
+            term="Итог ABCD"
             value={<span className="tabular-nums">{assessment.abcd.total.toFixed(1)}</span>}
           />
           <Field
-            term="7-point total"
+            term="Итог по семи признакам"
             value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
           />
           <Field term="План наблюдения" value={assessment.followUpPlan || "—"} wide />
@@ -365,10 +366,10 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
 
   return (
     <section
-      aria-label="Локальное демо-заключение"
+      aria-label="Локальное учебное заключение"
       className="rounded-md border border-border bg-surface p-3"
     >
-      <h2 className="mb-2 text-[13px] font-semibold">Локальное демо-заключение</h2>
+      <h2 className="mb-2 text-[13px] font-semibold">Локальное учебное заключение</h2>
       <p className="mb-3 text-[12px] text-muted-foreground">
         Форма существует только в UI текущего визита. Данные не сохраняются на сервере.
       </p>
@@ -380,7 +381,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
             value={clinicalSummary}
             onChange={(e) => setClinicalSummary(e.target.value)}
             rows={2}
-            placeholder="Например: подозрение на атипичные изменения; рекомендована эксцизионная биопсия."
+            placeholder="Например: структурные изменения, рекомендован очный осмотр специалистом."
           />
         </FormField>
         <FormField id="demo-conc-followup" label="План наблюдения">
@@ -410,7 +411,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
           className="min-h-[44px] sm:min-h-[32px]"
           onClick={onSave}
         >
-          Сохранить демо-заключение
+          Сохранить учебное заключение
         </Button>
         <span className="text-[11px] text-muted-foreground">
           Локально, без сети и хранилища.
@@ -424,7 +425,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
           className="mt-3 space-y-3"
         >
           <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px]">
-            <div className="mb-1 text-[12px] font-medium">Демо-заключение создано локально</div>
+            <div className="mb-1 text-[12px] font-medium">Учебное заключение создано локально</div>
             <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
               <dt className="text-muted-foreground">Клиническое резюме</dt>
               <dd className="sm:col-span-2">{saved.clinicalSummary || "—"}</dd>
@@ -432,7 +433,7 @@ function DemoConclusionForm({ onOpenReport }: { onOpenReport: () => void }) {
               <dd className="sm:col-span-2">{saved.followUpPlan || "—"}</dd>
               <dt className="text-muted-foreground">Комментарий для пациента</dt>
               <dd className="sm:col-span-2">{saved.patientComment || "—"}</dd>
-              <dt className="text-muted-foreground">Время (демо)</dt>
+              <dt className="text-muted-foreground">Время (учебное)</dt>
               <dd className="tabular-nums sm:col-span-2">{formatDateTime(saved.createdAt)}</dd>
             </dl>
           </div>

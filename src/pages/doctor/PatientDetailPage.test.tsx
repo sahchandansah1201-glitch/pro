@@ -47,7 +47,8 @@ describe("PatientDetailPage", () => {
     renderAt("/patients/p-001");
 
     expect(screen.getByRole("heading", { name: "Иванова Наталья Олеговна" })).toBeInTheDocument();
-    expect(screen.getAllByText(/DP-2026-0001/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/карта 0001/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/DP-2026-0001/).length).toBe(0);
   });
 
   it("loads production patient detail and visits from the clinic system without learning fallback", async () => {

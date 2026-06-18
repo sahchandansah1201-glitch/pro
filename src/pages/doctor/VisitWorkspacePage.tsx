@@ -17,6 +17,7 @@ import {
   getVisitById,
 } from "@/lib/mock-data";
 import { calcAge, formatDate, formatDateTime } from "@/lib/format";
+import { formatCardNumber } from "@/lib/card-number";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { useApiSession } from "@/lib/api-session";
@@ -313,7 +314,7 @@ export default function VisitWorkspacePage() {
   const lesionParam = searchParams.get("lesion");
 
   const headerMeta: Array<{ label: string; value: string }> = [
-    { label: "Код", value: patient.code },
+    { label: "Карта", value: formatCardNumber(patient.code) },
     { label: "Пол / возраст", value: `${SEX_LABEL_SHORT[patient.sex]} · ${calcAge(patient.birthDate)} лет` },
     { label: "Фототип", value: String(patient.phototype) },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
@@ -4298,7 +4299,7 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 
       <Section title="Демография" className="lg:col-span-5">
         <Field term="ФИО" value={patient.fullName} />
-        <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
+        <Field term="Карта" value={formatCardNumber(patient.code)} />
         <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
         <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
         <Field term="Фототип" value={patient.phototype} />

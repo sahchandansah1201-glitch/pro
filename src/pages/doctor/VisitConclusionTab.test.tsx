@@ -59,8 +59,8 @@ describe("VisitConclusionTab · selected lesion details", () => {
   it("l-008 (assessed) shows ABCD/7-point totals and CTAs to assessment/imaging", () => {
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
     const panel = screen.getByRole("region", { name: /Контекст выбранного очага/ });
-    expect(within(panel).getByText(/ABCD total/)).toBeInTheDocument();
-    expect(within(panel).getByText(/7-point total/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Итог ABCD/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Итог по семи признакам/)).toBeInTheDocument();
     expect(within(panel).getByText("9.0")).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /К оценке очага/ })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /К снимкам очага/ })).toBeInTheDocument();
@@ -98,8 +98,8 @@ describe("VisitConclusionTab · selected lesion details", () => {
   });
 });
 
-describe("VisitConclusionTab · demo conclusion form", () => {
-  it("'Сохранить демо-заключение' shows local preview and does not mutate mock data", async () => {
+describe("VisitConclusionTab · learning conclusion form", () => {
+  it("'Сохранить учебное заключение' shows local preview and does not mutate mock data", async () => {
     const { getAssessmentsByVisitId } = await import("@/lib/mock-data");
     const beforeA = getAssessmentsByVisitId("v-005").length;
 
@@ -110,10 +110,10 @@ describe("VisitConclusionTab · demo conclusion form", () => {
     fireEvent.change(screen.getByLabelText(/Комментарий для пациента/), {
       target: { value: "Рекомендована очная консультация." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить демо-заключение/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебное заключение/ }));
 
     const preview = screen.getByTestId("demo-conclusion-preview");
-    expect(preview.textContent).toMatch(/Демо-заключение создано локально/);
+    expect(preview.textContent).toMatch(/Учебное заключение создано локально/);
 
     const afterA = getAssessmentsByVisitId("v-005").length;
     expect(afterA).toBe(beforeA);
@@ -127,7 +127,7 @@ describe("VisitConclusionTab · demo conclusion form", () => {
     fireEvent.change(screen.getByLabelText(/Комментарий для пациента/), {
       target: { value: "Рекомендована очная консультация." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить демо-заключение/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебное заключение/ }));
 
     const patient = screen.getByTestId("patient-facing-preview");
     expect(patient.textContent).toMatch(/Рекомендована очная консультация/);
