@@ -176,7 +176,7 @@ export default function PatientDetailPage() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title={patient.fullName}
-        subtitle={`№ ${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
+        subtitle={`${formatCardNumber(patient.code)} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
         actions={
           <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
             <Link to="/patients">К списку</Link>
