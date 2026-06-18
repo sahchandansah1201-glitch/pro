@@ -59,8 +59,8 @@ describe("VisitConclusionTab · selected lesion details", () => {
   it("l-008 (assessed) shows ABCD/7-point totals and CTAs to assessment/imaging", () => {
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
     const panel = screen.getByRole("region", { name: /Контекст выбранного очага/ });
-    expect(within(panel).getByText(/ABCD total/)).toBeInTheDocument();
-    expect(within(panel).getByText(/7-point total/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Итог ABCD/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Итог по семи признакам/)).toBeInTheDocument();
     expect(within(panel).getByText("9.0")).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /К оценке очага/ })).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /К снимкам очага/ })).toBeInTheDocument();
