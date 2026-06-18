@@ -274,11 +274,11 @@ function SelectedLesionPanel({
       {assessment ? (
         <div className="mt-3 grid grid-cols-1 gap-2 rounded-sm border border-border bg-surface-muted p-3 sm:grid-cols-2">
           <Field
-            term="ABCD total"
+            term="Итог ABCD"
             value={<span className="tabular-nums">{assessment.abcd.total.toFixed(1)}</span>}
           />
           <Field
-            term="7-point total"
+            term="Итог по семи признакам"
             value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
           />
           <Field term="План наблюдения" value={assessment.followUpPlan || "—"} wide />
