@@ -318,6 +318,181 @@ function BoundaryList({ governance }: { governance: SelfHostedPatientPhotoProtoc
   );
 }
 
+type DeliveryGate = {
+  id: string;
+  title: string;
+  detail: string;
+  blockerCount: number;
+  ready: boolean;
+  nextAction: string;
+};
+
+function countUnsafeBoundaries(governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO): number {
+  return [
+    !governance.boundaries.metadataOnly,
+    governance.boundaries.patientNamesExposed,
+    governance.boundaries.rawIdentifiersExposed,
+    governance.boundaries.rawTokensExposed,
+    governance.boundaries.rawFilesExposed,
+    governance.boundaries.storagePathsExposed,
+    governance.boundaries.signedUrlsIssued,
+    governance.boundaries.doctorOnlyTextExposed,
+    governance.boundaries.rawPolicyPayloadExposed,
+    governance.operations.sessionLifecycle.temporaryCredentialsExposed,
+    governance.operations.sessionLifecycle.qrTokensExposed,
+    governance.operations.sessionLifecycle.sessionIdsExposed,
+    governance.operations.sessionLifecycle.rawCredentialExposed,
+    governance.operations.sessionLifecycle.credentialHashExposed,
+    governance.operations.sessionLifecycle.credentialFingerprintExposed,
+    governance.operations.sessionLifecycle.rawSessionIdExposed,
+    governance.operations.sessionLifecycle.sessionHashExposed,
+    governance.operations.sessionLifecycle.sessionFingerprintExposed,
+    governance.operations.revokeReadiness.revokeReasonExposed,
+  ].filter(Boolean).length;
+}
+
+function buildDeliveryGates(governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO): DeliveryGate[] {
+  const sessionBlockers =
+    governance.operations.sessionLifecycle.missingExpiry +
+    governance.operations.sessionLifecycle.unsafeArtifacts +
+    governance.operations.sessionLifecycle.rotationPending +
+    governance.operations.sessionLifecycle.credentialHashPending +
+    governance.operations.sessionLifecycle.sessionExchangePending +
+    governance.operations.sessionLifecycle.sessionExchangeDenied;
+  const unsafeBoundaryCount = countUnsafeBoundaries(governance);
+
+  return [
+    {
+      id: "patient-copy",
+      title: "Текст для пациента",
+      detail: "проверенная копия без врачебной версии",
+      blockerCount: governance.summary.patientCopyMissing,
+      ready: governance.summary.patientCopyMissing === 0,
+      nextAction: "Проверить текст для пациента",
+    },
+    {
+      id: "retention",
+      title: "Правила хранения",
+      detail: "срок хранения утверждён клиникой",
+      blockerCount: governance.summary.retentionMissing,
+      ready: governance.summary.retentionMissing === 0,
+      nextAction: "Подготовить разбор хранения",
+    },
+    {
+      id: "access-window",
+      title: "Срок доступа",
+      detail: "каждое окно имеет дату окончания",
+      blockerCount: governance.summary.expiryMissing,
+      ready: governance.summary.expiryMissing === 0,
+      nextAction: "Заблокировать без срока",
+    },
+    {
+      id: "file-channel",
+      title: "Защищённая выдача файлов",
+      detail: "файлы идут только через канал клиники",
+      blockerCount: governance.summary.fileProxyMissing,
+      ready: governance.summary.fileProxyMissing === 0,
+      nextAction: "Проверить защищённую выдачу",
+    },
+    {
+      id: "session",
+      title: "Сеансы доступа",
+      detail: "коды, замена и обмен проверены",
+      blockerCount: sessionBlockers,
+      ready: sessionBlockers === 0,
+      nextAction: "Проверить сеансы доступа",
+    },
+    {
+      id: "safe-boundary",
+      title: "Безопасность данных",
+      detail: "секреты, файлы и врачебный текст скрыты",
+      blockerCount: unsafeBoundaryCount,
+      ready: unsafeBoundaryCount === 0,
+      nextAction: "Проверить границу данных",
+    },
+  ];
+}
+
+function DeliveryDecisionPanel({
+  governance,
+  onDecisionAction,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  onDecisionAction: (gate: DeliveryGate | null) => void;
+}) {
+  const gates = buildDeliveryGates(governance);
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const firstBlocked = gates.find((gate) => !gate.ready) ?? null;
+
+  return (
+    <Card role="region" aria-label="Решение о выдаче пациенту" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Решение о выдаче пациенту
+          </div>
+          <h2 className="mt-1 text-[18px] font-semibold leading-tight">
+            {firstBlocked ? "Выдача выключена" : "Готово к финальной проверке"}
+          </h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Этот экран не включает выдачу сам по себе. Он показывает, какие правила, сроки, сеансы и безопасные границы
+            нужно закрыть до отдельного рабочего решения.
+          </p>
+        </div>
+        <Badge variant={firstBlocked ? "destructive" : "outline"} className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          {firstBlocked ? `${blockerCount} препятств.` : "0 препятств."}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {gates.map((gate) => (
+            <div key={gate.id} className="min-w-0 rounded-md border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold leading-snug">{gate.title}</div>
+                  <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{gate.detail}</div>
+                </div>
+                <span
+                  className={`shrink-0 rounded border px-2 py-0.5 text-[11px] ${
+                    gate.ready
+                      ? "border-success/40 bg-success/10 text-success"
+                      : "border-warning/40 bg-warning/10 text-warning"
+                  }`}
+                >
+                  {gate.ready ? "закрыто" : gate.blockerCount}
+                </span>
+              </div>
+              {!gate.ready && (
+                <div className="mt-2 text-[12px] font-medium text-foreground">{gate.nextAction}</div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-md border p-3">
+          <div className="text-[12px] font-semibold">Что делать сейчас</div>
+          <div className="mt-1 text-[13px] font-medium">
+            {firstBlocked ? firstBlocked.nextAction : "Провести финальную проверку"}
+          </div>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {firstBlocked
+              ? "Начните с первого препятствия. Выдача пациенту остаётся выключенной."
+              : "Перед включением нужен отдельный рабочий акт клиники. Пациентские строки и файлы не раскрываются."}
+          </p>
+          <Button
+            variant="outline"
+            className="mt-3 w-full min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={() => onDecisionAction(firstBlocked)}
+          >
+            {firstBlocked ? firstBlocked.nextAction : "Зафиксировать финальную проверку"}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function OperationLine({
   label,
   value,
@@ -556,6 +731,14 @@ export default function AdminGovernancePage() {
 
   function recordRetentionReview() {
     setLastAction("Разбор хранения подготовлен локально: без пациентских строк и без служебных кодов");
+  }
+
+  function recordDeliveryDecisionAction(gate: DeliveryGate | null) {
+    if (!gate) {
+      setLastAction("Финальная проверка подготовлена локально: выдача пациенту не включалась");
+      return;
+    }
+    setLastAction(`Следующий шаг подготовлен локально: ${gate.nextAction}. Выдача пациенту остаётся выключенной`);
   }
 
   async function recordBlockUnapprovedRetention() {
@@ -891,6 +1074,8 @@ export default function AdminGovernancePage() {
             Система клиники не подключена. Показан учебный срез без сетевых действий и без пациентских данных.
           </Card>
         )}
+
+        <DeliveryDecisionPanel governance={governance} onDecisionAction={recordDeliveryDecisionAction} />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric

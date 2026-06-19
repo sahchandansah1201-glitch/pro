@@ -136,10 +136,18 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText(/Только агрегаты/)).toBeInTheDocument();
     expect(screen.getByText("Правила выдачи")).toBeInTheDocument();
     expect(screen.getAllByText("Сеансы пациента").length).toBeGreaterThan(0);
+    expect(screen.getByText("Решение о выдаче пациенту")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Выдача выключена" })).toBeInTheDocument();
+    expect(screen.getByText("Текст для пациента")).toBeInTheDocument();
+    expect(screen.getByText("Правила хранения")).toBeInTheDocument();
+    expect(screen.getByText("Срок доступа")).toBeInTheDocument();
+    expect(screen.getByText("Защищённая выдача файлов")).toBeInTheDocument();
+    expect(screen.getAllByText("Сеансы доступа").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Проверить текст для пациента/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
-    expect(screen.getByText("Сеансы доступа")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Заблокировать без правил/ }),
     ).toBeInTheDocument();
@@ -159,7 +167,13 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Сессия подтверждена")).toBeInTheDocument();
     expect(screen.getByText("Отказы обмена")).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
-    expect(screen.getByText("Безопасность данных")).toBeInTheDocument();
+    expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Проверить текст для пациента/ }),
+    );
+    expect(
+      screen.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
     );

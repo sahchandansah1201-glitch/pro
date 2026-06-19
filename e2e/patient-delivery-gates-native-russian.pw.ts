@@ -1,0 +1,110 @@
+import { expect, type Page, test } from "@playwright/test";
+
+import { setDemoRole } from "./helpers/demo-role";
+
+if (process.env.PW_CHROMIUM_PATH) {
+  test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
+}
+
+const FORBIDDEN_VISIBLE =
+  /MVP|DryRun|JSON|PHI|AI\/XAI|backend|бэкенд|self-hosted|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|raw ID|file proxy|credential|fingerprint|session id|storagePath|signedUrl|accessToken|qrToken|sessionId|doctorVersionText|patientSafeText|objectBucket|objectKey|DP-2026|меланома|рак кожи|вероятность меланомы|финальный диагноз|план лечения/i;
+
+const VIEWPORTS = [
+  { name: "desktop-1280", width: 1280, height: 900 },
+  { name: "mobile-390", width: 390, height: 844 },
+] as const;
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => ({
+    docScroll: document.documentElement.scrollWidth,
+    docClient: document.documentElement.clientWidth,
+    bodyScroll: document.body.scrollWidth,
+    bodyClient: document.body.clientWidth,
+  }));
+  expect(overflow.docScroll).toBeLessThanOrEqual(overflow.docClient + 1);
+  expect(overflow.bodyScroll).toBeLessThanOrEqual(overflow.bodyClient + 1);
+}
+
+async function expectMainTapTargets(page: Page) {
+  const offenders = await page.evaluate(() => {
+    const root = document.querySelector("main") ?? document.body;
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="tab"]',
+      ),
+    )
+      .map((el) => {
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return {
+          text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 80),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          hidden:
+            rect.width === 0 ||
+            rect.height === 0 ||
+            style.display === "none" ||
+            style.visibility === "hidden",
+        };
+      })
+      .filter((item) => !item.hidden && item.height < 44);
+  });
+  expect(offenders, JSON.stringify(offenders, null, 2)).toEqual([]);
+}
+
+test.describe("Patient delivery gates — native Russian release decision", () => {
+  for (const viewport of VIEWPORTS) {
+    test(`/admin/governance @ ${viewport.name}`, async ({ page }) => {
+      const consoleErrors: string[] = [];
+      const pageErrors: string[] = [];
+      page.on("console", (msg) => {
+        if (msg.type() === "error") consoleErrors.push(msg.text());
+      });
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await setDemoRole(page, "clinic_admin");
+      await page.goto("/admin/governance", { waitUntil: "networkidle" });
+
+      await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+      const decision = page.getByRole("region", { name: "Решение о выдаче пациенту" });
+      await expect(decision).toBeVisible();
+      await expect(decision.getByRole("heading", { name: "Выдача выключена" })).toBeVisible();
+
+      for (const text of [
+        "Текст для пациента",
+        "Правила хранения",
+        "Срок доступа",
+        "Защищённая выдача файлов",
+        "Сеансы доступа",
+        "Безопасность данных",
+        "Проверить текст для пациента",
+      ]) {
+        await expect(decision.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await decision.getByRole("button", { name: "Проверить текст для пациента" }).click();
+      await expect(
+        page.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
+      ).toBeVisible();
+
+      const visible = await page.locator("main").innerText();
+      expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
+      expect(visible).toContain("Выдача пациенту остаётся выключенной");
+
+      await expectNoHorizontalOverflow(page);
+      if (viewport.name === "mobile-390") await expectMainTapTargets(page);
+
+      await page.screenshot({
+        path: `test-results/patient-delivery-gates-${viewport.name}.png`,
+        fullPage: true,
+      });
+
+      const appErrors = consoleErrors.filter(
+        (text) => !/postMessage|cross-origin|ResizeObserver|NO_COLOR|FORCE_COLOR/i.test(text),
+      );
+      expect(appErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
+    });
+  }
+});
