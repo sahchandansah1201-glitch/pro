@@ -139,12 +139,22 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Решение о выдаче пациенту")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Выдача выключена" })).toBeInTheDocument();
     expect(screen.getByText("Текст для пациента")).toBeInTheDocument();
-    expect(screen.getByText("Правила хранения")).toBeInTheDocument();
-    expect(screen.getByText("Срок доступа")).toBeInTheDocument();
+    expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Срок доступа").length).toBeGreaterThan(0);
     expect(screen.getByText("Защищённая выдача файлов")).toBeInTheDocument();
     expect(screen.getAllByText("Сеансы доступа").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Проверить текст для пациента/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Проверка хранения и сроков" })).toBeInTheDocument();
+    expect(screen.getByText("Что закрыть перед выдачей")).toBeInTheDocument();
+    expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Срок доступа").length).toBeGreaterThan(0);
+    expect(screen.getByText("4 требуют правил")).toBeInTheDocument();
+    expect(screen.getByText("4 без срока")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Разобрать правила хранения/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Блокировать окна без правил/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Закрыть окна без срока/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Проверить истекающие окна/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -173,6 +183,26 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Разобрать правила хранения/ }),
+    );
+    expect(
+      screen.getByText(/Разбор хранения подготовлен локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Закрыть окна без срока/ }),
+    );
+    expect(
+      screen.getByText(/Учебный режим: окна без срока заблокированы локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Проверить истекающие окна/ }),
+    );
+    expect(
+      screen.getByText(
+        /Учебный режим: отзыв истёкших окон подготовлен локально/,
+      ),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),

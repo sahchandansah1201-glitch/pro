@@ -88,6 +88,25 @@ test.describe("Patient delivery gates — native Russian release decision", () =
         page.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
       ).toBeVisible();
 
+      const drilldown = page.getByRole("region", { name: "Проверка хранения и сроков" });
+      await expect(drilldown).toBeVisible();
+      await expect(drilldown.getByText("Что закрыть перед выдачей")).toBeVisible();
+      for (const text of [
+        "Правила хранения",
+        "Срок доступа",
+        "4 требуют правил",
+        "4 без срока",
+        "Разобрать правила хранения",
+        "Блокировать окна без правил",
+        "Закрыть окна без срока",
+        "Проверить истекающие окна",
+      ]) {
+        await expect(drilldown.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await drilldown.getByRole("button", { name: "Закрыть окна без срока" }).click();
+      await expect(page.getByText(/Учебный режим: окна без срока заблокированы локально/)).toBeVisible();
+
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
       expect(visible).toContain("Выдача пациенту остаётся выключенной");

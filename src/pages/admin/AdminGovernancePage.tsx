@@ -493,6 +493,125 @@ function DeliveryDecisionPanel({
   );
 }
 
+function DeliveryGateDrilldownPanel({
+  governance,
+  retentionOperationBusy,
+  missingExpiryOperationBusy,
+  revokeOperationBusy,
+  onRetentionReview,
+  onBlockUnapprovedRetention,
+  onBlockMissingExpiry,
+  onRevokeReview,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  retentionOperationBusy: boolean;
+  missingExpiryOperationBusy: boolean;
+  revokeOperationBusy: boolean;
+  onRetentionReview: () => void;
+  onBlockUnapprovedRetention: () => void;
+  onBlockMissingExpiry: () => void;
+  onRevokeReview: () => void;
+}) {
+  const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
+  return (
+    <Card role="region" aria-label="Проверка хранения и сроков" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Проверка хранения и сроков
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Что закрыть перед выдачей</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Здесь видны только итоговые числа. Имена пациентов, коды входа, номера сеансов и файловые пути скрыты.
+          </p>
+        </div>
+        <Badge variant="outline" className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          выдача выключена
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 rounded-md border p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold">Правила хранения</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                Перед выдачей у каждого окна должен быть утверждён срок хранения.
+              </div>
+            </div>
+            <Badge variant={governance.summary.retentionMissing > 0 ? "secondary" : "outline"} className="text-[11px]">
+              {governance.summary.retentionMissing} требуют правил
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <OperationLine label="На разбор" value={retention.reviewDue} tone={retention.reviewDue > 0 ? "warning" : "success"} />
+            <OperationLine label="Готово" value={retention.ready} tone="success" />
+            <OperationLine label="Заблокировано" value={retention.blocked} />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRetentionReview}>
+              Разобрать правила хранения
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onBlockUnapprovedRetention}
+              disabled={retentionOperationBusy}
+            >
+              {retentionOperationBusy ? "Блокируем окна..." : "Блокировать окна без правил"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold">Срок доступа</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                Окно доступа должно иметь дату окончания до любого рабочего решения.
+              </div>
+            </div>
+            <Badge variant={governance.summary.expiryMissing > 0 ? "secondary" : "outline"} className="text-[11px]">
+              {governance.summary.expiryMissing} без срока
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <OperationLine label="Активные" value={revokeReadiness.activeWindows} />
+            <OperationLine
+              label="Истекают за сутки"
+              value={revokeReadiness.expiringIn24h}
+              tone={revokeReadiness.expiringIn24h > 0 ? "warning" : "default"}
+            />
+            <OperationLine
+              label="Без срока"
+              value={sessionLifecycle.missingExpiry}
+              tone={sessionLifecycle.missingExpiry > 0 ? "warning" : "success"}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onBlockMissingExpiry}
+              disabled={missingExpiryOperationBusy}
+            >
+              {missingExpiryOperationBusy ? "Блокируем окна..." : "Закрыть окна без срока"}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onRevokeReview}
+              disabled={revokeOperationBusy}
+            >
+              {revokeOperationBusy ? "Проверяем окна..." : "Проверить истекающие окна"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function OperationLine({
   label,
   value,
@@ -1076,6 +1195,17 @@ export default function AdminGovernancePage() {
         )}
 
         <DeliveryDecisionPanel governance={governance} onDecisionAction={recordDeliveryDecisionAction} />
+
+        <DeliveryGateDrilldownPanel
+          governance={governance}
+          retentionOperationBusy={retentionOperationBusy}
+          missingExpiryOperationBusy={missingExpiryOperationBusy}
+          revokeOperationBusy={revokeOperationBusy}
+          onRetentionReview={recordRetentionReview}
+          onBlockUnapprovedRetention={recordBlockUnapprovedRetention}
+          onBlockMissingExpiry={recordBlockMissingExpiry}
+          onRevokeReview={recordRevokeReview}
+        />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric
