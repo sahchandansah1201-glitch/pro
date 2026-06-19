@@ -840,6 +840,98 @@ function DataSafetySummaryPanel({
   );
 }
 
+function PreReleaseReadinessReceiptPanel({
+  governance,
+  onReceiptReview,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  onReceiptReview: () => void;
+}) {
+  const gates = buildDeliveryGates(governance);
+  const readyCount = gates.filter((gate) => gate.ready).length;
+  const openGateCount = gates.length - readyCount;
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const nextGate = gates.find((gate) => !gate.ready) ?? null;
+  const receiptRows = gates.map((gate) => ({
+    title: gate.title,
+    status: gate.ready ? "закрыто" : "нужно закрыть",
+    detail: gate.ready ? gate.detail : gate.nextAction,
+    blockerCount: gate.blockerCount,
+  }));
+
+  return (
+    <Card role="region" aria-label="Предварительный акт готовности к выдаче" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Предварительный акт готовности
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Что зафиксировано перед решением</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Это только служебная квитанция проверки. Она не открывает доступ пациенту, не публикует файлы и не меняет
+            правила клиники.
+          </p>
+        </div>
+        <Badge variant={openGateCount > 0 ? "secondary" : "outline"} className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          {openGateCount > 0 ? "акт не закрыт" : "готово к решению"}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {receiptRows.map((row) => (
+            <div key={row.title} className="rounded-md border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold leading-snug">{row.title}</div>
+                  <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{row.detail}</div>
+                </div>
+                <span
+                  className={`shrink-0 rounded border px-2 py-0.5 text-[11px] ${
+                    row.status === "закрыто"
+                      ? "border-success/40 bg-success/10 text-success"
+                      : "border-warning/40 bg-warning/10 text-warning"
+                  }`}
+                >
+                  {row.status}
+                </span>
+              </div>
+              {row.blockerCount > 0 && (
+                <div className="mt-2 text-[12px] text-muted-foreground">Препятствий: {row.blockerCount}</div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Итог акта</div>
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              Сводка нужна для рабочего решения клиники, а не для автоматической выдачи.
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <OperationLine label="Закрыто проверок" value={`${readyCount}/${gates.length}`} tone={openGateCount > 0 ? "default" : "success"} />
+            <OperationLine label="Открыто проверок" value={openGateCount} tone={openGateCount > 0 ? "warning" : "success"} />
+            <OperationLine label="Всего препятствий" value={blockerCount} tone={blockerCount > 0 ? "warning" : "success"} />
+          </div>
+          <div className="rounded-md border px-3 py-2 text-[12px]">
+            <div className="font-semibold">{nextGate ? "Следующий шаг" : "Ожидает решения клиники"}</div>
+            <p className="mt-1 text-muted-foreground">
+              {nextGate
+                ? nextGate.nextAction
+                : "Перед запуском всё равно нужен отдельный рабочий акт. Этот экран доступ пациенту не открывает."}
+            </p>
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onReceiptReview}>
+            Зафиксировать предварительный акт
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function OperationLine({
   label,
   value,
@@ -1095,6 +1187,12 @@ export default function AdminGovernancePage() {
   function recordDataSafetyReview() {
     setLastAction(
       "Проверка безопасности данных подготовлена локально: секреты, файлы, ссылки и пациентские строки не раскрывались. Выдача пациенту остаётся выключенной",
+    );
+  }
+
+  function recordPreReleaseReceiptReview() {
+    setLastAction(
+      "Предварительный акт готовности зафиксирован локально: доступ пациенту не открыт, файлы не опубликованы, рабочее решение клиники требуется отдельно",
     );
   }
 
@@ -1457,6 +1555,11 @@ export default function AdminGovernancePage() {
         />
 
         <DataSafetySummaryPanel governance={governance} onDataSafetyReview={recordDataSafetyReview} />
+
+        <PreReleaseReadinessReceiptPanel
+          governance={governance}
+          onReceiptReview={recordPreReleaseReceiptReview}
+        />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric

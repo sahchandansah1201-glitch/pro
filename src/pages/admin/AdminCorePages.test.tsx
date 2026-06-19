@@ -138,7 +138,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText("Сеансы пациента").length).toBeGreaterThan(0);
     expect(screen.getByText("Решение о выдаче пациенту")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Выдача выключена" })).toBeInTheDocument();
-    expect(screen.getByText("Текст для пациента")).toBeInTheDocument();
+    expect(screen.getAllByText("Текст для пациента").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Срок доступа").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Защищённая выдача файлов").length).toBeGreaterThan(0);
@@ -175,6 +175,14 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Что ещё блокирует выдачу")).toBeInTheDocument();
     expect(screen.getByText("Итог для рабочего решения")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Проверить безопасность данных/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Предварительный акт готовности к выдаче" })).toBeInTheDocument();
+    expect(screen.getByText("Что зафиксировано перед решением")).toBeInTheDocument();
+    expect(screen.getByText("Итог акта")).toBeInTheDocument();
+    expect(screen.getByText("Закрыто проверок")).toBeInTheDocument();
+    expect(screen.getByText("Открыто проверок")).toBeInTheDocument();
+    expect(screen.getAllByText("Всего препятствий").length).toBeGreaterThan(0);
+    expect(screen.getByText("Следующий шаг")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Зафиксировать предварительный акт/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -253,6 +261,12 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getByText(/Проверка безопасности данных подготовлена локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Зафиксировать предварительный акт/ }),
+    );
+    expect(
+      screen.getByText(/Предварительный акт готовности зафиксирован локально/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),

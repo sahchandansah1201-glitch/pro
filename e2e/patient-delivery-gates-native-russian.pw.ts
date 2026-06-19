@@ -150,6 +150,23 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await safety.getByRole("button", { name: "Проверить безопасность данных" }).click();
       await expect(page.getByText(/Проверка безопасности данных подготовлена локально/)).toBeVisible();
 
+      const receipt = page.getByRole("region", { name: "Предварительный акт готовности к выдаче" });
+      await expect(receipt).toBeVisible();
+      await expect(receipt.getByText("Что зафиксировано перед решением")).toBeVisible();
+      for (const text of [
+        "Итог акта",
+        "Закрыто проверок",
+        "Открыто проверок",
+        "Всего препятствий",
+        "Следующий шаг",
+        "Зафиксировать предварительный акт",
+      ]) {
+        await expect(receipt.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await receipt.getByRole("button", { name: "Зафиксировать предварительный акт" }).click();
+      await expect(page.getByText(/Предварительный акт готовности зафиксирован локально/)).toBeVisible();
+
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
       expect(visible).toContain("Выдача пациенту остаётся выключенной");
