@@ -932,6 +932,117 @@ function PreReleaseReadinessReceiptPanel({
   );
 }
 
+function LocalReadinessHistoryPanel({
+  governance,
+  lastAction,
+  operationResult,
+  onHistoryReview,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  lastAction: string | null;
+  operationResult: SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null;
+  onHistoryReview: () => void;
+}) {
+  const gates = buildDeliveryGates(governance);
+  const readyCount = gates.filter((gate) => gate.ready).length;
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const hiddenItems = [
+    "пациентские строки",
+    "фото и файлы",
+    "ссылки и пути",
+    "коды входа",
+    "номера сеансов",
+    "врачебный текст",
+  ];
+  const historyRows = [
+    {
+      title: "Решение о выдаче",
+      detail: "главный статус не открывает доступ пациенту",
+      value: "выключена",
+    },
+    {
+      title: "Хранение и сроки",
+      detail: `${governance.summary.retentionMissing} требуют правил · ${governance.summary.expiryMissing} без срока`,
+      value: governance.summary.retentionMissing + governance.summary.expiryMissing,
+    },
+    {
+      title: "Файлы и сеансы",
+      detail: `${governance.summary.fileProxyMissing} требуют канала · ${governance.operations.sessionLifecycle.unsafeArtifacts} временных кода`,
+      value: governance.summary.fileProxyMissing + governance.operations.sessionLifecycle.unsafeArtifacts,
+    },
+    {
+      title: "Безопасность данных",
+      detail: "секреты, файлы, ссылки и врачебный текст скрыты",
+      value: countUnsafeBoundaries(governance),
+    },
+    {
+      title: "Предварительный акт",
+      detail: `${readyCount} из ${gates.length} проверок закрыто`,
+      value: `${readyCount}/${gates.length}`,
+    },
+  ];
+
+  return (
+    <Card role="region" aria-label="История локальных проверок готовности" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            История локальных проверок
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Что уже проверили на этом экране</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            История показывает только локальные служебные итоги. Пациенты, файлы, ссылки, коды входа и номера сеансов не выводятся.
+          </p>
+        </div>
+        <Badge variant="outline" className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          выдача выключена
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          {historyRows.map((row) => (
+            <div key={row.title} className="rounded-md border p-3">
+              <div className="text-[13px] font-semibold leading-snug">{row.title}</div>
+              <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{row.detail}</div>
+              <div className="mt-2 inline-flex rounded border px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Последняя локальная проверка</div>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              {lastAction ?? "Пока не зафиксирована в этой сессии"}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <OperationLine label="Закрыто проверок" value={`${readyCount}/${gates.length}`} tone={readyCount === gates.length ? "success" : "default"} />
+            <OperationLine label="Открыто препятствий" value={blockerCount} tone={blockerCount > 0 ? "warning" : "success"} />
+            <OperationLine label="Последнее системное действие" value={operationResult ? operationResult.affectedCount : "нет"} />
+          </div>
+          <div className="rounded-md border px-3 py-2 text-[12px]">
+            <div className="font-semibold">Система не раскрывала</div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {hiddenItems.map((item) => (
+                <span key={item} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onHistoryReview}>
+            Обновить историю проверки
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function OperationLine({
   label,
   value,
@@ -1193,6 +1304,12 @@ export default function AdminGovernancePage() {
   function recordPreReleaseReceiptReview() {
     setLastAction(
       "Предварительный акт готовности зафиксирован локально: доступ пациенту не открыт, файлы не опубликованы, рабочее решение клиники требуется отдельно",
+    );
+  }
+
+  function recordReadinessHistoryReview() {
+    setLastAction(
+      "История проверки обновлена локально: пациентские строки, файлы, ссылки, коды входа и номера сеансов не раскрывались. Выдача пациенту остаётся выключенной",
     );
   }
 
@@ -1559,6 +1676,13 @@ export default function AdminGovernancePage() {
         <PreReleaseReadinessReceiptPanel
           governance={governance}
           onReceiptReview={recordPreReleaseReceiptReview}
+        />
+
+        <LocalReadinessHistoryPanel
+          governance={governance}
+          lastAction={lastAction}
+          operationResult={operationResult}
+          onHistoryReview={recordReadinessHistoryReview}
         />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

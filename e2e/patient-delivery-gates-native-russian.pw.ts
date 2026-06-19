@@ -85,7 +85,7 @@ test.describe("Patient delivery gates — native Russian release decision", () =
 
       await decision.getByRole("button", { name: "Проверить текст для пациента" }).click();
       await expect(
-        page.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
+        page.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/).first(),
       ).toBeVisible();
 
       const drilldown = page.getByRole("region", { name: "Проверка хранения и сроков" });
@@ -105,7 +105,7 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       }
 
       await drilldown.getByRole("button", { name: "Закрыть окна без срока" }).click();
-      await expect(page.getByText(/Учебный режим: окна без срока заблокированы локально/)).toBeVisible();
+      await expect(page.getByText(/Учебный режим: окна без срока заблокированы локально/).first()).toBeVisible();
 
       const sessions = page.getByRole("region", { name: "Проверка файлов и сеансов" });
       await expect(sessions).toBeVisible();
@@ -124,9 +124,9 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       }
 
       await sessions.getByRole("button", { name: "Проверить выдачу файлов" }).click();
-      await expect(page.getByText(/Проверка выдачи файлов подготовлена локально/)).toBeVisible();
+      await expect(page.getByText(/Проверка выдачи файлов подготовлена локально/).first()).toBeVisible();
       await sessions.getByRole("button", { name: "Закрыть временные коды" }).click();
-      await expect(page.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/)).toBeVisible();
+      await expect(page.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/).first()).toBeVisible();
 
       const safety = page.getByRole("region", { name: "Итоговая проверка безопасности данных" });
       await expect(safety).toBeVisible();
@@ -148,7 +148,7 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       }
 
       await safety.getByRole("button", { name: "Проверить безопасность данных" }).click();
-      await expect(page.getByText(/Проверка безопасности данных подготовлена локально/)).toBeVisible();
+      await expect(page.getByText(/Проверка безопасности данных подготовлена локально/).first()).toBeVisible();
 
       const receipt = page.getByRole("region", { name: "Предварительный акт готовности к выдаче" });
       await expect(receipt).toBeVisible();
@@ -165,7 +165,26 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       }
 
       await receipt.getByRole("button", { name: "Зафиксировать предварительный акт" }).click();
-      await expect(page.getByText(/Предварительный акт готовности зафиксирован локально/)).toBeVisible();
+      await expect(page.getByText(/Предварительный акт готовности зафиксирован локально/).first()).toBeVisible();
+
+      const history = page.getByRole("region", { name: "История локальных проверок готовности" });
+      await expect(history).toBeVisible();
+      await expect(history.getByText("Что уже проверили на этом экране")).toBeVisible();
+      for (const text of [
+        "Решение о выдаче",
+        "Хранение и сроки",
+        "Файлы и сеансы",
+        "Безопасность данных",
+        "Предварительный акт",
+        "Последняя локальная проверка",
+        "Система не раскрывала",
+        "Обновить историю проверки",
+      ]) {
+        await expect(history.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await history.getByRole("button", { name: "Обновить историю проверки" }).click();
+      await expect(page.getByText(/История проверки обновлена локально/).first()).toBeVisible();
 
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);

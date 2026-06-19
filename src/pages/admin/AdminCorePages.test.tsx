@@ -178,11 +178,22 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("region", { name: "Предварительный акт готовности к выдаче" })).toBeInTheDocument();
     expect(screen.getByText("Что зафиксировано перед решением")).toBeInTheDocument();
     expect(screen.getByText("Итог акта")).toBeInTheDocument();
-    expect(screen.getByText("Закрыто проверок")).toBeInTheDocument();
+    expect(screen.getAllByText("Закрыто проверок").length).toBeGreaterThan(0);
     expect(screen.getByText("Открыто проверок")).toBeInTheDocument();
     expect(screen.getAllByText("Всего препятствий").length).toBeGreaterThan(0);
     expect(screen.getByText("Следующий шаг")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Зафиксировать предварительный акт/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "История локальных проверок готовности" })).toBeInTheDocument();
+    expect(screen.getByText("Что уже проверили на этом экране")).toBeInTheDocument();
+    expect(screen.getAllByText("Решение о выдаче").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Хранение и сроки").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Файлы и сеансы").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Предварительный акт").length).toBeGreaterThan(0);
+    expect(screen.getByText("Последняя локальная проверка")).toBeInTheDocument();
+    expect(screen.getByText("Пока не зафиксирована в этой сессии")).toBeInTheDocument();
+    expect(screen.getByText("Система не раскрывала")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Обновить историю проверки/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -210,119 +221,125 @@ describe("Admin clinic core pages — render & safety", () => {
       screen.getByRole("button", { name: /Проверить текст для пациента/ }),
     );
     expect(
-      screen.getByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Следующий шаг подготовлен локально: Проверить текст для пациента/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Разобрать правила хранения/ }),
     );
     expect(
-      screen.getByText(/Разбор хранения подготовлен локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Разбор хранения подготовлен локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Закрыть окна без срока/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: окна без срока заблокированы локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: окна без срока заблокированы локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить истекающие окна/ }),
     );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         /Учебный режим: отзыв истёкших окон подготовлен локально/,
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить выдачу файлов/ }),
     );
     expect(
-      screen.getByText(/Проверка выдачи файлов подготовлена локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Проверка выдачи файлов подготовлена локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Закрыть временные коды/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: небезопасные временные коды заблокированы локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить новую выдачу/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: замена доступа подготовлена локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: замена доступа подготовлена локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить ключ входа/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: ключ доступа подготовлен локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: ключ доступа подготовлен локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить безопасность данных/ }),
     );
     expect(
-      screen.getByText(/Проверка безопасности данных подготовлена локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Проверка безопасности данных подготовлена локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Зафиксировать предварительный акт/ }),
     );
     expect(
-      screen.getByText(/Предварительный акт готовности зафиксирован локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Предварительный акт готовности зафиксирован локально/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Обновить историю проверки/ }),
+    );
+    expect(
+      screen.getAllByText(/История проверки обновлена локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
     );
     expect(
-      screen.getByText(/Разбор хранения подготовлен локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Разбор хранения подготовлен локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Отозвать истёкшие окна/ }),
     );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         /Учебный режим: отзыв истёкших окон подготовлен локально/,
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Последнее действие системы")).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Заблокировать без правил/ }),
     );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         /Учебный режим: окна без правил хранения заблокированы локально/,
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Заблокировать без срока/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: окна без срока заблокированы локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: окна без срока заблокированы локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Заблокировать временные коды/ }),
     );
     expect(
-      screen.getByText(
+      screen.getAllByText(
         /Учебный режим: небезопасные временные коды заблокированы локально/,
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить замену доступа/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: замена доступа подготовлена локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: замена доступа подготовлена локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить ключ доступа/ }),
     );
     expect(
-      screen.getByText(/Учебный режим: ключ доступа подготовлен локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Учебный режим: ключ доступа подготовлен локально/).length,
+    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0],
     );
     expect(
-      screen.getByText(/Разбор правил подготовлен локально/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Разбор правил подготовлен локально/).length,
+    ).toBeGreaterThan(0);
   });
 
   it("AdminGovernancePage keeps release governance aggregate-only and native Russian", () => {
