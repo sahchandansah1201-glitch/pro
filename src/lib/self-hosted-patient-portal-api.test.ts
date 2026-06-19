@@ -393,7 +393,8 @@ describe("self-hosted-patient-portal-api", () => {
     expect(result.ok).toBe(true);
     expect(result.value.contentType).toBe("image/jpeg");
     expect(result.value.fileName).toBe("photo-protocol-1.jpg");
-    expect(result.value.blob).toBeInstanceOf(Blob);
+    expect(Object.prototype.toString.call(result.value.blob)).toBe("[object Blob]");
+    expect(result.value.blob.type).toBe("image/jpeg");
     expect(result.value.blob.size).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/photo-protocols/visit-1/photos/1/download",
