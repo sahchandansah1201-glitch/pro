@@ -165,6 +165,16 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Закрыть временные коды/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить новую выдачу/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить ключ входа/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Итоговая проверка безопасности данных" })).toBeInTheDocument();
+    expect(screen.getByText("Что можно показать администратору")).toBeInTheDocument();
+    expect(screen.getByText("Скрытые данные")).toBeInTheDocument();
+    expect(screen.getAllByText("Имена пациентов скрыты").length).toBeGreaterThan(0);
+    expect(screen.getByText("Фото и файлы скрыты")).toBeInTheDocument();
+    expect(screen.getByText("Ссылки и пути скрыты")).toBeInTheDocument();
+    expect(screen.getByText("Номера сеансов скрыты")).toBeInTheDocument();
+    expect(screen.getByText("Что ещё блокирует выдачу")).toBeInTheDocument();
+    expect(screen.getByText("Итог для рабочего решения")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Проверить безопасность данных/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -237,6 +247,12 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getByText(/Учебный режим: ключ доступа подготовлен локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Проверить безопасность данных/ }),
+    );
+    expect(
+      screen.getByText(/Проверка безопасности данных подготовлена локально/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),

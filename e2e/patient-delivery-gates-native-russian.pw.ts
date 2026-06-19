@@ -128,6 +128,28 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await sessions.getByRole("button", { name: "Закрыть временные коды" }).click();
       await expect(page.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/)).toBeVisible();
 
+      const safety = page.getByRole("region", { name: "Итоговая проверка безопасности данных" });
+      await expect(safety).toBeVisible();
+      await expect(safety.getByText("Что можно показать администратору")).toBeVisible();
+      for (const text of [
+        "Скрытые данные",
+        "Имена пациентов скрыты",
+        "Фото и файлы скрыты",
+        "Ссылки и пути скрыты",
+        "Коды входа скрыты",
+        "Номера сеансов скрыты",
+        "Врачебный текст скрыт",
+        "Что ещё блокирует выдачу",
+        "Итог для рабочего решения",
+        "Выдача пациенту остаётся выключенной",
+        "Проверить безопасность данных",
+      ]) {
+        await expect(safety.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await safety.getByRole("button", { name: "Проверить безопасность данных" }).click();
+      await expect(page.getByText(/Проверка безопасности данных подготовлена локально/)).toBeVisible();
+
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
       expect(visible).toContain("Выдача пациенту остаётся выключенной");

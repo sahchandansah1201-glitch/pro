@@ -706,7 +706,7 @@ function DeliverySessionDrilldownPanel({
               tone={sessionLifecycle.sessionExchangePending > 0 ? "warning" : "success"}
             />
           </div>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2">
             <Button
               variant="outline"
               className="min-h-[44px] justify-center sm:min-h-[36px]"
@@ -732,6 +732,108 @@ function DeliverySessionDrilldownPanel({
               {credentialHashOperationBusy ? "Готовим ключ..." : "Подготовить ключ входа"}
             </Button>
           </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function DataSafetySummaryPanel({
+  governance,
+  onDataSafetyReview,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  onDataSafetyReview: () => void;
+}) {
+  const gates = buildDeliveryGates(governance);
+  const openGateCount = gates.filter((gate) => !gate.ready).length;
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const unsafeBoundaryCount = countUnsafeBoundaries(governance);
+  const sessionReviewCount =
+    governance.operations.sessionLifecycle.unsafeArtifacts +
+    governance.operations.sessionLifecycle.rotationPending +
+    governance.operations.sessionLifecycle.credentialHashPending +
+    governance.operations.sessionLifecycle.sessionExchangePending;
+
+  return (
+    <Card role="region" aria-label="Итоговая проверка безопасности данных" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Итоговая проверка безопасности данных
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Что можно показать администратору</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Экран показывает только готовность и препятствия. Пациентские строки, фото, ссылки, коды входа и врачебный
+            текст остаются скрыты.
+          </p>
+        </div>
+        <Badge variant={unsafeBoundaryCount === 0 ? "outline" : "secondary"} className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          {unsafeBoundaryCount === 0 ? "данные скрыты" : "нужна проверка"}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Скрытые данные</div>
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              Что не показывается на экране управления доступом.
+            </div>
+          </div>
+          <div className="grid gap-2 text-[12px]">
+            {[
+              "Имена пациентов скрыты",
+              "Фото и файлы скрыты",
+              "Ссылки и пути скрыты",
+              "Коды входа скрыты",
+              "Номера сеансов скрыты",
+              "Врачебный текст скрыт",
+            ].map((label) => (
+              <div key={label} className="flex min-h-[40px] items-center gap-2 rounded-md border px-3 py-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Что ещё блокирует выдачу</div>
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              Сводка препятствий без пациентских строк и внутренних кодов.
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <OperationLine label="Открытые правила" value={openGateCount} tone={openGateCount > 0 ? "warning" : "success"} />
+            <OperationLine label="Всего препятствий" value={blockerCount} tone={blockerCount > 0 ? "warning" : "success"} />
+            <OperationLine
+              label="Проверить сеансы"
+              value={sessionReviewCount}
+              tone={sessionReviewCount > 0 ? "warning" : "success"}
+            />
+            <OperationLine label="Опасных раскрытий" value={unsafeBoundaryCount} tone={unsafeBoundaryCount > 0 ? "warning" : "success"} />
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Итог для рабочего решения</div>
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              Этот итог не открывает доступ пациенту и не публикует файлы.
+            </div>
+          </div>
+          <div className="rounded-md border px-3 py-2 text-[12px]">
+            <div className="font-semibold">Выдача пациенту остаётся выключенной</div>
+            <p className="mt-1 text-muted-foreground">
+              Перед запуском нужны отдельное решение клиники, проверенная копия для пациента, правила хранения, срок
+              доступа и защищённый канал файлов.
+            </p>
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onDataSafetyReview}>
+            Проверить безопасность данных
+          </Button>
         </div>
       </div>
     </Card>
@@ -988,6 +1090,12 @@ export default function AdminGovernancePage() {
 
   function recordFileChannelReview() {
     setLastAction("Проверка выдачи файлов подготовлена локально: файлы, пути и ссылки не раскрывались");
+  }
+
+  function recordDataSafetyReview() {
+    setLastAction(
+      "Проверка безопасности данных подготовлена локально: секреты, файлы, ссылки и пациентские строки не раскрывались. Выдача пациенту остаётся выключенной",
+    );
   }
 
   async function recordBlockUnapprovedRetention() {
@@ -1347,6 +1455,8 @@ export default function AdminGovernancePage() {
           onPrepareAccessArtifactRotation={recordPrepareAccessArtifactRotation}
           onIssueAccessCredentialHash={recordIssueAccessCredentialHash}
         />
+
+        <DataSafetySummaryPanel governance={governance} onDataSafetyReview={recordDataSafetyReview} />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric
