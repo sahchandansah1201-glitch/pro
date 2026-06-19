@@ -612,6 +612,132 @@ function DeliveryGateDrilldownPanel({
   );
 }
 
+function DeliverySessionDrilldownPanel({
+  governance,
+  unsafeSessionArtifactOperationBusy,
+  rotationOperationBusy,
+  credentialHashOperationBusy,
+  onFileChannelReview,
+  onBlockUnsafeSessionArtifacts,
+  onPrepareAccessArtifactRotation,
+  onIssueAccessCredentialHash,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  unsafeSessionArtifactOperationBusy: boolean;
+  rotationOperationBusy: boolean;
+  credentialHashOperationBusy: boolean;
+  onFileChannelReview: () => void;
+  onBlockUnsafeSessionArtifacts: () => void;
+  onPrepareAccessArtifactRotation: () => void;
+  onIssueAccessCredentialHash: () => void;
+}) {
+  const { sessionLifecycle } = governance.operations;
+  const photoCount = governance.queue.reduce((sum, item) => sum + item.selectedPhotoCount, 0);
+  return (
+    <Card role="region" aria-label="Проверка файлов и сеансов" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Проверка файлов и сеансов
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Как не раскрыть файлы и коды</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Проверяются только итоговые счётчики. Фото, пути к файлам, ссылки, коды входа и номера сеансов не выводятся.
+          </p>
+        </div>
+        <Badge variant="outline" className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          доступ не открыт
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 rounded-md border p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold">Защищённая выдача файлов</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                Файлы должны открываться только через канал клиники, без показа путей и ссылок.
+              </div>
+            </div>
+            <Badge variant={governance.summary.fileProxyMissing > 0 ? "secondary" : "outline"} className="text-[11px]">
+              {governance.summary.fileProxyMissing} требуют канала
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <OperationLine
+              label="Нужен канал"
+              value={governance.summary.fileProxyMissing}
+              tone={governance.summary.fileProxyMissing > 0 ? "warning" : "success"}
+            />
+            <OperationLine label="Фото в очереди" value={photoCount} />
+            <OperationLine label="Файлы и ссылки" value="скрыты" tone="success" />
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onFileChannelReview}>
+            Проверить выдачу файлов
+          </Button>
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold">Сеансы доступа</div>
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                Временные коды, замена доступа и ключ входа проверяются до отдельного рабочего решения.
+              </div>
+            </div>
+            <Badge variant={sessionLifecycle.unsafeArtifacts > 0 ? "secondary" : "outline"} className="text-[11px]">
+              {sessionLifecycle.unsafeArtifacts} временных кода
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <OperationLine
+              label="Нужна замена"
+              value={sessionLifecycle.rotationPending}
+              tone={sessionLifecycle.rotationPending > 0 ? "warning" : "success"}
+            />
+            <OperationLine
+              label="Ключ нужен"
+              value={sessionLifecycle.credentialHashPending}
+              tone={sessionLifecycle.credentialHashPending > 0 ? "warning" : "success"}
+            />
+            <OperationLine
+              label="Обмен нужен"
+              value={sessionLifecycle.sessionExchangePending}
+              tone={sessionLifecycle.sessionExchangePending > 0 ? "warning" : "success"}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onBlockUnsafeSessionArtifacts}
+              disabled={unsafeSessionArtifactOperationBusy}
+            >
+              {unsafeSessionArtifactOperationBusy ? "Закрываем коды..." : "Закрыть временные коды"}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onPrepareAccessArtifactRotation}
+              disabled={rotationOperationBusy}
+            >
+              {rotationOperationBusy ? "Готовим замену..." : "Подготовить новую выдачу"}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px] justify-center sm:min-h-[36px]"
+              onClick={onIssueAccessCredentialHash}
+              disabled={credentialHashOperationBusy}
+            >
+              {credentialHashOperationBusy ? "Готовим ключ..." : "Подготовить ключ входа"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function OperationLine({
   label,
   value,
@@ -858,6 +984,10 @@ export default function AdminGovernancePage() {
       return;
     }
     setLastAction(`Следующий шаг подготовлен локально: ${gate.nextAction}. Выдача пациенту остаётся выключенной`);
+  }
+
+  function recordFileChannelReview() {
+    setLastAction("Проверка выдачи файлов подготовлена локально: файлы, пути и ссылки не раскрывались");
   }
 
   async function recordBlockUnapprovedRetention() {
@@ -1205,6 +1335,17 @@ export default function AdminGovernancePage() {
           onBlockUnapprovedRetention={recordBlockUnapprovedRetention}
           onBlockMissingExpiry={recordBlockMissingExpiry}
           onRevokeReview={recordRevokeReview}
+        />
+
+        <DeliverySessionDrilldownPanel
+          governance={governance}
+          unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
+          rotationOperationBusy={rotationOperationBusy}
+          credentialHashOperationBusy={credentialHashOperationBusy}
+          onFileChannelReview={recordFileChannelReview}
+          onBlockUnsafeSessionArtifacts={recordBlockUnsafeSessionArtifacts}
+          onPrepareAccessArtifactRotation={recordPrepareAccessArtifactRotation}
+          onIssueAccessCredentialHash={recordIssueAccessCredentialHash}
         />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

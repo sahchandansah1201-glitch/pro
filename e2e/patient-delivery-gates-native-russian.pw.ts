@@ -107,6 +107,27 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await drilldown.getByRole("button", { name: "Закрыть окна без срока" }).click();
       await expect(page.getByText(/Учебный режим: окна без срока заблокированы локально/)).toBeVisible();
 
+      const sessions = page.getByRole("region", { name: "Проверка файлов и сеансов" });
+      await expect(sessions).toBeVisible();
+      await expect(sessions.getByText("Как не раскрыть файлы и коды")).toBeVisible();
+      for (const text of [
+        "Защищённая выдача файлов",
+        "Сеансы доступа",
+        "2 требуют канала",
+        "2 временных кода",
+        "Проверить выдачу файлов",
+        "Закрыть временные коды",
+        "Подготовить новую выдачу",
+        "Подготовить ключ входа",
+      ]) {
+        await expect(sessions.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await sessions.getByRole("button", { name: "Проверить выдачу файлов" }).click();
+      await expect(page.getByText(/Проверка выдачи файлов подготовлена локально/)).toBeVisible();
+      await sessions.getByRole("button", { name: "Закрыть временные коды" }).click();
+      await expect(page.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/)).toBeVisible();
+
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
       expect(visible).toContain("Выдача пациенту остаётся выключенной");

@@ -141,7 +141,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Текст для пациента")).toBeInTheDocument();
     expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Срок доступа").length).toBeGreaterThan(0);
-    expect(screen.getByText("Защищённая выдача файлов")).toBeInTheDocument();
+    expect(screen.getAllByText("Защищённая выдача файлов").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Сеансы доступа").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Проверить текст для пациента/ })).toBeInTheDocument();
@@ -155,6 +155,16 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Блокировать окна без правил/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Закрыть окна без срока/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Проверить истекающие окна/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Проверка файлов и сеансов" })).toBeInTheDocument();
+    expect(screen.getByText("Как не раскрыть файлы и коды")).toBeInTheDocument();
+    expect(screen.getAllByText("Защищённая выдача файлов").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Сеансы доступа").length).toBeGreaterThan(0);
+    expect(screen.getByText("2 требуют канала")).toBeInTheDocument();
+    expect(screen.getByText("2 временных кода")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Проверить выдачу файлов/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Закрыть временные коды/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить новую выдачу/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить ключ входа/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -173,7 +183,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.getByRole("button", { name: /Подготовить ключ доступа/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Обмен нужен")).toBeInTheDocument();
+    expect(screen.getAllByText("Обмен нужен").length).toBeGreaterThan(0);
     expect(screen.getByText("Сессия подтверждена")).toBeInTheDocument();
     expect(screen.getByText("Отказы обмена")).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
@@ -203,6 +213,30 @@ describe("Admin clinic core pages — render & safety", () => {
       screen.getByText(
         /Учебный режим: отзыв истёкших окон подготовлен локально/,
       ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Проверить выдачу файлов/ }),
+    );
+    expect(
+      screen.getByText(/Проверка выдачи файлов подготовлена локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Закрыть временные коды/ }),
+    );
+    expect(
+      screen.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Подготовить новую выдачу/ }),
+    );
+    expect(
+      screen.getByText(/Учебный режим: замена доступа подготовлена локально/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Подготовить ключ входа/ }),
+    );
+    expect(
+      screen.getByText(/Учебный режим: ключ доступа подготовлен локально/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
