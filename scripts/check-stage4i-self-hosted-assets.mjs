@@ -15,6 +15,9 @@ const REQUIRED_FILES = [
   "src/lib/self-hosted-asset-api.ts",
   "src/lib/self-hosted-asset-api.test.ts",
   "docs/backend/stage-4i-self-hosted-assets.md",
+  "docs/backend/rds3-folder-importer-windows.md",
+  "scripts/rds3-folder-importer.mjs",
+  "scripts/rds3-folder-importer.test.mjs",
   "scripts/check-stage4i-self-hosted-assets.mjs",
   "scripts/check-stage4i-self-hosted-assets.test.mjs",
   ".github/workflows/stage4i-self-hosted-assets.yml",
@@ -58,14 +61,32 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/VisitImagingTab.tsx": [
     "listSelfHostedVisitAssets",
-    "self-hosted backend",
+    "система клиники",
+    "Снимки визита",
     "useSelfHostedApiSession",
+  ],
+  "scripts/rds3-folder-importer.mjs": [
+    "Dermatolog Pro RDS-3 folder importer",
+    "/api/v1/visits/",
+    "/capture-metadata",
+    "captureSource: \"device_bridge\"",
+  ],
+  "scripts/rds3-folder-importer.test.mjs": [
+    "RDS-3 importer uploads a new RDS image",
+    "storagePath|signedUrl",
+    "already_imported",
   ],
   "docs/backend/stage-4i-self-hosted-assets.md": [
     "Stage 4I",
     "POST /api/v1/visits/{visitId}/assets",
     "GET /api/v1/assets/{assetId}/download-url",
     "npm run preflight:stage4i",
+  ],
+  "docs/backend/rds3-folder-importer-windows.md": [
+    "RDS-3 folder importer for Windows 11",
+    "POST /api/v1/visits/{visitId}/assets",
+    "PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata",
+    "npm run test:rds3:import-folder",
   ],
   ".github/workflows/stage4i-self-hosted-assets.yml": [
     "name: stage4i-self-hosted-assets",
