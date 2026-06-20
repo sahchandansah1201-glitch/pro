@@ -398,3 +398,90 @@ export function ClinicLaunchApprovalGatePanel({
     </Card>
   );
 }
+
+export function PatientDeliveryAuditReceiptPanel({
+  gates,
+  lastAction,
+  onAuditReceiptReview,
+}: {
+  gates: PatientDeliveryGate[];
+  lastAction: string | null;
+  onAuditReceiptReview: () => void;
+}) {
+  const readyCount = gates.filter((gate) => gate.ready).length;
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const receiptRows = [
+    {
+      title: "Статус выдачи",
+      detail: "доступ пациенту не открыт",
+      value: "выключена",
+    },
+    {
+      title: "Решение клиники",
+      detail: "рабочее утверждение не принято",
+      value: "не принято",
+    },
+    {
+      title: "Проверки",
+      detail: "закрытые проверки и открытые препятствия",
+      value: `${readyCount}/${gates.length} · ${blockerCount}`,
+    },
+    {
+      title: "Скрытые данные",
+      detail: "пациенты, файлы, ссылки, коды и сеансы не выводились",
+      value: "скрыты",
+    },
+  ];
+
+  return (
+    <Card role="region" aria-label="Итоговый акт запрета выдачи" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Итоговый журнал
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Что останется в журнале проверки</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Акт фиксирует только локальные служебные итоги: запуск запрещён, решение клиники не принято, пациентские
+            строки и файлы не раскрывались.
+          </p>
+        </div>
+        <Badge variant="outline" className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          журнал без данных пациента
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {receiptRows.map((row) => (
+            <div key={row.title} className="rounded-md border p-3">
+              <div className="text-[13px] font-semibold leading-snug">{row.title}</div>
+              <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{row.detail}</div>
+              <div className="mt-2 inline-flex rounded border px-2 py-0.5 text-[11px] font-semibold">
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Последняя запись</div>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              {lastAction ?? "Итоговый акт ещё не фиксировался"}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <ReadinessLine label="Запуск выдачи" value="запрещён" tone="warning" />
+            <ReadinessLine label="Пациентские строки" value="скрыты" tone="success" />
+            <ReadinessLine label="Файлы и ссылки" value="не опубликованы" tone="success" />
+            <ReadinessLine label="Коды входа" value="не раскрывались" tone="success" />
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onAuditReceiptReview}>
+            Зафиксировать итоговый акт
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}

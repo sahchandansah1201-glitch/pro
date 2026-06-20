@@ -35,6 +35,7 @@ import {
   ClinicDecisionPackagePanel,
   ClinicLaunchApprovalGatePanel,
   LocalReadinessHistoryPanel,
+  PatientDeliveryAuditReceiptPanel,
   PreLaunchBlockerPanel,
 } from "./PatientDeliveryReadinessPanels";
 
@@ -1227,6 +1228,12 @@ export default function AdminGovernancePage() {
     );
   }
 
+  function recordPatientDeliveryAuditReceiptReview() {
+    setLastAction(
+      "Итоговый акт запрета выдачи зафиксирован локально: решение клиники не принято, доступ пациенту не открыт, файлы, ссылки, коды входа и номера сеансов не раскрывались. Выдача пациенту остаётся выключенной",
+    );
+  }
+
   async function recordBlockUnapprovedRetention() {
     if (!configured) {
       setLastAction("Учебный режим: окна без правил хранения заблокированы локально, доступ пациента не расширялся");
@@ -1612,6 +1619,12 @@ export default function AdminGovernancePage() {
         <ClinicLaunchApprovalGatePanel
           gates={deliveryGates}
           onLaunchApprovalReview={recordClinicLaunchApprovalReview}
+        />
+
+        <PatientDeliveryAuditReceiptPanel
+          gates={deliveryGates}
+          lastAction={lastAction}
+          onAuditReceiptReview={recordPatientDeliveryAuditReceiptReview}
         />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

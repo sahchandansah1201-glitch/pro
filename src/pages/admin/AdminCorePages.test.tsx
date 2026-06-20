@@ -167,7 +167,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Подготовить ключ входа/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Итоговая проверка безопасности данных" })).toBeInTheDocument();
     expect(screen.getByText("Что можно показать администратору")).toBeInTheDocument();
-    expect(screen.getByText("Скрытые данные")).toBeInTheDocument();
+    expect(screen.getAllByText("Скрытые данные").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Имена пациентов скрыты").length).toBeGreaterThan(0);
     expect(screen.getByText("Фото и файлы скрыты")).toBeInTheDocument();
     expect(screen.getByText("Ссылки и пути скрыты")).toBeInTheDocument();
@@ -214,6 +214,13 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText("запрещён").length).toBeGreaterThan(0);
     expect(screen.getByText("Итог перед запуском")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Зафиксировать запрет запуска/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Итоговый акт запрета выдачи" })).toBeInTheDocument();
+    expect(screen.getByText("Что останется в журнале проверки")).toBeInTheDocument();
+    expect(screen.getByText("Итоговый журнал")).toBeInTheDocument();
+    expect(screen.getAllByText("Статус выдачи").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Скрытые данные").length).toBeGreaterThan(0);
+    expect(screen.getByText("Последняя запись")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Зафиксировать итоговый акт/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -322,6 +329,12 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getAllByText(/Запрет запуска зафиксирован локально: решение клиники не принято/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Зафиксировать итоговый акт/ }),
+    );
+    expect(
+      screen.getAllByText(/Итоговый акт запрета выдачи зафиксирован локально/).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
