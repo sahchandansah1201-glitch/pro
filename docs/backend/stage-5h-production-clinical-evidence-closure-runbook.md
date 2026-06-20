@@ -47,6 +47,13 @@ protected keys, clinical-output keys, non-zero blockers, or missing production
 counts, it fails before writing `validation-export.json`,
 `evidence-bundle.json`, or `evidence-closure-receipt.json`.
 
+After the export succeeds, independently verify the receipt package:
+
+```bash
+npm run verify:stage5h:clinical-evidence-receipt -- \
+  --dir reports/stage5h-production-clinical-evidence
+```
+
 ## Strict Run
 
 ```bash
@@ -64,6 +71,13 @@ The second command writes:
 
 - `evidence-bundle.json`;
 - `evidence-closure-receipt.json`.
+
+Then verify the package:
+
+```bash
+npm run verify:stage5h:clinical-evidence-receipt -- \
+  --dir reports/stage5h-production-clinical-evidence
+```
 
 `reports/` is ignored by git. Do not commit real clinic evidence exports or
 receipts unless the clinic explicitly approves a safe artifact publication
@@ -83,6 +97,18 @@ The receipt records:
 
 The receipt does not store the raw source export, patient rows, raw logs,
 storage paths, signed URLs, credentials, or clinical text.
+
+The verifier checks:
+
+- the source and bundle SHA-256 hashes recorded in the receipt;
+- the bundle passes strict production validation again;
+- all five section statuses are ready;
+- SD-MF-025, SD-MF-026, and SD-MF-028 are represented;
+- patient delivery, measurements, protected fields, clinical output, and raw
+  source payload storage remain false;
+- the receipt itself does not contain raw aggregate counters, protected keys,
+  clinical keys, storage paths, signed URLs, credentials, or token/session
+  material.
 
 ## Closing Rules
 
