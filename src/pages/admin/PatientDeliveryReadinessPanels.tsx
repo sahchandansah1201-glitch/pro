@@ -312,3 +312,89 @@ export function ClinicDecisionPackagePanel({
     </Card>
   );
 }
+
+export function ClinicLaunchApprovalGatePanel({
+  gates,
+  onLaunchApprovalReview,
+}: {
+  gates: PatientDeliveryGate[];
+  onLaunchApprovalReview: () => void;
+}) {
+  const readyCount = gates.filter((gate) => gate.ready).length;
+  const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const approvalRows = [
+    {
+      title: "Решение клиники",
+      detail: "отдельное утверждение ещё не принято",
+      status: "не принято",
+    },
+    {
+      title: "Запуск выдачи",
+      detail: "запрещён до рабочего решения клиники",
+      status: "запрещён",
+    },
+    {
+      title: "Файлы и доступ",
+      detail: "файлы не опубликованы, вход пациенту не открыт",
+      status: "выключены",
+    },
+    {
+      title: "Повторная проверка",
+      detail: "перед запуском нужен повторный просмотр всех правил",
+      status: `${readyCount}/${gates.length}`,
+    },
+  ];
+
+  return (
+    <Card role="region" aria-label="Запрет запуска без решения клиники" className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold uppercase text-muted-foreground">
+            Финальный стоп-гейт
+          </div>
+          <h2 className="mt-1 text-[16px] font-semibold leading-tight">Решение клиники не принято</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            Запуск запрещён без отдельного утверждения клиники. Этот блок только фиксирует запрет запуска и не открывает
+            доступ пациенту.
+          </p>
+        </div>
+        <Badge variant="secondary" className="min-h-[28px] px-2.5 py-1 text-[12px]">
+          запуск запрещён
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {approvalRows.map((row) => (
+            <div key={row.title} className="rounded-md border p-3">
+              <div className="text-[13px] font-semibold leading-snug">{row.title}</div>
+              <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{row.detail}</div>
+              <div className="mt-2 inline-flex rounded border px-2 py-0.5 text-[11px] font-semibold">
+                {row.status}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 rounded-md border p-3">
+          <div>
+            <div className="text-[13px] font-semibold">Итог перед запуском</div>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Администратор может зафиксировать только запрет запуска. Включение выдачи требует отдельного утверждения
+              вне этого экрана.
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <ReadinessLine label="Решение клиники" value="не принято" tone="warning" />
+            <ReadinessLine label="Запуск выдачи" value="запрещён" tone="warning" />
+            <ReadinessLine label="Открыто препятствий" value={blockerCount} tone={blockerCount > 0 ? "warning" : "success"} />
+            <ReadinessLine label="Публикация файлов" value="выключена" tone="success" />
+          </div>
+          <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onLaunchApprovalReview}>
+            Зафиксировать запрет запуска
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}

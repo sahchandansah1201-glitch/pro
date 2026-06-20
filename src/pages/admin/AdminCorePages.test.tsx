@@ -204,9 +204,16 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Служебная сводка")).toBeInTheDocument();
     expect(screen.getByText("Ответственный клиники")).toBeInTheDocument();
     expect(screen.getByText("Данные для пациента")).toBeInTheDocument();
-    expect(screen.getByText("Повторная проверка")).toBeInTheDocument();
+    expect(screen.getAllByText("Повторная проверка").length).toBeGreaterThan(0);
     expect(screen.getByText("Итог перед решением")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить пакет решения/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Запрет запуска без решения клиники" })).toBeInTheDocument();
+    expect(screen.getByText("Решение клиники не принято")).toBeInTheDocument();
+    expect(screen.getByText("Финальный стоп-гейт")).toBeInTheDocument();
+    expect(screen.getAllByText("Запуск выдачи").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("запрещён").length).toBeGreaterThan(0);
+    expect(screen.getByText("Итог перед запуском")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Зафиксировать запрет запуска/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -309,6 +316,12 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getAllByText(/Пакет решения клиники подготовлен локально/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Зафиксировать запрет запуска/ }),
+    );
+    expect(
+      screen.getAllByText(/Запрет запуска зафиксирован локально: решение клиники не принято/).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
