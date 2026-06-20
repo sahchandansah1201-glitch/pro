@@ -19,6 +19,13 @@ vi.mock("@/lib/api-session", () => ({
 }));
 
 import VisitWorkspacePage from "./VisitWorkspacePage";
+import {
+  isLongitudinalClinicalValidationDecisionReady,
+  isProductionDatasetEvidenceDecisionReady,
+  isProductionReviewerEvidenceDecisionReady,
+  isProductionReviewerGovernanceDecisionReady,
+  isProductionReviewerRollbackEvidenceDecisionReady,
+} from "./visit-workspace/productionTimelineEvidenceGates";
 
 const j = (...p: string[]) => p.join("");
 const FORBIDDEN = [
@@ -2669,6 +2676,124 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(helperSource).not.toContain("PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT");
     expect(helperSource).toContain("buildProductionReviewerRollbackEvidenceCounts");
     expect(helperSource).toContain("rollbackReadyProductionCount");
+  });
+
+  it("keeps production decision gates closed while blockers, open confirmations, or boundary flags remain", () => {
+    const clearBoundary = {
+      patientDeliveryAllowed: false,
+      medicalMeasurementAllowed: false,
+      protectedFieldsExposed: false,
+      clinicalOutputGenerated: false,
+    };
+    const clinicalValidation = {
+      ...clearBoundary,
+      status: "ready_for_longitudinal_clinical_validation",
+      realOutcomeWindowCount: 2,
+      governanceReviewCount: 1,
+      unresolvedConsensusCaseCount: 0,
+      blockerCount: 0,
+    };
+    const datasetEvidence = {
+      ...clearBoundary,
+      status: "ready_for_production_dataset_evidence",
+      realClinicWindowCount: 2,
+      monitoredClinicOperationCount: 2,
+      sampledClinicOperationCount: 2,
+      longitudinalFollowupCount: 2,
+      protectedReviewerLinkedCount: 2,
+      observedOutcomeCount: 2,
+      incidentLinkedCount: 1,
+      unresolvedProductionDatasetEvidenceCount: 0,
+      blockerCount: 0,
+    };
+    const rollbackEvidence = {
+      ...clearBoundary,
+      status: "ready_for_production_reviewer_rollback_evidence",
+      productionReviewWindowCount: 2,
+      rollbackDrillProductionCount: 1,
+      rollbackReadyProductionCount: 1,
+      rollbackExceptionCount: 0,
+      unresolvedRollbackEvidenceCount: 0,
+      blockerCount: 0,
+    };
+    const reviewerGovernance = {
+      ...clearBoundary,
+      status: "ready_for_production_reviewer_governance",
+      productionReviewWindowCount: 2,
+      assignedProductionReviewerCount: 2,
+      secondReviewedProductionCount: 2,
+      adjudicatedProductionReviewCount: 2,
+      followupClosedProductionCount: 2,
+      exceptionClosedProductionCount: 1,
+      rollbackReadyProductionCount: 1,
+      unresolvedProductionReviewerGovernanceCount: 0,
+      blockerCount: 0,
+    };
+    const reviewerEvidence = {
+      ...clearBoundary,
+      status: "ready_for_production_reviewer_evidence",
+      productionReviewWindowCount: 2,
+      assignedProductionReviewerCount: 2,
+      secondReviewedProductionCount: 2,
+      adjudicatedProductionReviewCount: 2,
+      followupClosedProductionCount: 2,
+      exceptionClosedProductionCount: 1,
+      rollbackReadyProductionCount: 1,
+      unresolvedProductionReviewerEvidenceCount: 0,
+      blockerCount: 0,
+    };
+
+    expect(isLongitudinalClinicalValidationDecisionReady(clinicalValidation)).toBe(true);
+    expect(isProductionDatasetEvidenceDecisionReady(datasetEvidence)).toBe(true);
+    expect(isProductionReviewerRollbackEvidenceDecisionReady(rollbackEvidence)).toBe(true);
+    expect(isProductionReviewerGovernanceDecisionReady(reviewerGovernance)).toBe(true);
+    expect(isProductionReviewerEvidenceDecisionReady(reviewerEvidence)).toBe(true);
+
+    expect(
+      isLongitudinalClinicalValidationDecisionReady({
+        ...clinicalValidation,
+        unresolvedConsensusCaseCount: 1,
+      }),
+    ).toBe(false);
+    expect(
+      isProductionDatasetEvidenceDecisionReady({
+        ...datasetEvidence,
+        blockerCount: 1,
+      }),
+    ).toBe(false);
+    expect(
+      isProductionReviewerRollbackEvidenceDecisionReady({
+        ...rollbackEvidence,
+        patientDeliveryAllowed: true,
+      }),
+    ).toBe(false);
+    expect(
+      isProductionReviewerGovernanceDecisionReady({
+        ...reviewerGovernance,
+        unresolvedProductionReviewerGovernanceCount: 1,
+      }),
+    ).toBe(false);
+    expect(
+      isProductionReviewerEvidenceDecisionReady({
+        ...reviewerEvidence,
+        rollbackReadyProductionCount: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("shows a compact production clinical decision summary before the technical journal", async () => {
+    vi.stubGlobal("fetch", createLiveWorkspaceFetchMock());
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    const summary = await screen.findByRole("region", { name: "Рабочее решение по истории" });
+    expect(within(summary).getByText("Что готово по реальным данным")).toBeInTheDocument();
+    expect(within(summary).getByText("Готово: 0/3")).toBeInTheDocument();
+    expect(within(summary).getByText("Рабочие данные")).toBeInTheDocument();
+    expect(within(summary).getByText("Рабочая проверка")).toBeInTheDocument();
+    expect(within(summary).getByText("Безопасность")).toBeInTheDocument();
+    expect(within(summary).getAllByText("нужно закрыть").length).toBeGreaterThanOrEqual(3);
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("patientDeliveryAllowed");
   });
 
   it("posts timeline rollout governance review without patient delivery or dynamic conclusion", async () => {

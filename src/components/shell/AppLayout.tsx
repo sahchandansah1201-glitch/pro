@@ -107,7 +107,7 @@ function ProductionSessionChip({
           type="button"
           variant="ghost"
           size="sm"
-          className="min-h-11 px-3 text-[12px]"
+          className="min-h-11 min-w-11 px-3 text-[12px]"
           onClick={handleLogout}
           aria-label="Выйти из рабочей системы"
         >

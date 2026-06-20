@@ -40,6 +40,52 @@ type ProductionReviewerRollbackEvidenceSource = {
   rollbackExceptionCount: number;
 };
 
+type BoundaryFlagSource = {
+  patientDeliveryAllowed: boolean;
+  medicalMeasurementAllowed: boolean;
+  protectedFieldsExposed: boolean;
+  clinicalOutputGenerated: boolean;
+};
+
+type LongitudinalClinicalValidationDecisionSource = BoundaryFlagSource & {
+  status: string;
+  realOutcomeWindowCount: number;
+  governanceReviewCount: number;
+  unresolvedConsensusCaseCount: number;
+  blockerCount: number;
+};
+
+type ProductionDatasetEvidenceDecisionSource = BoundaryFlagSource & {
+  status: string;
+  realClinicWindowCount: number;
+  monitoredClinicOperationCount: number;
+  sampledClinicOperationCount: number;
+  longitudinalFollowupCount: number;
+  protectedReviewerLinkedCount: number;
+  observedOutcomeCount: number;
+  incidentLinkedCount: number;
+  unresolvedProductionDatasetEvidenceCount: number;
+  blockerCount: number;
+};
+
+type ProductionReviewerRollbackEvidenceDecisionSource = ProductionReviewerRollbackEvidenceSource & BoundaryFlagSource & {
+  status: string;
+  unresolvedRollbackEvidenceCount: number;
+  blockerCount: number;
+};
+
+type ProductionReviewerGovernanceDecisionSource = ProductionReviewerEvidenceSource & BoundaryFlagSource & {
+  status: string;
+  unresolvedProductionReviewerGovernanceCount: number;
+  blockerCount: number;
+};
+
+type ProductionReviewerEvidenceDecisionSource = ProductionReviewerEvidenceSource & BoundaryFlagSource & {
+  status: string;
+  unresolvedProductionReviewerEvidenceCount: number;
+  blockerCount: number;
+};
+
 function positiveCount(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -50,6 +96,19 @@ function hasPositiveCounts(...values: Array<number | null | undefined>): boolean
 
 function positiveMin(...values: Array<number | null | undefined>): number {
   return hasPositiveCounts(...values) ? Math.min(...values.map(positiveCount)) : 0;
+}
+
+function boundaryFlagsClear(source: BoundaryFlagSource): boolean {
+  return (
+    source.patientDeliveryAllowed === false
+    && source.medicalMeasurementAllowed === false
+    && source.protectedFieldsExposed === false
+    && source.clinicalOutputGenerated === false
+  );
+}
+
+function noOpenWork(...values: Array<number | null | undefined>): boolean {
+  return values.every((value) => positiveCount(value) === 0);
 }
 
 export const EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS = {
@@ -224,4 +283,72 @@ export function buildProductionReviewerEvidenceCounts(source: ProductionReviewer
     exceptionClosedProductionCount,
     rollbackReadyProductionCount,
   };
+}
+
+export function isLongitudinalClinicalValidationDecisionReady(
+  source: LongitudinalClinicalValidationDecisionSource,
+): boolean {
+  const counts = buildLongitudinalClinicalValidationCounts({
+    followupWindowCount: source.realOutcomeWindowCount,
+    observedTimelineCount: source.realOutcomeWindowCount,
+    governanceReviewCount: source.governanceReviewCount,
+  });
+  return (
+    source.status === "ready_for_longitudinal_clinical_validation"
+    && counts.ready
+    && noOpenWork(source.unresolvedConsensusCaseCount, source.blockerCount)
+    && boundaryFlagsClear(source)
+  );
+}
+
+export function isProductionDatasetEvidenceDecisionReady(
+  source: ProductionDatasetEvidenceDecisionSource,
+): boolean {
+  return (
+    source.status === "ready_for_production_dataset_evidence"
+    && hasPositiveCounts(
+      source.realClinicWindowCount,
+      source.monitoredClinicOperationCount,
+      source.sampledClinicOperationCount,
+      source.longitudinalFollowupCount,
+      source.protectedReviewerLinkedCount,
+      source.observedOutcomeCount,
+      source.incidentLinkedCount,
+    )
+    && noOpenWork(source.unresolvedProductionDatasetEvidenceCount, source.blockerCount)
+    && boundaryFlagsClear(source)
+  );
+}
+
+export function isProductionReviewerRollbackEvidenceDecisionReady(
+  source: ProductionReviewerRollbackEvidenceDecisionSource,
+): boolean {
+  return (
+    source.status === "ready_for_production_reviewer_rollback_evidence"
+    && buildProductionReviewerRollbackEvidenceCounts(source).ready
+    && noOpenWork(source.unresolvedRollbackEvidenceCount, source.blockerCount)
+    && boundaryFlagsClear(source)
+  );
+}
+
+export function isProductionReviewerGovernanceDecisionReady(
+  source: ProductionReviewerGovernanceDecisionSource,
+): boolean {
+  return (
+    source.status === "ready_for_production_reviewer_governance"
+    && buildProductionReviewerEvidenceCounts(source).ready
+    && noOpenWork(source.unresolvedProductionReviewerGovernanceCount, source.blockerCount)
+    && boundaryFlagsClear(source)
+  );
+}
+
+export function isProductionReviewerEvidenceDecisionReady(
+  source: ProductionReviewerEvidenceDecisionSource,
+): boolean {
+  return (
+    source.status === "ready_for_production_reviewer_evidence"
+    && buildProductionReviewerEvidenceCounts(source).ready
+    && noOpenWork(source.unresolvedProductionReviewerEvidenceCount, source.blockerCount)
+    && boundaryFlagsClear(source)
+  );
 }

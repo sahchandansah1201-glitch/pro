@@ -31,21 +31,13 @@ import {
   TimelineQaGroupNav,
 } from "@/pages/doctor/visit-workspace/TimelineQaNavigation";
 import { LongitudinalQaSummary } from "@/pages/doctor/visit-workspace/LongitudinalQaSummary";
+import { ProductionClinicalDecisionSummary } from "@/pages/doctor/visit-workspace/ProductionClinicalDecisionSummary";
 import {
   humanDisplayValue,
   humanFieldTerm,
   timelineReasonLabel,
 } from "@/pages/doctor/visit-workspace/visitWorkspaceLabels";
-import {
-  buildLongitudinalClinicalValidationCounts,
-  buildProductionDatasetEvidenceCounts,
-  buildProductionReviewerEvidenceCounts,
-  buildProductionReviewerGovernanceCounts,
-  buildProductionReviewerRollbackEvidenceCounts,
-  EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS,
-  EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS,
-  EMPTY_PRODUCTION_REVIEWER_COUNTS,
-} from "@/pages/doctor/visit-workspace/productionTimelineEvidenceGates";
+import { buildLongitudinalClinicalValidationCounts, buildProductionDatasetEvidenceCounts, buildProductionReviewerEvidenceCounts, buildProductionReviewerGovernanceCounts, buildProductionReviewerRollbackEvidenceCounts, EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS, EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS, EMPTY_PRODUCTION_REVIEWER_COUNTS, isLongitudinalClinicalValidationDecisionReady, isProductionDatasetEvidenceDecisionReady, isProductionReviewerEvidenceDecisionReady, isProductionReviewerGovernanceDecisionReady, isProductionReviewerRollbackEvidenceDecisionReady } from "@/pages/doctor/visit-workspace/productionTimelineEvidenceGates";
 import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
@@ -2718,6 +2710,7 @@ function LongitudinalDatasetValidationPanel({
     && exceptionGovernance.status === "ready_for_exception_governance";
   const longitudinalClinicalValidationRealDataReady =
     buildLongitudinalClinicalValidationCounts(outcomeGovernance).ready;
+  const longitudinalClinicalValidationDecisionReady = isLongitudinalClinicalValidationDecisionReady(longitudinalClinicalValidation);
   const longitudinalClinicalValidationPrerequisitesReady =
     outcomeGovernancePrerequisitesReady
     && outcomeGovernance.status === "ready_for_outcome_governance"
@@ -2733,32 +2726,29 @@ function LongitudinalDatasetValidationPanel({
     && protectedReviewerGovernance.status === "ready_for_protected_reviewer_governance";
   const productionDatasetEvidenceRealDataReady =
     buildProductionDatasetEvidenceCounts(protectedReviewerEvidence).ready;
+  const productionDatasetEvidenceDecisionReady = isProductionDatasetEvidenceDecisionReady(productionDatasetEvidence);
   const productionDatasetEvidencePrerequisitesReady =
     protectedReviewerEvidencePrerequisitesReady
     && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence"
     && productionDatasetEvidenceRealDataReady;
   const productionReviewerRollbackEvidenceRealDataReady =
     buildProductionReviewerRollbackEvidenceCounts(productionReviewerRollbackEvidence).ready;
+  const productionReviewerRollbackEvidenceDecisionReady = isProductionReviewerRollbackEvidenceDecisionReady(productionReviewerRollbackEvidence);
   const productionReviewerRollbackEvidencePrerequisitesReady =
-    productionDatasetEvidencePrerequisitesReady
-    && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
-    && productionReviewerRollbackEvidenceRealDataReady;
+    productionDatasetEvidencePrerequisitesReady && productionDatasetEvidenceDecisionReady && productionReviewerRollbackEvidenceRealDataReady;
   const productionReviewerGovernanceRealDataReady =
     buildProductionReviewerGovernanceCounts({
       ...productionDatasetEvidence,
       rollbackReadyProductionCount: productionReviewerRollbackEvidence.rollbackReadyProductionCount,
     }).ready;
+  const productionReviewerGovernanceDecisionReady = isProductionReviewerGovernanceDecisionReady(productionReviewerGovernance);
   const productionReviewerGovernancePrerequisitesReady =
-    productionReviewerRollbackEvidencePrerequisitesReady
-    && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
-    && productionReviewerRollbackEvidence.status === "ready_for_production_reviewer_rollback_evidence"
-    && productionReviewerGovernanceRealDataReady;
+    productionReviewerRollbackEvidencePrerequisitesReady && productionReviewerRollbackEvidenceDecisionReady && productionReviewerGovernanceRealDataReady;
   const productionReviewerEvidenceRealDataReady =
     buildProductionReviewerEvidenceCounts(productionReviewerGovernance).ready;
+  const productionReviewerEvidenceDecisionReady = isProductionReviewerEvidenceDecisionReady(productionReviewerEvidence);
   const productionReviewerEvidencePrerequisitesReady =
-    productionReviewerGovernancePrerequisitesReady
-    && productionReviewerGovernance.status === "ready_for_production_reviewer_governance"
-    && productionReviewerEvidenceRealDataReady;
+    productionReviewerGovernancePrerequisitesReady && productionReviewerGovernanceDecisionReady && productionReviewerEvidenceRealDataReady;
   const timelineQaSteps: TimelineQaStep[] = [
     {
       key: "dataset",
@@ -2914,6 +2904,15 @@ function LongitudinalDatasetValidationPanel({
           </ol>
         </details>
       </div>
+      <ProductionClinicalDecisionSummary
+        longitudinalClinicalValidationReady={longitudinalClinicalValidationDecisionReady}
+        productionDatasetEvidenceReady={productionDatasetEvidenceDecisionReady}
+        productionReviewerRollbackEvidenceReady={productionReviewerRollbackEvidenceDecisionReady}
+        productionReviewerGovernanceReady={productionReviewerGovernanceDecisionReady}
+        productionReviewerEvidenceReady={productionReviewerEvidenceDecisionReady}
+        realClinicWindowCount={productionDatasetEvidence.realClinicWindowCount} sampledClinicOperationCount={productionDatasetEvidence.sampledClinicOperationCount}
+        productionReviewWindowCount={productionReviewerEvidence.productionReviewWindowCount} secondReviewedProductionCount={productionReviewerEvidence.secondReviewedProductionCount}
+      />
       <LongitudinalQaSummary
         readiness={readiness}
         completedSteps={completedTimelineQaSteps}
