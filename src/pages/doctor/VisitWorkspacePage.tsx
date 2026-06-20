@@ -41,6 +41,7 @@ import {
   buildProductionDatasetEvidenceCounts,
   buildProductionReviewerEvidenceCounts,
   buildProductionReviewerGovernanceCounts,
+  buildProductionReviewerRollbackEvidenceCounts,
   EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS,
   EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS,
   EMPTY_PRODUCTION_REVIEWER_COUNTS,
@@ -72,6 +73,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidation,
@@ -95,6 +97,7 @@ import {
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus,
@@ -548,6 +551,10 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutProtectedReviewerEvidenceSaving, setTimelineRolloutProtectedReviewerEvidenceSaving] = useState(false);
   const [timelineRolloutProductionDatasetEvidenceSaving, setTimelineRolloutProductionDatasetEvidenceSaving] =
     useState(false);
+  const [
+    timelineRolloutProductionReviewerRollbackEvidenceSaving,
+    setTimelineRolloutProductionReviewerRollbackEvidenceSaving,
+  ] = useState(false);
   const [timelineRolloutProductionReviewerGovernanceSaving, setTimelineRolloutProductionReviewerGovernanceSaving] =
     useState(false);
   const [timelineRolloutProductionReviewerEvidenceSaving, setTimelineRolloutProductionReviewerEvidenceSaving] =
@@ -1518,6 +1525,68 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Подтверждение рабочих данных сохранено. Вывод о динамике выключен.");
   };
 
+  const saveTimelineRolloutProductionReviewerRollbackEvidence = async (
+    productionReviewerRollbackEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidenceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence;
+    const readyPayload =
+      productionReviewerRollbackEvidenceStatus === "ready_for_production_reviewer_rollback_evidence";
+    const sourceCounts = buildProductionReviewerRollbackEvidenceCounts({
+      productionReviewWindowCount: productionDatasetEvidence.realClinicWindowCount,
+      rollbackDrillProductionCount: productionDatasetEvidence.incidentLinkedCount,
+      rollbackReadyProductionCount: productionDatasetEvidence.incidentLinkedCount,
+      rollbackExceptionCount: productionDatasetEvidence.incidentLinkedCount,
+    });
+    const rollbackEvidenceReady =
+      readyPayload
+      && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+      && sourceCounts.ready;
+    const effectiveStatus = rollbackEvidenceReady ? productionReviewerRollbackEvidenceStatus : "in_review";
+    const rollbackCounts = rollbackEvidenceReady
+      ? sourceCounts
+      : {
+          productionReviewWindowCount: 0,
+          rollbackDrillProductionCount: 0,
+          rollbackReadyProductionCount: 0,
+          rollbackExceptionCount: 0,
+        };
+    setTimelineRolloutProductionReviewerRollbackEvidenceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        productionReviewerRollbackEvidenceStatus: effectiveStatus,
+        productionReviewerRollbackEvidenceReasons: rollbackEvidenceReady
+          ? ["production_reviewer_rollback_evidence_ready_no_patient_delivery"]
+          : ["production_reviewer_rollback_evidence_requires_real_production_rollback_receipt"],
+        rollbackDrillStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        rollbackOwnerStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        rollbackWindowStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        rollbackExceptionStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        rollbackArchiveStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: rollbackEvidenceReady ? "ready" : "needs_review",
+        productionReviewWindowCount: rollbackCounts.productionReviewWindowCount,
+        rollbackDrillProductionCount: rollbackCounts.rollbackDrillProductionCount,
+        rollbackReadyProductionCount: rollbackCounts.rollbackReadyProductionCount,
+        rollbackExceptionCount: rollbackCounts.rollbackExceptionCount,
+        unresolvedRollbackEvidenceCount: 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutProductionReviewerRollbackEvidenceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить откат рабочей проверки.");
+      return;
+    }
+    await load();
+    setStatus("Откат рабочей проверки сохранён. Вывод о динамике выключен.");
+  };
+
   const saveTimelineRolloutProductionReviewerGovernance = async (
     productionReviewerGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus,
   ) => {
@@ -1526,12 +1595,17 @@ function ProductionClinicalWorkspacePanel({
     if (!validation) return;
     const readiness = validation.readiness;
     const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence;
+    const productionReviewerRollbackEvidence = validation.timelineRolloutProductionReviewerRollbackEvidence;
     const readyPayload = productionReviewerGovernanceStatus === "ready_for_production_reviewer_governance";
-    const sourceCounts = buildProductionReviewerGovernanceCounts(productionDatasetEvidence);
+    const sourceCounts = buildProductionReviewerGovernanceCounts({
+      ...productionDatasetEvidence,
+      rollbackReadyProductionCount: productionReviewerRollbackEvidence.rollbackReadyProductionCount,
+    });
     const governanceReady =
       readyPayload
       && readiness.status === "ready_for_rollout"
       && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+      && productionReviewerRollbackEvidence.status === "ready_for_production_reviewer_rollback_evidence"
       && sourceCounts.ready;
     const effectiveStatus = governanceReady ? productionReviewerGovernanceStatus : "in_review";
     const governanceCounts = governanceReady ? sourceCounts : EMPTY_PRODUCTION_REVIEWER_COUNTS;
@@ -1680,6 +1754,7 @@ function ProductionClinicalWorkspacePanel({
                 protectedReviewerEvidenceSaving={timelineRolloutProtectedReviewerEvidenceSaving}
                 protectedReviewerGovernanceSaving={timelineRolloutProtectedReviewerGovernanceSaving}
                 productionDatasetEvidenceSaving={timelineRolloutProductionDatasetEvidenceSaving}
+                productionReviewerRollbackEvidenceSaving={timelineRolloutProductionReviewerRollbackEvidenceSaving}
                 productionReviewerGovernanceSaving={timelineRolloutProductionReviewerGovernanceSaving}
                 productionReviewerEvidenceSaving={timelineRolloutProductionReviewerEvidenceSaving}
                 protectedReviewerValidationSaving={timelineRolloutProtectedReviewerValidationSaving}
@@ -1697,6 +1772,7 @@ function ProductionClinicalWorkspacePanel({
                 onReviewProtectedReviewerEvidence={saveTimelineRolloutProtectedReviewerEvidence}
                 onReviewProtectedReviewerGovernance={saveTimelineRolloutProtectedReviewerGovernance}
                 onReviewProductionDatasetEvidence={saveTimelineRolloutProductionDatasetEvidence}
+                onReviewProductionReviewerRollbackEvidence={saveTimelineRolloutProductionReviewerRollbackEvidence}
                 onReviewProductionReviewerGovernance={saveTimelineRolloutProductionReviewerGovernance}
                 onReviewProductionReviewerEvidence={saveTimelineRolloutProductionReviewerEvidence}
                 onReviewProtectedReviewerValidation={saveTimelineRolloutProtectedReviewerValidation}
@@ -2069,6 +2145,14 @@ function timelineRolloutProductionDatasetEvidenceStatusLabel(
   return "Рабочие данные не начаты";
 }
 
+function timelineRolloutProductionReviewerRollbackEvidenceStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidenceStatus,
+): string {
+  if (status === "ready_for_production_reviewer_rollback_evidence") return "Откат готов";
+  if (status === "in_review") return "Откат на разборе";
+  return "Откат не начат";
+}
+
 function timelineRolloutProductionReviewerGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus,
 ): string {
@@ -2135,6 +2219,7 @@ function LongitudinalDatasetValidationPanel({
   protectedReviewerEvidenceSaving,
   protectedReviewerGovernanceSaving,
   productionDatasetEvidenceSaving,
+  productionReviewerRollbackEvidenceSaving,
   productionReviewerGovernanceSaving,
   productionReviewerEvidenceSaving,
   protectedReviewerValidationSaving,
@@ -2152,6 +2237,7 @@ function LongitudinalDatasetValidationPanel({
   onReviewProtectedReviewerEvidence,
   onReviewProtectedReviewerGovernance,
   onReviewProductionDatasetEvidence,
+  onReviewProductionReviewerRollbackEvidence,
   onReviewProductionReviewerGovernance,
   onReviewProductionReviewerEvidence,
   onReviewProtectedReviewerValidation,
@@ -2171,6 +2257,7 @@ function LongitudinalDatasetValidationPanel({
   protectedReviewerEvidenceSaving: boolean;
   protectedReviewerGovernanceSaving: boolean;
   productionDatasetEvidenceSaving: boolean;
+  productionReviewerRollbackEvidenceSaving: boolean;
   productionReviewerGovernanceSaving: boolean;
   productionReviewerEvidenceSaving: boolean;
   protectedReviewerValidationSaving: boolean;
@@ -2203,6 +2290,9 @@ function LongitudinalDatasetValidationPanel({
   ) => void;
   onReviewProductionDatasetEvidence: (
     status: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
+  ) => void;
+  onReviewProductionReviewerRollbackEvidence: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidenceStatus,
   ) => void;
   onReviewProductionReviewerGovernance: (
     status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus,
@@ -2468,6 +2558,39 @@ function LongitudinalDatasetValidationPanel({
     createdAt: null,
     updatedAt: null,
   };
+  const productionReviewerRollbackEvidence = validation.timelineRolloutProductionReviewerRollbackEvidence ?? {
+    id: "",
+    clinicId: null,
+    patientId: null,
+    visitId: null,
+    status: "not_started" as const,
+    reasons: [],
+    productionDatasetEvidenceStatus: "not_started" as const,
+    rollbackDrillStatus: "missing" as const,
+    rollbackOwnerStatus: "missing" as const,
+    rollbackWindowStatus: "missing" as const,
+    rollbackExceptionStatus: "missing" as const,
+    rollbackArchiveStatus: "missing" as const,
+    ownerSignoffStatus: "missing" as const,
+    productionReviewWindowCount: 0,
+    rollbackDrillProductionCount: 0,
+    rollbackReadyProductionCount: 0,
+    rollbackExceptionCount: 0,
+    unresolvedRollbackEvidenceCount: 0,
+    blockerCount: 0,
+    lesionCount: 0,
+    readyTimelineCount: 0,
+    blockedTimelineCount: 0,
+    candidatePairCount: 0,
+    reviewerWorkflowReadyCount: 0,
+    patientDeliveryAllowed: false as const,
+    medicalMeasurementAllowed: false as const,
+    protectedFieldsExposed: false as const,
+    clinicalOutputGenerated: false as const,
+    reviewedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  };
   const productionReviewerGovernance = validation.timelineRolloutProductionReviewerGovernance ?? {
     id: "",
     clinicId: null,
@@ -2614,11 +2737,21 @@ function LongitudinalDatasetValidationPanel({
     protectedReviewerEvidencePrerequisitesReady
     && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence"
     && productionDatasetEvidenceRealDataReady;
-  const productionReviewerGovernanceRealDataReady =
-    buildProductionReviewerGovernanceCounts(productionDatasetEvidence).ready;
-  const productionReviewerGovernancePrerequisitesReady =
+  const productionReviewerRollbackEvidenceRealDataReady =
+    buildProductionReviewerRollbackEvidenceCounts(productionReviewerRollbackEvidence).ready;
+  const productionReviewerRollbackEvidencePrerequisitesReady =
     productionDatasetEvidencePrerequisitesReady
     && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+    && productionReviewerRollbackEvidenceRealDataReady;
+  const productionReviewerGovernanceRealDataReady =
+    buildProductionReviewerGovernanceCounts({
+      ...productionDatasetEvidence,
+      rollbackReadyProductionCount: productionReviewerRollbackEvidence.rollbackReadyProductionCount,
+    }).ready;
+  const productionReviewerGovernancePrerequisitesReady =
+    productionReviewerRollbackEvidencePrerequisitesReady
+    && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+    && productionReviewerRollbackEvidence.status === "ready_for_production_reviewer_rollback_evidence"
     && productionReviewerGovernanceRealDataReady;
   const productionReviewerEvidenceRealDataReady =
     buildProductionReviewerEvidenceCounts(productionReviewerGovernance).ready;
@@ -3789,6 +3922,70 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewProductionDatasetEvidence("ready_for_production_dataset_evidence")}
           >
             Утвердить рабочие данные
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Откат рабочей проверки"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Откат рабочей проверки</h4>
+            <p className="text-muted-foreground">
+              Откат рабочей проверки фиксирует только сводную готовность возврата к безопасному режиму · вывод о
+              динамике выключен · Выдача пациенту выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutProductionReviewerRollbackEvidenceStatusLabel(productionReviewerRollbackEvidence.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Field term="Проверка отката" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackDrillStatus)} />
+          <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackOwnerStatus)} />
+          <Field term="Период отката" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackWindowStatus)} />
+          <Field term="Исключения" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackExceptionStatus)} />
+          <Field term="Архив" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackArchiveStatus)} />
+          <Field term="Подпись владельца" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.ownerSignoffStatus)} />
+          <Field term="Периоды" value={productionReviewerRollbackEvidence.productionReviewWindowCount} />
+          <Field term="Прогоны отката" value={productionReviewerRollbackEvidence.rollbackDrillProductionCount} />
+          <Field term="Откат готов" value={productionReviewerRollbackEvidence.rollbackReadyProductionCount} />
+          <Field term="Исключения" value={productionReviewerRollbackEvidence.rollbackExceptionCount} />
+          <Field term="Открытый откат" value={productionReviewerRollbackEvidence.unresolvedRollbackEvidenceCount} />
+          <Field term="Препятствия" value={productionReviewerRollbackEvidence.blockerCount} />
+        </dl>
+        {productionReviewerRollbackEvidence.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {productionReviewerRollbackEvidence.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {timelineReasonLabel(reason)}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="min-h-11 text-[12px]"
+            disabled={productionReviewerRollbackEvidenceSaving}
+            onClick={() => onReviewProductionReviewerRollbackEvidence("in_review")}
+          >
+            Зафиксировать откат рабочей проверки
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="min-h-11 text-[12px]"
+            disabled={productionReviewerRollbackEvidenceSaving || !productionReviewerRollbackEvidencePrerequisitesReady}
+            onClick={() =>
+              onReviewProductionReviewerRollbackEvidence("ready_for_production_reviewer_rollback_evidence")
+            }
+          >
+            Утвердить откат рабочей проверки
           </Button>
         </div>
       </div>

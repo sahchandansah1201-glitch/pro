@@ -15,6 +15,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence,
@@ -3783,6 +3784,110 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProductionReviewerGovernanceLog|productionReviewerGovernancePayload|productionReviewerOpsPayload|reviewerName|reviewerEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews production reviewer rollback evidence through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "production-reviewer-rollback-evidence-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_production_reviewer_rollback_evidence_not_ready"],
+            productionDatasetEvidenceStatus: "not_started",
+            rollbackDrillStatus: "needs_review",
+            rollbackOwnerStatus: "needs_review",
+            rollbackWindowStatus: "needs_review",
+            rollbackExceptionStatus: "needs_review",
+            rollbackArchiveStatus: "needs_review",
+            ownerSignoffStatus: "needs_review",
+            productionReviewWindowCount: 0,
+            rollbackDrillProductionCount: 0,
+            rollbackReadyProductionCount: 0,
+            rollbackExceptionCount: 0,
+            unresolvedRollbackEvidenceCount: 0,
+            blockerCount: 1,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawProductionReviewerRollbackEvidenceLog: "unsafe",
+            productionReviewerRollbackEvidencePayload: { unsafe: true },
+            productionReviewerOpsPayload: { unsafe: true },
+            reviewerName: "Unsafe Name",
+            reviewerEmail: "unsafe@example.com",
+            pairKey: "secret-pair",
+            imageIds: ["i-011", "i-012"],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        productionReviewerRollbackEvidenceStatus: "ready_for_production_reviewer_rollback_evidence",
+        productionReviewerRollbackEvidenceReasons: ["production_reviewer_rollback_ready_no_patient_delivery"],
+        rollbackDrillStatus: "ready",
+        rollbackOwnerStatus: "ready",
+        rollbackWindowStatus: "ready",
+        rollbackExceptionStatus: "ready",
+        rollbackArchiveStatus: "ready",
+        ownerSignoffStatus: "ready",
+        productionReviewWindowCount: 8,
+        rollbackDrillProductionCount: 4,
+        rollbackReadyProductionCount: 3,
+        rollbackExceptionCount: 1,
+        unresolvedRollbackEvidenceCount: 0,
+        blockerCount: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.productionDatasetEvidenceStatus).toBe("not_started");
+    expect(result.value?.rollbackDrillStatus).toBe("needs_review");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/production-reviewer-rollback-evidence",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          productionReviewerRollbackEvidenceStatus: "ready_for_production_reviewer_rollback_evidence",
+          productionReviewerRollbackEvidenceReasons: ["production_reviewer_rollback_ready_no_patient_delivery"],
+          rollbackDrillStatus: "ready",
+          rollbackOwnerStatus: "ready",
+          rollbackWindowStatus: "ready",
+          rollbackExceptionStatus: "ready",
+          rollbackArchiveStatus: "ready",
+          ownerSignoffStatus: "ready",
+          productionReviewWindowCount: 8,
+          rollbackDrillProductionCount: 4,
+          rollbackReadyProductionCount: 3,
+          rollbackExceptionCount: 1,
+          unresolvedRollbackEvidenceCount: 0,
+          blockerCount: 0,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProductionReviewerRollbackEvidenceLog|productionReviewerRollbackEvidencePayload|productionReviewerOpsPayload|reviewerName|reviewerEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 

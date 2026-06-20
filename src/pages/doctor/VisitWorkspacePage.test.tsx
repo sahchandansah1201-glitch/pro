@@ -1435,6 +1435,48 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-rollback-evidence")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-production-reviewer-rollback-evidence-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_production_reviewer_rollback_evidence_not_ready"],
+              productionDatasetEvidenceStatus: "not_started",
+              rollbackDrillStatus: "needs_review",
+              rollbackOwnerStatus: "needs_review",
+              rollbackWindowStatus: "needs_review",
+              rollbackExceptionStatus: "needs_review",
+              rollbackArchiveStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              productionReviewWindowCount: 0,
+              rollbackDrillProductionCount: 0,
+              rollbackReadyProductionCount: 0,
+              rollbackExceptionCount: 0,
+              unresolvedRollbackEvidenceCount: 0,
+              blockerCount: 1,
+              lesionCount: 1,
+              readyTimelineCount: 0,
+              blockedTimelineCount: 1,
+              candidatePairCount: 1,
+              reviewerWorkflowReadyCount: 0,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-09T00:00:00.000Z",
+              createdAt: "2026-06-09T00:00:00.000Z",
+              updatedAt: "2026-06-09T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-evidence")) {
       return Promise.resolve(
         new Response(
@@ -2595,6 +2637,11 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       sourceSection(
         source,
         "const saveTimelineRolloutProductionDatasetEvidence",
+        "const saveTimelineRolloutProductionReviewerRollbackEvidence",
+      ),
+      sourceSection(
+        source,
+        "const saveTimelineRolloutProductionReviewerRollbackEvidence",
         "const saveTimelineRolloutProductionReviewerGovernance",
       ),
       sourceSection(
@@ -2619,7 +2666,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(helperSource).not.toMatch(/Math\.max\(1/);
     expect(helperSource).not.toMatch(/\|\|\s*1/);
     expect(helperSource).not.toMatch(/\?\s*1\s*:\s*0/);
-    expect(helperSource).toContain("PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT = 0");
+    expect(helperSource).not.toContain("PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT");
+    expect(helperSource).toContain("buildProductionReviewerRollbackEvidenceCounts");
+    expect(helperSource).toContain("rollbackReadyProductionCount");
   });
 
   it("posts timeline rollout governance review without patient delivery or dynamic conclusion", async () => {
@@ -3125,6 +3174,47 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("imageIds");
     expect(document.body.textContent).not.toContain("rawProductionReviewerGovernanceLog");
     expect(document.body.textContent).not.toContain("productionReviewerGovernancePayload");
+    expect(document.body.textContent).not.toContain("reviewerName");
+    expect(document.body.textContent).not.toContain("reviewerEmail");
+  });
+
+  it("posts откат рабочей проверки review without patient delivery or rollback payload leaks", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    await openTimelineTechnicalJournal();
+    expect(await screen.findByRole("region", { name: "Откат рабочей проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать откат рабочей проверки/ }));
+    await screen.findByText(/Откат рабочей проверки сохранён/);
+
+    const rollbackCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith(
+          "/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-rollback-evidence",
+        )
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(rollbackCall).toBeTruthy();
+    const body = String((rollbackCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("rollbackDrillStatus");
+    expect(body).toContain("rollbackOwnerStatus");
+    expect(body).toContain("rollbackArchiveStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawProductionReviewerRollbackEvidenceLog");
+    expect(body).not.toContain("productionReviewerRollbackEvidencePayload");
+    expect(body).not.toContain("productionReviewerOpsPayload");
+    expect(body).not.toContain("reviewerName");
+    expect(body).not.toContain("reviewerEmail");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawProductionReviewerRollbackEvidenceLog");
+    expect(document.body.textContent).not.toContain("productionReviewerRollbackEvidencePayload");
+    expect(document.body.textContent).not.toContain("productionReviewerOpsPayload");
     expect(document.body.textContent).not.toContain("reviewerName");
     expect(document.body.textContent).not.toContain("reviewerEmail");
   });

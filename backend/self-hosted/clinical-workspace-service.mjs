@@ -144,6 +144,11 @@ const TIMELINE_ROLLOUT_PRODUCTION_DATASET_EVIDENCE_STATUS_VALUES = new Set([
   "in_review",
   "ready_for_production_dataset_evidence",
 ]);
+const TIMELINE_ROLLOUT_PRODUCTION_REVIEWER_ROLLBACK_EVIDENCE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_production_reviewer_rollback_evidence",
+]);
 const TIMELINE_ROLLOUT_PRODUCTION_REVIEWER_GOVERNANCE_STATUS_VALUES = new Set([
   "not_started",
   "in_review",
@@ -2217,6 +2222,103 @@ export function normalizeVisitLongitudinalTimelineRolloutProductionDatasetEviden
     observedOutcomeCount,
     incidentLinkedCount,
     unresolvedProductionDatasetEvidenceCount,
+    blockerCount,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidencePayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({
+      field: "body",
+      message: "Protected fields are not accepted in production reviewer rollback evidence payloads.",
+    });
+  }
+  const productionReviewerRollbackEvidenceStatus = cleanString(
+    input.productionReviewerRollbackEvidenceStatus,
+  );
+  if (
+    !productionReviewerRollbackEvidenceStatus
+    || !TIMELINE_ROLLOUT_PRODUCTION_REVIEWER_ROLLBACK_EVIDENCE_STATUS_VALUES.has(
+      productionReviewerRollbackEvidenceStatus,
+    )
+  ) {
+    details.push({
+      field: "productionReviewerRollbackEvidenceStatus",
+      message:
+        "productionReviewerRollbackEvidenceStatus must be not_started, in_review, or ready_for_production_reviewer_rollback_evidence.",
+    });
+  }
+  const checklistStatus = (field) => {
+    const value = cleanString(input[field]) || "missing";
+    if (!TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES.has(value)) {
+      details.push({ field, message: `${field} must be missing, needs_review, or ready.` });
+      return "missing";
+    }
+    return value;
+  };
+  const count = (field, max) => normalizeNumber(input[field], field, details, { integer: true, min: 0, max }) ?? 0;
+  const productionReviewerRollbackEvidenceReasons = normalizeTechnicalStrings(
+    input.productionReviewerRollbackEvidenceReasons,
+    "productionReviewerRollbackEvidenceReasons",
+    details,
+  );
+  const rollbackDrillStatus = checklistStatus("rollbackDrillStatus");
+  const rollbackOwnerStatus = checklistStatus("rollbackOwnerStatus");
+  const rollbackWindowStatus = checklistStatus("rollbackWindowStatus");
+  const rollbackExceptionStatus = checklistStatus("rollbackExceptionStatus");
+  const rollbackArchiveStatus = checklistStatus("rollbackArchiveStatus");
+  const ownerSignoffStatus = checklistStatus("ownerSignoffStatus");
+  const productionReviewWindowCount = count("productionReviewWindowCount", 30000);
+  const rollbackDrillProductionCount = count("rollbackDrillProductionCount", 30000);
+  const rollbackReadyProductionCount = count("rollbackReadyProductionCount", 30000);
+  const rollbackExceptionCount = count("rollbackExceptionCount", 30000);
+  const unresolvedRollbackEvidenceCount = count("unresolvedRollbackEvidenceCount", 30000);
+  const blockerCount = count("blockerCount", 30000);
+  if (rollbackDrillProductionCount > productionReviewWindowCount) {
+    details.push({
+      field: "rollbackDrillProductionCount",
+      message: "rollbackDrillProductionCount must be less than or equal to productionReviewWindowCount.",
+    });
+  }
+  if (rollbackReadyProductionCount > productionReviewWindowCount) {
+    details.push({
+      field: "rollbackReadyProductionCount",
+      message: "rollbackReadyProductionCount must be less than or equal to productionReviewWindowCount.",
+    });
+  }
+  if (rollbackExceptionCount > productionReviewWindowCount) {
+    details.push({
+      field: "rollbackExceptionCount",
+      message: "rollbackExceptionCount must be less than or equal to productionReviewWindowCount.",
+    });
+  }
+  if (unresolvedRollbackEvidenceCount > productionReviewWindowCount) {
+    details.push({
+      field: "unresolvedRollbackEvidenceCount",
+      message: "unresolvedRollbackEvidenceCount must be less than or equal to productionReviewWindowCount.",
+    });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    productionReviewerRollbackEvidenceStatus,
+    productionReviewerRollbackEvidenceReasons: productionReviewerRollbackEvidenceReasons ?? [],
+    rollbackDrillStatus,
+    rollbackOwnerStatus,
+    rollbackWindowStatus,
+    rollbackExceptionStatus,
+    rollbackArchiveStatus,
+    ownerSignoffStatus,
+    productionReviewWindowCount,
+    rollbackDrillProductionCount,
+    rollbackReadyProductionCount,
+    rollbackExceptionCount,
+    unresolvedRollbackEvidenceCount,
     blockerCount,
     patientDeliveryAllowed: false,
     medicalMeasurementAllowed: false,
@@ -5644,6 +5746,142 @@ export function createClinicalWorkspaceService({
         },
       });
       return { productionDatasetEvidence, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence(
+      visitId,
+      input,
+      authContext,
+      { correlationId } = {},
+    ) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const payload = normalizeVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidencePayload(input);
+      const scope = visitWriteScope(authContext);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validationResult = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      const validation = validationResult || {};
+      const readiness = validation.readiness || {};
+      const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence || {};
+      const productionDatasetEvidenceStatus = String(productionDatasetEvidence.status ?? "not_started");
+      const rollbackChecklistReady = [
+        payload.rollbackDrillStatus,
+        payload.rollbackOwnerStatus,
+        payload.rollbackWindowStatus,
+        payload.rollbackExceptionStatus,
+        payload.rollbackArchiveStatus,
+        payload.ownerSignoffStatus,
+      ].every((status) => status === "ready");
+      const aggregateRollbackEvidenceReady =
+        payload.productionReviewWindowCount > 0
+        && payload.rollbackDrillProductionCount > 0
+        && payload.rollbackReadyProductionCount > 0
+        && payload.unresolvedRollbackEvidenceCount === 0
+        && payload.blockerCount === 0;
+      const productionReviewerRollbackEvidenceReady =
+        productionDatasetEvidenceStatus === "ready_for_production_dataset_evidence"
+        && rollbackChecklistReady
+        && aggregateRollbackEvidenceReady;
+      const effectiveStatus =
+        payload.productionReviewerRollbackEvidenceStatus
+          === "ready_for_production_reviewer_rollback_evidence"
+          && !productionReviewerRollbackEvidenceReady
+          ? "in_review"
+          : payload.productionReviewerRollbackEvidenceStatus;
+      const effectiveReasons = [
+        ...payload.productionReviewerRollbackEvidenceReasons,
+        ...(payload.productionReviewerRollbackEvidenceStatus
+          === "ready_for_production_reviewer_rollback_evidence"
+          && !productionReviewerRollbackEvidenceReady
+          ? ["timeline_rollout_production_reviewer_rollback_evidence_not_ready"]
+          : []),
+      ];
+      const productionReviewerRollbackEvidence =
+        await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence({
+          visitId: safeVisitId,
+          patientId: visit.patient.id,
+          clinicId: visit.clinic.id,
+          doctorUserId: authContext.userId,
+          productionReviewerRollbackEvidence: {
+            productionReviewerRollbackEvidenceStatus: effectiveStatus,
+            productionReviewerRollbackEvidenceReasons: effectiveReasons,
+            productionDatasetEvidenceStatus,
+            rollbackDrillStatus: payload.rollbackDrillStatus,
+            rollbackOwnerStatus: payload.rollbackOwnerStatus,
+            rollbackWindowStatus: payload.rollbackWindowStatus,
+            rollbackExceptionStatus: payload.rollbackExceptionStatus,
+            rollbackArchiveStatus: payload.rollbackArchiveStatus,
+            ownerSignoffStatus: payload.ownerSignoffStatus,
+            productionReviewWindowCount: payload.productionReviewWindowCount,
+            rollbackDrillProductionCount: payload.rollbackDrillProductionCount,
+            rollbackReadyProductionCount: payload.rollbackReadyProductionCount,
+            rollbackExceptionCount: payload.rollbackExceptionCount,
+            unresolvedRollbackEvidenceCount: payload.unresolvedRollbackEvidenceCount,
+            blockerCount: payload.blockerCount,
+            lesionCount: Number(readiness.lesionCount ?? 0),
+            readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+            blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+            candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+            reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+          },
+          clinicIds: scope.clinicIds,
+          allClinics: scope.allClinics,
+        });
+      if (!productionReviewerRollbackEvidence) {
+        throw new VisitWorkspaceNotFoundError("Production reviewer rollback evidence could not be saved.");
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: productionReviewerRollbackEvidence.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout_production_reviewer_rollback_evidence.review",
+        entityType: "visit_longitudinal_timeline_rollout_production_reviewer_rollback_evidence_review",
+        entityId: productionReviewerRollbackEvidence.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          productionReviewerRollbackEvidenceStatus: productionReviewerRollbackEvidence.status,
+          productionDatasetEvidenceStatus: productionReviewerRollbackEvidence.productionDatasetEvidenceStatus,
+          productionReviewWindowCount: Number(
+            productionReviewerRollbackEvidence.productionReviewWindowCount ?? 0,
+          ),
+          rollbackDrillProductionCount: Number(
+            productionReviewerRollbackEvidence.rollbackDrillProductionCount ?? 0,
+          ),
+          rollbackReadyProductionCount: Number(
+            productionReviewerRollbackEvidence.rollbackReadyProductionCount ?? 0,
+          ),
+          rollbackExceptionCount: Number(productionReviewerRollbackEvidence.rollbackExceptionCount ?? 0),
+          unresolvedRollbackEvidenceCount: Number(
+            productionReviewerRollbackEvidence.unresolvedRollbackEvidenceCount ?? 0,
+          ),
+          blockerCount: Number(productionReviewerRollbackEvidence.blockerCount ?? 0),
+          lesionCount: Number(productionReviewerRollbackEvidence.lesionCount ?? 0),
+          readyTimelineCount: Number(productionReviewerRollbackEvidence.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(productionReviewerRollbackEvidence.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(productionReviewerRollbackEvidence.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(
+            productionReviewerRollbackEvidence.reviewerWorkflowReadyCount ?? 0,
+          ),
+          rollbackChecklistReady,
+          aggregateRollbackEvidenceReady,
+          reasonsCount: productionReviewerRollbackEvidence.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          patientRowsExposed: false,
+          reviewerIdentityExposed: false,
+          rawProductionReviewerRollbackEvidenceLogsExposed: false,
+          rawProductionReviewerRollbackEvidencePayloadsExposed: false,
+        },
+      });
+      return { productionReviewerRollbackEvidence, scope };
     },
 
     async reviewVisitLongitudinalTimelineRolloutProductionReviewerGovernance(

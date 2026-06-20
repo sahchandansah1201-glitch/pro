@@ -20,6 +20,7 @@ type ProductionReviewerGovernanceSource = {
   sampledClinicOperationCount: number;
   longitudinalFollowupCount: number;
   incidentLinkedCount: number;
+  rollbackReadyProductionCount: number;
 };
 
 type ProductionReviewerEvidenceSource = {
@@ -30,6 +31,13 @@ type ProductionReviewerEvidenceSource = {
   followupClosedProductionCount: number;
   exceptionClosedProductionCount: number;
   rollbackReadyProductionCount: number;
+};
+
+type ProductionReviewerRollbackEvidenceSource = {
+  productionReviewWindowCount: number;
+  rollbackDrillProductionCount: number;
+  rollbackReadyProductionCount: number;
+  rollbackExceptionCount: number;
 };
 
 function positiveCount(value: number | null | undefined): number {
@@ -71,8 +79,6 @@ export const EMPTY_PRODUCTION_REVIEWER_COUNTS = {
   exceptionClosedProductionCount: 0,
   rollbackReadyProductionCount: 0,
 };
-
-const PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT = 0;
 
 export function buildLongitudinalClinicalValidationCounts(
   source: LongitudinalClinicalValidationSource,
@@ -118,6 +124,38 @@ export function buildProductionDatasetEvidenceCounts(source: ProductionDatasetEv
   };
 }
 
+export function buildProductionReviewerRollbackEvidenceCounts(
+  source: ProductionReviewerRollbackEvidenceSource,
+) {
+  const ready = hasPositiveCounts(
+    source.productionReviewWindowCount,
+    source.rollbackDrillProductionCount,
+    source.rollbackReadyProductionCount,
+  );
+  if (!ready) {
+    return {
+      ready: false,
+      productionReviewWindowCount: 0,
+      rollbackDrillProductionCount: 0,
+      rollbackReadyProductionCount: 0,
+      rollbackExceptionCount: 0,
+    };
+  }
+
+  const productionReviewWindowCount = positiveCount(source.productionReviewWindowCount);
+  const rollbackDrillProductionCount = positiveMin(source.rollbackDrillProductionCount, productionReviewWindowCount);
+  const rollbackReadyProductionCount = positiveMin(source.rollbackReadyProductionCount, rollbackDrillProductionCount);
+  const rollbackExceptionCount = Math.min(positiveCount(source.rollbackExceptionCount), productionReviewWindowCount);
+
+  return {
+    ready,
+    productionReviewWindowCount,
+    rollbackDrillProductionCount,
+    rollbackReadyProductionCount,
+    rollbackExceptionCount,
+  };
+}
+
 export function buildProductionReviewerGovernanceCounts(source: ProductionReviewerGovernanceSource) {
   const ready = hasPositiveCounts(
     source.realClinicWindowCount,
@@ -126,7 +164,7 @@ export function buildProductionReviewerGovernanceCounts(source: ProductionReview
     source.protectedReviewerLinkedCount,
     source.longitudinalFollowupCount,
     source.incidentLinkedCount,
-    PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT,
+    source.rollbackReadyProductionCount,
   );
   if (!ready) return EMPTY_PRODUCTION_REVIEWER_COUNTS;
 
@@ -137,7 +175,7 @@ export function buildProductionReviewerGovernanceCounts(source: ProductionReview
   const followupClosedProductionCount = positiveMin(source.longitudinalFollowupCount, productionReviewWindowCount);
   const exceptionClosedProductionCount = positiveMin(source.incidentLinkedCount, productionReviewWindowCount);
   const rollbackReadyProductionCount = positiveMin(
-    PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT,
+    source.rollbackReadyProductionCount,
     productionReviewWindowCount,
   );
 

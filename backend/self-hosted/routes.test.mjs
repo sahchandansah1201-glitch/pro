@@ -3963,6 +3963,7 @@ function clinicalWorkspaceRuntime({
   visitLongitudinalTimelineRolloutProtectedReviewerValidation = null,
   visitLongitudinalTimelineRolloutProtectedReviewerEvidence = null,
   visitLongitudinalTimelineRolloutProductionDatasetEvidence = null,
+  visitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence = null,
   visitLongitudinalTimelineRolloutProductionReviewerGovernance = null,
   visitLongitudinalTimelineRolloutProductionReviewerEvidence = null,
   protectedLesionImageDownload = null,
@@ -4171,6 +4172,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           productionDatasetEvidence: visitLongitudinalTimelineRolloutProductionDatasetEvidence,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence() {
+        if (clinicalError) throw clinicalError;
+        return {
+          productionReviewerRollbackEvidence: visitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -7075,6 +7083,79 @@ test("Batch CF Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-
   assert.doesNotMatch(
     response.body,
     /"pairKey"|"imageIds"|patientRows|clinicOperationIds|longitudinalWindowIds|rawProductionDatasetEvidenceLog|productionDatasetEvidencePayload|productionDatasetEvidenceDetails|clinicOperationPayload|longitudinalFollowupPayload|protectedReviewerLinkagePayload|outcomeObservationPayload|incidentLinkagePayload|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch 52 Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-rollback-evidence stores aggregate-only rollback evidence", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout/production-reviewer-rollback-evidence`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence: {
+        id: "production-reviewer-rollback-evidence-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "in_review",
+        reasons: ["timeline_rollout_production_reviewer_rollback_evidence_not_ready"],
+        productionDatasetEvidenceStatus: "not_started",
+        rollbackDrillStatus: "needs_review",
+        rollbackOwnerStatus: "needs_review",
+        rollbackWindowStatus: "needs_review",
+        rollbackExceptionStatus: "needs_review",
+        rollbackArchiveStatus: "needs_review",
+        ownerSignoffStatus: "needs_review",
+        productionReviewWindowCount: 0,
+        rollbackDrillProductionCount: 0,
+        rollbackReadyProductionCount: 0,
+        rollbackExceptionCount: 0,
+        unresolvedRollbackEvidenceCount: 0,
+        blockerCount: 1,
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-09T00:00:00.000Z",
+        createdAt: "2026-06-09T00:00:00.000Z",
+        updatedAt: "2026-06-09T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      productionReviewerRollbackEvidenceStatus: "ready_for_production_reviewer_rollback_evidence",
+      productionReviewerRollbackEvidenceReasons: ["production_reviewer_rollback_ready_no_patient_delivery"],
+      rollbackDrillStatus: "ready",
+      rollbackOwnerStatus: "ready",
+      rollbackWindowStatus: "ready",
+      rollbackExceptionStatus: "ready",
+      rollbackArchiveStatus: "ready",
+      ownerSignoffStatus: "ready",
+      productionReviewWindowCount: 8,
+      rollbackDrillProductionCount: 4,
+      rollbackReadyProductionCount: 3,
+      rollbackExceptionCount: 1,
+      unresolvedRollbackEvidenceCount: 0,
+      blockerCount: 0,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "in_review");
+  assert.equal(response.json.item.productionDatasetEvidenceStatus, "not_started");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|patientRows|rawProductionReviewerRollbackEvidenceLog|productionReviewerRollbackEvidencePayload|productionReviewerOpsPayload|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

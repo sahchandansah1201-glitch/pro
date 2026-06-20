@@ -2193,6 +2193,9 @@
           },
           "timelineRolloutProductionReviewerEvidence": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerEvidence"
+          },
+          "timelineRolloutProductionReviewerRollbackEvidence": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence"
           }
         }
       },
@@ -8988,6 +8991,317 @@
           }
         },
         "description": "Batch CH production reviewer evidence payload. Protected fields, reviewer identities, raw logs, storage references, and clinical claims are rejected by service validation."
+      },
+      "VisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "productionDatasetEvidenceStatus",
+          "rollbackDrillStatus",
+          "rollbackOwnerStatus",
+          "rollbackWindowStatus",
+          "rollbackExceptionStatus",
+          "rollbackArchiveStatus",
+          "ownerSignoffStatus",
+          "productionReviewWindowCount",
+          "rollbackDrillProductionCount",
+          "rollbackReadyProductionCount",
+          "rollbackExceptionCount",
+          "unresolvedRollbackEvidenceCount",
+          "blockerCount",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_reviewer_rollback_evidence"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productionDatasetEvidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_dataset_evidence"
+            ]
+          },
+          "rollbackDrillStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackOwnerStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackExceptionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackArchiveStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionReviewWindowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackDrillProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackReadyProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedRollbackEvidenceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "reviewedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "description": "Batch 52 production reviewer rollback evidence receipt. Aggregate counts only; no protected fields, reviewer identities, storage references, clinical claims, or patient delivery."
+      },
+      "VisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidencePayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productionReviewerRollbackEvidenceStatus",
+          "productionReviewerRollbackEvidenceReasons",
+          "rollbackDrillStatus",
+          "rollbackOwnerStatus",
+          "rollbackWindowStatus",
+          "rollbackExceptionStatus",
+          "rollbackArchiveStatus",
+          "ownerSignoffStatus",
+          "productionReviewWindowCount",
+          "rollbackDrillProductionCount",
+          "rollbackReadyProductionCount",
+          "rollbackExceptionCount",
+          "unresolvedRollbackEvidenceCount",
+          "blockerCount"
+        ],
+        "properties": {
+          "productionReviewerRollbackEvidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_reviewer_rollback_evidence"
+            ]
+          },
+          "productionReviewerRollbackEvidenceReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rollbackDrillStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackOwnerStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackExceptionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackArchiveStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionReviewWindowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackDrillProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackReadyProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedRollbackEvidenceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "description": "Batch 52 production reviewer rollback evidence payload. Protected fields, reviewer identities, raw logs, storage references, and clinical claims are rejected by service validation."
       }
     }
   },
@@ -10638,6 +10952,60 @@
         },
         "description": "Stores aggregate-only reviewer-ops governance metadata for production protected assets. Patient delivery, measurement values, protected fields, and clinical output remain disabled.",
         "operationId": "reviewVisitLongitudinalTimelineRolloutProductionReviewerEvidence"
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-rollback-evidence": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review production reviewer rollback evidence metadata",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidencePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Production reviewer rollback evidence review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Stores aggregate-only rollback readiness metadata for production reviewer operations. Patient delivery, measurement values, protected fields, and clinical output remain disabled.",
+        "operationId": "reviewVisitLongitudinalTimelineRolloutProductionReviewerRollbackEvidence"
       }
     }
   }

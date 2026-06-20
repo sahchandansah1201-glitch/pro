@@ -50,7 +50,7 @@ test("fails when a new frontend page exceeds the file budget", () => {
 test("fails when a known oversized file grows beyond its baseline allowance", () => {
   const root = makeTempProject();
   try {
-    writeLines(root, "src/pages/doctor/VisitWorkspacePage.tsx", 5187);
+    writeLines(root, "src/pages/doctor/VisitWorkspacePage.tsx", 5359);
 
     const result = analyzeSimplicity({ root, scanDirs: ["src"] });
 

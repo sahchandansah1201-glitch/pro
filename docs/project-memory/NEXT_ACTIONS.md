@@ -20,6 +20,15 @@ that intentionally skipped locally:
 
 Batch R is the current local implementation batch for Dermatolog PRO / SkinDoctor.
 It extends Stage 8G-8I with a metadata-only patient photo/protocol release
+## Current Batch 52 handoff · 2026-06-20
+
+Batch 52 closes the synthetic rollback blocker for production reviewer
+governance by adding an aggregate-only `Откат рабочей проверки` receipt. The
+next rational SD-MF gate is production reviewer governance/evidence completion
+over real protected production assets using that rollback receipt as an
+explicit prerequisite. Do not mark patient delivery, diagnosis, risk,
+prognosis, treatment, measurement, or dynamic clinical conclusion as enabled.
+
 ledger for SD-MF-046. The ledger persists doctor prepare/revoke decisions and
 audit metadata, but still does not deliver files or links.
 

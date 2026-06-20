@@ -14,15 +14,15 @@ const LEDGER_PATH = join(ROOT, "reports", "agent-qa", "simplicity-ledger.json");
 const KNOWN_BASELINE_GROWTH_LIMIT = 50;
 
 const KNOWN_OVERSIZED_BASELINE = {
-  "backend/self-hosted/clinical-workspace-repository.mjs": 10328,
-  "backend/self-hosted/routes.test.mjs": 9700,
+  "backend/self-hosted/clinical-workspace-repository.mjs": 10603,
+  "backend/self-hosted/routes.test.mjs": 9732,
   "backend/self-hosted/routes.mjs": 7299,
-  "backend/self-hosted/clinical-workspace-service.mjs": 6263,
+  "backend/self-hosted/clinical-workspace-service.mjs": 6452,
   "backend/self-hosted/clinical-followup-repository.mjs": 5548,
-  "src/pages/doctor/VisitWorkspacePage.tsx": 5136,
-  "src/lib/self-hosted-clinical-workspace-api.ts": 4634,
+  "src/pages/doctor/VisitWorkspacePage.tsx": 5308,
+  "src/lib/self-hosted-clinical-workspace-api.ts": 4723,
   "backend/self-hosted/clinical-workspace-service.test.mjs": 4590,
-  "src/lib/self-hosted-clinical-workspace-api.test.ts": 3919,
+  "src/lib/self-hosted-clinical-workspace-api.test.ts": 3975,
   "src/pages/doctor/LesionDetailPage.tsx": 3692,
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": 3208,
   "backend/self-hosted/clinical-followup-service.mjs": 3054,

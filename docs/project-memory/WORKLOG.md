@@ -774,6 +774,25 @@
 - Подтверждено локально: `npm run preflight:stage6i`,
   `npm run check:stage6i`, `npm run archive:stage6i:report`.
 - Updated project-memory so Stage 6I is confirmed in the current branch and
+## 2026-06-20
+
+- Batch 52: добавлен production reviewer rollback evidence gate для Stage 5H
+  longitudinal timeline rollout. Новый receipt фиксирует только агрегированную
+  готовность отката рабочей проверки: production review windows, rollback drill,
+  rollback-ready count, exceptions, unresolved rollback evidence and blockers.
+- Добавлены PostgreSQL migration `0085_stage5h_production_reviewer_rollback_evidence.sql`,
+  backend repository/service/route/OpenAPI/client contract, UI panel
+  `Откат рабочей проверки`, unit/route/API tests and mobile/no-overflow check.
+- Убрана зависимость production reviewer governance от заглушки
+  `PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT = 0`; readiness теперь требует
+  real positive rollback receipt counts, без `Math.max(1, ...)` fallback.
+- QA: `typecheck`, targeted Vitest, backend route tests, `qa:agent`, build and
+  mobile Playwright check passed. `qa:osv` debt was closed through dev-tooling
+  overrides for fixed transitive versions; no runtime product dependency was added.
+- Покрытие мозгового штурма: `SD-MF-025`, `SD-MF-026`, `SD-MF-028` частично
+  продвинуты через real aggregate rollback evidence gate; `SD-MF-046` остаётся
+  в работе, patient delivery stays off.
+
   Stage 6J remains an explicit hypothesis until repository files define it.
 - Создан Stage 6H production release memory closure: manifest, generator,
   guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
