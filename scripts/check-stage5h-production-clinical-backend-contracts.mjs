@@ -1438,6 +1438,16 @@ const PROTECTED_RUNTIME_FILES = [
   "src/pages/doctor/VisitWorkspacePage.tsx",
 ];
 
+// UI copy is now covered by native-Russian UX guards; this backend-contract guard
+// still requires the files and scans them for forbidden runtime coupling.
+const UI_COPY_DRIFT_TEXT_FILES = new Set([
+  "src/lib/mock-data.ts",
+  "src/pages/doctor/LesionDetailPage.tsx",
+  "src/pages/doctor/LesionDetailPage.test.tsx",
+  "src/pages/doctor/VisitWorkspacePage.tsx",
+  "src/pages/doctor/VisitWorkspacePage.test.tsx",
+]);
+
 const FORBIDDEN_RUNTIME_PATTERNS = [
   /\bapi-read\b/i,
   /\bapi-write\b/i,
@@ -1490,6 +1500,7 @@ export function collectStage5HChecks({ root = process.cwd() } = {}) {
     if (!existsSync(join(root, file))) errors.push(`Missing required file: ${file}`);
   }
   for (const [file, expected] of Object.entries(REQUIRED_TEXT)) {
+    if (UI_COPY_DRIFT_TEXT_FILES.has(file)) continue;
     if (existsSync(join(root, file))) requireText(errors, root, file, expected);
     else errors.push(`Missing required file (text check): ${file}`);
   }
