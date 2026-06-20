@@ -22,7 +22,37 @@ Out of scope for this first step:
 - exposing device serials, source file paths, object keys, signed URLs, tokens,
   QR/session values, credentials, or patient text.
 
-## Command
+## Recommended installer
+
+For a Windows workstation user, use the single setup file:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\DermatologProRdsBridgeSetup.ps1
+```
+
+The setup file asks the user to:
+
+1. choose the folder where the RDS-3 application saves photos;
+2. enter the Dermatolog Pro address;
+3. enter the visit id and optional lesion id;
+4. enter the access key.
+
+The access key is saved with Windows current-user encryption
+(`ConvertFrom-SecureString`). The installed bridge creates shortcuts for:
+
+- starting `Dermatolog Pro RDS Bridge`;
+- reconfiguring the bridge later;
+- optional Windows startup launch.
+
+The installer writes files under:
+
+```text
+%LOCALAPPDATA%\DermatologPro\RdsBridge
+```
+
+The installed worker uses the same safe backend contracts as the Node CLI below.
+
+## Developer command
 
 Run once to import existing saved files:
 

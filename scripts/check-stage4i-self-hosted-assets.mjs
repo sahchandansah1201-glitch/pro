@@ -18,6 +18,8 @@ const REQUIRED_FILES = [
   "docs/backend/rds3-folder-importer-windows.md",
   "scripts/rds3-folder-importer.mjs",
   "scripts/rds3-folder-importer.test.mjs",
+  "scripts/windows/DermatologProRdsBridgeSetup.ps1",
+  "scripts/rds3-windows-bridge-installer.test.mjs",
   "scripts/check-stage4i-self-hosted-assets.mjs",
   "scripts/check-stage4i-self-hosted-assets.test.mjs",
   ".github/workflows/stage4i-self-hosted-assets.yml",
@@ -76,6 +78,19 @@ const REQUIRED_TEXT = {
     "storagePath|signedUrl",
     "already_imported",
   ],
+  "scripts/windows/DermatologProRdsBridgeSetup.ps1": [
+    "Dermatolog Pro RDS Bridge",
+    "FolderBrowserDialog",
+    "ConvertFrom-SecureString",
+    "/api/v1/visits/$visit/assets",
+    "/capture-metadata",
+    "Dermatolog Pro RDS Bridge.lnk",
+  ],
+  "scripts/rds3-windows-bridge-installer.test.mjs": [
+    "RDS-3 Windows bridge installer is a human-friendly setup file",
+    "Read-Host \"Ключ доступа\" -AsSecureString",
+    "existing safe asset contracts",
+  ],
   "docs/backend/stage-4i-self-hosted-assets.md": [
     "Stage 4I",
     "POST /api/v1/visits/{visitId}/assets",
@@ -84,6 +99,7 @@ const REQUIRED_TEXT = {
   ],
   "docs/backend/rds3-folder-importer-windows.md": [
     "RDS-3 folder importer for Windows 11",
+    "DermatologProRdsBridgeSetup.ps1",
     "POST /api/v1/visits/{visitId}/assets",
     "PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata",
     "npm run test:rds3:import-folder",
