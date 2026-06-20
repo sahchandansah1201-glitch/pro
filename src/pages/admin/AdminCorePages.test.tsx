@@ -202,7 +202,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("region", { name: "Пакет решения клиники по выдаче" })).toBeInTheDocument();
     expect(screen.getByText("Что передать на рабочее решение")).toBeInTheDocument();
     expect(screen.getByText("Служебная сводка")).toBeInTheDocument();
-    expect(screen.getByText("Ответственный клиники")).toBeInTheDocument();
+    expect(screen.getAllByText("Ответственный клиники").length).toBeGreaterThan(0);
     expect(screen.getByText("Данные для пациента")).toBeInTheDocument();
     expect(screen.getAllByText("Повторная проверка").length).toBeGreaterThan(0);
     expect(screen.getByText("Итог перед решением")).toBeInTheDocument();
@@ -221,6 +221,15 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText("Скрытые данные").length).toBeGreaterThan(0);
     expect(screen.getByText("Последняя запись")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Зафиксировать итоговый акт/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Требования к утверждению выдачи" })).toBeInTheDocument();
+    expect(screen.getByText("Что должно быть решено отдельно")).toBeInTheDocument();
+    expect(screen.getByText("Требования к решению")).toBeInTheDocument();
+    expect(screen.getAllByText("Ответственный клиники").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Повторный просмотр").length).toBeGreaterThan(0);
+    expect(screen.getByText("Итог для администратора")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить требования к утверждению/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -335,6 +344,12 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getAllByText(/Итоговый акт запрета выдачи зафиксирован локально/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Подготовить требования к утверждению/ }),
+    );
+    expect(
+      screen.getAllByText(/Требования к утверждению выдачи подготовлены локально/).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),

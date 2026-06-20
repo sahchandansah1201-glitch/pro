@@ -38,6 +38,7 @@ import {
   PatientDeliveryAuditReceiptPanel,
   PreLaunchBlockerPanel,
 } from "./PatientDeliveryReadinessPanels";
+import { PatientDeliveryApprovalRequirementsPanel } from "./PatientDeliveryApprovalRequirementsPanel";
 
 type LoadStatus = "demo" | "loading" | "ready" | "error";
 
@@ -1234,6 +1235,12 @@ export default function AdminGovernancePage() {
     );
   }
 
+  function recordPatientDeliveryApprovalRequirementsReview() {
+    setLastAction(
+      "Требования к утверждению выдачи подготовлены локально: решение клиники не принято, доступ пациенту не открыт, файлы и ссылки не опубликованы. Выдача пациенту остаётся выключенной",
+    );
+  }
+
   async function recordBlockUnapprovedRetention() {
     if (!configured) {
       setLastAction("Учебный режим: окна без правил хранения заблокированы локально, доступ пациента не расширялся");
@@ -1625,6 +1632,11 @@ export default function AdminGovernancePage() {
           gates={deliveryGates}
           lastAction={lastAction}
           onAuditReceiptReview={recordPatientDeliveryAuditReceiptReview}
+        />
+
+        <PatientDeliveryApprovalRequirementsPanel
+          gates={deliveryGates}
+          onApprovalRequirementsReview={recordPatientDeliveryApprovalRequirementsReview}
         />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
