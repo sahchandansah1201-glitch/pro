@@ -3942,7 +3942,7 @@ function LongitudinalDatasetValidationPanel({
             {timelineRolloutProductionReviewerRollbackEvidenceStatusLabel(productionReviewerRollbackEvidence.status)}
           </span>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           <Field term="Проверка отката" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackDrillStatus)} />
           <Field term="Ответственный" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackOwnerStatus)} />
           <Field term="Период отката" value={timelineRolloutSopChecklistLabel(productionReviewerRollbackEvidence.rollbackWindowStatus)} />
