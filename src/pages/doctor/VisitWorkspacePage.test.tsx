@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -57,6 +59,14 @@ function selectTab(name: RegExp) {
 
 async function openTimelineTechnicalJournal() {
   fireEvent.click(await screen.findByText("Технический журнал проверки"));
+}
+
+function sourceSection(source: string, start: string, end: string): string {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  expect(startIndex).toBeGreaterThanOrEqual(0);
+  expect(endIndex).toBeGreaterThan(startIndex);
+  return source.slice(startIndex, endIndex);
 }
 
 describe("VisitWorkspacePage · Карта тела", () => {
@@ -2568,6 +2578,48 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
     expect(screen.getAllByText(/учебные оценки и учебный отчёт скрыты/).length).toBeGreaterThan(0);
+  });
+
+  it("does not synthesize production clinical or reviewer approval counts from zero values", () => {
+    const source = readFileSync("src/pages/doctor/VisitWorkspacePage.tsx", "utf8");
+    const helperSource = readFileSync(
+      "src/pages/doctor/visit-workspace/productionTimelineEvidenceGates.ts",
+      "utf8",
+    );
+    const guardedSections = [
+      sourceSection(
+        source,
+        "const saveTimelineRolloutLongitudinalClinicalValidation",
+        "const saveTimelineRolloutProtectedReviewerValidation",
+      ),
+      sourceSection(
+        source,
+        "const saveTimelineRolloutProductionDatasetEvidence",
+        "const saveTimelineRolloutProductionReviewerGovernance",
+      ),
+      sourceSection(
+        source,
+        "const saveTimelineRolloutProductionReviewerGovernance",
+        "const saveTimelineRolloutProductionReviewerEvidence",
+      ),
+      sourceSection(
+        source,
+        "const saveTimelineRolloutProductionReviewerEvidence",
+        "const title = {",
+      ),
+    ];
+
+    for (const section of guardedSections) {
+      expect(section).not.toMatch(/Math\.max\(1/);
+      expect(section).not.toMatch(/\|\|\s*1/);
+      expect(section).not.toMatch(/\?\s*1\s*:\s*0/);
+      expect(section).toContain("sourceCounts.ready");
+      expect(section).toContain("effectiveStatus");
+    }
+    expect(helperSource).not.toMatch(/Math\.max\(1/);
+    expect(helperSource).not.toMatch(/\|\|\s*1/);
+    expect(helperSource).not.toMatch(/\?\s*1\s*:\s*0/);
+    expect(helperSource).toContain("PENDING_REAL_PRODUCTION_ROLLBACK_EVIDENCE_COUNT = 0");
   });
 
   it("posts timeline rollout governance review without patient delivery or dynamic conclusion", async () => {

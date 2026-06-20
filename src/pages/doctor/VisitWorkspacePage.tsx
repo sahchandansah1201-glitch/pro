@@ -36,6 +36,15 @@ import {
   humanFieldTerm,
   timelineReasonLabel,
 } from "@/pages/doctor/visit-workspace/visitWorkspaceLabels";
+import {
+  buildLongitudinalClinicalValidationCounts,
+  buildProductionDatasetEvidenceCounts,
+  buildProductionReviewerEvidenceCounts,
+  buildProductionReviewerGovernanceCounts,
+  EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS,
+  EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS,
+  EMPTY_PRODUCTION_REVIEWER_COUNTS,
+} from "@/pages/doctor/visit-workspace/productionTimelineEvidenceGates";
 import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
@@ -1222,16 +1231,14 @@ function ProductionClinicalWorkspacePanel({
     const outcomeGovernance = validation.timelineRolloutOutcomeGovernance;
     const readyPayload =
       longitudinalClinicalValidationStatus === "ready_for_longitudinal_clinical_validation";
+    const sourceCounts = buildLongitudinalClinicalValidationCounts(outcomeGovernance);
     const validationReady =
       readyPayload
       && readiness.status === "ready_for_rollout"
-      && outcomeGovernance.status === "ready_for_outcome_governance";
-    const realOutcomeWindowCount = validationReady
-      ? Math.max(1, outcomeGovernance.followupWindowCount || outcomeGovernance.observedTimelineCount)
-      : 0;
-    const governanceReviewCount = validationReady
-      ? Math.max(1, outcomeGovernance.governanceReviewCount)
-      : 0;
+      && outcomeGovernance.status === "ready_for_outcome_governance"
+      && sourceCounts.ready;
+    const effectiveStatus = validationReady ? longitudinalClinicalValidationStatus : "in_review";
+    const validationCounts = validationReady ? sourceCounts : EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS;
     setTimelineRolloutLongitudinalClinicalValidationSaving(true);
     setStatus("");
     const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation({
@@ -1239,7 +1246,7 @@ function ProductionClinicalWorkspacePanel({
       apiToken,
       visitId,
       payload: {
-        longitudinalClinicalValidationStatus,
+        longitudinalClinicalValidationStatus: effectiveStatus,
         longitudinalClinicalValidationReasons: validationReady
           ? ["timeline_rollout_longitudinal_clinical_validation_ready_no_dynamic_conclusion"]
           : ["timeline_rollout_longitudinal_clinical_validation_requires_real_clinical_window_review"],
@@ -1250,13 +1257,13 @@ function ProductionClinicalWorkspacePanel({
         followupValidationStatus: validationReady ? "ready" : "needs_review",
         governanceCadenceStatus: validationReady ? "ready" : "needs_review",
         ownerSignoffStatus: validationReady ? "ready" : "needs_review",
-        realOutcomeWindowCount,
-        clinicallyValidatedWindowCount: realOutcomeWindowCount,
-        adjudicatedWindowCount: realOutcomeWindowCount,
-        followupValidatedWindowCount: realOutcomeWindowCount,
-        consensusReviewCount: governanceReviewCount,
+        realOutcomeWindowCount: validationCounts.realOutcomeWindowCount,
+        clinicallyValidatedWindowCount: validationCounts.realOutcomeWindowCount,
+        adjudicatedWindowCount: validationCounts.realOutcomeWindowCount,
+        followupValidatedWindowCount: validationCounts.realOutcomeWindowCount,
+        consensusReviewCount: validationCounts.governanceReviewCount,
         unresolvedConsensusCaseCount: 0,
-        governanceReviewCount,
+        governanceReviewCount: validationCounts.governanceReviewCount,
         blockerCount: 0,
       },
     });
@@ -1465,31 +1472,14 @@ function ProductionClinicalWorkspacePanel({
     const readiness = validation.readiness;
     const protectedReviewerEvidence = validation.timelineRolloutProtectedReviewerEvidence;
     const readyPayload = productionDatasetEvidenceStatus === "ready_for_production_dataset_evidence";
+    const sourceCounts = buildProductionDatasetEvidenceCounts(protectedReviewerEvidence);
     const evidenceReady =
       readyPayload
       && readiness.status === "ready_for_rollout"
-      && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence";
-    const realClinicWindowCount = evidenceReady
-      ? Math.max(1, readiness.readyTimelineCount || readiness.candidatePairCount)
-      : 0;
-    const monitoredClinicOperationCount = evidenceReady
-      ? Math.max(1, Math.min(realClinicWindowCount, readiness.reviewerWorkflowReadyCount || realClinicWindowCount))
-      : 0;
-    const sampledClinicOperationCount = evidenceReady
-      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.readyTimelineCount || 1))
-      : 0;
-    const longitudinalFollowupCount = evidenceReady
-      ? Math.max(1, Math.min(monitoredClinicOperationCount, sampledClinicOperationCount))
-      : 0;
-    const protectedReviewerLinkedCount = evidenceReady
-      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.reviewerWorkflowReadyCount || 1))
-      : 0;
-    const observedOutcomeCount = evidenceReady
-      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.readyTimelineCount || 1))
-      : 0;
-    const incidentLinkedCount = evidenceReady
-      ? Math.max(1, Math.min(observedOutcomeCount, 1))
-      : 0;
+      && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence"
+      && sourceCounts.ready;
+    const effectiveStatus = evidenceReady ? productionDatasetEvidenceStatus : "in_review";
+    const evidenceCounts = evidenceReady ? sourceCounts : EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS;
     setTimelineRolloutProductionDatasetEvidenceSaving(true);
     setStatus("");
     const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence({
@@ -1497,7 +1487,7 @@ function ProductionClinicalWorkspacePanel({
       apiToken,
       visitId,
       payload: {
-        productionDatasetEvidenceStatus,
+        productionDatasetEvidenceStatus: effectiveStatus,
         productionDatasetEvidenceReasons: evidenceReady
           ? ["production_dataset_evidence_ready_no_patient_delivery"]
           : ["production_dataset_evidence_requires_long_running_real_clinic_operations"],
@@ -1508,13 +1498,13 @@ function ProductionClinicalWorkspacePanel({
         outcomeObservationStatus: evidenceReady ? "ready" : "needs_review",
         incidentLinkageStatus: evidenceReady ? "ready" : "needs_review",
         ownerSignoffStatus: evidenceReady ? "ready" : "needs_review",
-        realClinicWindowCount,
-        monitoredClinicOperationCount,
-        sampledClinicOperationCount,
-        longitudinalFollowupCount,
-        protectedReviewerLinkedCount,
-        observedOutcomeCount,
-        incidentLinkedCount,
+        realClinicWindowCount: evidenceCounts.realClinicWindowCount,
+        monitoredClinicOperationCount: evidenceCounts.monitoredClinicOperationCount,
+        sampledClinicOperationCount: evidenceCounts.sampledClinicOperationCount,
+        longitudinalFollowupCount: evidenceCounts.longitudinalFollowupCount,
+        protectedReviewerLinkedCount: evidenceCounts.protectedReviewerLinkedCount,
+        observedOutcomeCount: evidenceCounts.observedOutcomeCount,
+        incidentLinkedCount: evidenceCounts.incidentLinkedCount,
         unresolvedProductionDatasetEvidenceCount: 0,
         blockerCount: 0,
       },
@@ -1537,27 +1527,14 @@ function ProductionClinicalWorkspacePanel({
     const readiness = validation.readiness;
     const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence;
     const readyPayload = productionReviewerGovernanceStatus === "ready_for_production_reviewer_governance";
+    const sourceCounts = buildProductionReviewerGovernanceCounts(productionDatasetEvidence);
     const governanceReady =
       readyPayload
       && readiness.status === "ready_for_rollout"
-      && productionDatasetEvidence.status === "ready_for_production_dataset_evidence";
-    const productionReviewWindowCount = governanceReady
-      ? Math.max(1, productionDatasetEvidence.realClinicWindowCount || readiness.readyTimelineCount || 1)
-      : 0;
-    const assignedProductionReviewerCount = governanceReady
-      ? Math.max(1, Math.min(productionReviewWindowCount, readiness.reviewerWorkflowReadyCount || productionReviewWindowCount))
-      : 0;
-    const secondReviewedProductionCount = governanceReady
-      ? Math.max(1, Math.min(assignedProductionReviewerCount, productionReviewWindowCount))
-      : 0;
-    const adjudicatedProductionReviewCount = governanceReady
-      ? Math.max(1, Math.min(secondReviewedProductionCount, productionReviewWindowCount))
-      : 0;
-    const followupClosedProductionCount = governanceReady
-      ? Math.max(1, Math.min(assignedProductionReviewerCount, productionReviewWindowCount))
-      : 0;
-    const exceptionClosedProductionCount = governanceReady ? 1 : 0;
-    const rollbackReadyProductionCount = governanceReady ? 1 : 0;
+      && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+      && sourceCounts.ready;
+    const effectiveStatus = governanceReady ? productionReviewerGovernanceStatus : "in_review";
+    const governanceCounts = governanceReady ? sourceCounts : EMPTY_PRODUCTION_REVIEWER_COUNTS;
     setTimelineRolloutProductionReviewerGovernanceSaving(true);
     setStatus("");
     const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernance({
@@ -1565,7 +1542,7 @@ function ProductionClinicalWorkspacePanel({
       apiToken,
       visitId,
       payload: {
-        productionReviewerGovernanceStatus,
+        productionReviewerGovernanceStatus: effectiveStatus,
         productionReviewerGovernanceReasons: governanceReady
           ? ["production_reviewer_governance_ready_no_patient_delivery"]
           : ["production_reviewer_governance_requires_approved_reviewer_ops_on_production_assets"],
@@ -1576,13 +1553,13 @@ function ProductionClinicalWorkspacePanel({
         productionExceptionStatus: governanceReady ? "ready" : "needs_review",
         productionRollbackStatus: governanceReady ? "ready" : "needs_review",
         ownerSignoffStatus: governanceReady ? "ready" : "needs_review",
-        productionReviewWindowCount,
-        assignedProductionReviewerCount,
-        secondReviewedProductionCount,
-        adjudicatedProductionReviewCount,
-        followupClosedProductionCount,
-        exceptionClosedProductionCount,
-        rollbackReadyProductionCount,
+        productionReviewWindowCount: governanceCounts.productionReviewWindowCount,
+        assignedProductionReviewerCount: governanceCounts.assignedProductionReviewerCount,
+        secondReviewedProductionCount: governanceCounts.secondReviewedProductionCount,
+        adjudicatedProductionReviewCount: governanceCounts.adjudicatedProductionReviewCount,
+        followupClosedProductionCount: governanceCounts.followupClosedProductionCount,
+        exceptionClosedProductionCount: governanceCounts.exceptionClosedProductionCount,
+        rollbackReadyProductionCount: governanceCounts.rollbackReadyProductionCount,
         unresolvedProductionReviewerGovernanceCount: 0,
         blockerCount: 0,
       },
@@ -1606,28 +1583,15 @@ function ProductionClinicalWorkspacePanel({
     const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence;
     const productionReviewerGovernance = validation.timelineRolloutProductionReviewerGovernance;
     const readyPayload = productionReviewerEvidenceStatus === "ready_for_production_reviewer_evidence";
+    const sourceCounts = buildProductionReviewerEvidenceCounts(productionReviewerGovernance);
     const evidenceReady =
       readyPayload
       && readiness.status === "ready_for_rollout"
       && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
-      && productionReviewerGovernance.status === "ready_for_production_reviewer_governance";
-    const productionReviewWindowCount = evidenceReady
-      ? Math.max(1, productionDatasetEvidence.realClinicWindowCount || readiness.readyTimelineCount || 1)
-      : 0;
-    const assignedProductionReviewerCount = evidenceReady
-      ? Math.max(1, Math.min(productionReviewWindowCount, readiness.reviewerWorkflowReadyCount || productionReviewWindowCount))
-      : 0;
-    const secondReviewedProductionCount = evidenceReady
-      ? Math.max(1, Math.min(assignedProductionReviewerCount, productionReviewWindowCount))
-      : 0;
-    const adjudicatedProductionReviewCount = evidenceReady
-      ? Math.max(1, Math.min(secondReviewedProductionCount, productionReviewWindowCount))
-      : 0;
-    const followupClosedProductionCount = evidenceReady
-      ? Math.max(1, Math.min(assignedProductionReviewerCount, productionReviewWindowCount))
-      : 0;
-    const exceptionClosedProductionCount = evidenceReady ? 1 : 0;
-    const rollbackReadyProductionCount = evidenceReady ? 1 : 0;
+      && productionReviewerGovernance.status === "ready_for_production_reviewer_governance"
+      && sourceCounts.ready;
+    const effectiveStatus = evidenceReady ? productionReviewerEvidenceStatus : "in_review";
+    const evidenceCounts = evidenceReady ? sourceCounts : EMPTY_PRODUCTION_REVIEWER_COUNTS;
     setTimelineRolloutProductionReviewerEvidenceSaving(true);
     setStatus("");
     const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidence({
@@ -1635,7 +1599,7 @@ function ProductionClinicalWorkspacePanel({
       apiToken,
       visitId,
       payload: {
-        productionReviewerEvidenceStatus,
+        productionReviewerEvidenceStatus: effectiveStatus,
         productionReviewerEvidenceReasons: evidenceReady
           ? ["production_reviewer_evidence_ready_no_patient_delivery"]
           : ["production_reviewer_evidence_requires_approved_reviewer_ops_on_production_assets"],
@@ -1646,13 +1610,13 @@ function ProductionClinicalWorkspacePanel({
         productionExceptionStatus: evidenceReady ? "ready" : "needs_review",
         productionRollbackStatus: evidenceReady ? "ready" : "needs_review",
         ownerSignoffStatus: evidenceReady ? "ready" : "needs_review",
-        productionReviewWindowCount,
-        assignedProductionReviewerCount,
-        secondReviewedProductionCount,
-        adjudicatedProductionReviewCount,
-        followupClosedProductionCount,
-        exceptionClosedProductionCount,
-        rollbackReadyProductionCount,
+        productionReviewWindowCount: evidenceCounts.productionReviewWindowCount,
+        assignedProductionReviewerCount: evidenceCounts.assignedProductionReviewerCount,
+        secondReviewedProductionCount: evidenceCounts.secondReviewedProductionCount,
+        adjudicatedProductionReviewCount: evidenceCounts.adjudicatedProductionReviewCount,
+        followupClosedProductionCount: evidenceCounts.followupClosedProductionCount,
+        exceptionClosedProductionCount: evidenceCounts.exceptionClosedProductionCount,
+        rollbackReadyProductionCount: evidenceCounts.rollbackReadyProductionCount,
         unresolvedProductionReviewerEvidenceCount: 0,
         blockerCount: 0,
       },
@@ -2629,9 +2593,12 @@ function LongitudinalDatasetValidationPanel({
   const outcomeGovernancePrerequisitesReady =
     exceptionGovernancePrerequisitesReady
     && exceptionGovernance.status === "ready_for_exception_governance";
+  const longitudinalClinicalValidationRealDataReady =
+    buildLongitudinalClinicalValidationCounts(outcomeGovernance).ready;
   const longitudinalClinicalValidationPrerequisitesReady =
     outcomeGovernancePrerequisitesReady
-    && outcomeGovernance.status === "ready_for_outcome_governance";
+    && outcomeGovernance.status === "ready_for_outcome_governance"
+    && longitudinalClinicalValidationRealDataReady;
   const protectedReviewerValidationPrerequisitesReady =
     longitudinalClinicalValidationPrerequisitesReady
     && longitudinalClinicalValidation.status === "ready_for_longitudinal_clinical_validation";
@@ -2641,15 +2608,24 @@ function LongitudinalDatasetValidationPanel({
   const protectedReviewerEvidencePrerequisitesReady =
     protectedReviewerGovernancePrerequisitesReady
     && protectedReviewerGovernance.status === "ready_for_protected_reviewer_governance";
+  const productionDatasetEvidenceRealDataReady =
+    buildProductionDatasetEvidenceCounts(protectedReviewerEvidence).ready;
   const productionDatasetEvidencePrerequisitesReady =
     protectedReviewerEvidencePrerequisitesReady
-    && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence";
+    && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence"
+    && productionDatasetEvidenceRealDataReady;
+  const productionReviewerGovernanceRealDataReady =
+    buildProductionReviewerGovernanceCounts(productionDatasetEvidence).ready;
   const productionReviewerGovernancePrerequisitesReady =
     productionDatasetEvidencePrerequisitesReady
-    && productionDatasetEvidence.status === "ready_for_production_dataset_evidence";
+    && productionDatasetEvidence.status === "ready_for_production_dataset_evidence"
+    && productionReviewerGovernanceRealDataReady;
+  const productionReviewerEvidenceRealDataReady =
+    buildProductionReviewerEvidenceCounts(productionReviewerGovernance).ready;
   const productionReviewerEvidencePrerequisitesReady =
     productionReviewerGovernancePrerequisitesReady
-    && productionReviewerGovernance.status === "ready_for_production_reviewer_governance";
+    && productionReviewerGovernance.status === "ready_for_production_reviewer_governance"
+    && productionReviewerEvidenceRealDataReady;
   const timelineQaSteps: TimelineQaStep[] = [
     {
       key: "dataset",
