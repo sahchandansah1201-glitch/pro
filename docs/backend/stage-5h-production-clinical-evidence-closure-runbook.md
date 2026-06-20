@@ -26,6 +26,27 @@ raw logs, storage paths, signed URLs, access tokens, session IDs, credentials,
 reviewer identities, diagnosis, risk, prognosis, treatment, measurements, or
 dynamic conclusions.
 
+## API Export And Strict Run
+
+When a self-hosted clinic backend is available, prefer the API exporter. It
+fetches the aggregate validation endpoint, keeps only the five closure evidence
+sections, validates strict production boundaries before writing files, and then
+writes the bundle and receipt.
+
+```bash
+SELF_HOSTED_API_BASE_URL="https://<clinic-host>" \
+SELF_HOSTED_BEARER_TOKEN="<staff-token-with-visit-read-scope>" \
+STAGE5H_VISIT_ID="<visit-id>" \
+STAGE5H_CONFIRM_REAL_PRODUCTION_AGGREGATE="I_CONFIRM_REAL_AGGREGATE_NO_PATIENT_ROWS" \
+npm run export:stage5h:clinical-evidence-from-api -- \
+  --out-dir reports/stage5h-production-clinical-evidence
+```
+
+The exporter does not print the bearer token. If the API response contains
+protected keys, clinical-output keys, non-zero blockers, or missing production
+counts, it fails before writing `validation-export.json`,
+`evidence-bundle.json`, or `evidence-closure-receipt.json`.
+
 ## Strict Run
 
 ```bash
