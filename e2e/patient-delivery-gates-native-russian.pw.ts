@@ -186,6 +186,39 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await history.getByRole("button", { name: "Обновить историю проверки" }).click();
       await expect(page.getByText(/История проверки обновлена локально/).first()).toBeVisible();
 
+      const blockers = page.getByRole("region", { name: "Предзапусковые препятствия выдачи" });
+      await expect(blockers).toBeVisible();
+      await expect(blockers.getByText("Что ещё нельзя включать")).toBeVisible();
+      for (const text of [
+        "Первое действие",
+        "Открытые проверки",
+        "Всего препятствий",
+        "Выдача пациенту",
+        "Сформировать список препятствий",
+      ]) {
+        await expect(blockers.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await blockers.getByRole("button", { name: "Сформировать список препятствий" }).click();
+      await expect(page.getByText(/Список предзапусковых препятствий подготовлен локально/).first()).toBeVisible();
+
+      const decisionPackage = page.getByRole("region", { name: "Пакет решения клиники по выдаче" });
+      await expect(decisionPackage).toBeVisible();
+      await expect(decisionPackage.getByText("Что передать на рабочее решение")).toBeVisible();
+      for (const text of [
+        "Служебная сводка",
+        "Ответственный клиники",
+        "Данные для пациента",
+        "Повторная проверка",
+        "Итог перед решением",
+        "Подготовить пакет решения",
+      ]) {
+        await expect(decisionPackage.getByText(text, { exact: true }).first()).toBeVisible();
+      }
+
+      await decisionPackage.getByRole("button", { name: "Подготовить пакет решения" }).click();
+      await expect(page.getByText(/Пакет решения клиники подготовлен локально/).first()).toBeVisible();
+
       const visible = await page.locator("main").innerText();
       expect(visible).not.toMatch(FORBIDDEN_VISIBLE);
       expect(visible).toContain("Выдача пациенту остаётся выключенной");

@@ -194,6 +194,19 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Пока не зафиксирована в этой сессии")).toBeInTheDocument();
     expect(screen.getByText("Система не раскрывала")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Обновить историю проверки/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Предзапусковые препятствия выдачи" })).toBeInTheDocument();
+    expect(screen.getByText("Что ещё нельзя включать")).toBeInTheDocument();
+    expect(screen.getByText("Первое действие")).toBeInTheDocument();
+    expect(screen.getAllByText("Выдача пациенту").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Сформировать список препятствий/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Пакет решения клиники по выдаче" })).toBeInTheDocument();
+    expect(screen.getByText("Что передать на рабочее решение")).toBeInTheDocument();
+    expect(screen.getByText("Служебная сводка")).toBeInTheDocument();
+    expect(screen.getByText("Ответственный клиники")).toBeInTheDocument();
+    expect(screen.getByText("Данные для пациента")).toBeInTheDocument();
+    expect(screen.getByText("Повторная проверка")).toBeInTheDocument();
+    expect(screen.getByText("Итог перед решением")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Подготовить пакет решения/ })).toBeInTheDocument();
     expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
@@ -284,6 +297,18 @@ describe("Admin clinic core pages — render & safety", () => {
     );
     expect(
       screen.getAllByText(/История проверки обновлена локально/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Сформировать список препятствий/ }),
+    );
+    expect(
+      screen.getAllByText(/Список предзапусковых препятствий подготовлен локально/).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Подготовить пакет решения/ }),
+    );
+    expect(
+      screen.getAllByText(/Пакет решения клиники подготовлен локально/).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
