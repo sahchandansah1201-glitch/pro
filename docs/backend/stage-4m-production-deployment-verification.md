@@ -90,10 +90,22 @@ Update sequence:
 2. create a pre-update backup;
 3. fetch and fast-forward `main`;
 4. run `npm ci`;
-5. build frontend with the production auth gate;
+5. build frontend with the production auth gate into a staging directory;
 6. rebuild/restart Docker Compose;
 7. verify `/healthz`, `/readyz`, and frontend HTML;
 8. capture safe compose status.
+
+The frontend build is deliberately safe for an already running server:
+
+1. Vite builds into `.stage4m-build/frontend-next`.
+2. Stage 4M verifies the staged `index.html`.
+3. Only then does it publish staged files into `dist`, copying `index.html`
+   last.
+
+If the build fails, the existing `dist/index.html` remains untouched and nginx
+continues to serve the last good frontend. The update command prints
+`START`, `OK`, or `FAIL` for every step so operators can see where a long
+operation is running.
 
 Dry-run:
 

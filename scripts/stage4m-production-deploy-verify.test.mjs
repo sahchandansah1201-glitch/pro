@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -37,6 +37,7 @@ test("Stage 4M first-boot plan includes env, build, compose config, start, healt
   });
   assert.match(out, /ops:stage4l:verify-env/);
   assert.match(out, /npm run build/);
+  assert.match(out, /\.stage4m-build\/frontend-next/);
   assert.match(out, /VITE_APP_MODE=production/);
   assert.match(out, /docker compose --env-file deploy\/self-hosted\/\.env\.production/);
   assert.match(out, /config --quiet/);
@@ -59,6 +60,7 @@ test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () =
   assert.match(out, /git pull --ff-only origin main/);
   assert.match(out, /npm ci --no-audit --no-fund/);
   assert.match(out, /npm run build/);
+  assert.match(out, /builds into staging/);
   assert.match(out, /up -d --build/);
   assert.match(out, /\/healthz/);
   assert.match(out, /\/readyz/);
@@ -135,11 +137,15 @@ test("Stage 4M production frontend build injects required Vite env from env file
         projectName: "prod",
         appPort: "8080",
         envFile,
+        cwd: root,
       },
       {
         spawn(cmd, args, options) {
-          if (cmd === "npm" && args.join(" ") === "run build") {
+          if (cmd === "npm" && args.slice(0, 2).join(" ") === "run build") {
             buildCalls.push(options.env);
+            const outDir = args[args.indexOf("--outDir") + 1];
+            mkdirSync(join(options.cwd, outDir), { recursive: true });
+            writeFileSync(join(options.cwd, outDir, "index.html"), "<html></html>");
           }
           return { status: 0, stdout: "ok", stderr: "" };
         },
@@ -149,6 +155,48 @@ test("Stage 4M production frontend build injects required Vite env from env file
     assert.equal(buildCalls.length, 1);
     assert.equal(buildCalls[0].VITE_APP_MODE, "production");
     assert.equal(buildCalls[0].VITE_SELF_HOSTED_API_BASE_URL, "https://pro.example.test");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M safe frontend build preserves current dist when staged build fails", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-safe-build-"));
+  try {
+    const envFile = join(root, ".env.production");
+    const summaryPath = join(root, "summary.md");
+    mkdirSync(join(root, "dist"), { recursive: true });
+    writeFileSync(join(root, "dist", "index.html"), "current frontend");
+    writeFileSync(
+      envFile,
+      [
+        "VITE_APP_MODE=production",
+        "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+      ].join("\n"),
+    );
+    assert.throws(
+      () => runStage4M(
+        {
+          command: "first-boot",
+          summaryPath,
+          projectName: "prod",
+          appPort: "8080",
+          envFile,
+          cwd: root,
+        },
+        {
+          spawn(cmd, args) {
+            if (cmd === "npm" && args.slice(0, 2).join(" ") === "run build") {
+              return { status: 1, stdout: "build failed", stderr: "" };
+            }
+            return { status: 0, stdout: "ok", stderr: "" };
+          },
+        },
+      ),
+      /Build frontend safely with production auth gate failed/,
+    );
+    assert.equal(readFileSync(join(root, "dist", "index.html"), "utf8"), "current frontend");
+    assert.ok(readFileSync(summaryPath, "utf8").includes("Status: `fail`"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

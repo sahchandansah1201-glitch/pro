@@ -4,8 +4,8 @@
 // and rollback-drill checks for the self-hosted product.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
@@ -15,6 +15,8 @@ const DEFAULT_BACKUP_ROOT = "backups/self-hosted";
 const DEFAULT_SUMMARY_PATH = "test-results/stage4m-production-deploy-report.md";
 const BASE_COMPOSE = "deploy/self-hosted/docker-compose.stage4a.yml";
 const PROD_COMPOSE = "deploy/self-hosted/docker-compose.production.example.yml";
+const DIST_DIR = "dist";
+const SAFE_BUILD_OUT_DIR = ".stage4m-build/frontend-next";
 const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
 const REQUIRED_PRODUCTION_BUILD_ENV = {
   VITE_APP_MODE: "production",
@@ -173,12 +175,13 @@ function productionBuildEnv(envFile) {
 
 function buildFrontendStep(options) {
   return [
-    "Build frontend with production auth gate",
+    "Build frontend safely with production auth gate",
     npmCmd(),
-    ["run", "build"],
+    ["run", "build", "--", "--outDir", SAFE_BUILD_OUT_DIR, "--emptyOutDir"],
     {
       envFromFile: options.envFile,
-      note: "uses VITE_APP_MODE=production and VITE_SELF_HOSTED_API_BASE_URL from env file",
+      safeFrontendBuild: true,
+      note: "uses VITE_APP_MODE=production and VITE_SELF_HOSTED_API_BASE_URL, builds into staging, verifies index.html, then publishes to dist without erasing the current frontend on failure",
     },
   ];
 }
@@ -332,21 +335,70 @@ export function renderStage4MPlan(options = {}) {
 }
 
 function runStep([label, cmd, args, meta], { spawn = spawnSync } = {}) {
+  console.log(`[stage4m-deploy] START — ${label}`);
   const env = meta?.envFromFile ? productionBuildEnv(meta.envFromFile) : process.env;
-  const result = spawn(cmd, args, {
-    cwd: process.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    env,
-  });
-  if (result.status !== 0) {
-    throw new Error(redact(`${label} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`));
+  const cwd = meta?.cwd || process.cwd();
+  const result = meta?.safeFrontendBuild
+    ? runSafeFrontendBuildStep({ label, cmd, args, cwd, env, spawn })
+    : spawn(cmd, args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "inherit", "inherit"],
+      env,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+  if (result.error || result.status !== 0) {
+    console.error(`[stage4m-deploy] FAIL — ${label}`);
+    throw new Error(redact(`${label} failed: ${result.error?.message || result.stderr || result.stdout || `exit ${result.status}`}`));
   }
+  console.log(`[stage4m-deploy] OK — ${label}`);
   return {
     label,
     ok: true,
     output: redact(`${result.stdout || ""}${result.stderr || ""}`.trim()).slice(0, 4000),
   };
+}
+
+function publishStagedFrontend({ cwd, stagingDir = SAFE_BUILD_OUT_DIR, distDir = DIST_DIR } = {}) {
+  const stagingPath = join(cwd, stagingDir);
+  const distPath = join(cwd, distDir);
+  const stagingIndex = join(stagingPath, "index.html");
+  if (!existsSync(stagingIndex)) {
+    throw new Error(`staged frontend is missing index.html: ${stagingDir}/index.html`);
+  }
+  mkdirSync(distPath, { recursive: true });
+  for (const entry of readdirSync(stagingPath, { withFileTypes: true })) {
+    if (entry.name === "index.html") continue;
+    cpSync(join(stagingPath, entry.name), join(distPath, entry.name), { recursive: true, force: true });
+  }
+  cpSync(stagingIndex, join(distPath, "index.html"), { force: true });
+  if (!existsSync(join(distPath, "index.html"))) {
+    throw new Error("published frontend is missing dist/index.html");
+  }
+}
+
+function runSafeFrontendBuildStep({ label, cmd, args, cwd, env, spawn }) {
+  const stagingPath = join(cwd, SAFE_BUILD_OUT_DIR);
+  rmSync(stagingPath, { recursive: true, force: true });
+  const result = spawn(cmd, args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "inherit", "inherit"],
+    env,
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    rmSync(stagingPath, { recursive: true, force: true });
+    return result;
+  }
+  try {
+    publishStagedFrontend({ cwd });
+  } catch (error) {
+    rmSync(stagingPath, { recursive: true, force: true });
+    throw new Error(`${label} failed: ${error.message}`);
+  }
+  rmSync(stagingPath, { recursive: true, force: true });
+  return result;
 }
 
 function writeSummary(path, payload) {
@@ -379,7 +431,10 @@ export function runStage4M(options = {}, io = {}) {
   }
   const results = [];
   try {
-    for (const step of steps) results.push(runStep(step, io));
+    for (const step of steps) {
+      const [label, cmd, args, meta] = step;
+      results.push(runStep([label, cmd, args, { ...meta, cwd: config.cwd || process.cwd() }], io));
+    }
     writeSummary(config.summaryPath, {
       status: "ok",
       command: config.command,
