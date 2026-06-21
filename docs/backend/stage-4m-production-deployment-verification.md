@@ -107,6 +107,10 @@ continues to serve the last good frontend. The update command prints
 `START`, `OK`, or `FAIL` for every step so operators can see where a long
 operation is running.
 
+After `docker compose up -d --build`, the backend may need time to reconnect
+to PostgreSQL and object storage. Stage 4M therefore retries `/healthz` and
+`/readyz` transient 5xx/connection failures before declaring the update failed.
+
 Dry-run:
 
 ```bash

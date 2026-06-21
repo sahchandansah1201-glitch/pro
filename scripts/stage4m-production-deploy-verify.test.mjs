@@ -44,6 +44,7 @@ test("Stage 4M first-boot plan includes env, build, compose config, start, healt
   assert.match(out, /up -d --build/);
   assert.match(out, /\/healthz/);
   assert.match(out, /\/readyz/);
+  assert.match(out, /--retry 24 --retry-all-errors --retry-delay 5/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -64,6 +65,7 @@ test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () =
   assert.match(out, /up -d --build/);
   assert.match(out, /\/healthz/);
   assert.match(out, /\/readyz/);
+  assert.match(out, /retries transient 5xx/);
 });
 
 test("Stage 4M all plan includes post-deploy smoke and backup after deploy", () => {

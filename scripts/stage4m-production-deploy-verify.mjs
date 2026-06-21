@@ -186,14 +186,25 @@ function buildFrontendStep(options) {
   ];
 }
 
+function httpCheckStep(label, url) {
+  return [
+    label,
+    "curl",
+    ["--retry", "24", "--retry-all-errors", "--retry-delay", "5", "-fsS", url],
+    {
+      note: "retries transient 5xx/connection failures while containers finish starting",
+    },
+  ];
+}
+
 function firstBootSteps(options) {
   return [
     ["Verify production env", npmCmd(), ["run", "ops:stage4l:verify-env", "--", "--env-file", options.envFile]],
     buildFrontendStep(options),
     ["Validate compose config", "docker", composeArgs(options, ["config", "--quiet"])],
     ["Start production compose stack", "docker", composeArgs(options, ["up", "-d", "--build"])],
-    ["Health check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/healthz`]],
-    ["Readiness check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/readyz`]],
+    httpCheckStep("Health check", `http://127.0.0.1:${options.appPort}/healthz`),
+    httpCheckStep("Readiness check", `http://127.0.0.1:${options.appPort}/readyz`),
   ];
 }
 
@@ -221,8 +232,8 @@ function updateSteps(options) {
     buildFrontendStep(options),
     ["Validate compose config", "docker", composeArgs(options, ["config", "--quiet"])],
     ["Restart production compose stack", "docker", composeArgs(options, ["up", "-d", "--build"])],
-    ["Health check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/healthz`]],
-    ["Readiness check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/readyz`]],
+    httpCheckStep("Health check", `http://127.0.0.1:${options.appPort}/healthz`),
+    httpCheckStep("Readiness check", `http://127.0.0.1:${options.appPort}/readyz`),
     ["Frontend HTML check", "curl", ["-fsSI", `http://127.0.0.1:${options.appPort}/`]],
     ["Check compose services", "docker", composeArgs(options, ["ps"])],
   ];
