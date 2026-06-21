@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -37,12 +37,31 @@ test("Stage 4M first-boot plan includes env, build, compose config, start, healt
   });
   assert.match(out, /ops:stage4l:verify-env/);
   assert.match(out, /npm run build/);
+  assert.match(out, /VITE_APP_MODE=production/);
   assert.match(out, /docker compose --env-file deploy\/self-hosted\/\.env\.production/);
   assert.match(out, /config --quiet/);
   assert.match(out, /up -d --build/);
   assert.match(out, /\/healthz/);
   assert.match(out, /\/readyz/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|Bearer\s+[A-Za-z0-9]/);
+});
+
+test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () => {
+  const out = renderStage4MPlan({
+    command: "update",
+    dryRun: true,
+    projectName: "prod",
+    appPort: "8080",
+    backupRoot: "/opt/dermatolog-pro/backups",
+  });
+  assert.match(out, /Create pre-update backup/);
+  assert.match(out, /git fetch origin main/);
+  assert.match(out, /git pull --ff-only origin main/);
+  assert.match(out, /npm ci --no-audit --no-fund/);
+  assert.match(out, /npm run build/);
+  assert.match(out, /up -d --build/);
+  assert.match(out, /\/healthz/);
+  assert.match(out, /\/readyz/);
 });
 
 test("Stage 4M all plan includes post-deploy smoke and backup after deploy", () => {
@@ -91,6 +110,73 @@ test("Stage 4M runner writes a sanitized summary on success", () => {
     const summary = readFileSync(summaryPath, "utf8");
     assert.match(summary, /Status: `ok`/);
     assert.doesNotMatch(summary, /access_token|Authorization|Cookie|patient_full_name|storage_object_path/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M production frontend build injects required Vite env from env file", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-env-"));
+  try {
+    const envFile = join(root, ".env.production");
+    const summaryPath = join(root, "summary.md");
+    writeFileSync(
+      envFile,
+      [
+        "VITE_APP_MODE=production",
+        "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+      ].join("\n"),
+    );
+    const buildCalls = [];
+    const result = runStage4M(
+      {
+        command: "first-boot",
+        summaryPath,
+        projectName: "prod",
+        appPort: "8080",
+        envFile,
+      },
+      {
+        spawn(cmd, args, options) {
+          if (cmd === "npm" && args.join(" ") === "run build") {
+            buildCalls.push(options.env);
+          }
+          return { status: 0, stdout: "ok", stderr: "" };
+        },
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.equal(buildCalls.length, 1);
+    assert.equal(buildCalls[0].VITE_APP_MODE, "production");
+    assert.equal(buildCalls[0].VITE_SELF_HOSTED_API_BASE_URL, "https://pro.example.test");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M production frontend build rejects missing production mode", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-env-missing-"));
+  try {
+    const envFile = join(root, ".env.production");
+    const summaryPath = join(root, "summary.md");
+    writeFileSync(envFile, "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test\n");
+    assert.throws(
+      () => runStage4M(
+        {
+          command: "first-boot",
+          summaryPath,
+          projectName: "prod",
+          appPort: "8080",
+          envFile,
+        },
+        {
+          spawn() {
+            return { status: 0, stdout: "ok", stderr: "" };
+          },
+        },
+      ),
+      /Production frontend build env is missing: VITE_APP_MODE/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

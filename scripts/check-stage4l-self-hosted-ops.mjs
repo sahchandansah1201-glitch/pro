@@ -19,6 +19,8 @@ const REQUIRED_FILES = [
 
 const REQUIRED_TEXT = {
   "deploy/self-hosted/.env.production.example": [
+    "VITE_APP_MODE=production",
+    "VITE_SELF_HOSTED_API_BASE_URL=https://dermatolog.example.test",
     "POSTGRES_PASSWORD=replace-me-postgres-password",
     "JWT_SECRET=replace-me-with-64-random-characters",
     "DEVICE_BRIDGE_WORKER_TOKEN=replace-me-with-64-random-characters-worker-token",
@@ -39,6 +41,8 @@ const REQUIRED_TEXT = {
     "stage4l-backup-manifest.json",
     "smoke:stage4k",
     "verifyEnvText",
+    "VITE_APP_MODE",
+    "VITE_SELF_HOSTED_API_BASE_URL",
     "DEVICE_BRIDGE_WORKER_TOKEN",
   ],
   "docs/backend/stage-4l-self-hosted-ops-hardening.md": [

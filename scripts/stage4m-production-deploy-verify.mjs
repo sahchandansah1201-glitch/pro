@@ -4,17 +4,22 @@
 // and rollback-drill checks for the self-hosted product.
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
 const DEFAULT_APP_PORT = "8080";
 const DEFAULT_ENV_FILE = "deploy/self-hosted/.env.production";
+const DEFAULT_BACKUP_ROOT = "backups/self-hosted";
 const DEFAULT_SUMMARY_PATH = "test-results/stage4m-production-deploy-report.md";
 const BASE_COMPOSE = "deploy/self-hosted/docker-compose.stage4a.yml";
 const PROD_COMPOSE = "deploy/self-hosted/docker-compose.production.example.yml";
 const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
+const REQUIRED_PRODUCTION_BUILD_ENV = {
+  VITE_APP_MODE: "production",
+};
+const REQUIRED_PRODUCTION_FRONTEND_KEYS = ["VITE_APP_MODE", "VITE_SELF_HOSTED_API_BASE_URL"];
 
 function npmCmd() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
@@ -50,7 +55,8 @@ export function parseStage4MArgs(argv = []) {
     projectName: DEFAULT_PROJECT_NAME,
     appPort: DEFAULT_APP_PORT,
     envFile: DEFAULT_ENV_FILE,
-    backupDir: "backups/self-hosted/latest",
+    backupRoot: DEFAULT_BACKUP_ROOT,
+    backupDir: `${DEFAULT_BACKUP_ROOT}/latest`,
     summaryPath: DEFAULT_SUMMARY_PATH,
     confirm: "",
   };
@@ -85,6 +91,14 @@ export function parseStage4MArgs(argv = []) {
       parsed.envFile = arg.slice("--env-file=".length).trim();
       continue;
     }
+    if (arg === "--backup-root") {
+      parsed.backupRoot = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--backup-root=")) {
+      parsed.backupRoot = arg.slice("--backup-root=".length).trim();
+      continue;
+    }
     if (arg === "--backup-dir") {
       parsed.backupDir = String(argv[++index] || "").trim();
       continue;
@@ -112,24 +126,102 @@ export function parseStage4MArgs(argv = []) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  if (!["help", "first-boot", "post-deploy", "backup-after-deploy", "rollback-drill", "all"].includes(parsed.command)) {
+  if (!["help", "first-boot", "post-deploy", "backup-after-deploy", "rollback-drill", "update", "all"].includes(parsed.command)) {
     throw new Error(`Unknown Stage 4M command: ${parsed.command}`);
   }
   if (!/^\d{2,5}$/.test(parsed.appPort)) throw new Error("APP port must be numeric.");
   if (!parsed.projectName) throw new Error("project name is required.");
   if (!parsed.envFile) throw new Error("env file is required.");
+  if (!parsed.backupRoot) throw new Error("backup root is required.");
   if (!parsed.summaryPath) throw new Error("summary path is required.");
   return parsed;
+}
+
+function parseEnvText(text = "") {
+  const entries = {};
+  for (const line of String(text).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = trimmed.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (!match) continue;
+    entries[match[1]] = match[2].replace(/^['"]|['"]$/g, "");
+  }
+  return entries;
+}
+
+function readEnvFile(envFile) {
+  if (!existsSync(envFile)) throw new Error(`Env file not found: ${envFile}`);
+  return parseEnvText(readFileSync(envFile, "utf8"));
+}
+
+function productionBuildEnv(envFile) {
+  const entries = readEnvFile(envFile);
+  const missing = REQUIRED_PRODUCTION_FRONTEND_KEYS.filter((key) => !entries[key]);
+  if (missing.length) {
+    throw new Error(`Production frontend build env is missing: ${missing.join(", ")}`);
+  }
+  for (const [key, expected] of Object.entries(REQUIRED_PRODUCTION_BUILD_ENV)) {
+    if (entries[key] !== expected) {
+      throw new Error(`${key} must be ${expected} for production frontend builds.`);
+    }
+  }
+  if (!/^https?:\/\//i.test(entries.VITE_SELF_HOSTED_API_BASE_URL)) {
+    throw new Error("VITE_SELF_HOSTED_API_BASE_URL must start with http:// or https://.");
+  }
+  return { ...process.env, ...entries };
+}
+
+function buildFrontendStep(options) {
+  return [
+    "Build frontend with production auth gate",
+    npmCmd(),
+    ["run", "build"],
+    {
+      envFromFile: options.envFile,
+      note: "uses VITE_APP_MODE=production and VITE_SELF_HOSTED_API_BASE_URL from env file",
+    },
+  ];
 }
 
 function firstBootSteps(options) {
   return [
     ["Verify production env", npmCmd(), ["run", "ops:stage4l:verify-env", "--", "--env-file", options.envFile]],
-    ["Build frontend", npmCmd(), ["run", "build"]],
+    buildFrontendStep(options),
     ["Validate compose config", "docker", composeArgs(options, ["config", "--quiet"])],
     ["Start production compose stack", "docker", composeArgs(options, ["up", "-d", "--build"])],
     ["Health check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/healthz`]],
     ["Readiness check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/readyz`]],
+  ];
+}
+
+function updateSteps(options) {
+  return [
+    ["Verify production env", npmCmd(), ["run", "ops:stage4l:verify-env", "--", "--env-file", options.envFile]],
+    ["Create pre-update backup", "node", [
+      "scripts/stage4l-self-hosted-ops.mjs",
+      "backup",
+      "--project-name",
+      options.projectName,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+      "--compose-env-file",
+      options.envFile,
+      "--backup-root",
+      options.backupRoot,
+    ]],
+    ["Fetch latest main", "git", ["fetch", "origin", "main"]],
+    ["Switch to main", "git", ["checkout", "main"]],
+    ["Pull latest main", "git", ["pull", "--ff-only", "origin", "main"]],
+    ["Install locked dependencies", npmCmd(), ["ci", "--no-audit", "--no-fund"]],
+    buildFrontendStep(options),
+    ["Validate compose config", "docker", composeArgs(options, ["config", "--quiet"])],
+    ["Restart production compose stack", "docker", composeArgs(options, ["up", "-d", "--build"])],
+    ["Health check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/healthz`]],
+    ["Readiness check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/readyz`]],
+    ["Frontend HTML check", "curl", ["-fsSI", `http://127.0.0.1:${options.appPort}/`]],
+    ["Check compose services", "docker", composeArgs(options, ["ps"])],
   ];
 }
 
@@ -166,7 +258,7 @@ function backupAfterDeploySteps(options) {
       "--compose-env-file",
       options.envFile,
       "--backup-root",
-      "backups/self-hosted",
+      options.backupRoot,
     ]],
   ];
 }
@@ -212,6 +304,7 @@ export function buildStage4MPlan(options = {}) {
   if (config.command === "first-boot" || config.command === "all") steps.push(...firstBootSteps(config));
   if (config.command === "post-deploy" || config.command === "all") steps.push(...postDeploySteps(config));
   if (config.command === "backup-after-deploy" || config.command === "all") steps.push(...backupAfterDeploySteps(config));
+  if (config.command === "update") steps.push(...updateSteps(config));
   if (config.command === "rollback-drill") steps.push(...rollbackDrillSteps(config));
   return { config, steps };
 }
@@ -230,18 +323,21 @@ export function renderStage4MPlan(options = {}) {
     lines.push(`- Rollback confirmation required: ${ROLLBACK_CONFIRM}`);
   }
   lines.push("", "## Steps");
-  for (const [label, cmd, args] of steps) {
-    lines.push(`- ${label}: \`${cmd} ${args.join(" ")}\``);
+  for (const [label, cmd, args, meta] of steps) {
+    const note = meta?.note ? ` (${meta.note})` : "";
+    lines.push(`- ${label}: \`${cmd} ${args.join(" ")}\`${note}`);
   }
   lines.push("", "No raw tokens, passwords, object keys, storage paths, or patient names are printed.");
   return redact(lines.join("\n"));
 }
 
-function runStep([label, cmd, args], { spawn = spawnSync } = {}) {
+function runStep([label, cmd, args, meta], { spawn = spawnSync } = {}) {
+  const env = meta?.envFromFile ? productionBuildEnv(meta.envFromFile) : process.env;
   const result = spawn(cmd, args, {
     cwd: process.cwd(),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env,
   });
   if (result.status !== 0) {
     throw new Error(redact(`${label} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`));
@@ -311,6 +407,7 @@ function usage() {
     "  node scripts/stage4m-production-deploy-verify.mjs first-boot --dry-run",
     "  node scripts/stage4m-production-deploy-verify.mjs post-deploy --dry-run",
     "  node scripts/stage4m-production-deploy-verify.mjs backup-after-deploy --dry-run",
+    "  node scripts/stage4m-production-deploy-verify.mjs update --dry-run --backup-root /opt/dermatolog-pro/backups",
     "  node scripts/stage4m-production-deploy-verify.mjs rollback-drill --dry-run --backup-dir backups/self-hosted/<timestamp>",
     "  node scripts/stage4m-production-deploy-verify.mjs rollback-drill --backup-dir <dir> --confirm=ROLLBACK_TO_SELF_HOSTED_BACKUP",
   ].join("\n");

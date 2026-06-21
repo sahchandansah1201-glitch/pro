@@ -7,6 +7,8 @@ on:
       - "scripts/stage4m-production-deploy-verify.test.mjs"
       - "scripts/check-stage4m-production-deploy.mjs"
       - "scripts/check-stage4m-production-deploy.test.mjs"
+      - "deploy/self-hosted/update-production.sh"
+      - "deploy/self-hosted/.env.production.example"
       - "docs/backend/stage-4m-production-deployment-verification.md"
       - "scripts/preflight-all.mjs"
       - "package.json"
@@ -17,6 +19,8 @@ on:
       - "scripts/stage4m-production-deploy-verify.test.mjs"
       - "scripts/check-stage4m-production-deploy.mjs"
       - "scripts/check-stage4m-production-deploy.test.mjs"
+      - "deploy/self-hosted/update-production.sh"
+      - "deploy/self-hosted/.env.production.example"
       - "docs/backend/stage-4m-production-deployment-verification.md"
       - "scripts/preflight-all.mjs"
       - "package.json"
@@ -43,6 +47,8 @@ jobs:
         run: npm run deploy:stage4m:post-deploy:dry-run
       - name: Backup after deploy dry-run
         run: npm run deploy:stage4m:backup-after-deploy:dry-run
+      - name: Update dry-run
+        run: npm run deploy:stage4m:update:dry-run
       - name: Rollback drill dry-run
         run: npm run deploy:stage4m:rollback-drill:dry-run
       - name: Summary
@@ -52,6 +58,6 @@ jobs:
             echo "## Stage 4M production deployment verification"
             echo ""
             echo "- Preflight: ${{ job.status }}"
-            echo "- Checked: first boot, post-deploy smoke, backup-after-deploy, rollback-drill dry-runs"
+            echo "- Checked: first boot, post-deploy smoke, backup-after-deploy, update, rollback-drill dry-runs"
             echo "- CI does not mutate live server volumes"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -29,6 +29,8 @@ Replace every `replace-me-*` value before starting the stack. In production:
 - `JWT_SECRET` is at least 32 random characters.
 - `DEVICE_BRIDGE_WORKER_TOKEN` is generated, at least 32 random characters, and only shared with the local Device Bridge worker.
 - `MINIO_ROOT_PASSWORD` is generated even if MinIO is only used for inspection.
+- `VITE_APP_MODE` is `production`, otherwise the browser shell stays in учебный режим.
+- `VITE_SELF_HOSTED_API_BASE_URL` points at the public self-hosted address, for example `https://pro.skindoktor.ru`.
 - `.env.production` is never committed.
 
 Validate the env file:
@@ -40,9 +42,12 @@ node scripts/stage4l-self-hosted-ops.mjs verify-env \
 
 ## Production compose start
 
-Build the frontend first, then start the production overlay:
+Build the frontend with the production env first, then start the production overlay:
 
 ```bash
+set -a
+. deploy/self-hosted/.env.production
+set +a
 npm run build
 docker compose --env-file deploy/self-hosted/.env.production \
   -f deploy/self-hosted/docker-compose.stage4a.yml \

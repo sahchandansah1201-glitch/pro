@@ -91,6 +91,8 @@ test("Stage 4L backup runner writes a manifest and captures PostgreSQL dump byte
 test("Stage 4L env verifier checks required keys and warns on placeholders", () => {
   const ok = verifyEnvText(`
 APP_PORT=8080
+VITE_APP_MODE=production
+VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test
 POSTGRES_PASSWORD=replace-me-postgres
 JWT_SECRET=replace-me-jwt-secret
 DEVICE_BRIDGE_WORKER_TOKEN=replace-me-worker-token
