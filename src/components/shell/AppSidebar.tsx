@@ -118,9 +118,9 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Администрирование",
       items: [
         { title: "Операционный центр", url: "/admin", icon: LayoutDashboard },
+        { title: "Клиники и кабинеты", url: "/admin/clinics", icon: Building2 },
         { title: "Врачи", url: "/admin/doctors", icon: Stethoscope },
         { title: "Услуги", url: "/admin/services", icon: FileText },
-        { title: "Клиники", url: "/admin/clinics", icon: Building2 },
         { title: "Интеграции", url: "/admin/integrations", icon: Plug },
         { title: "Бот", url: "/admin/bot", icon: Bot },
         { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
@@ -141,8 +141,8 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       label: "Система",
       items: [
-        { title: "Пользователи", url: "/sys/users", icon: ShieldCheck },
-        { title: "Клиники", url: "/admin/clinics", icon: Building2 },
+        { title: "Клиники и кабинеты", url: "/admin/clinics", icon: Building2 },
+        { title: "Сотрудники и доступ", url: "/sys/users", icon: ShieldCheck },
         { title: "Врачи", url: "/admin/doctors", icon: Stethoscope },
         { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
         { title: "Устройства", url: "/sys/devices", icon: Cpu },

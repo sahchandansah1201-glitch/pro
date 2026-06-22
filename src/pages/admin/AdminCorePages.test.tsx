@@ -46,7 +46,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Операционный день")).toBeInTheDocument();
     expect(screen.getByText("Готовность подключений")).toBeInTheDocument();
     expect(screen.getByText("Бот и заявки")).toBeInTheDocument();
-    expect(screen.getByText("Услуги и филиалы")).toBeInTheDocument();
+    expect(screen.getByText("Услуги и кабинеты")).toBeInTheDocument();
     expect(screen.getByText("Финансовый контур")).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", {
@@ -589,7 +589,7 @@ describe("Admin clinic core pages — render & safety", () => {
 
   it("AdminClinicsPage filter and sort change visible cards", () => {
     renderRouted(<AdminClinicsPage />);
-    expect(screen.getByText("Клиники и филиалы")).toBeInTheDocument();
+    expect(screen.getByText("Клиники и кабинеты")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Партнёрские" }));
     expect(screen.getByText(/Кабинет Морозова/)).toBeInTheDocument();
     expect(screen.queryByText(/Дерма-Про · Центр/)).not.toBeInTheDocument();
@@ -618,9 +618,9 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.getByRole("link", { name: "Открыть интеграции" }),
     ).toHaveAttribute("href", "/admin/integrations");
-    fireEvent.click(screen.getByRole("button", { name: "Проверить филиалы" }));
+    fireEvent.click(screen.getByRole("button", { name: "Проверить клиники" }));
     expect(
-      screen.getByText(/Проверка филиалов подготовлена локально/),
+      screen.getByText(/Проверка клиник подготовлена локально/),
     ).toBeInTheDocument();
   });
 

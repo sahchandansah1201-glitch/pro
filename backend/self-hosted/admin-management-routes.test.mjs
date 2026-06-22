@@ -38,6 +38,24 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async createPrivatePractice(body, authContext, meta) {
+        calls.push(["createPrivatePractice", body.ownerEmail, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            clinic: { id: "10000000-0000-4000-8000-000000000301", name: body.clinicName, slug: body.slug },
+            owner: {
+              id: "10000000-0000-4000-8000-000000000201",
+              displayName: body.ownerDisplayName,
+              email: body.ownerEmail,
+              roles: [
+                { role: "clinic_admin", clinicId: "10000000-0000-4000-8000-000000000301", clinicName: body.clinicName },
+                { role: "private_doctor", clinicId: "10000000-0000-4000-8000-000000000301", clinicName: body.clinicName },
+              ],
+            },
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
       async createUser(body, authContext, meta) {
         calls.push(["createUser", body.role, authContext.roles, meta.correlationId]);
         return {
@@ -113,16 +131,32 @@ test("admin management routes create clinic, create doctor, and read aggregate a
   assert.equal(doctor.status, 201);
   assert.equal(doctor.json.item.displayName, "Врач Тестовый");
 
+  const privatePractice = await request("/api/v1/admin/private-practices", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({
+      clinicName: "Кабинет тестовый",
+      slug: "private-test",
+      ownerDisplayName: "Врач Владелец",
+      ownerEmail: "owner@example.test",
+      ownerPassword: "long-password-1",
+    }),
+  });
+  assert.equal(privatePractice.status, 201);
+  assert.equal(privatePractice.json.item.clinic.name, "Кабинет тестовый");
+  assert.deepEqual(privatePractice.json.item.owner.roles.map((role) => role.role), ["clinic_admin", "private_doctor"]);
+
   const analytics = await request("/api/v1/admin/analytics", { runtime });
   assert.equal(analytics.status, 200);
   assert.equal(analytics.json.item.clinics, 1);
   assert.equal(analytics.body.includes("patientName"), false);
-  assert.deepEqual(calls.map((call) => call[0]), ["createClinic", "createUser", "getAnalytics"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["createClinic", "createUser", "createPrivatePractice", "getAnalytics"]);
 });
 
 test("admin management OpenAPI route is public and documents operation ids", async () => {
   const response = await request("/openapi.stage6-admin-management.json", { runtime: createRuntime() });
   assert.equal(response.status, 200);
   assert.equal(response.json.paths["/api/v1/admin/users"].post.operationId, "createAdminUser");
+  assert.equal(response.json.paths["/api/v1/admin/private-practices"].post.operationId, "createAdminPrivatePractice");
   assert.equal(response.json.paths["/api/v1/admin/analytics"].get.operationId, "getAdminAnalytics");
 });

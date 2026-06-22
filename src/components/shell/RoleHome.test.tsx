@@ -19,6 +19,7 @@ function renderHome() {
           <Route path="/" element={<RoleHome />} />
           <Route path="/desk" element={<div data-testid="desk">desk</div>} />
           <Route path="/practice" element={<div data-testid="practice">practice</div>} />
+          <Route path="/admin/clinics" element={<div data-testid="clinics">clinics</div>} />
           <Route path="/sys/users" element={<div data-testid="sys">sys</div>} />
           <Route path="/self-hosted/login" element={<div data-testid="login">login</div>} />
         </Routes>
@@ -63,6 +64,6 @@ describe("RoleHome", () => {
       JSON.stringify({ id: "u-1", displayName: "Admin", roles: ["system_admin"] }),
     );
     renderHome();
-    expect(screen.getByTestId("sys")).toBeInTheDocument();
+    expect(screen.getByTestId("clinics")).toBeInTheDocument();
   });
 });

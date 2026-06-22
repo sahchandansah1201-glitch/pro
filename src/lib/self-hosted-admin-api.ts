@@ -54,6 +54,11 @@ export interface AdminAnalyticsDTO {
   }>;
 }
 
+export interface AdminPrivatePracticeDTO {
+  clinic: AdminClinicDTO;
+  owner: AdminUserDTO;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -234,6 +239,31 @@ export async function createAdminClinic(
   if (!result.ok) return result as SelfHostedApiResult<AdminClinicDTO>;
   const body = isRecord(result.value) ? result.value : {};
   return ok(normalizeClinic(body.item));
+}
+
+export async function createAdminPrivatePractice(
+  args: BaseArgs & {
+    payload: {
+      clinicName: string;
+      slug?: string;
+      timezone?: string;
+      ownerDisplayName: string;
+      ownerEmail: string;
+      ownerPassword: string;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminPrivatePracticeDTO>> {
+  const result = await request(args, "/api/v1/admin/private-practices", {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminPrivatePracticeDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  const item = isRecord(body.item) ? body.item : {};
+  return ok({
+    clinic: normalizeClinic(item.clinic),
+    owner: normalizeUser(item.owner),
+  });
 }
 
 export async function listAdminDoctors(args: BaseArgs & { search?: string }): Promise<SelfHostedApiResult<AdminUserDTO[]>> {

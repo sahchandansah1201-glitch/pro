@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildCreateClinicSql,
+  buildCreatePrivatePracticeSql,
   buildDisableAdminUserSql,
   buildUpdateClinicSql,
 } from "./admin-management-repository.mjs";
@@ -41,4 +42,22 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     }),
     "updated",
   );
+});
+
+test("private practice SQL creates clinic and owner roles atomically with writable CTEs", () => {
+  const sql = buildCreatePrivatePracticeSql({
+    name: "Кабинет",
+    slug: "cabinet",
+    timezone: "Europe/Moscow",
+    ownerEmail: "owner@example.test",
+    ownerDisplayName: "Владелец кабинета",
+    ownerPasswordHash: "hash",
+  });
+
+  for (const cteName of ["clinic_row", "user_row", "role_rows"]) {
+    assert.match(sql, new RegExp(`with[\\s\\S]*${cteName}\\s+as\\s*\\(`, "i"));
+  }
+  assert.doesNotMatch(sql, DIRECT_DML_IN_FROM_PATTERN);
+  assert.match(sql, /'clinic_admin'/);
+  assert.match(sql, /'private_doctor'/);
 });

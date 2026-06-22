@@ -43,6 +43,12 @@
         "summary": "Update clinic identity fields"
       }
     },
+    "/api/v1/admin/private-practices": {
+      "post": {
+        "operationId": "createAdminPrivatePractice",
+        "summary": "Create a private practice clinic and assign the owner as clinic admin and private dermatologist"
+      }
+    },
     "/api/v1/admin/doctors": {
       "get": {
         "operationId": "listAdminDoctors",

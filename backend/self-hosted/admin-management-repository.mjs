@@ -241,6 +241,75 @@ from (
 `.trim();
 }
 
+export function buildCreatePrivatePracticeSql({
+  name,
+  slug,
+  timezone = "Europe/Moscow",
+  ownerEmail,
+  ownerDisplayName,
+  ownerPasswordHash,
+} = {}) {
+  return `
+select row_to_json(result)::text
+from (
+  with clinic_row as (
+    insert into clinics (name, slug, timezone)
+    values (${sqlLiteral(name)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
+    returning *
+  ),
+  user_row as (
+    insert into app_users (email, display_name, password_hash)
+    values (${sqlLiteral(ownerEmail)}, ${sqlLiteral(ownerDisplayName)}, ${sqlLiteral(ownerPasswordHash)})
+    on conflict (email) do update
+      set display_name = excluded.display_name,
+          password_hash = excluded.password_hash,
+          disabled_at = null,
+          updated_at = now()
+    returning *
+  ),
+  role_rows as (
+    insert into user_roles (user_id, clinic_id, role)
+    select user_row.id, clinic_row.id, role_values.role::app_role
+    from user_row
+    cross join clinic_row
+    cross join (values ('clinic_admin'), ('private_doctor')) as role_values(role)
+    on conflict (user_id, clinic_id, role) do nothing
+    returning role
+  )
+  select
+    jsonb_build_object(
+      'id', clinic_row.id::text,
+      'slug', clinic_row.slug,
+      'name', clinic_row.name,
+      'timezone', clinic_row.timezone,
+      'createdAt', clinic_row.created_at,
+      'usersCount', 2,
+      'patientsCount', 0,
+      'visitsCount', 0
+    ) as "clinic",
+    jsonb_build_object(
+      'id', user_row.id::text,
+      'email', user_row.email::text,
+      'displayName', user_row.display_name,
+      'active', user_row.disabled_at is null,
+      'disabledAt', user_row.disabled_at,
+      'createdAt', user_row.created_at,
+      'roles', (
+        select coalesce(jsonb_agg(jsonb_build_object(
+          'role', role_rows.role::text,
+          'clinicId', clinic_row.id::text,
+          'clinicName', clinic_row.name,
+          'clinicSlug', clinic_row.slug
+        ) order by role_rows.role::text), '[]'::jsonb)
+        from role_rows
+      )
+    ) as "owner"
+  from clinic_row
+  cross join user_row
+) result;
+`.trim();
+}
+
 export function buildUpdateClinicSql({ clinicId, name, slug, timezone } = {}) {
   const clauses = [];
   if (name != null) clauses.push(`name = ${sqlLiteral(name)}`);
@@ -336,6 +405,9 @@ export function createAdminManagementRepository(dbClient) {
     },
     async createClinic(params) {
       return dbClient.queryJson(buildCreateClinicSql(params));
+    },
+    async createPrivatePractice(params) {
+      return dbClient.queryJson(buildCreatePrivatePracticeSql(params));
     },
     async updateClinic(params) {
       return dbClient.queryJson(buildUpdateClinicSql(params));

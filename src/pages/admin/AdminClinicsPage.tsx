@@ -16,6 +16,7 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   adminApiErrorText,
   createAdminClinic,
+  createAdminPrivatePractice,
   listAdminClinics,
   type AdminClinicDTO,
 } from "@/lib/self-hosted-admin-api";
@@ -102,6 +103,14 @@ function AdminClinicsPageLive() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", timezone: "Europe/Moscow" });
+  const [privateForm, setPrivateForm] = useState({
+    clinicName: "",
+    slug: "",
+    timezone: "Europe/Moscow",
+    ownerDisplayName: "",
+    ownerEmail: "",
+    ownerPassword: "",
+  });
 
   async function load() {
     setLoading(true);
@@ -136,6 +145,32 @@ function AdminClinicsPageLive() {
     await load();
   }
 
+  async function submitPrivatePractice() {
+    setBusy(true);
+    const result = await createAdminPrivatePractice({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: privateForm,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(
+      `Кабинет создан: ${result.value?.clinic.name ?? privateForm.clinicName}. Владелец получил доступ администратора и частного врача.`,
+    );
+    setPrivateForm({
+      clinicName: "",
+      slug: "",
+      timezone: "Europe/Moscow",
+      ownerDisplayName: "",
+      ownerEmail: "",
+      ownerPassword: "",
+    });
+    await load();
+  }
+
   const totals = clinics.reduce(
     (acc, clinic) => ({
       users: acc.users + (clinic.usersCount ?? 0),
@@ -147,17 +182,17 @@ function AdminClinicsPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Клиники и филиалы" subtitle="Рабочая регистрация клиник, филиалов и области доступа." />
+      <PageHeader title="Клиники и кабинеты" subtitle="Рабочая регистрация клиник, частных кабинетов и области доступа." />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочий режим: новые клиники сохраняются в базе и сразу доступны для назначения администраторов и врачей.
+          Рабочий режим: сначала создайте клинику или частный кабинет, затем назначайте сотрудников и роли.
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
           <AdminOpsCard title="Клиники" hint="зарегистрированы в рабочей базе">
             <AdminMetric label="Всего" value={clinics.length} tone="info" />
           </AdminOpsCard>
-          <AdminOpsCard title="Пользователи" hint="назначены на клиники">
+          <AdminOpsCard title="Сотрудники" hint="назначены на клиники и кабинеты">
             <AdminMetric label="Активные связи" value={totals.users} tone="success" />
           </AdminOpsCard>
           <AdminOpsCard title="Пациенты" hint="агрегат без персональных строк">
@@ -168,35 +203,95 @@ function AdminClinicsPageLive() {
           </AdminOpsCard>
         </div>
 
-        <Card className="p-3">
-          <div className="mb-3 text-[13px] font-semibold">Создать клинику</div>
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_0.7fr_0.7fr_auto]">
-            <Input
-              value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Название клиники"
-              aria-label="Название клиники"
-              className="min-h-11"
-            />
-            <Input
-              value={form.slug}
-              onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
-              placeholder="Короткий адрес"
-              aria-label="Короткий адрес"
-              className="min-h-11"
-            />
-            <Input
-              value={form.timezone}
-              onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))}
-              placeholder="Часовой пояс"
-              aria-label="Часовой пояс"
-              className="min-h-11"
-            />
-            <Button type="button" className="min-h-11" onClick={submitClinic} disabled={busy}>
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <Card className="p-3">
+            <div className="mb-1 text-[13px] font-semibold">Создать клинику</div>
+            <p className="mb-3 text-[12px] text-muted-foreground">
+              Для медицинского центра, сети или филиала. Сотрудников назначайте следующим шагом.
+            </p>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_0.7fr_0.7fr]">
+              <Input
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Название клиники"
+                aria-label="Название клиники"
+                className="min-h-11"
+              />
+              <Input
+                value={form.slug}
+                onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
+                placeholder="Короткий адрес"
+                aria-label="Короткий адрес"
+                className="min-h-11"
+              />
+              <Input
+                value={form.timezone}
+                onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))}
+                placeholder="Часовой пояс"
+                aria-label="Часовой пояс"
+                className="min-h-11"
+              />
+            </div>
+            <Button type="button" className="mt-3 min-h-11" onClick={submitClinic} disabled={busy}>
               Создать клинику
             </Button>
-          </div>
-        </Card>
+          </Card>
+
+          <Card className="p-3">
+            <div className="mb-1 text-[13px] font-semibold">Создать частный кабинет</div>
+            <p className="mb-3 text-[12px] text-muted-foreground">
+              Для одного врача-владельца. Он сразу получит доступ администратора кабинета и частного врача.
+            </p>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              <Input
+                value={privateForm.clinicName}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, clinicName: event.target.value }))}
+                placeholder="Название кабинета"
+                aria-label="Название кабинета"
+                className="min-h-11"
+              />
+              <Input
+                value={privateForm.slug}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, slug: event.target.value }))}
+                placeholder="Короткий адрес"
+                aria-label="Короткий адрес кабинета"
+                className="min-h-11"
+              />
+              <Input
+                value={privateForm.ownerDisplayName}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerDisplayName: event.target.value }))}
+                placeholder="ФИО владельца"
+                aria-label="ФИО владельца кабинета"
+                className="min-h-11"
+              />
+              <Input
+                value={privateForm.ownerEmail}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerEmail: event.target.value }))}
+                placeholder="Эл. почта владельца"
+                aria-label="Эл. почта владельца кабинета"
+                className="min-h-11"
+              />
+              <Input
+                value={privateForm.ownerPassword}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerPassword: event.target.value }))}
+                placeholder="Временный пароль"
+                aria-label="Временный пароль владельца кабинета"
+                type="password"
+                className="min-h-11"
+              />
+              <Input
+                value={privateForm.timezone}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, timezone: event.target.value }))}
+                placeholder="Часовой пояс"
+                aria-label="Часовой пояс кабинета"
+                className="min-h-11"
+              />
+            </div>
+            <Button type="button" className="mt-3 min-h-11" onClick={submitPrivatePractice} disabled={busy}>
+              Создать кабинет и владельца
+            </Button>
+          </Card>
+        </div>
 
         {note && (
           <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
@@ -329,7 +424,7 @@ function AdminClinicsPageDemo() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Клиники и филиалы"
+        title="Клиники и кабинеты"
         subtitle="Адреса, маршрутизация заявок, готовность кабинетов."
       />
 
@@ -384,10 +479,10 @@ function AdminClinicsPageDemo() {
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                 onClick={() =>
-                  setActionNote("Проверка филиалов подготовлена локально. Рабочий пересчёт выполняется в системе клиники.")
+                  setActionNote("Проверка клиник подготовлена локально. Рабочий пересчёт выполняется в системе клиники.")
                 }
               >
-                Проверить филиалы
+                Проверить клиники
               </Button>
             }
           >
@@ -396,7 +491,7 @@ function AdminClinicsPageDemo() {
               <AdminMetric label="Сортировка" value={sort === "priority" ? "приоритет" : "конверсия"} />
             </div>
             <p className="mt-3 text-[12px] text-muted-foreground">
-              Заявки направляются в филиал только по операционным признакам: расписание, услуга, интеграция, кабинет.
+              Заявки направляются в клинику или кабинет только по операционным признакам: расписание, услуга, интеграция, кабинет.
             </p>
           </AdminOpsCard>
 

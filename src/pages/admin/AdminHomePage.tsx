@@ -323,9 +323,9 @@ export default function AdminHomePage() {
     {
       title: "Северный филиал готов частично",
       detail: "Перед маршрутизацией заявок нужно проверить подключение и локальную связь с кабинетом.",
-      meta: "Клиники и филиалы",
+      meta: "Клиники и кабинеты",
       to: "/admin/clinics",
-      cta: "Проверить филиалы",
+      cta: "Проверить клиники",
       tone: "info" as OpsTone,
       Icon: Building2,
     },
@@ -487,7 +487,7 @@ export default function AdminHomePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_0.9fr]">
-          <SectionCard title="Услуги и филиалы" hint="готовность к записи">
+          <SectionCard title="Услуги и кабинеты" hint="готовность к записи">
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="space-y-2">
                 {SERVICE_OPS.map((service) => (
@@ -540,7 +540,7 @@ export default function AdminHomePage() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <ActionLink to="/admin/services">Проверить услуги</ActionLink>
-              <ActionLink to="/admin/clinics">Проверить филиалы</ActionLink>
+              <ActionLink to="/admin/clinics">Проверить клиники</ActionLink>
             </div>
           </SectionCard>
 
@@ -548,7 +548,7 @@ export default function AdminHomePage() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <QuickLink to="/admin/doctors" label="Врачи" hint="состав и лицензии" Icon={Stethoscope} />
               <QuickLink to="/admin/services" label="Услуги" hint="цены и длительность" Icon={FileText} />
-              <QuickLink to="/admin/clinics" label="Клиники" hint="маршрутизация заявок" Icon={Building2} />
+              <QuickLink to="/admin/clinics" label="Клиники и кабинеты" hint="маршрутизация заявок" Icon={Building2} />
               <QuickLink to="/admin/integrations" label="Интеграции" hint="клиентская база, учёт, бот" Icon={Plug} />
               <QuickLink to="/admin/bot" label="Бот" hint="шаблоны и эскалация" Icon={Bot} />
               <QuickLink to="/admin/analytics" label="Аналитика" hint="воронка и качество" Icon={BarChart3} />

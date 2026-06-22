@@ -127,6 +127,28 @@ function normalizeClinicPayload(input = {}, { partial = false } = {}) {
   return payload;
 }
 
+function normalizePrivatePracticePayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const clinic = normalizeClinicPayload({
+    name: input.clinicName ?? input.name,
+    slug: input.slug,
+    timezone: input.timezone,
+  });
+  const owner = {
+    email: cleanString(input.ownerEmail ?? input.email, 180)?.toLowerCase(),
+    displayName: cleanString(input.ownerDisplayName ?? input.displayName, 180),
+    password: String(input.ownerPassword ?? input.password ?? ""),
+  };
+  const details = [];
+  if (!owner.email || !EMAIL_PATTERN.test(owner.email)) details.push({ field: "ownerEmail", message: "Укажите рабочую почту владельца." });
+  if (!owner.displayName || owner.displayName.length < 3) details.push({ field: "ownerDisplayName", message: "Укажите имя владельца кабинета." });
+  if (owner.password.length < 10) details.push({ field: "ownerPassword", message: "Пароль должен быть не короче 10 символов." });
+  if (details.length > 0) throw new AdminManagementValidationError(details);
+  return { clinic, owner };
+}
+
 function listMeta(params, items) {
   return {
     count: Array.isArray(items) ? items.length : 0,
@@ -233,6 +255,31 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         metadata: { slug: clinic?.slug || payload.slug },
       });
       return { item: clinic, scope: { allClinics: true, clinicIds: [] } };
+    },
+
+    async createPrivatePractice(input, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const payload = normalizePrivatePracticePayload(input);
+      const item = await adminManagementRepository.createPrivatePractice({
+        ...payload.clinic,
+        ownerEmail: payload.owner.email,
+        ownerDisplayName: payload.owner.displayName,
+        ownerPasswordHash: hashPassword(payload.owner.password),
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: item?.clinic?.id || null,
+        actorUserId: authContext.userId,
+        action: "admin.private_practice.create",
+        entityType: "clinic",
+        entityId: item?.clinic?.id || null,
+        correlationId: meta.correlationId,
+        metadata: {
+          slug: item?.clinic?.slug || payload.clinic.slug,
+          ownerRoleCount: 2,
+          passwordStoredAsHash: true,
+        },
+      });
+      return { item, scope: { allClinics: true, clinicIds: [] } };
     },
 
     async updateClinic(clinicId, input, authContext, meta = {}) {

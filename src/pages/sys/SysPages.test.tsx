@@ -29,7 +29,7 @@ const renderRouted = (ui: React.ReactElement) =>
 
 describe("Sys pages — render & safety", () => {
   it.each([
-    ["SysUsersPage", <SysUsersPage />, /Пользователи и роли/],
+    ["SysUsersPage", <SysUsersPage />, /Сотрудники и доступ/],
     ["SysDevicesPage", <SysDevicesPage />, /Устройства/],
     ["SysAuditPage", <SysAuditPage />, /Аудит/],
     ["SysReleaseStatusPage", <SysReleaseStatusPage />, /Готовность публикации/],

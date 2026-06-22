@@ -24,7 +24,7 @@ import {
 } from "@/lib/self-hosted-admin-api";
 
 /**
- * Пользователи системы — управление пользователями и ролями (учебный режим).
+ * Сотрудники системы — управление учётными записями и ролями (учебный режим).
  * SAFETY: не показывает email пациента и raw email вообще; пациент скрыт под
  * меткой «Учебный пациент». Никаких сетевых вызовов и storage.
  */
@@ -101,12 +101,18 @@ function roleLabel(role: string): string {
   return ROLE_LABEL[role] ?? role;
 }
 
-function primaryRole(user: AdminUserDTO): string {
-  return user.roles[0]?.role ?? "—";
+function uniqueValues(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim()))));
 }
 
-function primaryClinic(user: AdminUserDTO): string {
-  return user.roles.find((role) => role.clinicName)?.clinicName ?? "—";
+function userRoleLabels(user: AdminUserDTO): string[] {
+  const labels = uniqueValues(user.roles.map((role) => roleLabel(role.role)));
+  return labels.length > 0 ? labels : ["Роль не назначена"];
+}
+
+function userClinicLabels(user: AdminUserDTO): string[] {
+  const labels = uniqueValues(user.roles.map((role) => role.clinicName));
+  return labels.length > 0 ? labels : ["Без клиники"];
 }
 
 function SysUsersPageLive() {
@@ -232,14 +238,17 @@ function SysUsersPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Пользователи и роли" subtitle="Рабочие учётные записи, роли и доступ к клиникам." />
+      <PageHeader title="Сотрудники и доступ" subtitle="Учётные записи, роли и доступ к клиникам или частным кабинетам." />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочий режим: изменения сохраняются в базе, действия записываются в аудит. Пароли не выводятся после создания.
+          Рабочий режим: один человек может иметь несколько ролей, например администратор кабинета и частный врач.
         </div>
 
         <Card className="p-3">
-          <div className="mb-3 text-[13px] font-semibold">Создать учётную запись</div>
+          <div className="mb-1 text-[13px] font-semibold">Создать сотрудника</div>
+          <p className="mb-3 text-[12px] text-muted-foreground">
+            Укажите первую роль. Дополнительные роли добавляются ниже без создания второй учётной записи.
+          </p>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-5">
             <Input
               value={form.displayName}
@@ -291,12 +300,15 @@ function SysUsersPageLive() {
             </select>
           </div>
           <Button type="button" className="mt-3 min-h-11" onClick={submitUser} disabled={busy}>
-            Создать пользователя
+            Создать сотрудника
           </Button>
         </Card>
 
         <Card className="p-3">
-          <div className="mb-3 text-[13px] font-semibold">Назначить роль</div>
+          <div className="mb-1 text-[13px] font-semibold">Добавить роль действующему сотруднику</div>
+          <p className="mb-3 text-[12px] text-muted-foreground">
+            Используйте это для владельца кабинета, который одновременно администрирует кабинет и ведёт приём.
+          </p>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-4">
             <select
               value={roleForm.userId}
@@ -337,7 +349,7 @@ function SysUsersPageLive() {
               ))}
             </select>
             <Button type="button" variant="outline" className="min-h-11" onClick={submitRoleAssignment} disabled={busy}>
-              Назначить роль
+              Добавить роль
             </Button>
           </div>
         </Card>
@@ -375,8 +387,20 @@ function SysUsersPageLive() {
                   <div className="text-[13px] font-semibold">{user.displayName}</div>
                   <div className="text-[11px] text-muted-foreground">{user.email}</div>
                 </div>
-                <div className="text-[12px] text-muted-foreground">{roleLabel(primaryRole(user))}</div>
-                <div className="text-[12px] text-muted-foreground">{primaryClinic(user)}</div>
+                <div className="flex flex-wrap gap-1">
+                  {userRoleLabels(user).map((label) => (
+                    <span key={label} className="rounded-full border border-border px-2 py-1 text-[11px] text-foreground">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {userClinicLabels(user).map((label) => (
+                    <span key={label} className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                      {label}
+                    </span>
+                  ))}
+                </div>
                 <div className="text-[12px]">
                   <span className={`rounded-full border px-2 py-0.5 ${user.active ? "text-emerald-700" : "text-muted-foreground"}`}>
                     {user.active ? "Доступ включён" : "Доступ отключён"}
@@ -446,7 +470,7 @@ function SysUsersPageDemo() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Пользователи и роли" subtitle="Учётные записи, роли, область доступа." />
+      <PageHeader title="Сотрудники и доступ" subtitle="Учётные записи, роли, область доступа." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div

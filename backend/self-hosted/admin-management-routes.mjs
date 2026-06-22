@@ -128,6 +128,20 @@ export async function handleAdminManagementRequest({
     }
   }
 
+  if (url.pathname === "/api/v1/admin/private-practices" && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.createPrivatePractice(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(201, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
   const clinic = adminClinicPath(url.pathname);
   if (clinic && method === "PATCH") {
     try {

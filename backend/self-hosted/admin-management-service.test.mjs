@@ -41,6 +41,37 @@ function createService({ calls = [] } = {}) {
       calls.push(["createClinic", params]);
       return { id: "10000000-0000-4000-8000-000000000301", ...params };
     },
+    async createPrivatePractice(params) {
+      calls.push(["createPrivatePractice", { ...params, ownerPasswordHash: params.ownerPasswordHash ? "[hash]" : "" }]);
+      return {
+        clinic: {
+          id: "10000000-0000-4000-8000-000000000301",
+          name: params.name,
+          slug: params.slug,
+          timezone: params.timezone,
+        },
+        owner: {
+          id: "10000000-0000-4000-8000-000000000201",
+          email: params.ownerEmail,
+          displayName: params.ownerDisplayName,
+          active: true,
+          roles: [
+            {
+              role: "clinic_admin",
+              clinicId: "10000000-0000-4000-8000-000000000301",
+              clinicName: params.name,
+              clinicSlug: params.slug,
+            },
+            {
+              role: "private_doctor",
+              clinicId: "10000000-0000-4000-8000-000000000301",
+              clinicName: params.name,
+              clinicSlug: params.slug,
+            },
+          ],
+        },
+      };
+    },
     async updateClinic(params) {
       calls.push(["updateClinic", params]);
       return { id: params.clinicId, name: params.name };
@@ -142,6 +173,40 @@ test("clinic admin cannot assign system roles or outside clinic roles", async ()
       ),
     /outside/i,
   );
+});
+
+test("system admin creates private practice with one owner carrying clinic admin and private doctor roles", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.createPrivatePractice(
+    {
+      clinicName: "Кабинет Морозова",
+      slug: "morozov-cabinet",
+      timezone: "Europe/Moscow",
+      ownerEmail: "morozov@example.test",
+      ownerDisplayName: "Морозов Дмитрий Игоревич",
+      ownerPassword: "long-password-1",
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.clinic.name, "Кабинет Морозова");
+  assert.deepEqual(result.item.owner.roles.map((role) => role.role), ["clinic_admin", "private_doctor"]);
+  assert.deepEqual(calls[0], [
+    "createPrivatePractice",
+    {
+      name: "Кабинет Морозова",
+      slug: "morozov-cabinet",
+      timezone: "Europe/Moscow",
+      ownerEmail: "morozov@example.test",
+      ownerDisplayName: "Морозов Дмитрий Игоревич",
+      ownerPasswordHash: "[hash]",
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.private_practice.create");
+  assert.equal(auditEvents[0].metadata.ownerRoleCount, 2);
+  assert.equal(auditEvents[0].metadata.passwordStoredAsHash, true);
+  assert.equal(JSON.stringify(result).includes("long-password-1"), false);
 });
 
 test("analytics returns aggregate counters and audit events only", async () => {

@@ -358,7 +358,7 @@ function AdminAnalyticsPageLive() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Аналитика"
-        subtitle="Рабочие агрегаты из базы: клиники, пользователи, визиты, снимки и аудит."
+        subtitle="Рабочие агрегаты из базы: клиники, сотрудники, визиты, снимки и аудит."
       />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
@@ -373,7 +373,7 @@ function AdminAnalyticsPageLive() {
 
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <KpiCard label="Клиники" value={loading ? "…" : data.clinics} hint="зарегистрированы" />
-          <KpiCard label="Пользователи" value={loading ? "…" : data.activeUsers} hint="активный доступ" />
+          <KpiCard label="Сотрудники" value={loading ? "…" : data.activeUsers} hint="активный доступ" />
           <KpiCard label="Врачи" value={loading ? "…" : data.doctors} hint="дерматологи и частные врачи" />
           <KpiCard label="Аудит за 7 дней" value={loading ? "…" : data.auditEvents7d} hint="события системы" />
           <KpiCard label="Пациенты" value={loading ? "…" : data.patients} hint="агрегат без строк" />

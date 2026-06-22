@@ -32,12 +32,12 @@ const ROUTE_LABELS: Record<string, string> = {
   "/admin": "Операционный центр",
   "/admin/doctors": "Врачи",
   "/admin/services": "Услуги",
-  "/admin/clinics": "Клиники",
+  "/admin/clinics": "Клиники и кабинеты",
   "/admin/integrations": "Интеграции",
   "/admin/bot": "Помощник записи",
   "/admin/analytics": "Аналитика",
   "/admin/governance": "Управление доступом",
-  "/sys/users": "Пользователи",
+  "/sys/users": "Сотрудники и доступ",
   "/sys/devices": "Устройства",
   "/sys/audit": "Журнал событий",
   "/sys/api-keys": "Ключи доступа",
@@ -107,7 +107,7 @@ const ROLES: RoleRef[] = [
   {
     title: "Системный администратор",
     responsibilities:
-      "Пользователи и роли, устройства, журнал действий, ключи доступа. Безопасность и настройка контура.",
+      "Клиники, кабинеты, сотрудники и роли, устройства, журнал действий, ключи доступа. Безопасность и настройка контура.",
     routes: ["/sys/users", "/sys/devices", "/sys/audit", "/sys/api-keys"],
     safe: [
       "Назначать роли и управлять доступами.",
@@ -166,7 +166,7 @@ const ADMIN_ROUTES: RouteRef[] = [
   { path: "/admin", description: "Главная администратора клиники." },
   { path: "/admin/doctors", description: "Доктора и расписание." },
   { path: "/admin/services", description: "Услуги, тарифы, длительности." },
-  { path: "/admin/clinics", description: "Клиники и филиалы." },
+  { path: "/admin/clinics", description: "Клиники, филиалы и частные кабинеты." },
   { path: "/admin/integrations", description: "Внешние учётные системы и мессенджеры." },
   { path: "/admin/bot", description: "Настройки помощника записи, тексты, маршрутизация." },
   { path: "/admin/analytics", description: "Аналитика клиники." },
@@ -174,7 +174,7 @@ const ADMIN_ROUTES: RouteRef[] = [
 ];
 
 const SYS_ROUTES: RouteRef[] = [
-  { path: "/sys/users", description: "Пользователи и назначения ролей." },
+  { path: "/sys/users", description: "Сотрудники и назначения ролей." },
   { path: "/sys/devices", description: "Дерматоскопы, локальная связь устройства, локальная передача." },
   { path: "/sys/audit", description: "Журнал событий и доступа." },
   { path: "/sys/api-keys", description: "Ключи доступа интеграций." },
