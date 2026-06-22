@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createAdminManagementRepository } from "./admin-management-repository.mjs";
+import { handleAdminManagementRequest } from "./admin-management-routes.mjs";
+import { createAdminManagementService } from "./admin-management-service.mjs";
 import {
   corsHeaders,
   errorResponse,
@@ -301,6 +304,7 @@ const OPENAPI_46A_46Z = JSON.parse(
 const OPENAPI_47A_47Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage47a-47z.json"), "utf8"),
 );
+const OPENAPI_STAGE6_ADMIN = JSON.parse(readFileSync(join(HERE, "openapi.stage6-admin-management.json"), "utf8"));
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -313,6 +317,13 @@ function getRuntime(config, runtime = {}) {
     createAuthService({
       config,
       authRepository,
+      auditRepository,
+    });
+  const adminManagementRepository = runtime.adminManagementRepository || createAdminManagementRepository(dbClient);
+  const adminManagementService =
+    runtime.adminManagementService ||
+    createAdminManagementService({
+      adminManagementRepository,
       auditRepository,
     });
   const patientRepository =
@@ -497,6 +508,8 @@ function getRuntime(config, runtime = {}) {
       objectStore,
     });
   return {
+    adminManagementRepository,
+    adminManagementService,
     assetWriteRepository,
     assetWriteService,
     auditRepository,
@@ -753,6 +766,11 @@ export async function handleSelfHostedRequest(
       });
     }
   }
+
+  const adminManagementResponse = await handleAdminManagementRequest({
+    method, url, request, config, requestOrigin, runtimeServices, correlationId, now, parseJsonBody, publicErrorFor,
+  });
+  if (adminManagementResponse) return adminManagementResponse;
 
   if (url.pathname === "/api/v1/patients" && method === "POST") {
     try {
@@ -7240,6 +7258,8 @@ export async function handleSelfHostedRequest(
   if (url.pathname === "/openapi.stage47a-47z.json") {
     return jsonResponse(200, OPENAPI_47A_47Z, config, requestOrigin);
   }
+
+  if (url.pathname === "/openapi.stage6-admin-management.json") return jsonResponse(200, OPENAPI_STAGE6_ADMIN, config, requestOrigin);
 
   return errorResponse({
     status: 404,

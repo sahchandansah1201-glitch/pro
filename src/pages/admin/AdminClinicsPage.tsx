@@ -4,12 +4,21 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, ShieldAlert } from "lucide-reac
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mock-data";
 import type { PartnerTier } from "@/lib/domain";
+import { isProductionAppMode } from "@/lib/app-mode";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  adminApiErrorText,
+  createAdminClinic,
+  listAdminClinics,
+  type AdminClinicDTO,
+} from "@/lib/self-hosted-admin-api";
 
 /**
  * Admin Clinics — клиники и филиалы.
@@ -86,7 +95,144 @@ const READINESS_TONE = {
   missing: "hsl(var(--destructive))",
 } as const;
 
+function AdminClinicsPageLive() {
+  const session = useSelfHostedApiSession();
+  const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", slug: "", timezone: "Europe/Moscow" });
+
+  async function load() {
+    setLoading(true);
+    const result = await listAdminClinics({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken });
+    setLoading(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setClinics(result.value ?? []);
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  async function submitClinic() {
+    setBusy(true);
+    const result = await createAdminClinic({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: form,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(`Клиника создана: ${result.value?.name ?? form.name}`);
+    setForm({ name: "", slug: "", timezone: "Europe/Moscow" });
+    await load();
+  }
+
+  const totals = clinics.reduce(
+    (acc, clinic) => ({
+      users: acc.users + (clinic.usersCount ?? 0),
+      patients: acc.patients + (clinic.patientsCount ?? 0),
+      visits: acc.visits + (clinic.visitsCount ?? 0),
+    }),
+    { users: 0, patients: 0, visits: 0 },
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title="Клиники и филиалы" subtitle="Рабочая регистрация клиник, филиалов и области доступа." />
+      <div className="space-y-3 p-3 sm:p-4">
+        <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+          Рабочий режим: новые клиники сохраняются в базе и сразу доступны для назначения администраторов и врачей.
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
+          <AdminOpsCard title="Клиники" hint="зарегистрированы в рабочей базе">
+            <AdminMetric label="Всего" value={clinics.length} tone="info" />
+          </AdminOpsCard>
+          <AdminOpsCard title="Пользователи" hint="назначены на клиники">
+            <AdminMetric label="Активные связи" value={totals.users} tone="success" />
+          </AdminOpsCard>
+          <AdminOpsCard title="Пациенты" hint="агрегат без персональных строк">
+            <AdminMetric label="В клиниках" value={totals.patients} />
+          </AdminOpsCard>
+          <AdminOpsCard title="Визиты" hint="рабочие записи">
+            <AdminMetric label="Всего" value={totals.visits} />
+          </AdminOpsCard>
+        </div>
+
+        <Card className="p-3">
+          <div className="mb-3 text-[13px] font-semibold">Создать клинику</div>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_0.7fr_0.7fr_auto]">
+            <Input
+              value={form.name}
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              placeholder="Название клиники"
+              aria-label="Название клиники"
+              className="min-h-11"
+            />
+            <Input
+              value={form.slug}
+              onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
+              placeholder="Короткий адрес"
+              aria-label="Короткий адрес"
+              className="min-h-11"
+            />
+            <Input
+              value={form.timezone}
+              onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))}
+              placeholder="Часовой пояс"
+              aria-label="Часовой пояс"
+              className="min-h-11"
+            />
+            <Button type="button" className="min-h-11" onClick={submitClinic} disabled={busy}>
+              Создать клинику
+            </Button>
+          </div>
+        </Card>
+
+        {note && (
+          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+            {note}
+          </div>
+        )}
+
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border px-3 py-2 text-[12px] font-medium">
+            {loading ? "Загрузка клиник" : `В списке: ${clinics.length}`}
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-border">
+            {clinics.map((clinic) => (
+              <div key={clinic.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+                <div>
+                  <div className="text-[13px] font-semibold">{clinic.name}</div>
+                  <div className="text-[11px] text-muted-foreground">служебный код скрыт</div>
+                </div>
+                <div className="text-[12px] text-muted-foreground">адрес: {clinic.slug}</div>
+                <div className="text-[12px] text-muted-foreground">пользователей: {clinic.usersCount ?? 0}</div>
+                <div className="text-[12px] text-muted-foreground">визитов: {clinic.visitsCount ?? 0}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminClinicsPage() {
+  if (isProductionAppMode()) return <AdminClinicsPageLive />;
+  return <AdminClinicsPageDemo />;
+}
+
+function AdminClinicsPageDemo() {
   const clinics = getClinics();
   const leads = getLeads();
   const appointments = getAppointments();

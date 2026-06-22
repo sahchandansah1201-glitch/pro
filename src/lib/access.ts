@@ -1,12 +1,12 @@
 // Карта прав доступа к маршрутам.
-// UX-only, NOT a security boundary.
-// Этот список используется RoleGuard'ом и сайдбаром только для демонстрации
-// разделения ролей. Реальный контроль доступа появится с бэкендом.
+// Frontend route visibility only, NOT a security boundary.
+// Рабочий контроль доступа выполняется backend RBAC; этот список нужен для
+// навигации и раннего redirect в клиентском shell.
 
 import { ALL_ROLES, type Role } from "@/lib/roles";
 
 const CLINICAL: Role[] = ["doctor", "assistant", "private_doctor"];
-const ADMIN_ZONE: Role[] = ["clinic_admin", "private_doctor"];
+const ADMIN_ZONE: Role[] = ["system_admin", "clinic_admin", "private_doctor"];
 
 /**
  * Карта prefix → разрешённые роли.

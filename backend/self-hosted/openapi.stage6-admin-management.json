@@ -1,0 +1,72 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted Admin Management API",
+    "version": "6A"
+  },
+  "paths": {
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "listAdminUsers",
+        "summary": "List real self-hosted users from PostgreSQL"
+      },
+      "post": {
+        "operationId": "createAdminUser",
+        "summary": "Create a user and role binding in PostgreSQL"
+      }
+    },
+    "/api/v1/admin/users/{userId}/role": {
+      "patch": {
+        "operationId": "assignAdminUserRole",
+        "summary": "Assign an additional role to a self-hosted user"
+      }
+    },
+    "/api/v1/admin/users/{userId}/disable": {
+      "patch": {
+        "operationId": "disableAdminUser",
+        "summary": "Disable a self-hosted user account"
+      }
+    },
+    "/api/v1/admin/clinics": {
+      "get": {
+        "operationId": "listAdminClinics",
+        "summary": "List real clinics from PostgreSQL"
+      },
+      "post": {
+        "operationId": "createAdminClinic",
+        "summary": "Create a clinic in PostgreSQL"
+      }
+    },
+    "/api/v1/admin/clinics/{clinicId}": {
+      "patch": {
+        "operationId": "updateAdminClinic",
+        "summary": "Update clinic identity fields"
+      }
+    },
+    "/api/v1/admin/doctors": {
+      "get": {
+        "operationId": "listAdminDoctors",
+        "summary": "List doctors and private dermatologists"
+      },
+      "post": {
+        "operationId": "createAdminDoctor",
+        "summary": "Create a doctor or private dermatologist"
+      }
+    },
+    "/api/v1/admin/analytics": {
+      "get": {
+        "operationId": "getAdminAnalytics",
+        "summary": "Read production aggregate statistics without patient rows"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }]
+}

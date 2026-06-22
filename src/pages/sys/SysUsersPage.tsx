@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,18 @@ import { useListPagination } from "@/lib/use-list-pagination";
 import { getClinics } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
 import { ROLE_BY_ID, type Role } from "@/lib/roles";
+import { isProductionAppMode } from "@/lib/app-mode";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  adminApiErrorText,
+  assignAdminUserRole,
+  createAdminUser,
+  disableAdminUser,
+  listAdminClinics,
+  listAdminUsers,
+  type AdminClinicDTO,
+  type AdminUserDTO,
+} from "@/lib/self-hosted-admin-api";
 
 /**
  * Пользователи системы — управление пользователями и ролями (учебный режим).
@@ -75,7 +87,325 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "patient", label: "Пациент" },
 ];
 
+const ROLE_LABEL: Record<string, string> = {
+  system_admin: "Системный администратор",
+  clinic_admin: "Администратор клиники",
+  doctor: "Дерматолог",
+  private_doctor: "Частный врач",
+  assistant: "Ассистент",
+  operator: "Оператор",
+  patient: "Пациент",
+};
+
+function roleLabel(role: string): string {
+  return ROLE_LABEL[role] ?? role;
+}
+
+function primaryRole(user: AdminUserDTO): string {
+  return user.roles[0]?.role ?? "—";
+}
+
+function primaryClinic(user: AdminUserDTO): string {
+  return user.roles.find((role) => role.clinicName)?.clinicName ?? "—";
+}
+
+function SysUsersPageLive() {
+  const session = useSelfHostedApiSession();
+  const [users, setUsers] = useState<AdminUserDTO[]>([]);
+  const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    displayName: "",
+    email: "",
+    password: "",
+    role: "clinic_admin",
+    clinicId: "",
+  });
+  const [roleForm, setRoleForm] = useState({
+    userId: "",
+    role: "doctor",
+    clinicId: "",
+  });
+
+  async function load() {
+    setLoading(true);
+    const [usersResult, clinicsResult] = await Promise.all([
+      listAdminUsers({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken, search: query }),
+      listAdminClinics({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
+    ]);
+    if (usersResult.ok) {
+      const nextUsers = usersResult.value ?? [];
+      setUsers(nextUsers);
+      setRoleForm((current) => ({
+        ...current,
+        userId: current.userId || nextUsers[0]?.id || "",
+      }));
+    } else setNote(adminApiErrorText(usersResult.error));
+    if (clinicsResult.ok) {
+      const nextClinics = clinicsResult.value ?? [];
+      setClinics(nextClinics);
+      setForm((current) => ({
+        ...current,
+        clinicId: current.clinicId || nextClinics[0]?.id || "",
+      }));
+      setRoleForm((current) => ({
+        ...current,
+        clinicId: current.clinicId || nextClinics[0]?.id || "",
+      }));
+    } else {
+      setNote(adminApiErrorText(clinicsResult.error));
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  async function submitUser() {
+    setBusy(true);
+    const result = await createAdminUser({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: {
+        displayName: form.displayName,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        clinicId: form.role === "system_admin" ? null : form.clinicId,
+      },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(`Учётная запись создана: ${result.value?.displayName ?? form.displayName}`);
+    setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    await load();
+  }
+
+  async function submitRoleAssignment() {
+    if (!roleForm.userId) {
+      setNote("Выберите учётную запись для назначения роли.");
+      return;
+    }
+    setBusy(true);
+    const result = await assignAdminUserRole({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: roleForm.userId,
+      payload: {
+        role: roleForm.role,
+        clinicId: roleForm.role === "system_admin" ? null : roleForm.clinicId,
+      },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    const selectedUser = users.find((user) => user.id === roleForm.userId);
+    setNote(`Роль назначена: ${selectedUser?.displayName ?? "выбранная учётная запись"}`);
+    await load();
+  }
+
+  async function disableUser(user: AdminUserDTO) {
+    setBusy(true);
+    const result = await disableAdminUser({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: user.id,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(`Доступ отключён: ${user.displayName}`);
+    await load();
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title="Пользователи и роли" subtitle="Рабочие учётные записи, роли и доступ к клиникам." />
+      <div className="space-y-3 p-3 sm:p-4">
+        <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+          Рабочий режим: изменения сохраняются в базе, действия записываются в аудит. Пароли не выводятся после создания.
+        </div>
+
+        <Card className="p-3">
+          <div className="mb-3 text-[13px] font-semibold">Создать учётную запись</div>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-5">
+            <Input
+              value={form.displayName}
+              onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
+              placeholder="ФИО сотрудника"
+              aria-label="ФИО сотрудника"
+              className="min-h-11"
+            />
+            <Input
+              value={form.email}
+              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              placeholder="Эл. почта"
+              aria-label="Эл. почта"
+              className="min-h-11"
+            />
+            <Input
+              value={form.password}
+              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="Временный пароль"
+              aria-label="Временный пароль"
+              type="password"
+              className="min-h-11"
+            />
+            <select
+              value={form.role}
+              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Роль"
+            >
+              <option value="clinic_admin">Администратор клиники</option>
+              <option value="doctor">Дерматолог</option>
+              <option value="private_doctor">Частный врач</option>
+              <option value="assistant">Ассистент</option>
+              <option value="operator">Оператор</option>
+              <option value="system_admin">Системный администратор</option>
+            </select>
+            <select
+              value={form.clinicId}
+              onChange={(event) => setForm((current) => ({ ...current, clinicId: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Клиника"
+              disabled={form.role === "system_admin"}
+            >
+              {clinics.map((clinic) => (
+                <option key={clinic.id} value={clinic.id}>
+                  {clinic.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" className="mt-3 min-h-11" onClick={submitUser} disabled={busy}>
+            Создать пользователя
+          </Button>
+        </Card>
+
+        <Card className="p-3">
+          <div className="mb-3 text-[13px] font-semibold">Назначить роль</div>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-4">
+            <select
+              value={roleForm.userId}
+              onChange={(event) => setRoleForm((current) => ({ ...current, userId: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Учётная запись"
+            >
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.displayName}
+                </option>
+              ))}
+            </select>
+            <select
+              value={roleForm.role}
+              onChange={(event) => setRoleForm((current) => ({ ...current, role: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Новая роль"
+            >
+              <option value="clinic_admin">Администратор клиники</option>
+              <option value="doctor">Дерматолог</option>
+              <option value="private_doctor">Частный врач</option>
+              <option value="assistant">Ассистент</option>
+              <option value="operator">Оператор</option>
+              <option value="system_admin">Системный администратор</option>
+            </select>
+            <select
+              value={roleForm.clinicId}
+              onChange={(event) => setRoleForm((current) => ({ ...current, clinicId: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Клиника для роли"
+              disabled={roleForm.role === "system_admin"}
+            >
+              {clinics.map((clinic) => (
+                <option key={clinic.id} value={clinic.id}>
+                  {clinic.name}
+                </option>
+              ))}
+            </select>
+            <Button type="button" variant="outline" className="min-h-11" onClick={submitRoleAssignment} disabled={busy}>
+              Назначить роль
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <label className="relative block w-full">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void load();
+              }}
+              placeholder="Поиск по имени или почте"
+              aria-label="Поиск пользователей"
+              className="min-h-11 pl-7"
+            />
+          </label>
+        </Card>
+
+        {note && (
+          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+            {note}
+          </div>
+        )}
+
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border px-3 py-2 text-[12px] font-medium">
+            {loading ? "Загрузка пользователей" : `В списке: ${users.length}`}
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-border">
+            {users.map((user) => (
+              <div key={user.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto] lg:items-center">
+                <div>
+                  <div className="text-[13px] font-semibold">{user.displayName}</div>
+                  <div className="text-[11px] text-muted-foreground">{user.email}</div>
+                </div>
+                <div className="text-[12px] text-muted-foreground">{roleLabel(primaryRole(user))}</div>
+                <div className="text-[12px] text-muted-foreground">{primaryClinic(user)}</div>
+                <div className="text-[12px]">
+                  <span className={`rounded-full border px-2 py-0.5 ${user.active ? "text-emerald-700" : "text-muted-foreground"}`}>
+                    {user.active ? "Доступ включён" : "Доступ отключён"}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => void disableUser(user)}
+                  disabled={busy || !user.active}
+                >
+                  Отключить доступ
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function SysUsersPage() {
+  if (isProductionAppMode()) return <SysUsersPageLive />;
+  return <SysUsersPageDemo />;
+}
+
+function SysUsersPageDemo() {
   const clinics = getClinics();
   const clinicNameById = useMemo(() => {
     const m = new Map<string, string>();

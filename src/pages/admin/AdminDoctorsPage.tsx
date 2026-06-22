@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,16 @@ import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getClinics, getAppointments } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
+import { isProductionAppMode } from "@/lib/app-mode";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  adminApiErrorText,
+  createAdminDoctor,
+  listAdminClinics,
+  listAdminDoctors,
+  type AdminClinicDTO,
+  type AdminUserDTO,
+} from "@/lib/self-hosted-admin-api";
 
 /**
  * Admin Doctors — список врачей клиники, расписание и лицензии.
@@ -125,7 +135,179 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "needs_check", label: "Проверить лицензию" },
 ];
 
+function doctorRoleLabel(role: string): string {
+  return role === "private_doctor" ? "Частный врач" : "Дерматолог";
+}
+
+function doctorClinicName(user: AdminUserDTO): string {
+  return user.roles.find((role) => role.clinicName)?.clinicName ?? "—";
+}
+
+function AdminDoctorsPageLive() {
+  const session = useSelfHostedApiSession();
+  const [doctors, setDoctors] = useState<AdminUserDTO[]>([]);
+  const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    displayName: "",
+    email: "",
+    password: "",
+    role: "doctor" as "doctor" | "private_doctor",
+    clinicId: "",
+  });
+
+  async function load() {
+    setLoading(true);
+    const [doctorsResult, clinicsResult] = await Promise.all([
+      listAdminDoctors({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
+      listAdminClinics({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
+    ]);
+    setLoading(false);
+    if (doctorsResult.ok) setDoctors(doctorsResult.value ?? []);
+    else setNote(adminApiErrorText(doctorsResult.error));
+    if (clinicsResult.ok) {
+      const nextClinics = clinicsResult.value ?? [];
+      setClinics(nextClinics);
+      setForm((current) => ({ ...current, clinicId: current.clinicId || nextClinics[0]?.id || "" }));
+    } else {
+      setNote(adminApiErrorText(clinicsResult.error));
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  async function submitDoctor() {
+    setBusy(true);
+    const result = await createAdminDoctor({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: form,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(`Врач добавлен: ${result.value?.displayName ?? form.displayName}`);
+    setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    await load();
+  }
+
+  const activeDoctors = doctors.filter((doctor) => doctor.active).length;
+  const privateDoctors = doctors.filter((doctor) => doctor.roles.some((role) => role.role === "private_doctor")).length;
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title="Врачи" subtitle="Рабочее добавление врачей и частных дерматологов." />
+      <div className="space-y-3 p-3 sm:p-4">
+        <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+          Рабочий режим: врач получает учётную запись, роль и привязку к выбранной клинике. Действие пишется в аудит.
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <AdminOpsCard title="Врачи" hint="активный доступ">
+            <AdminMetric label="Активны" value={activeDoctors} tone="success" />
+          </AdminOpsCard>
+          <AdminOpsCard title="Частные врачи" hint="отдельная роль">
+            <AdminMetric label="В списке" value={privateDoctors} tone="info" />
+          </AdminOpsCard>
+          <AdminOpsCard title="Клиники" hint="доступны для привязки">
+            <AdminMetric label="Всего" value={clinics.length} />
+          </AdminOpsCard>
+        </div>
+
+        <Card className="p-3">
+          <div className="mb-3 text-[13px] font-semibold">Добавить врача</div>
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-5">
+            <Input
+              value={form.displayName}
+              onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
+              placeholder="ФИО врача"
+              aria-label="ФИО врача"
+              className="min-h-11"
+            />
+            <Input
+              value={form.email}
+              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              placeholder="Эл. почта"
+              aria-label="Эл. почта"
+              className="min-h-11"
+            />
+            <Input
+              value={form.password}
+              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="Временный пароль"
+              aria-label="Временный пароль"
+              type="password"
+              className="min-h-11"
+            />
+            <select
+              value={form.role}
+              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as "doctor" | "private_doctor" }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Тип врача"
+            >
+              <option value="doctor">Дерматолог клиники</option>
+              <option value="private_doctor">Частный дерматолог</option>
+            </select>
+            <select
+              value={form.clinicId}
+              onChange={(event) => setForm((current) => ({ ...current, clinicId: event.target.value }))}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Клиника"
+            >
+              {clinics.map((clinic) => (
+                <option key={clinic.id} value={clinic.id}>
+                  {clinic.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" className="mt-3 min-h-11" onClick={submitDoctor} disabled={busy || clinics.length === 0}>
+            Добавить врача
+          </Button>
+        </Card>
+
+        {note && (
+          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+            {note}
+          </div>
+        )}
+
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border px-3 py-2 text-[12px] font-medium">
+            {loading ? "Загрузка врачей" : `В списке: ${doctors.length}`}
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-border">
+            {doctors.map((doctor) => (
+              <div key={doctor.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr_1fr_0.8fr]">
+                <div>
+                  <div className="text-[13px] font-semibold">{doctor.displayName}</div>
+                  <div className="text-[11px] text-muted-foreground">{doctor.email}</div>
+                </div>
+                <div className="text-[12px] text-muted-foreground">{doctorRoleLabel(doctor.roles[0]?.role ?? "doctor")}</div>
+                <div className="text-[12px] text-muted-foreground">{doctorClinicName(doctor)}</div>
+                <div className="text-[12px]">{doctor.active ? "Доступ включён" : "Доступ отключён"}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDoctorsPage() {
+  if (isProductionAppMode()) return <AdminDoctorsPageLive />;
+  return <AdminDoctorsPageDemo />;
+}
+
+function AdminDoctorsPageDemo() {
   const clinics = getClinics();
   const appointments = getAppointments();
   const [filter, setFilter] = useState<FilterKey>("all");

@@ -142,6 +142,9 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Система",
       items: [
         { title: "Пользователи", url: "/sys/users", icon: ShieldCheck },
+        { title: "Клиники", url: "/admin/clinics", icon: Building2 },
+        { title: "Врачи", url: "/admin/doctors", icon: Stethoscope },
+        { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
         { title: "Устройства", url: "/sys/devices", icon: Cpu },
         { title: "Аудит", url: "/sys/audit", icon: Activity },
         { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },

@@ -18,6 +18,13 @@ import type {
   RiskLevel,
 } from "@/lib/domain";
 import { resolveEmptyCopy, type EmptyStateKey } from "./analytics-empty-copy";
+import { isProductionAppMode } from "@/lib/app-mode";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  adminApiErrorText,
+  getAdminAnalytics,
+  type AdminAnalyticsDTO,
+} from "@/lib/self-hosted-admin-api";
 
 /**
  * Аналитика клиники: агрегаты по воронке лидов, источникам,
@@ -295,7 +302,118 @@ function money(value: number): string {
   return `${value.toLocaleString("ru-RU")} ₽`;
 }
 
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "admin.clinic.create": "Создана клиника",
+  "admin.clinic.update": "Обновлена клиника",
+  "admin.user.create": "Создан пользователь",
+  "admin.user.role.assign": "Назначена роль",
+  "admin.user.disable": "Отключён доступ",
+  "admin.users.list": "Просмотрены пользователи",
+  "admin.doctors.list": "Просмотрены врачи",
+  "admin.analytics.read": "Открыта аналитика",
+};
+
+function auditActionLabel(action: string): string {
+  return AUDIT_ACTION_LABEL[action] ?? "Служебное действие";
+}
+
+function AdminAnalyticsPageLive() {
+  const session = useSelfHostedApiSession();
+  const [analytics, setAnalytics] = useState<AdminAnalyticsDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    const result = await getAdminAnalytics({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+    });
+    setLoading(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setAnalytics(result.value);
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  const data = analytics ?? {
+    clinics: 0,
+    activeUsers: 0,
+    doctors: 0,
+    patients: 0,
+    visits: 0,
+    photos: 0,
+    signedReports: 0,
+    auditEvents7d: 0,
+    recentAuditEvents: [],
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="Аналитика"
+        subtitle="Рабочие агрегаты из базы: клиники, пользователи, визиты, снимки и аудит."
+      />
+      <div className="space-y-3 p-3 sm:p-4">
+        <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+          Рабочий режим: показаны только агрегаты. Персональные строки, фото, диагнозы и внутренние ссылки не выводятся.
+        </div>
+
+        {note && (
+          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+            {note}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <KpiCard label="Клиники" value={loading ? "…" : data.clinics} hint="зарегистрированы" />
+          <KpiCard label="Пользователи" value={loading ? "…" : data.activeUsers} hint="активный доступ" />
+          <KpiCard label="Врачи" value={loading ? "…" : data.doctors} hint="дерматологи и частные врачи" />
+          <KpiCard label="Аудит за 7 дней" value={loading ? "…" : data.auditEvents7d} hint="события системы" />
+          <KpiCard label="Пациенты" value={loading ? "…" : data.patients} hint="агрегат без строк" />
+          <KpiCard label="Визиты" value={loading ? "…" : data.visits} hint="рабочие записи" />
+          <KpiCard label="Снимки" value={loading ? "…" : data.photos} hint="только количество" />
+          <KpiCard label="Подписанные отчёты" value={loading ? "…" : data.signedReports} hint="итоговые документы" />
+        </div>
+
+        <SectionCard title="Последние события аудита" hint="без секретов и пациентских строк">
+          {data.recentAuditEvents.length === 0 ? (
+            <EmptyState title="Событий пока нет" hint="После действий администратора здесь появятся записи аудита." />
+          ) : (
+            <div className="grid gap-2">
+              {data.recentAuditEvents.map((event) => (
+                <div key={event.id} className="rounded-md border border-border bg-surface p-3 text-[12px]">
+                  <div className="font-medium">{auditActionLabel(event.action)}</div>
+                  <div className="mt-1 text-muted-foreground">
+                    {event.actorName ?? "Система"} · {event.clinicName ?? "без клиники"} ·{" "}
+                    {event.createdAt ? new Date(event.createdAt).toLocaleString("ru-RU") : "время не указано"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => void load()}>
+          Обновить агрегаты
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAnalyticsPage() {
+  if (isProductionAppMode()) return <AdminAnalyticsPageLive />;
+  return <AdminAnalyticsPageDemo />;
+}
+
+function AdminAnalyticsPageDemo() {
   const [range, setRange] = useState<RangeKey>("all");
   const [clinicSort, setClinicSort] = useState<"priority" | "conversion">(
     "priority",
