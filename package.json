@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:admin-management": "node --test backend/self-hosted/admin-management-routes.test.mjs backend/self-hosted/admin-management-service.test.mjs backend/self-hosted/routes.test.mjs",
+    "test:admin-management": "node --test backend/self-hosted/admin-management-repository.test.mjs backend/self-hosted/admin-management-routes.test.mjs backend/self-hosted/admin-management-service.test.mjs backend/self-hosted/routes.test.mjs",
     "e2e:admin-management": "node scripts/run-production-admin-management-e2e.mjs",
     "scan:doctor": "node scripts/scan-doctor-forbidden.mjs",
     "qa:agent": "npm run qa:architecture && npm run qa:security-patterns && npm run qa:simplicity && npm run qa:agent-evals && npm run qa:human-ui && npm run qa:osv",

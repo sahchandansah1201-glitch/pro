@@ -181,10 +181,13 @@ export function buildDisableAdminUserSql({ userId } = {}) {
   return `
 select row_to_json(result)::text
 from (
+  with updated as (
   update app_users
   set disabled_at = coalesce(disabled_at, now()), updated_at = now()
   where id = ${sqlUuid(userId)}
   returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at as "disabledAt"
+  )
+  select * from updated
 ) result;
 `.trim();
 }
@@ -228,9 +231,12 @@ export function buildCreateClinicSql({ name, slug, timezone = "Europe/Moscow" } 
   return `
 select row_to_json(result)::text
 from (
+  with inserted as (
   insert into clinics (name, slug, timezone)
   values (${sqlLiteral(name)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
   returning id::text as "id", slug, name, timezone, created_at as "createdAt"
+  )
+  select * from inserted
 ) result;
 `.trim();
 }
@@ -244,10 +250,13 @@ export function buildUpdateClinicSql({ clinicId, name, slug, timezone } = {}) {
   return `
 select row_to_json(result)::text
 from (
+  with updated as (
   update clinics
   set ${clauses.join(", ")}
   where id = ${sqlUuid(clinicId)}
   returning id::text as "id", slug, name, timezone, updated_at as "updatedAt"
+  )
+  select * from updated
 ) result;
 `.trim();
 }
