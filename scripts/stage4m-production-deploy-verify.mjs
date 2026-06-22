@@ -13,6 +13,7 @@ const DEFAULT_APP_PORT = "8080";
 const DEFAULT_ENV_FILE = "deploy/self-hosted/.env.production";
 const DEFAULT_BACKUP_ROOT = "backups/self-hosted";
 const DEFAULT_SUMMARY_PATH = "test-results/stage4m-production-deploy-report.md";
+const DEFAULT_RECEIPT_PATH = "test-results/stage4m-production-deploy-receipt.json";
 const BASE_COMPOSE = "deploy/self-hosted/docker-compose.stage4a.yml";
 const PROD_COMPOSE = "deploy/self-hosted/docker-compose.production.example.yml";
 const DIST_DIR = "dist";
@@ -33,6 +34,32 @@ function redact(value) {
     .replace(/postgres:\/\/([^:]+):([^@]+)@/g, "postgres://$1:[redacted]@")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted-token]")
     .replace(/--confirm=ROLLBACK_TO_SELF_HOSTED_BACKUP/g, "--confirm=[required]");
+}
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function safeRunId() {
+  return isoNow().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function safeGitValue(args, { cwd = process.cwd(), spawn = spawnSync } = {}) {
+  const result = spawn("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) return "unknown";
+  return String(result.stdout || "").trim() || "unknown";
+}
+
+function gitSnapshot({ cwd = process.cwd(), spawn = spawnSync } = {}) {
+  return {
+    head: safeGitValue(["rev-parse", "--short", "HEAD"], { cwd, spawn }),
+    branch: safeGitValue(["branch", "--show-current"], { cwd, spawn }),
+  };
 }
 
 function composeArgs(options, args) {
@@ -60,6 +87,12 @@ export function parseStage4MArgs(argv = []) {
     backupRoot: DEFAULT_BACKUP_ROOT,
     backupDir: `${DEFAULT_BACKUP_ROOT}/latest`,
     summaryPath: DEFAULT_SUMMARY_PATH,
+    latestSummaryPath: "",
+    receiptPath: DEFAULT_RECEIPT_PATH,
+    latestReceiptPath: "",
+    statusPath: "",
+    latestStatusPath: "",
+    runId: "",
     confirm: "",
   };
 
@@ -117,6 +150,54 @@ export function parseStage4MArgs(argv = []) {
       parsed.summaryPath = arg.slice("--summary=".length).trim();
       continue;
     }
+    if (arg === "--latest-summary") {
+      parsed.latestSummaryPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--latest-summary=")) {
+      parsed.latestSummaryPath = arg.slice("--latest-summary=".length).trim();
+      continue;
+    }
+    if (arg === "--receipt") {
+      parsed.receiptPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--receipt=")) {
+      parsed.receiptPath = arg.slice("--receipt=".length).trim();
+      continue;
+    }
+    if (arg === "--latest-receipt") {
+      parsed.latestReceiptPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--latest-receipt=")) {
+      parsed.latestReceiptPath = arg.slice("--latest-receipt=".length).trim();
+      continue;
+    }
+    if (arg === "--status-json") {
+      parsed.statusPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--status-json=")) {
+      parsed.statusPath = arg.slice("--status-json=".length).trim();
+      continue;
+    }
+    if (arg === "--latest-status-json") {
+      parsed.latestStatusPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--latest-status-json=")) {
+      parsed.latestStatusPath = arg.slice("--latest-status-json=".length).trim();
+      continue;
+    }
+    if (arg === "--run-id") {
+      parsed.runId = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--run-id=")) {
+      parsed.runId = arg.slice("--run-id=".length).trim();
+      continue;
+    }
     if (arg === "--confirm") {
       parsed.confirm = String(argv[++index] || "");
       continue;
@@ -136,6 +217,7 @@ export function parseStage4MArgs(argv = []) {
   if (!parsed.envFile) throw new Error("env file is required.");
   if (!parsed.backupRoot) throw new Error("backup root is required.");
   if (!parsed.summaryPath) throw new Error("summary path is required.");
+  if (!parsed.receiptPath) throw new Error("receipt path is required.");
   return parsed;
 }
 
@@ -418,9 +500,14 @@ function writeSummary(path, payload) {
     "## Stage 4M production deployment verification",
     "",
     `- Status: \`${payload.status}\``,
+    `- Run ID: \`${payload.runId}\``,
     `- Command: \`${payload.command}\``,
     `- Project: \`${payload.projectName}\``,
     `- Env file: \`${payload.envFile}\``,
+    `- Started: \`${payload.startedAt}\``,
+    `- Finished: \`${payload.finishedAt || "running"}\``,
+    `- Git HEAD before: \`${payload.git?.before?.head || "unknown"}\``,
+    `- Git HEAD after: \`${payload.git?.after?.head || "unknown"}\``,
     "",
     "## Results",
   ];
@@ -431,8 +518,49 @@ function writeSummary(path, payload) {
   writeFileSync(path, redact(lines.join("\n")));
 }
 
+function writeJson(path, payload) {
+  if (!path) return;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, redact(`${JSON.stringify(payload, null, 2)}\n`));
+}
+
+function writeReceipt(config, payload) {
+  const receipt = {
+    schemaVersion: "stage4m-production-deploy-receipt/v1",
+    runId: payload.runId,
+    status: payload.status,
+    command: payload.command,
+    projectName: payload.projectName,
+    envFile: payload.envFile,
+    startedAt: payload.startedAt,
+    finishedAt: payload.finishedAt || null,
+    git: payload.git,
+    results: payload.results.map((result) => ({
+      label: result.label,
+      ok: Boolean(result.ok),
+    })),
+    boundaries: {
+      secretsRedacted: true,
+      patientDataIncluded: false,
+      rawEnvIncluded: false,
+      rawCommandOutputStored: false,
+    },
+  };
+  writeJson(config.receiptPath, receipt);
+  if (config.latestReceiptPath) writeJson(config.latestReceiptPath, receipt);
+  if (config.statusPath) writeJson(config.statusPath, receipt);
+  if (config.latestStatusPath) writeJson(config.latestStatusPath, receipt);
+}
+
+function writeRunArtifacts(config, payload) {
+  writeSummary(config.summaryPath, payload);
+  if (config.latestSummaryPath) writeSummary(config.latestSummaryPath, payload);
+  writeReceipt(config, payload);
+}
+
 export function runStage4M(options = {}, io = {}) {
   const config = { ...parseStage4MArgs(["first-boot"]), ...options };
+  config.runId = config.runId || safeRunId();
   if (config.command === "rollback-drill" && !config.dryRun && config.confirm !== ROLLBACK_CONFIRM) {
     throw new Error(`rollback-drill requires --confirm=${ROLLBACK_CONFIRM}`);
   }
@@ -441,26 +569,60 @@ export function runStage4M(options = {}, io = {}) {
     return { ok: true, dryRun: true, output: renderStage4MPlan(config), steps };
   }
   const results = [];
+  const startedAt = isoNow();
+  const before = gitSnapshot({ cwd: config.cwd || process.cwd(), spawn: io.spawn || spawnSync });
   try {
-    for (const step of steps) {
-      const [label, cmd, args, meta] = step;
-      results.push(runStep([label, cmd, args, { ...meta, cwd: config.cwd || process.cwd() }], io));
-    }
-    writeSummary(config.summaryPath, {
-      status: "ok",
+    writeRunArtifacts(config, {
+      status: "running",
+      runId: config.runId,
       command: config.command,
       projectName: config.projectName,
       envFile: config.envFile,
+      startedAt,
+      finishedAt: "",
+      git: { before, after: before },
+      results,
+    });
+    for (const step of steps) {
+      const [label, cmd, args, meta] = step;
+      results.push(runStep([label, cmd, args, { ...meta, cwd: config.cwd || process.cwd() }], io));
+      writeRunArtifacts(config, {
+        status: "running",
+        runId: config.runId,
+        command: config.command,
+        projectName: config.projectName,
+        envFile: config.envFile,
+        startedAt,
+        finishedAt: "",
+        git: { before, after: gitSnapshot({ cwd: config.cwd || process.cwd(), spawn: io.spawn || spawnSync }) },
+        results,
+      });
+    }
+    const after = gitSnapshot({ cwd: config.cwd || process.cwd(), spawn: io.spawn || spawnSync });
+    writeRunArtifacts(config, {
+      status: "ok",
+      runId: config.runId,
+      command: config.command,
+      projectName: config.projectName,
+      envFile: config.envFile,
+      startedAt,
+      finishedAt: isoNow(),
+      git: { before, after },
       results,
     });
     return { ok: true, dryRun: false, results };
   } catch (error) {
     results.push({ label: "failure", ok: false });
-    writeSummary(config.summaryPath, {
+    const after = gitSnapshot({ cwd: config.cwd || process.cwd(), spawn: io.spawn || spawnSync });
+    writeRunArtifacts(config, {
       status: "fail",
+      runId: config.runId,
       command: config.command,
       projectName: config.projectName,
       envFile: config.envFile,
+      startedAt,
+      finishedAt: isoNow(),
+      git: { before, after },
       results,
     });
     throw error;

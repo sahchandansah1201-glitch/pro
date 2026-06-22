@@ -21,10 +21,16 @@ test("Stage 4M parser supports deployment commands and validates app port", () =
     "18080",
     "--backup-dir",
     "backups/self-hosted/20260514",
+    "--run-id",
+    "run-001",
+    "--receipt",
+    "tmp/receipt.json",
   ]);
   assert.equal(parsed.command, "rollback-drill");
   assert.equal(parsed.projectName, "prod");
   assert.equal(parsed.appPort, "18080");
+  assert.equal(parsed.runId, "run-001");
+  assert.equal(parsed.receiptPath, "tmp/receipt.json");
   assert.throws(() => parseStage4MArgs(["first-boot", "--app-port=abc"]), /numeric/);
 });
 
@@ -94,13 +100,16 @@ test("Stage 4M runner writes a sanitized summary on success", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-"));
   try {
     const summaryPath = join(root, "summary.md");
+    const receiptPath = join(root, "receipt.json");
     const calls = [];
     const result = runStage4M(
       {
         command: "post-deploy",
         summaryPath,
+        receiptPath,
         projectName: "prod",
         appPort: "8080",
+        runId: "test-run",
       },
       {
         spawn(cmd, args) {
@@ -113,7 +122,55 @@ test("Stage 4M runner writes a sanitized summary on success", () => {
     assert.ok(calls.some((cmd) => cmd.includes("smoke:stage4k")));
     const summary = readFileSync(summaryPath, "utf8");
     assert.match(summary, /Status: `ok`/);
+    assert.match(summary, /Run ID: `test-run`/);
+    assert.match(summary, /Git HEAD before: `ok`/);
     assert.doesNotMatch(summary, /access_token|Authorization|Cookie|patient_full_name|storage_object_path/);
+    const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+    assert.equal(receipt.schemaVersion, "stage4m-production-deploy-receipt/v1");
+    assert.equal(receipt.runId, "test-run");
+    assert.equal(receipt.status, "ok");
+    assert.equal(receipt.boundaries.rawCommandOutputStored, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M runner updates latest summary and status while running", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-running-"));
+  try {
+    const summaryPath = join(root, "run", "summary.md");
+    const latestSummaryPath = join(root, "latest-summary.md");
+    const receiptPath = join(root, "run", "receipt.json");
+    const latestReceiptPath = join(root, "latest-receipt.json");
+    const statusPath = join(root, "run", "status.json");
+    const latestStatusPath = join(root, "latest-status.json");
+    const result = runStage4M(
+      {
+        command: "post-deploy",
+        summaryPath,
+        latestSummaryPath,
+        receiptPath,
+        latestReceiptPath,
+        statusPath,
+        latestStatusPath,
+        projectName: "prod",
+        appPort: "8080",
+        runId: "running-run",
+      },
+      {
+        spawn(cmd, args) {
+          if (cmd === "npm" && args.includes("smoke:stage4k")) {
+            const latestStatus = JSON.parse(readFileSync(latestStatusPath, "utf8"));
+            assert.equal(latestStatus.status, "running");
+            assert.equal(latestStatus.runId, "running-run");
+          }
+          return { status: 0, stdout: "ok", stderr: "" };
+        },
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.match(readFileSync(latestSummaryPath, "utf8"), /Status: `ok`/);
+    assert.equal(JSON.parse(readFileSync(latestReceiptPath, "utf8")).status, "ok");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -136,6 +193,7 @@ test("Stage 4M production frontend build injects required Vite env from env file
       {
         command: "first-boot",
         summaryPath,
+        receiptPath: join(root, "receipt.json"),
         projectName: "prod",
         appPort: "8080",
         envFile,
@@ -181,6 +239,7 @@ test("Stage 4M safe frontend build preserves current dist when staged build fail
         {
           command: "first-boot",
           summaryPath,
+          receiptPath: join(root, "receipt.json"),
           projectName: "prod",
           appPort: "8080",
           envFile,
@@ -215,6 +274,7 @@ test("Stage 4M production frontend build rejects missing production mode", () =>
         {
           command: "first-boot",
           summaryPath,
+          receiptPath: join(root, "receipt.json"),
           projectName: "prod",
           appPort: "8080",
           envFile,

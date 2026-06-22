@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 const REQUIRED_FILES = [
   "scripts/stage4m-production-deploy-verify.mjs",
   "scripts/stage4m-production-deploy-verify.test.mjs",
+  "scripts/stage4m-production-deploy-status.mjs",
+  "scripts/stage4m-production-deploy-status.test.mjs",
   "scripts/check-stage4m-production-deploy.mjs",
   "scripts/check-stage4m-production-deploy.test.mjs",
   "docs/backend/stage-4m-production-deployment-verification.md",
@@ -30,6 +32,10 @@ const REQUIRED_TEXT = {
     "VITE_SELF_HOSTED_API_BASE_URL",
     "safeFrontendBuild",
     "dist/index.html",
+    "stage4m-production-deploy-receipt/v1",
+    "latestSummaryPath",
+    "latestStatusPath",
+    "Git HEAD before",
     "START",
     "FAIL",
     "--retry-all-errors",
@@ -39,6 +45,12 @@ const REQUIRED_TEXT = {
     "ops:stage4l:verify-env",
     "docker-compose.production.example.yml",
   ],
+  "scripts/stage4m-production-deploy-status.mjs": [
+    "Stage 4M deployment status",
+    "update-production-status.json",
+    "Git HEAD after",
+    "stage4m-production-deploy-receipt/v1",
+  ],
   "docs/backend/stage-4m-production-deployment-verification.md": [
     "Stage 4M",
     "npm run preflight:stage4m",
@@ -46,6 +58,8 @@ const REQUIRED_TEXT = {
     "deploy:stage4m:post-deploy:dry-run",
     "deploy:stage4m:update:dry-run",
     "deploy:self-hosted:update",
+    "update-production-status.json",
+    "deploys/<run-id>",
     "staging",
     "dist/index.html",
     "retries",
@@ -57,6 +71,8 @@ const REQUIRED_TEXT = {
     "stage4m-production-deploy-verify.mjs update",
     "BACKUP_ROOT",
     "SUMMARY_PATH",
+    "RECEIPT_PATH",
+    "LATEST_STATUS_PATH",
   ],
   "deploy/self-hosted/.env.production.example": [
     "VITE_APP_MODE=production",
@@ -117,6 +133,7 @@ function validatePackageScripts(errors, root) {
     '"deploy:stage4m:post-deploy:dry-run"',
     '"deploy:stage4m:backup-after-deploy:dry-run"',
     '"deploy:stage4m:update:dry-run"',
+    '"deploy:stage4m:status"',
     '"deploy:self-hosted:update"',
     '"deploy:stage4m:rollback-drill:dry-run"',
   ]) {

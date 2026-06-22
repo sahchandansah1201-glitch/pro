@@ -81,8 +81,47 @@ node scripts/stage4m-production-deploy-verify.mjs update \
   --app-port 8080 \
   --env-file deploy/self-hosted/.env.production \
   --backup-root /opt/dermatolog-pro/backups \
-  --summary /opt/dermatolog-pro/logs/update-production-summary.md
+  --summary /opt/dermatolog-pro/logs/deploys/<run-id>/update-production-summary.md \
+  --latest-summary /opt/dermatolog-pro/logs/update-production-summary.md \
+  --receipt /opt/dermatolog-pro/logs/deploys/<run-id>/update-production-receipt.json \
+  --latest-receipt /opt/dermatolog-pro/logs/update-production-receipt.json \
+  --status-json /opt/dermatolog-pro/logs/deploys/<run-id>/update-production-status.json \
+  --latest-status-json /opt/dermatolog-pro/logs/update-production-status.json \
+  --run-id <run-id>
 ```
+
+Each update now creates a separate run directory:
+
+```text
+/opt/dermatolog-pro/logs/deploys/<run-id>/
+```
+
+The current run writes:
+
+- `update-production-summary.md` — human-readable release summary;
+- `update-production-receipt.json` — machine-readable release receipt;
+- `update-production-status.json` — current status for automation.
+
+The wrapper also updates latest pointers:
+
+- `/opt/dermatolog-pro/logs/update-production-summary.md`;
+- `/opt/dermatolog-pro/logs/update-production-receipt.json`;
+- `/opt/dermatolog-pro/logs/update-production-status.json`.
+
+Operator status command:
+
+```bash
+npm run deploy:stage4m:status
+```
+
+The status command reads `/opt/dermatolog-pro/logs/update-production-status.json`
+by default and prints the current run id, status, timestamps, git HEAD
+before/after, and step results without raw logs or secrets.
+
+At the beginning of the run, the latest summary/status are written as
+`running`. This prevents an older successful summary from being mistaken for
+the current deployment while `npm ci`, frontend build, or Docker restart is
+still running.
 
 Update sequence:
 
@@ -110,6 +149,14 @@ operation is running.
 After `docker compose up -d --build`, the backend may need time to reconnect
 to PostgreSQL and object storage. Stage 4M therefore retries `/healthz` and
 `/readyz` transient 5xx/connection failures before declaring the update failed.
+
+The release receipt stores only safe metadata:
+
+- run id, command, project, started/finished timestamps;
+- git branch and short HEAD before/after the run;
+- step labels and pass/fail status;
+- explicit boundaries that secrets, patient data, raw env, and raw command
+  output are not stored.
 
 Dry-run:
 
