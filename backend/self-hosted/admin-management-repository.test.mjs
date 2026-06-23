@@ -20,6 +20,7 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
   assertMutationUsesWritableCte(
     buildCreateClinicSql({
       name: "Клиника",
+      address: "Краснодар",
       slug: "clinic",
       timezone: "Europe/Moscow",
     }),
@@ -30,6 +31,7 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     buildUpdateClinicSql({
       clinicId: "10000000-0000-4000-8000-000000000001",
       name: "Клиника",
+      address: "Краснодар",
       slug: "clinic",
       timezone: "Europe/Moscow",
     }),
@@ -47,6 +49,7 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
 test("private practice SQL creates clinic and owner roles atomically with writable CTEs", () => {
   const sql = buildCreatePrivatePracticeSql({
     name: "Кабинет",
+    address: "Краснодар",
     slug: "cabinet",
     timezone: "Europe/Moscow",
     ownerEmail: "owner@example.test",
@@ -60,4 +63,5 @@ test("private practice SQL creates clinic and owner roles atomically with writab
   assert.doesNotMatch(sql, DIRECT_DML_IN_FROM_PATTERN);
   assert.match(sql, /'clinic_admin'/);
   assert.match(sql, /'private_doctor'/);
+  assert.match(sql, /address/);
 });

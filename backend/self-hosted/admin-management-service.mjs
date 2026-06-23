@@ -97,9 +97,43 @@ function normalizeRolePayload(input = {}, scope) {
 }
 
 function slugFromName(name) {
+  const transliteration = {
+    а: "a",
+    б: "b",
+    в: "v",
+    г: "g",
+    д: "d",
+    е: "e",
+    ё: "e",
+    ж: "zh",
+    з: "z",
+    и: "i",
+    й: "i",
+    к: "k",
+    л: "l",
+    м: "m",
+    н: "n",
+    о: "o",
+    п: "p",
+    р: "r",
+    с: "s",
+    т: "t",
+    у: "u",
+    ф: "f",
+    х: "h",
+    ц: "c",
+    ч: "ch",
+    ш: "sh",
+    щ: "sch",
+    ы: "y",
+    э: "e",
+    ю: "yu",
+    я: "ya",
+  };
   return String(name || "")
     .toLowerCase()
-    .replace(/[^a-z0-9а-яё]+/giu, "-")
+    .replace(/[а-яё]/giu, (char) => transliteration[char.toLowerCase()] ?? "")
+    .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || `clinic-${Date.now()}`;
 }
@@ -110,6 +144,7 @@ function normalizeClinicPayload(input = {}, { partial = false } = {}) {
   }
   const payload = {
     name: cleanString(input.name, 180),
+    address: cleanString(input.address, 240),
     slug: cleanString(input.slug, 80),
     timezone: cleanString(input.timezone, 80) || "Europe/Moscow",
   };
@@ -118,9 +153,12 @@ function normalizeClinicPayload(input = {}, { partial = false } = {}) {
   if (!partial || payload.name != null) {
     if (!payload.name || payload.name.length < 3) details.push({ field: "name", message: "Укажите название клиники." });
   }
+  if (!partial || payload.address != null) {
+    if (!payload.address || payload.address.length < 3) details.push({ field: "address", message: "Укажите адрес клиники." });
+  }
   if (!partial || payload.slug != null) {
     if (!payload.slug || !/^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$/i.test(payload.slug)) {
-      details.push({ field: "slug", message: "Короткий адрес клиники должен содержать латинские буквы, цифры или дефисы." });
+      details.push({ field: "slug", message: "Служебный адрес клиники должен содержать латинские буквы, цифры или дефисы." });
     }
   }
   if (details.length > 0) throw new AdminManagementValidationError(details);
@@ -133,6 +171,7 @@ function normalizePrivatePracticePayload(input = {}) {
   }
   const clinic = normalizeClinicPayload({
     name: input.clinicName ?? input.name,
+    address: input.address,
     slug: input.slug,
     timezone: input.timezone,
   });

@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
@@ -18,6 +19,7 @@ import {
   createAdminClinic,
   createAdminPrivatePractice,
   listAdminClinics,
+  updateAdminClinic,
   type AdminClinicDTO,
 } from "@/lib/self-hosted-admin-api";
 
@@ -96,16 +98,61 @@ const READINESS_TONE = {
   missing: "hsl(var(--destructive))",
 } as const;
 
+const TIMEZONE_OPTIONS = [
+  { value: "Europe/Kaliningrad", label: "Калининград · UTC+2" },
+  { value: "Europe/Moscow", label: "Москва, Краснодар · UTC+3" },
+  { value: "Europe/Samara", label: "Самара · UTC+4" },
+  { value: "Asia/Yekaterinburg", label: "Екатеринбург · UTC+5" },
+  { value: "Asia/Omsk", label: "Омск · UTC+6" },
+  { value: "Asia/Krasnoyarsk", label: "Красноярск · UTC+7" },
+  { value: "Asia/Irkutsk", label: "Иркутск · UTC+8" },
+  { value: "Asia/Yakutsk", label: "Якутск · UTC+9" },
+  { value: "Asia/Vladivostok", label: "Владивосток · UTC+10" },
+  { value: "Asia/Magadan", label: "Магадан · UTC+11" },
+  { value: "Asia/Kamchatka", label: "Камчатка · UTC+12" },
+] as const;
+
+function timezoneLabel(value: string) {
+  return TIMEZONE_OPTIONS.find((item) => item.value === value)?.label ?? "Часовой пояс не указан";
+}
+
+function TimezoneSelect({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  return (
+    <Select value={value || "Europe/Moscow"} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="min-h-11 text-left">
+        <SelectValue placeholder="Выберите часовой пояс" />
+      </SelectTrigger>
+      <SelectContent>
+        {TIMEZONE_OPTIONS.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function AdminClinicsPageLive() {
   const session = useSelfHostedApiSession();
   const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", timezone: "Europe/Moscow" });
+  const [lastChangedClinicId, setLastChangedClinicId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", address: "", timezone: "Europe/Moscow" });
+  const [editForm, setEditForm] = useState<{ id: string; name: string; address: string; timezone: string } | null>(null);
   const [privateForm, setPrivateForm] = useState({
     clinicName: "",
-    slug: "",
+    address: "",
     timezone: "Europe/Moscow",
     ownerDisplayName: "",
     ownerEmail: "",
@@ -129,6 +176,10 @@ function AdminClinicsPageLive() {
   }, [session.apiBaseUrl, session.apiToken]);
 
   async function submitClinic() {
+    if (!form.name.trim() || !form.address.trim()) {
+      setNote("Укажите название и адрес клиники.");
+      return;
+    }
     setBusy(true);
     const result = await createAdminClinic({
       apiBaseUrl: session.apiBaseUrl,
@@ -140,12 +191,20 @@ function AdminClinicsPageLive() {
       setNote(adminApiErrorText(result.error));
       return;
     }
-    setNote(`Клиника создана: ${result.value?.name ?? form.name}`);
-    setForm({ name: "", slug: "", timezone: "Europe/Moscow" });
+    if (result.value) {
+      setLastChangedClinicId(result.value.id);
+      setClinics((current) => [result.value!, ...current.filter((clinic) => clinic.id !== result.value!.id)]);
+    }
+    setNote(`Клиника сохранена и добавлена в список: ${result.value?.name ?? form.name}`);
+    setForm({ name: "", address: "", timezone: "Europe/Moscow" });
     await load();
   }
 
   async function submitPrivatePractice() {
+    if (!privateForm.clinicName.trim() || !privateForm.address.trim()) {
+      setNote("Укажите название и адрес частного кабинета.");
+      return;
+    }
     setBusy(true);
     const result = await createAdminPrivatePractice({
       apiBaseUrl: session.apiBaseUrl,
@@ -160,14 +219,49 @@ function AdminClinicsPageLive() {
     setNote(
       `Кабинет создан: ${result.value?.clinic.name ?? privateForm.clinicName}. Владелец получил доступ администратора и частного врача.`,
     );
+    if (result.value?.clinic) {
+      setLastChangedClinicId(result.value.clinic.id);
+      setClinics((current) => [result.value!.clinic, ...current.filter((clinic) => clinic.id !== result.value!.clinic.id)]);
+    }
     setPrivateForm({
       clinicName: "",
-      slug: "",
+      address: "",
       timezone: "Europe/Moscow",
       ownerDisplayName: "",
       ownerEmail: "",
       ownerPassword: "",
     });
+    await load();
+  }
+
+  async function submitClinicEdit() {
+    if (!editForm) return;
+    if (!editForm.name.trim() || !editForm.address.trim()) {
+      setNote("Укажите название и адрес клиники.");
+      return;
+    }
+    setBusy(true);
+    const result = await updateAdminClinic({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      clinicId: editForm.id,
+      payload: {
+        name: editForm.name,
+        address: editForm.address,
+        timezone: editForm.timezone,
+      },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    if (result.value) {
+      setLastChangedClinicId(result.value.id);
+      setClinics((current) => current.map((clinic) => (clinic.id === result.value!.id ? { ...clinic, ...result.value! } : clinic)));
+    }
+    setNote(`Изменения сохранены: ${result.value?.name ?? editForm.name}`);
+    setEditForm(null);
     await load();
   }
 
@@ -209,7 +303,7 @@ function AdminClinicsPageLive() {
             <p className="mb-3 text-[12px] text-muted-foreground">
               Для медицинского центра, сети или филиала. Сотрудников назначайте следующим шагом.
             </p>
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_0.7fr_0.7fr]">
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1.2fr_0.9fr]">
               <Input
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -218,18 +312,16 @@ function AdminClinicsPageLive() {
                 className="min-h-11"
               />
               <Input
-                value={form.slug}
-                onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
-                placeholder="Короткий адрес"
-                aria-label="Короткий адрес"
+                value={form.address}
+                onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+                placeholder="Адрес клиники"
+                aria-label="Адрес клиники"
                 className="min-h-11"
               />
-              <Input
+              <TimezoneSelect
                 value={form.timezone}
-                onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))}
-                placeholder="Часовой пояс"
-                aria-label="Часовой пояс"
-                className="min-h-11"
+                onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
+                label="Часовой пояс клиники"
               />
             </div>
             <Button type="button" className="mt-3 min-h-11" onClick={submitClinic} disabled={busy}>
@@ -251,10 +343,10 @@ function AdminClinicsPageLive() {
                 className="min-h-11"
               />
               <Input
-                value={privateForm.slug}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, slug: event.target.value }))}
-                placeholder="Короткий адрес"
-                aria-label="Короткий адрес кабинета"
+                value={privateForm.address}
+                onChange={(event) => setPrivateForm((current) => ({ ...current, address: event.target.value }))}
+                placeholder="Адрес кабинета"
+                aria-label="Адрес кабинета"
                 className="min-h-11"
               />
               <Input
@@ -279,12 +371,10 @@ function AdminClinicsPageLive() {
                 type="password"
                 className="min-h-11"
               />
-              <Input
+              <TimezoneSelect
                 value={privateForm.timezone}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, timezone: event.target.value }))}
-                placeholder="Часовой пояс"
-                aria-label="Часовой пояс кабинета"
-                className="min-h-11"
+                onChange={(timezone) => setPrivateForm((current) => ({ ...current, timezone }))}
+                label="Часовой пояс кабинета"
               />
             </div>
             <Button type="button" className="mt-3 min-h-11" onClick={submitPrivatePractice} disabled={busy}>
@@ -292,6 +382,44 @@ function AdminClinicsPageLive() {
             </Button>
           </Card>
         </div>
+
+        {editForm && (
+          <Card role="region" aria-label="Редактирование клиники" className="border-primary/30 bg-primary/5 p-3">
+            <div className="mb-1 text-[13px] font-semibold">Редактировать клинику</div>
+            <p className="mb-3 text-[12px] text-muted-foreground">
+              Изменения сохраняются в рабочей базе и сразу обновляют список клиник.
+            </p>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1.2fr_0.9fr]">
+              <Input
+                value={editForm.name}
+                onChange={(event) => setEditForm((current) => (current ? { ...current, name: event.target.value } : current))}
+                placeholder="Название клиники"
+                aria-label="Название редактируемой клиники"
+                className="min-h-11"
+              />
+              <Input
+                value={editForm.address}
+                onChange={(event) => setEditForm((current) => (current ? { ...current, address: event.target.value } : current))}
+                placeholder="Адрес клиники"
+                aria-label="Адрес редактируемой клиники"
+                className="min-h-11"
+              />
+              <TimezoneSelect
+                value={editForm.timezone}
+                onChange={(timezone) => setEditForm((current) => (current ? { ...current, timezone } : current))}
+                label="Часовой пояс редактируемой клиники"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" className="min-h-11" onClick={submitClinicEdit} disabled={busy}>
+                Сохранить изменения
+              </Button>
+              <Button type="button" variant="outline" className="min-h-11" onClick={() => setEditForm(null)} disabled={busy}>
+                Отменить
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {note && (
           <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
@@ -305,14 +433,35 @@ function AdminClinicsPageLive() {
           </div>
           <div className="grid grid-cols-1 divide-y divide-border">
             {clinics.map((clinic) => (
-              <div key={clinic.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+              <div
+                key={clinic.id}
+                className={`grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_0.7fr] ${
+                  clinic.id === lastChangedClinicId ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : ""
+                }`}
+              >
                 <div>
                   <div className="text-[13px] font-semibold">{clinic.name}</div>
                   <div className="text-[11px] text-muted-foreground">служебный код скрыт</div>
                 </div>
-                <div className="text-[12px] text-muted-foreground">адрес: {clinic.slug}</div>
+                <div className="text-[12px] text-muted-foreground">адрес: {clinic.address || "не указан"}</div>
+                <div className="text-[12px] text-muted-foreground">{timezoneLabel(clinic.timezone)}</div>
                 <div className="text-[12px] text-muted-foreground">пользователей: {clinic.usersCount ?? 0}</div>
                 <div className="text-[12px] text-muted-foreground">визитов: {clinic.visitsCount ?? 0}</div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 justify-self-start"
+                  onClick={() =>
+                    setEditForm({
+                      id: clinic.id,
+                      name: clinic.name,
+                      address: clinic.address || "",
+                      timezone: clinic.timezone || "Europe/Moscow",
+                    })
+                  }
+                >
+                  Редактировать
+                </Button>
               </div>
             ))}
           </div>

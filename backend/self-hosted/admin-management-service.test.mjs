@@ -180,6 +180,7 @@ test("system admin creates private practice with one owner carrying clinic admin
   const result = await service.createPrivatePractice(
     {
       clinicName: "Кабинет Морозова",
+      address: "Краснодар, ул. Северная, 11",
       slug: "morozov-cabinet",
       timezone: "Europe/Moscow",
       ownerEmail: "morozov@example.test",
@@ -196,6 +197,7 @@ test("system admin creates private practice with one owner carrying clinic admin
     "createPrivatePractice",
     {
       name: "Кабинет Морозова",
+      address: "Краснодар, ул. Северная, 11",
       slug: "morozov-cabinet",
       timezone: "Europe/Moscow",
       ownerEmail: "morozov@example.test",
@@ -207,6 +209,58 @@ test("system admin creates private practice with one owner carrying clinic admin
   assert.equal(auditEvents[0].metadata.ownerRoleCount, 2);
   assert.equal(auditEvents[0].metadata.passwordStoredAsHash, true);
   assert.equal(JSON.stringify(result).includes("long-password-1"), false);
+});
+
+test("system admin creates clinic from Russian name and human address without manual slug", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.createClinic(
+    {
+      name: "Яблоко ООО",
+      address: "70-я октября, Краснодар",
+      timezone: "Europe/Moscow",
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.name, "Яблоко ООО");
+  assert.equal(result.item.address, "70-я октября, Краснодар");
+  assert.deepEqual(calls[0], [
+    "createClinic",
+    {
+      name: "Яблоко ООО",
+      address: "70-я октября, Краснодар",
+      slug: "yabloko-ooo",
+      timezone: "Europe/Moscow",
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.clinic.create");
+});
+
+test("system admin updates clinic address and timezone", async () => {
+  const { service, calls } = createService();
+  const result = await service.updateClinic(
+    "10000000-0000-4000-8000-000000000001",
+    {
+      name: "Яблоко ООО",
+      address: "ул. Северная, 11, Краснодар",
+      timezone: "Europe/Moscow",
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.name, "Яблоко ООО");
+  assert.deepEqual(calls[0], [
+    "updateClinic",
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      name: "Яблоко ООО",
+      address: "ул. Северная, 11, Краснодар",
+      slug: "yabloko-ooo",
+      timezone: "Europe/Moscow",
+    },
+  ]);
 });
 
 test("analytics returns aggregate counters and audit events only", async () => {

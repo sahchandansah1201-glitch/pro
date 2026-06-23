@@ -211,6 +211,7 @@ from (
     c.id::text as "id",
     c.slug as "slug",
     c.name as "name",
+    coalesce(c.address, '') as "address",
     c.timezone as "timezone",
     c.created_at as "createdAt",
     (select count(*)::int from user_roles ur where ur.clinic_id = c.id) as "usersCount",
@@ -227,14 +228,14 @@ from (
 `.trim();
 }
 
-export function buildCreateClinicSql({ name, slug, timezone = "Europe/Moscow" } = {}) {
+export function buildCreateClinicSql({ name, address = "", slug, timezone = "Europe/Moscow" } = {}) {
   return `
 select row_to_json(result)::text
 from (
   with inserted as (
-  insert into clinics (name, slug, timezone)
-  values (${sqlLiteral(name)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
-  returning id::text as "id", slug, name, timezone, created_at as "createdAt"
+  insert into clinics (name, address, slug, timezone)
+  values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
+  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, created_at as "createdAt"
   )
   select * from inserted
 ) result;
@@ -243,6 +244,7 @@ from (
 
 export function buildCreatePrivatePracticeSql({
   name,
+  address = "",
   slug,
   timezone = "Europe/Moscow",
   ownerEmail,
@@ -253,8 +255,8 @@ export function buildCreatePrivatePracticeSql({
 select row_to_json(result)::text
 from (
   with clinic_row as (
-    insert into clinics (name, slug, timezone)
-    values (${sqlLiteral(name)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
+    insert into clinics (name, address, slug, timezone)
+    values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
     returning *
   ),
   user_row as (
@@ -281,6 +283,7 @@ from (
       'id', clinic_row.id::text,
       'slug', clinic_row.slug,
       'name', clinic_row.name,
+      'address', coalesce(clinic_row.address, ''),
       'timezone', clinic_row.timezone,
       'createdAt', clinic_row.created_at,
       'usersCount', 2,
@@ -310,9 +313,10 @@ from (
 `.trim();
 }
 
-export function buildUpdateClinicSql({ clinicId, name, slug, timezone } = {}) {
+export function buildUpdateClinicSql({ clinicId, name, address, slug, timezone } = {}) {
   const clauses = [];
   if (name != null) clauses.push(`name = ${sqlLiteral(name)}`);
+  if (address != null) clauses.push(`address = ${sqlLiteral(address)}`);
   if (slug != null) clauses.push(`slug = ${sqlLiteral(slug)}`);
   if (timezone != null) clauses.push(`timezone = ${sqlLiteral(timezone)}`);
   clauses.push("updated_at = now()");
@@ -323,7 +327,7 @@ from (
   update clinics
   set ${clauses.join(", ")}
   where id = ${sqlUuid(clinicId)}
-  returning id::text as "id", slug, name, timezone, updated_at as "updatedAt"
+  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, updated_at as "updatedAt"
   )
   select * from updated
 ) result;

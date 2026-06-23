@@ -84,6 +84,7 @@ test.describe("Production admin management journey", () => {
         {
           id: "10000000-0000-4000-8000-000000000001",
           name: "Dermatolog Pro",
+          address: "Москва",
           slug: "primary-clinic",
           timezone: "Europe/Moscow",
           usersCount: 1,
@@ -108,11 +109,12 @@ test.describe("Production admin management journey", () => {
 
       await page.route("**/api/v1/admin/clinics", async (route) => {
         if (route.request().method() === "POST") {
-          const body = route.request().postDataJSON() as { name: string; slug?: string; timezone?: string };
+          const body = route.request().postDataJSON() as { name: string; address?: string; timezone?: string };
           const item = {
             id: "10000000-0000-4000-8000-000000000301",
             name: body.name,
-            slug: body.slug || "clinic-test",
+            address: body.address || "Краснодар",
+            slug: "clinic-test",
             timezone: body.timezone || "Europe/Moscow",
             usersCount: 0,
             patientsCount: 0,
@@ -125,6 +127,29 @@ test.describe("Production admin management journey", () => {
           return;
         }
         await route.fulfill({ json: { items: clinics, source: "postgres" } });
+      });
+
+      await page.route("**/api/v1/admin/clinics/*", async (route) => {
+        if (route.request().method() === "PATCH") {
+          const body = route.request().postDataJSON() as { name?: string; address?: string; timezone?: string };
+          const clinicId = decodeURIComponent(route.request().url().split("/").pop() ?? "");
+          const clinic = clinics.find((item) => item.id === clinicId);
+          if (clinic) {
+            clinic.name = body.name || clinic.name;
+            clinic.address = body.address || clinic.address;
+            clinic.timezone = body.timezone || clinic.timezone;
+            auditEvents.unshift({
+              id: "audit-clinic-update",
+              action: "admin.clinic.update",
+              actorName: "Системный администратор",
+              clinicName: clinic.name,
+              createdAt: "2026-06-22T00:00:00.000Z",
+            });
+          }
+          await route.fulfill({ json: { item: clinic, source: "postgres" } });
+          return;
+        }
+        await route.fallback();
       });
 
       await page.route("**/api/v1/admin/users**", async (route) => {
@@ -208,29 +233,35 @@ test.describe("Production admin management journey", () => {
       await setApiUser(page, ["system_admin"]);
 
       await page.goto("/admin/clinics", { waitUntil: "networkidle" });
-      await expect(page.getByRole("heading", { name: "Клиники и филиалы" })).toBeVisible();
-      await expect(page.getByText("Рабочий режим: новые клиники сохраняются в базе")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
+      await expect(page.getByText(/сначала создайте клинику или частный кабинет/i)).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
       await page.getByLabel("Название клиники").fill("Клиника тестового запуска");
-      await page.getByLabel("Короткий адрес").fill("test-launch-clinic");
+      await page.getByLabel("Адрес клиники").fill("Краснодар, 70-я октября");
       await page.getByRole("button", { name: "Создать клинику" }).click();
-      await expect(page.getByText("Клиника создана: Клиника тестового запуска")).toBeVisible();
+      await expect(page.getByText("Клиника сохранена и добавлена в список: Клиника тестового запуска")).toBeVisible();
+      await expect(page.getByText("адрес: Краснодар, 70-я октября")).toBeVisible();
+      await page.getByRole("button", { name: "Редактировать" }).first().click();
+      await page.getByLabel("Адрес редактируемой клиники").fill("Краснодар, ул. Северная, 11");
+      await page.getByRole("button", { name: "Сохранить изменения" }).click();
+      await expect(page.getByText("Изменения сохранены: Клиника тестового запуска")).toBeVisible();
+      await expect(page.getByText("адрес: Краснодар, ул. Северная, 11")).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`admin-clinics-${viewport.name}.png`), fullPage: true });
 
       await page.goto("/sys/users", { waitUntil: "networkidle" });
-      await expect(page.getByRole("heading", { name: "Пользователи и роли" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
       await page.getByLabel("ФИО сотрудника").fill("Администратор Тестовой Клиники");
       await page.getByLabel("Эл. почта").fill("clinic-admin@example.test");
       await page.getByLabel("Временный пароль").fill("long-password-1");
       await page.getByLabel("Роль", { exact: true }).selectOption("clinic_admin");
       await page.getByLabel("Клиника", { exact: true }).selectOption("10000000-0000-4000-8000-000000000301");
-      await page.getByRole("button", { name: "Создать пользователя" }).click();
+      await page.getByRole("button", { name: "Создать сотрудника" }).click();
       await expect(page.getByText("Учётная запись создана: Администратор Тестовой Клиники")).toBeVisible();
       await page.getByLabel("Учётная запись").selectOption("10000000-0000-4000-8000-000000000401");
       await page.getByLabel("Новая роль").selectOption("operator");
       await page.getByLabel("Клиника для роли").selectOption("10000000-0000-4000-8000-000000000301");
-      await page.getByRole("button", { name: "Назначить роль" }).click();
+      await page.getByRole("button", { name: "Добавить роль" }).click();
       await expect(page.getByText("Роль назначена: Администратор Тестовой Клиники")).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`sys-users-${viewport.name}.png`), fullPage: true });
 

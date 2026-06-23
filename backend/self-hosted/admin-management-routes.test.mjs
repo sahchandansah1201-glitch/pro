@@ -34,7 +34,7 @@ function createRuntime(calls = []) {
       async createClinic(body, authContext, meta) {
         calls.push(["createClinic", body, authContext.roles, meta.correlationId]);
         return {
-          item: { id: "10000000-0000-4000-8000-000000000301", name: body.name, slug: body.slug },
+          item: { id: "10000000-0000-4000-8000-000000000301", name: body.name, address: body.address, slug: body.slug },
           scope: { allClinics: true, clinicIds: [] },
         };
       },
@@ -42,7 +42,7 @@ function createRuntime(calls = []) {
         calls.push(["createPrivatePractice", body.ownerEmail, authContext.roles, meta.correlationId]);
         return {
           item: {
-            clinic: { id: "10000000-0000-4000-8000-000000000301", name: body.clinicName, slug: body.slug },
+            clinic: { id: "10000000-0000-4000-8000-000000000301", name: body.clinicName, address: body.address, slug: body.slug },
             owner: {
               id: "10000000-0000-4000-8000-000000000201",
               displayName: body.ownerDisplayName,
@@ -112,10 +112,11 @@ test("admin management routes create clinic, create doctor, and read aggregate a
   const clinic = await request("/api/v1/admin/clinics", {
     method: "POST",
     runtime,
-    body: JSON.stringify({ name: "Клиника тест", slug: "test-clinic" }),
+    body: JSON.stringify({ name: "Клиника тест", address: "Краснодар" }),
   });
   assert.equal(clinic.status, 201);
   assert.equal(clinic.json.item.name, "Клиника тест");
+  assert.equal(clinic.json.item.address, "Краснодар");
 
   const doctor = await request("/api/v1/admin/doctors", {
     method: "POST",
@@ -136,7 +137,7 @@ test("admin management routes create clinic, create doctor, and read aggregate a
     runtime,
     body: JSON.stringify({
       clinicName: "Кабинет тестовый",
-      slug: "private-test",
+      address: "Краснодар",
       ownerDisplayName: "Врач Владелец",
       ownerEmail: "owner@example.test",
       ownerPassword: "long-password-1",

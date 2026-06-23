@@ -27,6 +27,7 @@ export interface AdminClinicDTO {
   id: string;
   slug: string;
   name: string;
+  address: string;
   timezone: string;
   createdAt: string | null;
   updatedAt?: string | null;
@@ -169,6 +170,7 @@ function normalizeClinic(input: unknown): AdminClinicDTO {
     id: String(item.id ?? ""),
     slug: String(item.slug ?? ""),
     name: String(item.name ?? ""),
+    address: String(item.address ?? ""),
     timezone: String(item.timezone ?? "Europe/Moscow"),
     createdAt: item.createdAt == null ? null : String(item.createdAt),
     updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
@@ -230,10 +232,22 @@ export async function listAdminClinics(args: BaseArgs & { search?: string }): Pr
 }
 
 export async function createAdminClinic(
-  args: BaseArgs & { payload: { name: string; slug?: string; timezone?: string } },
+  args: BaseArgs & { payload: { name: string; address?: string; slug?: string; timezone?: string } },
 ): Promise<SelfHostedApiResult<AdminClinicDTO>> {
   const result = await request(args, "/api/v1/admin/clinics", {
     method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinic(body.item));
+}
+
+export async function updateAdminClinic(
+  args: BaseArgs & { clinicId: string; payload: { name?: string; address?: string; slug?: string; timezone?: string } },
+): Promise<SelfHostedApiResult<AdminClinicDTO>> {
+  const result = await request(args, `/api/v1/admin/clinics/${encodeURIComponent(args.clinicId)}`, {
+    method: "PATCH",
     body: JSON.stringify(args.payload),
   });
   if (!result.ok) return result as SelfHostedApiResult<AdminClinicDTO>;
@@ -245,6 +259,7 @@ export async function createAdminPrivatePractice(
   args: BaseArgs & {
     payload: {
       clinicName: string;
+      address?: string;
       slug?: string;
       timezone?: string;
       ownerDisplayName: string;
