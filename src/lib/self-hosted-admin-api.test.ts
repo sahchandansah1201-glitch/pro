@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createAdminClinic, createAdminPrivatePractice, updateAdminClinic } from "@/lib/self-hosted-admin-api";
+import { adminApiErrorText, createAdminClinic, createAdminPrivatePractice, updateAdminClinic } from "@/lib/self-hosted-admin-api";
 
 describe("self-hosted-admin-api · private practice", () => {
   afterEach(() => {
@@ -168,5 +168,36 @@ describe("self-hosted-admin-api · clinics", () => {
         }),
       }),
     );
+  });
+
+  it("maps database unavailable responses to a Russian recovery message", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "database_unavailable",
+            message: "Database is unavailable for the self-hosted backend.",
+          },
+        }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createAdminClinic({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      payload: {
+        name: "Яблоко ООО",
+        address: "Краснодар",
+        timezone: "Europe/Moscow",
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(adminApiErrorText(result.error)).toBe(
+      "Рабочая база временно недоступна или схема ещё обновляется. Повторите действие после завершения обновления сервера.",
+    );
+    expect(adminApiErrorText(result.error)).not.toMatch(/Database is unavailable|self-hosted backend/i);
   });
 });

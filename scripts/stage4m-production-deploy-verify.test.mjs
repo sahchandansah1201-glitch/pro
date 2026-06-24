@@ -65,6 +65,8 @@ test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () =
   assert.match(out, /Create pre-update backup/);
   assert.match(out, /git fetch origin main/);
   assert.match(out, /git pull --ff-only origin main/);
+  assert.match(out, /Apply production schema migrations/);
+  assert.match(out, /stage4m-self-hosted-schema-migrations\.mjs apply/);
   assert.match(out, /npm ci --no-audit --no-fund/);
   assert.match(out, /npm run build/);
   assert.match(out, /builds into staging/);

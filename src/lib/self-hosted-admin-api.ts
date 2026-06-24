@@ -331,5 +331,11 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
 export function adminApiErrorText(error: SelfHostedApiError | null): string {
   if (!error) return "";
   if (error.details?.length) return error.details.map((item) => item.message).join(" ");
+  if (error.code === "database_unavailable") {
+    return "Рабочая база временно недоступна или схема ещё обновляется. Повторите действие после завершения обновления сервера.";
+  }
+  if (error.code === "database_not_configured") {
+    return "Рабочая база не подключена. Проверьте настройки self-hosted сервера.";
+  }
   return error.message || "Действие не выполнено.";
 }
