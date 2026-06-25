@@ -66,8 +66,13 @@ function isAdminClinicResponse(response: Response, method: string, matcher: RegE
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isAdminUserResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 test.describe("Live production admin management journey", () => {
-  test("system admin creates and edits clinic through the visible UI", async ({ page }, testInfo) => {
+  test("system admin creates and edits clinic and creates a second admin through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
 
     const { email, password } = parseCredentials(readFileSync(CREDENTIALS_FILE, "utf8"));
@@ -75,6 +80,9 @@ test.describe("Live production admin management journey", () => {
     const clinicName = `Проверочная клиника ${suffix}`;
     const clinicAddress = `Краснодар, проверочная ${suffix}`;
     const updatedClinicAddress = `Краснодар, обновлённая ${suffix}`;
+    const adminDisplayName = `Админ 2 ${suffix}`;
+    const adminEmail = `admin2-${suffix}@skindoktor.ru`;
+    const adminPassword = `Dp-${suffix}-Admin-2026!`;
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const adminResponses: { method: string; path: string; status: number }[] = [];
@@ -86,7 +94,7 @@ test.describe("Live production admin management journey", () => {
     page.on("response", (response) => {
       try {
         const url = new URL(response.url());
-        if (url.pathname.startsWith("/api/v1/admin/clinics")) {
+        if (url.pathname.startsWith("/api/v1/admin/clinics") || url.pathname.startsWith("/api/v1/admin/users")) {
           adminResponses.push({
             method: response.request().method(),
             path: url.pathname,
@@ -149,16 +157,51 @@ test.describe("Live production admin management journey", () => {
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-desktop-1280.png"), fullPage: true });
 
+    await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
+    await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
+    await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
+    await page.getByLabel("ФИО сотрудника").fill(adminDisplayName);
+    await page.getByLabel("Эл. почта").fill(adminEmail);
+    await page.getByLabel("Временный пароль").fill(adminPassword);
+    await page.getByLabel("Роль").selectOption("system_admin");
+    await expect(page.getByLabel("Клиника")).toBeDisabled();
+
+    const createUserResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),
+    );
+    await page.getByRole("button", { name: "Создать сотрудника" }).click();
+    const createUserResponse = await createUserResponsePromise;
+    expect(createUserResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(createUserResponse.status()).toBeLessThan(300);
+
+    await expect(page.getByText(`Учётная запись создана: ${adminDisplayName}`)).toBeVisible();
+    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
+    await expect(page.getByText(adminEmail).first()).toBeVisible();
+    await expect(page.getByText("Системный администратор").first()).toBeVisible();
+    await expect(page.getByText(/Сессия истекла|Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-users-created-desktop-1280.png"), fullPage: true });
+
+    await page.getByRole("button", { name: "Выйти" }).click();
+    await expect(page.getByRole("button", { name: /^Войти$/ })).toBeVisible({ timeout: 15_000 });
+    await page.getByLabel("Адрес системы клиники").fill(BASE_URL);
+    await page.getByLabel("Эл. почта").fill(adminEmail);
+    await page.getByLabel("Пароль").fill(adminPassword);
+    await page.getByRole("button", { name: /^Войти$/ }).click();
+    await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
+    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByText(clinicName).first()).toBeVisible();
-    await expect(page.getByText(`адрес: ${updatedClinicAddress}`).first()).toBeVisible();
+    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
-    await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-mobile-390.png"), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath("live-admin-users-mobile-390.png"), fullPage: true });
 
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
-    expect(adminResponses.some((item) => item.method === "POST" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);

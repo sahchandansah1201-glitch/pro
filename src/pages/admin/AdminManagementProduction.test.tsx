@@ -10,6 +10,7 @@ vi.mock("@/lib/app-mode", () => ({
 }));
 
 vi.mock("@/lib/self-hosted-api-session", () => ({
+  clearSelfHostedApiSession: () => {},
   isSelfHostedApiConfigured: (session: { status: string; apiToken: string | null }) =>
     session.status === "configured" && Boolean(session.apiToken),
   useSelfHostedApiSession: () => ({
@@ -205,5 +206,112 @@ describe("Production admin management UI", () => {
     expect(screen.getAllByText("Частный врач").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Кабинет Морозова").length).toBeGreaterThan(0);
     expect(screen.getByText(/один человек может иметь несколько ролей/i)).toBeInTheDocument();
+  });
+
+  it("creates a second system administrator with visible progress and success feedback", async () => {
+    const createdAdmin = {
+      id: "user-admin-2",
+      email: "admin2@skindoktor.ru",
+      displayName: "Админ 2",
+      active: true,
+      createdAt: "2026-06-25T00:00:00.000Z",
+      disabledAt: null,
+      roles: [{ role: "system_admin", clinicId: null, clinicName: null, clinicSlug: null }],
+    };
+    let users = [] as (typeof createdAdmin)[];
+    let resolveCreateUser: ((value: Response) => void) | null = null;
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/users") && init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          resolveCreateUser = (value) => {
+            users = [createdAdmin];
+            resolve(value);
+          };
+        });
+      }
+      if (href.includes("/api/v1/admin/users")) return json({ items: users });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ФИО сотрудника"), { target: { value: "Админ 2" } });
+    fireEvent.change(screen.getByLabelText("Эл. почта"), { target: { value: "admin2@skindoktor.ru" } });
+    fireEvent.change(screen.getByLabelText("Временный пароль"), { target: { value: "Admin2-password-2026!" } });
+    fireEvent.change(screen.getByLabelText("Роль"), { target: { value: "system_admin" } });
+    expect(screen.getByLabelText("Клиника")).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Создать сотрудника" }));
+
+    expect(await screen.findByText("Создаём сотрудника: Админ 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Создаём сотрудника..." })).toBeDisabled();
+    expect(resolveCreateUser).toBeTypeOf("function");
+    resolveCreateUser?.(
+      new Response(JSON.stringify({ item: createdAdmin }), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://clinic.local/api/v1/admin/users",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            displayName: "Админ 2",
+            email: "admin2@skindoktor.ru",
+            password: "Admin2-password-2026!",
+            role: "system_admin",
+            clinicId: null,
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Учётная запись создана: Админ 2")).toBeInTheDocument();
+    expect(screen.getByText("admin2@skindoktor.ru")).toBeInTheDocument();
+    expect(screen.getAllByText("Системный администратор").length).toBeGreaterThan(0);
+  });
+
+  it("shows explicit validation instead of doing nothing when required employee fields are empty", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/users")) return json({ items: [] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Создать сотрудника" }));
+
+    expect(await screen.findByText("Укажите ФИО, почту и временный пароль.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("blocks employee actions after an expired session and offers re-login", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/users")) {
+        return json({ error: { code: "invalid_token", message: "Invalid or expired authorization token." } }, 401);
+      }
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Сессия истекла");
+    expect(screen.getByRole("button", { name: "Войти заново" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Создать сотрудника" })).toBeDisabled();
   });
 });

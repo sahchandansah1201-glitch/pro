@@ -331,12 +331,7 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
 export function adminApiErrorText(error: SelfHostedApiError | null): string {
   if (!error) return "";
   if (error.details?.length) return error.details.map((item) => item.message).join(" ");
-  if (
-    error.status === 401 ||
-    error.code === "invalid_token" ||
-    error.code === "token_expired" ||
-    /expired authorization token/i.test(error.message)
-  ) {
+  if (isAdminSessionExpiredError(error)) {
     return "Сессия истекла. Выйдите и войдите в систему заново.";
   }
   if (error.status === 403) {
@@ -349,4 +344,14 @@ export function adminApiErrorText(error: SelfHostedApiError | null): string {
     return "Рабочая база не подключена. Проверьте настройки self-hosted сервера.";
   }
   return error.message || "Действие не выполнено.";
+}
+
+export function isAdminSessionExpiredError(error: SelfHostedApiError | null): boolean {
+  if (!error) return false;
+  return (
+    error.status === 401 ||
+    error.code === "invalid_token" ||
+    error.code === "token_expired" ||
+    /expired authorization token/i.test(error.message)
+  );
 }

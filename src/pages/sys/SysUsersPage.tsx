@@ -11,12 +11,13 @@ import { getClinics } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
 import { ROLE_BY_ID, type Role } from "@/lib/roles";
 import { isProductionAppMode } from "@/lib/app-mode";
-import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { clearSelfHostedApiSession, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   adminApiErrorText,
   assignAdminUserRole,
   createAdminUser,
   disableAdminUser,
+  isAdminSessionExpiredError,
   listAdminClinics,
   listAdminUsers,
   type AdminClinicDTO,
@@ -123,6 +124,7 @@ function SysUsersPageLive() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [form, setForm] = useState({
     displayName: "",
     email: "",
@@ -135,6 +137,16 @@ function SysUsersPageLive() {
     role: "doctor",
     clinicId: "",
   });
+
+  function handleAdminError(error: Parameters<typeof adminApiErrorText>[0]) {
+    if (isAdminSessionExpiredError(error)) setSessionExpired(true);
+    setNote(adminApiErrorText(error));
+  }
+
+  function goToLogin() {
+    clearSelfHostedApiSession();
+    window.location.assign("/self-hosted/login");
+  }
 
   async function load() {
     setLoading(true);
@@ -149,7 +161,7 @@ function SysUsersPageLive() {
         ...current,
         userId: current.userId || nextUsers[0]?.id || "",
       }));
-    } else setNote(adminApiErrorText(usersResult.error));
+    } else handleAdminError(usersResult.error);
     if (clinicsResult.ok) {
       const nextClinics = clinicsResult.value ?? [];
       setClinics(nextClinics);
@@ -162,7 +174,7 @@ function SysUsersPageLive() {
         clinicId: current.clinicId || nextClinics[0]?.id || "",
       }));
     } else {
-      setNote(adminApiErrorText(clinicsResult.error));
+      handleAdminError(clinicsResult.error);
     }
     setLoading(false);
   }
@@ -173,29 +185,47 @@ function SysUsersPageLive() {
   }, [session.apiBaseUrl, session.apiToken]);
 
   async function submitUser() {
+    if (sessionExpired) return;
+    const displayName = form.displayName.trim();
+    const email = form.email.trim();
+    const password = form.password;
+    if (!displayName || !email || !password) {
+      setNote("Укажите ФИО, почту и временный пароль.");
+      return;
+    }
+    if (password.length < 10) {
+      setNote("Временный пароль должен быть не короче 10 символов.");
+      return;
+    }
+    if (form.role !== "system_admin" && !form.clinicId) {
+      setNote("Выберите клинику для этой роли.");
+      return;
+    }
     setBusy(true);
+    setNote(`Создаём сотрудника: ${displayName}`);
     const result = await createAdminUser({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
       payload: {
-        displayName: form.displayName,
-        email: form.email,
-        password: form.password,
+        displayName,
+        email,
+        password,
         role: form.role,
         clinicId: form.role === "system_admin" ? null : form.clinicId,
       },
     });
     setBusy(false);
     if (!result.ok) {
-      setNote(adminApiErrorText(result.error));
+      handleAdminError(result.error);
       return;
     }
-    setNote(`Учётная запись создана: ${result.value?.displayName ?? form.displayName}`);
+    setNote(`Учётная запись создана: ${result.value?.displayName ?? displayName}`);
     setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
     await load();
   }
 
   async function submitRoleAssignment() {
+    if (sessionExpired) return;
     if (!roleForm.userId) {
       setNote("Выберите учётную запись для назначения роли.");
       return;
@@ -212,7 +242,7 @@ function SysUsersPageLive() {
     });
     setBusy(false);
     if (!result.ok) {
-      setNote(adminApiErrorText(result.error));
+      handleAdminError(result.error);
       return;
     }
     const selectedUser = users.find((user) => user.id === roleForm.userId);
@@ -221,6 +251,7 @@ function SysUsersPageLive() {
   }
 
   async function disableUser(user: AdminUserDTO) {
+    if (sessionExpired) return;
     setBusy(true);
     const result = await disableAdminUser({
       apiBaseUrl: session.apiBaseUrl,
@@ -229,7 +260,7 @@ function SysUsersPageLive() {
     });
     setBusy(false);
     if (!result.ok) {
-      setNote(adminApiErrorText(result.error));
+      handleAdminError(result.error);
       return;
     }
     setNote(`Доступ отключён: ${user.displayName}`);
@@ -244,6 +275,18 @@ function SysUsersPageLive() {
           Рабочий режим: один человек может иметь несколько ролей, например администратор кабинета и частный врач.
         </div>
 
+        {sessionExpired && (
+          <Card role="alert" className="border-amber-300 bg-amber-50 p-3 text-amber-900">
+            <div className="text-[13px] font-semibold">Сессия истекла</div>
+            <p className="mt-1 text-[12px]">
+              Новые сотрудники и роли не сохраняются, пока вы не войдёте заново.
+            </p>
+            <Button type="button" className="mt-3 min-h-11" onClick={goToLogin}>
+              Войти заново
+            </Button>
+          </Card>
+        )}
+
         <Card className="p-3">
           <div className="mb-1 text-[13px] font-semibold">Создать сотрудника</div>
           <p className="mb-3 text-[12px] text-muted-foreground">
@@ -256,6 +299,7 @@ function SysUsersPageLive() {
               placeholder="ФИО сотрудника"
               aria-label="ФИО сотрудника"
               className="min-h-11"
+              disabled={sessionExpired}
             />
             <Input
               value={form.email}
@@ -263,6 +307,7 @@ function SysUsersPageLive() {
               placeholder="Эл. почта"
               aria-label="Эл. почта"
               className="min-h-11"
+              disabled={sessionExpired}
             />
             <Input
               value={form.password}
@@ -271,12 +316,14 @@ function SysUsersPageLive() {
               aria-label="Временный пароль"
               type="password"
               className="min-h-11"
+              disabled={sessionExpired}
             />
             <select
               value={form.role}
               onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Роль"
+              disabled={sessionExpired}
             >
               <option value="clinic_admin">Администратор клиники</option>
               <option value="doctor">Дерматолог</option>
@@ -290,7 +337,7 @@ function SysUsersPageLive() {
               onChange={(event) => setForm((current) => ({ ...current, clinicId: event.target.value }))}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Клиника"
-              disabled={form.role === "system_admin"}
+              disabled={sessionExpired || form.role === "system_admin"}
             >
               {clinics.map((clinic) => (
                 <option key={clinic.id} value={clinic.id}>
@@ -299,8 +346,8 @@ function SysUsersPageLive() {
               ))}
             </select>
           </div>
-          <Button type="button" className="mt-3 min-h-11" onClick={submitUser} disabled={busy}>
-            Создать сотрудника
+          <Button type="button" className="mt-3 min-h-11" onClick={submitUser} disabled={busy || sessionExpired}>
+            {busy ? "Создаём сотрудника..." : "Создать сотрудника"}
           </Button>
         </Card>
 
@@ -315,6 +362,7 @@ function SysUsersPageLive() {
               onChange={(event) => setRoleForm((current) => ({ ...current, userId: event.target.value }))}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Учётная запись"
+              disabled={sessionExpired}
             >
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
@@ -327,6 +375,7 @@ function SysUsersPageLive() {
               onChange={(event) => setRoleForm((current) => ({ ...current, role: event.target.value }))}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Новая роль"
+              disabled={sessionExpired}
             >
               <option value="clinic_admin">Администратор клиники</option>
               <option value="doctor">Дерматолог</option>
@@ -340,7 +389,7 @@ function SysUsersPageLive() {
               onChange={(event) => setRoleForm((current) => ({ ...current, clinicId: event.target.value }))}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Клиника для роли"
-              disabled={roleForm.role === "system_admin"}
+              disabled={sessionExpired || roleForm.role === "system_admin"}
             >
               {clinics.map((clinic) => (
                 <option key={clinic.id} value={clinic.id}>
@@ -348,8 +397,8 @@ function SysUsersPageLive() {
                 </option>
               ))}
             </select>
-            <Button type="button" variant="outline" className="min-h-11" onClick={submitRoleAssignment} disabled={busy}>
-              Добавить роль
+            <Button type="button" variant="outline" className="min-h-11" onClick={submitRoleAssignment} disabled={busy || sessionExpired}>
+              {busy ? "Добавляем роль..." : "Добавить роль"}
             </Button>
           </div>
         </Card>
@@ -366,6 +415,7 @@ function SysUsersPageLive() {
               placeholder="Поиск по имени или почте"
               aria-label="Поиск пользователей"
               className="min-h-11 pl-7"
+              disabled={sessionExpired}
             />
           </label>
         </Card>
@@ -411,7 +461,7 @@ function SysUsersPageLive() {
                   variant="outline"
                   className="min-h-11"
                   onClick={() => void disableUser(user)}
-                  disabled={busy || !user.active}
+                  disabled={busy || sessionExpired || !user.active}
                 >
                   Отключить доступ
                 </Button>
