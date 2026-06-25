@@ -1,0 +1,166 @@
+import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+
+import { expect, type Page, type Response, test } from "@playwright/test";
+
+const BASE_URL = (process.env.STAGE4M_LIVE_ADMIN_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
+const CREDENTIALS_FILE = process.env.STAGE4M_ADMIN_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
+const REQUIRED_CONFIRMATION = "I_CONFIRM_CREATE_TEST_CLINIC";
+const CONFIRMATION = process.env.STAGE4M_CONFIRM_CREATE_TEST_CLINIC || "";
+
+test.use({
+  baseURL: BASE_URL,
+});
+
+function parseCredentials(text: string) {
+  const email = text.match(/^Email:\s*(.+)$/m)?.[1]?.trim();
+  const password = text.match(/^Password:\s*(.+)$/m)?.[1]?.trim();
+  if (!email || !password) throw new Error("Credentials file must include Email and Password lines.");
+  return { email, password };
+}
+
+function makeSuffix() {
+  return randomBytes(4).toString("hex");
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => ({
+    docScroll: document.documentElement.scrollWidth,
+    docClient: document.documentElement.clientWidth,
+    bodyScroll: document.body.scrollWidth,
+    bodyClient: document.body.clientWidth,
+  }));
+  expect(overflow.docScroll).toBeLessThanOrEqual(overflow.docClient + 1);
+  expect(overflow.bodyScroll).toBeLessThanOrEqual(overflow.bodyClient + 1);
+}
+
+async function expectMainTapTargets(page: Page) {
+  const offenders = await page.evaluate(() => {
+    const root = document.querySelector("main") ?? document.body;
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="tab"], [role="combobox"]',
+      ),
+    )
+      .map((el) => {
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return {
+          text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 80),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          hidden:
+            rect.width === 0 ||
+            rect.height === 0 ||
+            style.display === "none" ||
+            style.visibility === "hidden",
+        };
+      })
+      .filter((item) => !item.hidden && item.height < 44);
+  });
+  expect(offenders, JSON.stringify(offenders, null, 2)).toEqual([]);
+}
+
+function isAdminClinicResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
+test.describe("Live production admin management journey", () => {
+  test("system admin creates and edits clinic through the visible UI", async ({ page }, testInfo) => {
+    test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
+
+    const { email, password } = parseCredentials(readFileSync(CREDENTIALS_FILE, "utf8"));
+    const suffix = makeSuffix();
+    const clinicName = `Проверочная клиника ${suffix}`;
+    const clinicAddress = `Краснодар, проверочная ${suffix}`;
+    const updatedClinicAddress = `Краснодар, обновлённая ${suffix}`;
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    const adminResponses: { method: string; path: string; status: number }[] = [];
+
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("response", (response) => {
+      try {
+        const url = new URL(response.url());
+        if (url.pathname.startsWith("/api/v1/admin/clinics")) {
+          adminResponses.push({
+            method: response.request().method(),
+            path: url.pathname,
+            status: response.status(),
+          });
+        }
+      } catch {
+        // Ignore non-URL response records.
+      }
+    });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/self-hosted/login", { waitUntil: "networkidle" });
+    await page.getByLabel("Адрес системы клиники").fill(BASE_URL);
+    await page.getByLabel("Эл. почта").fill(email);
+    await page.getByLabel("Пароль").fill(password);
+    await page.getByRole("button", { name: /^Войти$/ }).click();
+
+    await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("link", { name: "Клиники и кабинеты" }).click();
+    await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
+    await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Создать клинику" }).click();
+    await expect(page.getByText("Укажите название и адрес клиники.")).toBeVisible();
+
+    await page.getByLabel("Название клиники").fill(clinicName);
+    await page.getByLabel("Адрес клиники").fill(clinicAddress);
+    await page.getByLabel("Часовой пояс клиники").click();
+    await page.getByRole("option", { name: "Москва, Краснодар · UTC+3" }).click();
+
+    const createResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "POST", /^\/api\/v1\/admin\/clinics$/),
+    );
+    await page.getByRole("button", { name: "Создать клинику" }).click();
+    const createResponse = await createResponsePromise;
+    expect(createResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(createResponse.status()).toBeLessThan(300);
+
+    await expect(page.getByText(`Клиника сохранена и добавлена в список: ${clinicName}`)).toBeVisible();
+    await expect(page.getByText(clinicName).first()).toBeVisible();
+    await expect(page.getByText(`адрес: ${clinicAddress}`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Редактировать" }).first().click();
+    await expect(page.getByRole("region", { name: "Редактирование клиники" })).toBeVisible();
+    await page.getByLabel("Адрес редактируемой клиники").fill(updatedClinicAddress);
+
+    const updateResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+$/),
+    );
+    await page.getByRole("button", { name: "Сохранить изменения" }).click();
+    const updateResponse = await updateResponsePromise;
+    expect(updateResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(updateResponse.status()).toBeLessThan(300);
+
+    await expect(page.getByText(`Изменения сохранены: ${clinicName}`)).toBeVisible();
+    await expect(page.getByText(`адрес: ${updatedClinicAddress}`).first()).toBeVisible();
+    await expect(page.getByText(/Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText(/Учебный режим|демо|mock/i);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByText(clinicName).first()).toBeVisible();
+    await expect(page.getByText(`адрес: ${updatedClinicAddress}`).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-mobile-390.png"), fullPage: true });
+
+    expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
+});
