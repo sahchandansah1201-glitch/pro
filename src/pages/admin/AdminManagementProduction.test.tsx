@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
+import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
 import SysUsersPage from "@/pages/sys/SysUsersPage";
 
 vi.mock("@/lib/app-mode", () => ({
@@ -384,5 +385,29 @@ describe("Production admin management UI", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Сессия истекла");
     expect(screen.getByRole("button", { name: "Войти заново" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Создать сотрудника" })).toBeDisabled();
+  });
+
+  it("validates doctor email before creating a doctor account", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/doctors")) return json({ items: [] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Врачи" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ФИО врача"), { target: { value: "Врач" } });
+    fireEvent.change(screen.getByLabelText("Эл. почта"), { target: { value: "wrong-email" } });
+    fireEvent.change(screen.getByLabelText("Временный пароль"), { target: { value: "Doctor-password-2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить врача" }));
+
+    expect(await screen.findByText("Укажите рабочую почту врача.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/doctors",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });

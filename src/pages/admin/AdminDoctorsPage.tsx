@@ -49,6 +49,8 @@ interface DoctorRow {
   active: boolean;
 }
 
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 // Детерминированный демо-список — расширяет DEMO_USERS операционными полями.
 const DOCTOR_ROWS: DoctorRow[] = (() => {
   const doc = DEMO_USERS.doctor;
@@ -182,11 +184,37 @@ function AdminDoctorsPageLive() {
   }, [session.apiBaseUrl, session.apiToken]);
 
   async function submitDoctor() {
+    const displayName = form.displayName.trim();
+    const email = form.email.trim();
+    const password = form.password.trim();
+    const clinicId = form.clinicId;
+    if (!displayName || !email || !password) {
+      setNote("Укажите ФИО, почту и временный пароль врача.");
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setNote("Укажите рабочую почту врача.");
+      return;
+    }
+    if (password.length < 10) {
+      setNote("Временный пароль должен быть не короче 10 символов.");
+      return;
+    }
+    if (!clinicId) {
+      setNote("Выберите клинику для врача.");
+      return;
+    }
     setBusy(true);
     const result = await createAdminDoctor({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
-      payload: form,
+      payload: {
+        displayName,
+        email,
+        password,
+        role: form.role,
+        clinicId,
+      },
     });
     setBusy(false);
     if (!result.ok) {
