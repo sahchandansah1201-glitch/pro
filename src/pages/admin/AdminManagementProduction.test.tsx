@@ -111,6 +111,32 @@ describe("Production admin management UI", () => {
     expect(await screen.findByText(/Владелец получил доступ администратора и частного врача/)).toBeInTheDocument();
   });
 
+  it("validates private practice owner fields before calling the backend", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/clinics")) {
+        return json({ items: [clinic] });
+      }
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminClinicsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Клиники и кабинеты" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Название кабинета"), { target: { value: "Кабинет Морозова" } });
+    fireEvent.change(screen.getByLabelText("Адрес кабинета"), { target: { value: "Краснодар, ул. Северная, 11" } });
+    fireEvent.click(screen.getByRole("button", { name: "Создать кабинет и владельца" }));
+
+    expect(await screen.findByText(/Укажите имя владельца кабинета/)).toBeInTheDocument();
+    expect(screen.getByText(/Укажите рабочую почту владельца/)).toBeInTheDocument();
+    expect(screen.getByText(/Пароль должен быть не короче 10 символов/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/private-practices",
+      expect.anything(),
+    );
+  });
+
   it("creates a clinic with a human address, shows it in the list, and edits the saved clinic", async () => {
     const createdClinic = {
       id: "clinic-2",

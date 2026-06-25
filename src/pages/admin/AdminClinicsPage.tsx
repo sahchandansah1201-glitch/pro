@@ -201,8 +201,16 @@ function AdminClinicsPageLive() {
   }
 
   async function submitPrivatePractice() {
-    if (!privateForm.clinicName.trim() || !privateForm.address.trim()) {
-      setNote("Укажите название и адрес частного кабинета.");
+    const validationMessages = [
+      !privateForm.clinicName.trim() ? "Укажите название частного кабинета." : null,
+      !privateForm.address.trim() ? "Укажите адрес частного кабинета." : null,
+      !privateForm.ownerDisplayName.trim() ? "Укажите имя владельца кабинета." : null,
+      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(privateForm.ownerEmail.trim()) ? "Укажите рабочую почту владельца." : null,
+      privateForm.ownerPassword.length < 10 ? "Пароль должен быть не короче 10 символов." : null,
+    ].filter(Boolean);
+
+    if (validationMessages.length) {
+      setNote(validationMessages.join(" "));
       return;
     }
     setBusy(true);
