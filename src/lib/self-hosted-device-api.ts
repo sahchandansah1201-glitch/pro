@@ -648,7 +648,7 @@ export type GetSelfHostedDeviceBridgeLifecycleAssuranceArgs = BaseArgs;
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
-  message: "Self-hosted backend-сессия не подключена.",
+  message: "Вход в рабочую систему не подключён.",
 };
 
 function ok<T>(value: T): SelfHostedApiResult<T> {
@@ -665,7 +665,7 @@ function ensureConfigured(args: BaseArgs): SelfHostedApiError | null {
     return {
       kind: "validation",
       code: "base_url_required",
-      message: "Укажите адрес self-hosted backend.",
+      message: "Укажите адрес рабочей системы.",
     };
   }
   return null;
@@ -692,13 +692,31 @@ function isRecord(input: unknown): input is Record<string, unknown> {
 
 function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError {
   const wrapper = isRecord(body) && isRecord(body.error) ? body.error : null;
+  const code = typeof wrapper?.code === "string" ? wrapper.code : `http_${response.status}`;
   return {
     kind: response.status === 422 ? "validation" : "http",
     status: response.status,
-    code: typeof wrapper?.code === "string" ? wrapper.code : `http_${response.status}`,
-    message: typeof wrapper?.message === "string" ? wrapper.message : `HTTP ${response.status}`,
+    code,
+    message: safeDeviceApiErrorMessage(code, response.status, wrapper?.message),
     correlationId: isRecord(body) && typeof body.correlationId === "string" ? body.correlationId : undefined,
   };
+}
+
+function safeDeviceApiErrorMessage(code: string, status: number, message: unknown): string {
+  const byCode: Record<string, string> = {
+    database_unavailable: "Рабочая база временно недоступна или обновляется. Повторите действие позже.",
+    not_configured: "Вход в рабочую систему не подключён.",
+    base_url_required: "Укажите адрес рабочей системы.",
+    unauthorized: "Войдите в систему заново.",
+    forbidden: "Недостаточно прав для этого действия.",
+  };
+  if (byCode[code]) return byCode[code];
+  const text = typeof message === "string" ? message.trim() : "";
+  if (text && !/[A-Za-z]/.test(text)) return text;
+  if (status === 401) return "Войдите в систему заново.";
+  if (status === 403) return "Недостаточно прав для этого действия.";
+  if (status >= 500) return "Рабочая система временно недоступна. Повторите действие позже.";
+  return `Рабочая система вернула HTTP ${status}.`;
 }
 
 async function requestJson(url: string, token: string): Promise<SelfHostedApiResult<unknown>> {
@@ -712,7 +730,7 @@ async function requestJson(url: string, token: string): Promise<SelfHostedApiRes
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к рабочей системе.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -735,7 +753,7 @@ async function postJson(url: string, token: string, body: unknown): Promise<Self
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к рабочей системе.",
     });
   }
   const parsed = await parseJsonSafe(response);
@@ -1613,7 +1631,7 @@ export async function requestSelfHostedBridgeCommand(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ команды.",
+        message: "Рабочая система вернула некорректный ответ команды.",
       });
 }
 
@@ -1641,7 +1659,7 @@ export async function requestSelfHostedDeviceCommand(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ команды.",
+        message: "Рабочая система вернула некорректный ответ команды.",
       });
 }
 
@@ -1665,7 +1683,7 @@ export async function getSelfHostedDeviceBridgeWorkerStatus(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ статуса Device Bridge worker.",
+        message: "Рабочая система вернула некорректный ответ состояния службы моста устройств.",
       });
 }
 
@@ -1689,7 +1707,7 @@ export async function getSelfHostedDeviceBridgeWorkerHardening(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ hardening Device Bridge worker.",
+        message: "Рабочая система вернула некорректный ответ проверки устойчивости моста устройств.",
       });
 }
 
@@ -1713,7 +1731,7 @@ export async function getSelfHostedDeviceBridgeWorkerRecovery(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ recovery Device Bridge worker.",
+        message: "Рабочая система вернула некорректный ответ восстановления команд моста устройств.",
       });
 }
 
@@ -1746,7 +1764,7 @@ export async function recoverSelfHostedDeviceBridgeWorkerCommand(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ восстановления команды Device Bridge worker.",
+        message: "Рабочая система вернула некорректный ответ восстановления команды моста устройств.",
       });
 }
 
@@ -1770,7 +1788,7 @@ export async function getSelfHostedDeviceBridgeCommandAudit(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ аудита команд Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ аудита команд моста устройств.",
       });
 }
 
@@ -1794,7 +1812,7 @@ export async function exportSelfHostedDeviceBridgeCommandAudit(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ экспорта аудита команд Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ экспорта аудита команд моста устройств.",
       });
 }
 
@@ -1814,7 +1832,7 @@ export async function getSelfHostedDeviceBridgeProductionReadiness(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ production readiness Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ готовности моста устройств.",
       });
 }
 
@@ -1834,7 +1852,7 @@ export async function getSelfHostedDeviceBridgeOperationsContinuity(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ operations continuity Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ непрерывности работы моста устройств.",
       });
 }
 
@@ -1854,7 +1872,7 @@ export async function getSelfHostedDeviceBridgeFleetReliability(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ fleet reliability Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ надёжности парка устройств.",
       });
 }
 
@@ -1874,7 +1892,7 @@ export async function getSelfHostedDeviceBridgeLifecycleAssurance(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ lifecycle assurance Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ жизненного цикла моста устройств.",
       });
 }
 
@@ -1907,6 +1925,6 @@ export async function replaySelfHostedDeviceBridgeCommand(
     : fail({
         kind: "http",
         code: "invalid_response",
-        message: "Backend вернул некорректный ответ replay команды Device Bridge.",
+        message: "Рабочая система вернула некорректный ответ повтора команды моста устройств.",
       });
 }

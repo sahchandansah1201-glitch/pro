@@ -50,10 +50,10 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/production-readiness",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge production readiness",
-    "Stage 8J-8L · Production readiness",
+    "Готовность моста устройств",
+    "Проверки готовности моста устройств",
     "getSelfHostedDeviceBridgeProductionReadiness",
-    "managed runtime",
+    "productionReadiness.readiness.policy.managedRuntimeDependency",
   ],
   "deploy/self-hosted/operations-handbook.stage8m-8o.json": [
     "Stage 8J",

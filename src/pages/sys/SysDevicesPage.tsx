@@ -449,6 +449,14 @@ export default function SysDevicesPage() {
     deps: [filter, query],
   });
   const visible = pagination.visible;
+  const bridgeEmptyMessage = isLive
+    ? "Мосты устройств пока не зарегистрированы в рабочей системе."
+    : "Мосты устройств появятся после подключения системы клиники.";
+  const deviceEmptyMessage = query.trim()
+    ? "Устройства по этому поиску не найдены."
+    : isLive
+      ? "Устройства пока не зарегистрированы в рабочей системе."
+      : "Устройства появятся после подключения системы клиники.";
 
   async function runBridgeHealthCheck(bridge: BridgeRow) {
     const label = bridgeLabel(bridges, bridge.id);
@@ -1397,7 +1405,7 @@ export default function SysDevicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {bridges.map((b, index) => (
+                {bridges.length > 0 ? bridges.map((b, index) => (
                   <tr key={b.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-medium">Мост {index + 1}</td>
                     <td className="px-3 py-2 text-muted-foreground">скрыт</td>
@@ -1426,14 +1434,20 @@ export default function SysDevicesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-5 text-[12px] text-muted-foreground">
+                      {bridgeEmptyMessage}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>
 
           {/* Bridges — Mobile */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
-            {bridges.map((b, index) => (
+            {bridges.length > 0 ? bridges.map((b, index) => (
               <Card key={b.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -1466,7 +1480,11 @@ export default function SysDevicesPage() {
                   </Button>
                 </div>
               </Card>
-            ))}
+            )) : (
+              <Card className="p-3 text-[12px] text-muted-foreground">
+                {bridgeEmptyMessage}
+              </Card>
+            )}
           </div>
         </section>
 
@@ -1537,7 +1555,7 @@ export default function SysDevicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((d) => (
+                {visible.length > 0 ? visible.map((d) => (
                   <tr key={d.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-medium">{d.model}</td>
                     <td className="px-3 py-2 text-muted-foreground">скрыта</td>
@@ -1581,14 +1599,20 @@ export default function SysDevicesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-5 text-[12px] text-muted-foreground">
+                      {deviceEmptyMessage}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>
 
           {/* Mobile */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
-            {visible.map((d) => (
+            {visible.length > 0 ? visible.map((d) => (
               <Card key={d.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -1638,7 +1662,11 @@ export default function SysDevicesPage() {
                   </Button>
                 </div>
               </Card>
-            ))}
+            )) : (
+              <Card className="p-3 text-[12px] text-muted-foreground">
+                {deviceEmptyMessage}
+              </Card>
+            )}
           </div>
 
           <ListPagination

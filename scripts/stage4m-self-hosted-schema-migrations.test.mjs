@@ -27,12 +27,28 @@ test("Stage 4M schema migration parser supports apply and custom compose files",
   assert.throws(() => parseStage4MSchemaMigrationArgs(["bad"]), /Unknown schema migration command/);
 });
 
-test("Stage 4M schema migration plan includes Stage 6 admin migrations and verification", () => {
+const COMPLETE_SCHEMA = {
+  privateDoctorRole: true,
+  clinicAddressColumn: true,
+  clinicStatusColumn: true,
+  clinicDeletedAtColumn: true,
+  userRoleDisabledAtColumn: true,
+  deviceBridgesTable: true,
+  medicalDevicesTable: true,
+  deviceBridgeCommandsTable: true,
+  deviceBridgeWorkerColumns: true,
+  deviceBridgeCommandLifecycleColumns: true,
+};
+
+test("Stage 4M schema migration plan includes Device Bridge and Stage 6 admin migrations", () => {
   const out = renderStage4MSchemaMigrationPlan({ projectName: "prod" });
+  assert.match(out, /0008_stage4q_device_registry\.sql/);
+  assert.match(out, /0013_stage4x_device_bridge_audit_replay\.sql/);
+  assert.match(out, /0089_stage6_device_bridge_existing_volume_repair\.sql/);
   assert.match(out, /0086_stage6_admin_management\.sql/);
   assert.match(out, /0087_stage6_clinic_address\.sql/);
   assert.match(out, /0088_stage6_admin_lifecycle\.sql/);
-  assert.match(out, /private_doctor role, clinics\.address\/status\/deleted_at columns, and user_roles\.disabled_at column/);
+  assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -51,13 +67,7 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
         if (args.includes("--command")) {
           return {
             status: 0,
-            stdout: JSON.stringify({
-              privateDoctorRole: true,
-              clinicAddressColumn: true,
-              clinicStatusColumn: true,
-              clinicDeletedAtColumn: true,
-              userRoleDisabledAtColumn: true,
-            }),
+            stdout: JSON.stringify(COMPLETE_SCHEMA),
             stderr: "",
           };
         }
@@ -68,12 +78,18 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.applied, STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS);
-  assert.equal(calls.length, 4);
-  assert.ok(calls[0].input.includes("private_doctor"));
-  assert.ok(calls[1].input.includes("add column if not exists address"));
-  assert.ok(calls[2].input.includes("add column if not exists status"));
-  assert.ok(calls[2].input.includes("add column if not exists disabled_at"));
-  assert.ok(calls[3].args.includes("--command"));
+  assert.equal(calls.length, STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.length + 1);
+  assert.ok(calls[0].input.includes("create table if not exists device_bridges"));
+  assert.ok(calls[3].input.includes("add column if not exists idempotency_key"));
+  assert.ok(calls[5].input.includes("add column if not exists replay_policy"));
+  assert.ok(calls[6].input.includes("0089"));
+  assert.ok(calls[6].input.includes("add column if not exists completed_at"));
+  assert.ok(calls[6].input.includes("add column if not exists replay_requested_by"));
+  assert.ok(calls[7].input.includes("private_doctor"));
+  assert.ok(calls[8].input.includes("add column if not exists address"));
+  assert.ok(calls[9].input.includes("add column if not exists status"));
+  assert.ok(calls[9].input.includes("add column if not exists disabled_at"));
+  assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
 
@@ -87,11 +103,8 @@ test("Stage 4M schema migration runner fails when verification reports missing a
             return {
               status: 0,
               stdout: JSON.stringify({
-                privateDoctorRole: true,
+                ...COMPLETE_SCHEMA,
                 clinicAddressColumn: false,
-                clinicStatusColumn: true,
-                clinicDeletedAtColumn: true,
-                userRoleDisabledAtColumn: true,
               }),
               stderr: "",
             };
@@ -99,5 +112,27 @@ test("Stage 4M schema migration runner fails when verification reports missing a
         },
       ),
     /clinics\.address column/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when Device Bridge lifecycle columns are missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                deviceBridgeCommandLifecycleColumns: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /device_bridge_commands lifecycle columns/,
   );
 });

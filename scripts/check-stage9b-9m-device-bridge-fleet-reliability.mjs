@@ -54,10 +54,10 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/fleet-reliability",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge fleet reliability",
-    "Stage 9B-9M · Fleet reliability",
+    "Надёжность парка мостов устройств",
+    "Шаги надёжности парка",
     "getSelfHostedDeviceBridgeFleetReliability",
-    "next batch hypothesis",
+    "следующий шаг скрыт из интерфейса",
   ],
   "deploy/self-hosted/device-bridge-fleet-reliability.stage9b-9m.json": [
     "stage9b-9m-device-bridge-fleet-reliability",

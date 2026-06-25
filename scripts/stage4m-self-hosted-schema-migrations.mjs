@@ -16,6 +16,13 @@ const DEFAULT_COMPOSE_FILES = [
 ];
 
 export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
+  "backend/self-hosted/db/migrations/0008_stage4q_device_registry.sql",
+  "backend/self-hosted/db/migrations/0009_stage4r_device_bridge_commands.sql",
+  "backend/self-hosted/db/migrations/0010_stage4s_device_bridge_worker_contract.sql",
+  "backend/self-hosted/db/migrations/0011_stage4v_device_bridge_production_hardening.sql",
+  "backend/self-hosted/db/migrations/0012_stage4w_device_bridge_command_safety.sql",
+  "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql",
+  "backend/self-hosted/db/migrations/0089_stage6_device_bridge_existing_volume_repair.sql",
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
   "backend/self-hosted/db/migrations/0088_stage6_admin_lifecycle.sql",
@@ -57,6 +64,60 @@ select json_build_object(
     where table_schema = 'public'
       and table_name = 'user_roles'
       and column_name = 'disabled_at'
+  ),
+  'deviceBridgesTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'device_bridges'
+  ),
+  'medicalDevicesTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'medical_devices'
+  ),
+  'deviceBridgeCommandsTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'device_bridge_commands'
+  ),
+  'deviceBridgeWorkerColumns', (
+    select count(*) = 4
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'device_bridges'
+      and column_name in ('worker_status', 'worker_last_seen_at', 'worker_version', 'worker_metadata_json')
+  ),
+  'deviceBridgeCommandLifecycleColumns', (
+    select count(*) = 21
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'device_bridge_commands'
+      and column_name in (
+        'dispatched_at',
+        'acknowledged_at',
+        'completed_at',
+        'idempotency_key',
+        'attempt_count',
+        'lifecycle_revision',
+        'last_polled_at',
+        'next_attempt_at',
+        'expires_at',
+        'cleanup_after',
+        'last_worker_error',
+        'lease_owner',
+        'lease_expires_at',
+        'recovery_action',
+        'recovery_reason',
+        'recovery_requested_at',
+        'recovered_by',
+        'replay_of_command_id',
+        'replay_requested_at',
+        'replay_requested_by',
+        'replay_policy'
+      )
   )
 )::text;
 `.trim();
@@ -150,7 +211,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: private_doctor role, clinics.address/status/deleted_at columns, and user_roles.disabled_at column",
+    "- Verification: Device Bridge tables/worker/command columns, private_doctor role, clinics.address/status/deleted_at columns, and user_roles.disabled_at column",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -200,8 +261,15 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.clinicStatusColumn !== true) missing.push("clinics.status column");
   if (verification.clinicDeletedAtColumn !== true) missing.push("clinics.deleted_at column");
   if (verification.userRoleDisabledAtColumn !== true) missing.push("user_roles.disabled_at column");
+  if (verification.deviceBridgesTable !== true) missing.push("device_bridges table");
+  if (verification.medicalDevicesTable !== true) missing.push("medical_devices table");
+  if (verification.deviceBridgeCommandsTable !== true) missing.push("device_bridge_commands table");
+  if (verification.deviceBridgeWorkerColumns !== true) missing.push("device_bridges worker columns");
+  if (verification.deviceBridgeCommandLifecycleColumns !== true) {
+    missing.push("device_bridge_commands lifecycle columns");
+  }
   if (missing.length) {
-    throw new Error(`Stage 6 admin schema is incomplete: ${missing.join(", ")}.`);
+    throw new Error(`Self-hosted production schema is incomplete: ${missing.join(", ")}.`);
   }
   return verification;
 }

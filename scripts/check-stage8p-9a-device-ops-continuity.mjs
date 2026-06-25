@@ -53,10 +53,10 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/operations-continuity",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge operations continuity",
-    "Stage 8P-9A · Operations continuity",
+    "Непрерывность операций моста устройств",
+    "Шаги непрерывности операций",
     "getSelfHostedDeviceBridgeOperationsContinuity",
-    "next batch hypothesis",
+    "следующий шаг скрыт из интерфейса",
   ],
   "deploy/self-hosted/device-ops-continuity.stage8p-9a.json": [
     "stage8p-9a-device-ops-continuity",

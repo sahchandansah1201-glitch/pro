@@ -54,10 +54,10 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/lifecycle-assurance",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge lifecycle assurance",
-    "Stage 9N-9Z · Lifecycle assurance",
+    "Контроль жизненного цикла моста устройств",
+    "Шаги жизненного цикла",
     "getSelfHostedDeviceBridgeLifecycleAssurance",
-    "next batch hypothesis",
+    "следующий шаг скрыт из интерфейса",
   ],
   "deploy/self-hosted/device-bridge-lifecycle-assurance.stage9n-9z.json": [
     "stage9n-9z-device-bridge-lifecycle-assurance",

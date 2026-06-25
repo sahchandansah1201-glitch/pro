@@ -781,8 +781,282 @@ describe("SysDevicesPage", () => {
 
     const { container } = renderPage();
 
-    expect(await screen.findByText("Database unavailable")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Рабочая база временно недоступна или обновляется. Повторите действие позже."),
+    ).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain("Database unavailable");
+    expect(container.innerHTML).not.toContain("self-hosted backend");
     expect(container.innerHTML).not.toContain("storage_object_path");
     expect(container.innerHTML).not.toContain("bucket/private");
+  });
+
+  it("renders human empty states when live device registry has no bridges or devices", async () => {
+    writeLiveSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/device-bridge-worker/status")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4U",
+            source: "postgres",
+            summary: {
+              bridgeCount: 0,
+              onlineWorkers: 0,
+              degradedWorkers: 0,
+              offlineWorkers: 0,
+              queuedCommands: 0,
+              failedCommands: 0,
+            },
+            items: [],
+            commands: [],
+            filters: { workerStatus: "all", commandStatus: "all", limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/hardening")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4V",
+            source: "postgres",
+            summary: {
+              staleWorkers: 0,
+              retryingCommands: 0,
+              rateLimitedCommands: 0,
+              maxQueueAgeSeconds: 0,
+              cleanupCandidates: 0,
+            },
+            policy: { staleAfterMinutes: 10, retentionDays: 30, pollBackoff: "none", maxPollLimit: 50 },
+            items: [],
+            filters: { staleAfterMinutes: 10, retentionDays: 30, limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/recovery")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4W",
+            source: "postgres",
+            summary: {
+              stuckCommands: 0,
+              expiredCommands: 0,
+              leaseExpiredCommands: 0,
+              retryableCommands: 0,
+              cancellableCommands: 0,
+            },
+            policy: { staleAfterMinutes: 10, leaseTtlSeconds: 90, maxRecoveryBatch: 100, allowedActions: ["reschedule", "cancel"] },
+            items: [],
+            filters: { staleAfterMinutes: 10, leaseTtlSeconds: 90, limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/audit")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4X",
+            source: "postgres",
+            summary: { totalEvents: 0, replayEvents: 0, recoveryEvents: 0, affectedCommands: 0 },
+            policy: {
+              replayPolicy: "manual_system_admin",
+              allowedReplayStatuses: ["completed", "failed", "cancelled"],
+              allowedReplayCommandTypes: ["bridge_health_check", "device_calibration_request"],
+              payloadVisibility: "backend-only",
+            },
+            items: [],
+            filters: { action: "all", status: "all", limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/production-readiness")) {
+        return new Response(
+          JSON.stringify({
+            stage: "8J-8L",
+            source: "postgres",
+            readiness: {
+              status: "attention",
+              completionPercent: 0,
+              summary: {
+                bridgeCount: 0,
+                onlineWorkers: 0,
+                degradedWorkers: 0,
+                offlineWorkers: 0,
+                staleWorkers: 0,
+                queuedCommands: 0,
+                failedCommands: 0,
+                stuckCommands: 0,
+                retryableCommands: 0,
+                cancellableCommands: 0,
+                auditEvents: 0,
+                maxQueueAgeSeconds: 0,
+              },
+              gates: [],
+              policy: {
+                payloadVisibility: "backend-only",
+                browserHardwareApis: false,
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/operations-continuity")) {
+        return new Response(
+          JSON.stringify({
+            stage: "8P-9A",
+            source: "postgres",
+            continuity: {
+              status: "attention",
+              completionPercent: 0,
+              summary: {
+                bridgeCount: 0,
+                staleWorkers: 0,
+                failedCommands: 0,
+                stuckCommands: 0,
+                retryableCommands: 0,
+                cancellableCommands: 0,
+                auditEvents: 0,
+                attentionGateCount: 0,
+                queuePressure: 0,
+              },
+              incidentDrill: { cadence: "monthly", lastDrillRecordedInGit: false, requiredSteps: [] },
+              retentionPolicy: { workerTelemetryRetentionDays: 30, commandAuditRetentionDays: 90, exportContainsRawPayloads: false, cleanupMode: "operator-reviewed" },
+              handoff: { nextBatchHypothesis: "Stage 9B-9D", includedStages: [], continuityOwner: "system_admin", liveOutcomeKnownToRepository: false },
+              stages: [],
+              gates: [],
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/fleet-reliability")) {
+        return new Response(
+          JSON.stringify({
+            stage: "9B-9M",
+            source: "postgres",
+            reliability: {
+              status: "attention",
+              completionPercent: 0,
+              summary: {
+                bridgeCount: 0,
+                staleWorkers: 0,
+                failedCommands: 0,
+                stuckCommands: 0,
+                retryableCommands: 0,
+                cancellableCommands: 0,
+                auditEvents: 0,
+                inheritedAttentionGates: 0,
+                queuePressure: 0,
+                fleetAttention: 0,
+              },
+              sloPolicy: {
+                workerHeartbeatReviewMinutes: 30,
+                commandQueueReviewMinutes: 15,
+                retryReviewMinutes: 20,
+                incidentDrillCadence: "monthly",
+                reliabilityReviewCadence: "weekly",
+                liveOutcomeKnownToRepository: false,
+              },
+              handoff: { previousBatch: "Stage 8P-9A", currentBatch: "Stage 9B-9M", originalHypothesis: "Stage 9B-9D", nextBatchHypothesis: "Stage 9N-9Z", includedStages: [], reliabilityOwner: "system_admin" },
+              stages: [],
+              gates: [],
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+                externalRuntimeCalls: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/lifecycle-assurance")) {
+        return new Response(
+          JSON.stringify({
+            stage: "9N-9Z",
+            source: "postgres",
+            assurance: {
+              status: "attention",
+              completionPercent: 0,
+              summary: {
+                bridgeCount: 0,
+                staleWorkers: 0,
+                failedCommands: 0,
+                stuckCommands: 0,
+                retryableCommands: 0,
+                cancellableCommands: 0,
+                queuePressure: 0,
+                fleetAttention: 0,
+                inheritedAttentionGates: 0,
+                auditEvents: 0,
+                assuranceDebt: 0,
+                upgradePressure: 0,
+                maintenanceDue: false,
+                retentionReviewDue: false,
+              },
+              lifecyclePolicy: {
+                maintenanceReviewCadence: "weekly",
+                workerUpgradeReviewCadence: "monthly",
+                auditRetentionReviewDays: 90,
+                closureEvidenceStorage: "external",
+                liveOutcomeKnownToRepository: false,
+                workerHeartbeatReviewMinutes: 30,
+                commandQueueReviewMinutes: 15,
+              },
+              handoff: { previousBatch: "Stage 9B-9M", currentBatch: "Stage 9N-9Z", originalHypothesis: "Stage 9N-9Z", nextBatchHypothesis: "Stage 10A-10L", includedStages: [], assuranceOwner: "system_admin", promptOnlyAfterMergeToMain: true },
+              stages: [],
+              gates: [],
+              inheritedReliability: { status: "attention", completionPercent: 0, gateCount: 0, attentionGateCount: 0 },
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+                externalRuntimeCalls: false,
+                liveSecretsInReports: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridges") || url.includes("/api/v1/devices")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/Рабочая система подключена/)).toBeInTheDocument();
+    expect(screen.getAllByText("Мосты устройств пока не зарегистрированы в рабочей системе.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Устройства пока не зарегистрированы в рабочей системе.").length).toBeGreaterThan(0);
   });
 });
