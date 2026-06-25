@@ -200,4 +200,33 @@ describe("self-hosted-admin-api · clinics", () => {
     );
     expect(adminApiErrorText(result.error)).not.toMatch(/Database is unavailable|self-hosted backend/i);
   });
+
+  it("maps expired authorization responses to a Russian re-login message", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "invalid_token",
+            message: "Invalid or expired authorization token.",
+          },
+        }),
+        { status: 401, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createAdminClinic({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "expired-token",
+      payload: {
+        name: "Яблоко ООО",
+        address: "Краснодар",
+        timezone: "Europe/Moscow",
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(adminApiErrorText(result.error)).toBe("Сессия истекла. Выйдите и войдите в систему заново.");
+    expect(adminApiErrorText(result.error)).not.toMatch(/Invalid or expired authorization token/i);
+  });
 });

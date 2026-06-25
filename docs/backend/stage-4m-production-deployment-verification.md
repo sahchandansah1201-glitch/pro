@@ -128,11 +128,21 @@ Update sequence:
 1. verify `.env.production`;
 2. create a pre-update backup;
 3. fetch and fast-forward `main`;
-4. run `npm ci`;
-5. build frontend with the production auth gate into a staging directory;
-6. rebuild/restart Docker Compose;
-7. verify `/healthz`, `/readyz`, and frontend HTML;
-8. capture safe compose status.
+4. apply production schema migrations;
+5. run the admin clinic database smoke in a rollback transaction;
+6. run `npm ci`;
+7. build frontend with the production auth gate into a staging directory;
+8. rebuild/restart Docker Compose;
+9. verify `/healthz`, `/readyz`, and frontend HTML;
+10. capture safe compose status.
+
+The admin clinic database smoke is deliberately not a mocked UI test. It runs
+against the self-hosted PostgreSQL container and exercises the same SQL surface
+used by `/api/v1/admin/clinics`: list clinics, create a clinic row, verify that
+the row is visible to the list query, edit address/timezone, and run admin
+analytics. The transaction is rolled back, so the deploy check leaves no test
+clinic behind. If this smoke fails, deployment must remain failed even when
+`/healthz` and `/readyz` are green.
 
 The frontend build is deliberately safe for an already running server:
 
@@ -163,6 +173,27 @@ Dry-run:
 ```bash
 npm run deploy:stage4m:update:dry-run
 ```
+
+## Real admin API smoke
+
+After a deployment, the operator can verify the exact production API path that
+the browser uses for clinic creation. This command logs in with the generated
+system administrator credentials, creates one test clinic, verifies that it
+appears in `/api/v1/admin/clinics`, edits it, and verifies the edited row:
+
+```bash
+cd /opt/dermatolog-pro/app
+node scripts/stage4m-admin-management-api-smoke.mjs \
+  --api-base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+```
+
+This command intentionally mutates production data by creating a clearly named
+test clinic. It prints no password, bearer token, patient row, storage path,
+signed URL, QR/session value, or credential. Use it when the question is not
+"is the server healthy?", but "can a real system administrator create and edit
+a clinic through the same HTTPS API as the UI?".
 
 ## Post-deploy smoke
 

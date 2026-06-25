@@ -331,6 +331,17 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
 export function adminApiErrorText(error: SelfHostedApiError | null): string {
   if (!error) return "";
   if (error.details?.length) return error.details.map((item) => item.message).join(" ");
+  if (
+    error.status === 401 ||
+    error.code === "invalid_token" ||
+    error.code === "token_expired" ||
+    /expired authorization token/i.test(error.message)
+  ) {
+    return "Сессия истекла. Выйдите и войдите в систему заново.";
+  }
+  if (error.status === 403) {
+    return "У этой учётной записи нет доступа к действию. Проверьте роль или войдите под другой учётной записью.";
+  }
   if (error.code === "database_unavailable") {
     return "Рабочая база временно недоступна или схема ещё обновляется. Повторите действие после завершения обновления сервера.";
   }
