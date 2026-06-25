@@ -7,6 +7,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ADMIN_ROLES = ["system_admin", "clinic_admin"];
 const SYSTEM_CREATABLE_ROLES = ["system_admin", "clinic_admin", "doctor", "private_doctor", "assistant", "operator"];
 const CLINIC_CREATABLE_ROLES = ["doctor", "private_doctor", "assistant", "operator"];
+const CLINIC_LIFECYCLE_STATUSES = ["active", "suspended", "archived"];
+const ROLE_LIFECYCLE_STATUSES = ["active", "disabled"];
 
 export class AdminManagementValidationError extends Error {
   constructor(details = [], message = "Admin management payload failed validation.") {
@@ -14,6 +16,16 @@ export class AdminManagementValidationError extends Error {
     this.name = "AdminManagementValidationError";
     this.publicCode = "validation_error";
     this.publicStatus = 422;
+    this.publicDetails = details;
+  }
+}
+
+export class AdminManagementConflictError extends Error {
+  constructor(message = "Admin management operation cannot be completed.", details = []) {
+    super(message);
+    this.name = "AdminManagementConflictError";
+    this.publicCode = "conflict";
+    this.publicStatus = 409;
     this.publicDetails = details;
   }
 }
@@ -94,6 +106,33 @@ function normalizeRolePayload(input = {}, scope) {
   }
   if (details.length > 0) throw new AdminManagementValidationError(details);
   return payload;
+}
+
+function normalizeClinicStatusPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const payload = {
+    status: cleanString(input.status, 40),
+    reason: cleanString(input.reason, 240),
+  };
+  if (!CLINIC_LIFECYCLE_STATUSES.includes(payload.status)) {
+    throw new AdminManagementValidationError([{ field: "status", message: "Выберите рабочий статус клиники." }]);
+  }
+  return payload;
+}
+
+function normalizeRoleStatusPayload(input = {}, scope) {
+  const payload = normalizeRolePayload(input, scope);
+  const status = cleanString(input.status, 40);
+  if (!ROLE_LIFECYCLE_STATUSES.includes(status)) {
+    throw new AdminManagementValidationError([{ field: "status", message: "Выберите статус роли." }]);
+  }
+  return {
+    ...payload,
+    status,
+    reason: cleanString(input.reason, 240),
+  };
 }
 
 function slugFromName(name) {
@@ -266,6 +305,43 @@ export function createAdminManagementService({ adminManagementRepository, auditR
       return { item: user, scope };
     },
 
+    async reactivateUser(userId, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeUserId = assertUuid(userId, "userId");
+      const user = await adminManagementRepository.reactivateUser({ userId: safeUserId });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.user.reactivate",
+        entityType: "admin_user",
+        entityId: safeUserId,
+        correlationId: meta.correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return { item: user, scope };
+    },
+
+    async setUserRoleStatus(userId, input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeUserId = assertUuid(userId, "userId");
+      const payload = normalizeRoleStatusPayload(input, scope);
+      const role = await adminManagementRepository.setUserRoleStatus({
+        userId: safeUserId,
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "admin.user.role.status.update",
+        entityType: "admin_user",
+        entityId: safeUserId,
+        correlationId: meta.correlationId,
+        metadata: { role: payload.role, status: payload.status },
+      });
+      return { item: role, scope };
+    },
+
     async listClinics(params, authContext, meta = {}) {
       const scope = adminScope(authContext);
       const items = await adminManagementRepository.listClinics({ ...params, ...scope });
@@ -337,6 +413,48 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         metadata: { fields: Object.keys(payload).filter((key) => payload[key] != null) },
       });
       return { item: clinic, scope };
+    },
+
+    async setClinicStatus(clinicId, input, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const safeClinicId = assertUuid(clinicId, "clinicId");
+      const payload = normalizeClinicStatusPayload(input);
+      const clinic = await adminManagementRepository.setClinicStatus({
+        clinicId: safeClinicId,
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: safeClinicId,
+        actorUserId: authContext.userId,
+        action: "admin.clinic.status.update",
+        entityType: "clinic",
+        entityId: safeClinicId,
+        correlationId: meta.correlationId,
+        metadata: { status: payload.status },
+      });
+      return { item: clinic, scope: { allClinics: true, clinicIds: [] } };
+    },
+
+    async deleteEmptyClinic(clinicId, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const safeClinicId = assertUuid(clinicId, "clinicId");
+      const result = await adminManagementRepository.deleteEmptyClinic({ clinicId: safeClinicId });
+      if (result && result.deleted === false && Number(result.blockerCount ?? 0) > 0) {
+        throw new AdminManagementConflictError("Клинику нельзя удалить: есть связанные сотрудники, пациенты, визиты, снимки или отчёты.", [
+          { field: "clinicId", message: "Клинику нельзя удалить: есть связанные сотрудники, пациенты, визиты, снимки или отчёты." },
+        ]);
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: safeClinicId,
+        actorUserId: authContext.userId,
+        action: "admin.clinic.delete.empty",
+        entityType: "clinic",
+        entityId: safeClinicId,
+        correlationId: meta.correlationId,
+        metadata: { deleted: Boolean(result?.deleted) },
+      });
+      return { item: result, scope: { allClinics: true, clinicIds: [] } };
     },
 
     async listDoctors(params, authContext, meta = {}) {

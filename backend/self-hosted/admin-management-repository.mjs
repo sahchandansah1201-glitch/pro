@@ -101,11 +101,14 @@ from (
       'role', ur.role::text,
       'clinicId', ur.clinic_id::text,
       'clinicName', c.name,
-      'clinicSlug', c.slug
+      'clinicSlug', c.slug,
+      'active', ur.disabled_at is null,
+      'disabledAt', ur.disabled_at,
+      'clinicStatus', coalesce(c.status, 'active')
     )) filter (where ur.id is not null), '[]'::jsonb) as "roles"
   from app_users u
   left join user_roles ur on ur.user_id = u.id
-  left join clinics c on c.id = ur.clinic_id
+  left join clinics c on c.id = ur.clinic_id and c.deleted_at is null
   where true
     ${clinicWhere}
     ${doctorWhere}
@@ -139,7 +142,10 @@ with user_row as (
 role_row as (
   insert into user_roles (user_id, clinic_id, role)
   select id, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role from user_row
-  on conflict (user_id, clinic_id, role) do nothing
+  on conflict (user_id, clinic_id, role) do update
+    set disabled_at = null,
+        disabled_reason = null,
+        disabled_by_user_id = null
   returning id
 )
 select row_to_json(result)::text
@@ -160,7 +166,10 @@ export function buildAssignAdminUserRoleSql({ userId, role, clinicId = null } = 
 with inserted as (
   insert into user_roles (user_id, clinic_id, role)
   values (${sqlUuid(userId)}, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role)
-  on conflict (user_id, clinic_id, role) do nothing
+  on conflict (user_id, clinic_id, role) do update
+    set disabled_at = null,
+        disabled_reason = null,
+        disabled_by_user_id = null
   returning *
 )
 select row_to_json(result)::text
@@ -192,6 +201,54 @@ from (
 `.trim();
 }
 
+export function buildReactivateAdminUserSql({ userId } = {}) {
+  return `
+with updated as (
+  update app_users
+  set disabled_at = null, updated_at = now()
+  where id = ${sqlUuid(userId)}
+  returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at is null as "active", disabled_at as "disabledAt"
+)
+select row_to_json(result)::text
+from (
+  select * from updated
+) result;
+`.trim();
+}
+
+export function buildSetAdminUserRoleStatusSql({
+  userId,
+  role,
+  clinicId = null,
+  status,
+  reason = null,
+  actorUserId = null,
+} = {}) {
+  const disabledAt = status === "disabled" ? "coalesce(disabled_at, now())" : "null";
+  const disabledReason = status === "disabled" ? sqlNullableText(reason) : "null";
+  const disabledBy = status === "disabled" ? sqlNullableUuid(actorUserId) : "null";
+  return `
+with updated as (
+  update user_roles
+  set disabled_at = ${disabledAt},
+      disabled_reason = ${disabledReason},
+      disabled_by_user_id = ${disabledBy}
+  where user_id = ${sqlUuid(userId)}
+    and role = ${sqlLiteral(role)}::app_role
+    and clinic_id is not distinct from ${sqlNullableUuid(clinicId)}
+  returning user_id::text as "userId",
+            clinic_id::text as "clinicId",
+            role::text as "role",
+            case when disabled_at is null then 'active' else 'disabled' end as "status",
+            disabled_at as "disabledAt"
+)
+select row_to_json(result)::text
+from (
+  select * from updated
+) result;
+`.trim();
+}
+
 export function buildListClinicsSql({
   limit = DEFAULT_LIMIT,
   offset = 0,
@@ -213,12 +270,16 @@ from (
     c.name as "name",
     coalesce(c.address, '') as "address",
     c.timezone as "timezone",
+    coalesce(c.status, 'active') as "status",
+    c.status_reason as "statusReason",
+    c.status_changed_at as "statusChangedAt",
     c.created_at as "createdAt",
     (select count(*)::int from user_roles ur where ur.clinic_id = c.id) as "usersCount",
     (select count(*)::int from patients p where p.clinic_id = c.id and p.deleted_at is null) as "patientsCount",
     (select count(*)::int from visits v where v.clinic_id = c.id) as "visitsCount"
   from clinics c
   where true
+    and c.deleted_at is null
     ${clinicScopeWhere({ alias: "c", clinicIds, allClinics })}
     ${searchWhere}
   order by c.created_at desc, c.id desc
@@ -233,7 +294,7 @@ export function buildCreateClinicSql({ name, address = "", slug, timezone = "Eur
 with inserted as (
   insert into clinics (name, address, slug, timezone)
   values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
-  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, created_at as "createdAt"
+  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, status, status_reason as "statusReason", created_at as "createdAt"
 )
 select row_to_json(result)::text
 from (
@@ -274,7 +335,7 @@ role_rows as (
   cross join clinic_row
   cross join (values ('clinic_admin'), ('private_doctor')) as role_values(role)
   on conflict (user_id, clinic_id, role) do nothing
-  returning role
+  returning role, disabled_at
 )
 select row_to_json(result)::text
 from (
@@ -285,6 +346,8 @@ from (
       'name', clinic_row.name,
       'address', coalesce(clinic_row.address, ''),
       'timezone', clinic_row.timezone,
+      'status', clinic_row.status,
+      'statusReason', clinic_row.status_reason,
       'createdAt', clinic_row.created_at,
       'usersCount', 2,
       'patientsCount', 0,
@@ -302,13 +365,85 @@ from (
           'role', role_rows.role::text,
           'clinicId', clinic_row.id::text,
           'clinicName', clinic_row.name,
-          'clinicSlug', clinic_row.slug
+          'clinicSlug', clinic_row.slug,
+          'active', role_rows.disabled_at is null,
+          'disabledAt', role_rows.disabled_at,
+          'clinicStatus', clinic_row.status
         ) order by role_rows.role::text), '[]'::jsonb)
         from role_rows
       )
     ) as "owner"
   from clinic_row
   cross join user_row
+) result;
+`.trim();
+}
+
+export function buildSetClinicStatusSql({ clinicId, status, reason = null, actorUserId = null } = {}) {
+  return `
+with updated as (
+  update clinics
+  set status = ${sqlLiteral(status)},
+      status_reason = ${sqlNullableText(reason)},
+      status_changed_at = now(),
+      status_changed_by_user_id = ${sqlNullableUuid(actorUserId)},
+      updated_at = now()
+  where id = ${sqlUuid(clinicId)}
+    and deleted_at is null
+  returning id::text as "id",
+            slug,
+            name,
+            coalesce(address, '') as "address",
+            timezone,
+            status,
+            status_reason as "statusReason",
+            status_changed_at as "statusChangedAt",
+            updated_at as "updatedAt"
+)
+select row_to_json(result)::text
+from (
+  select * from updated
+) result;
+`.trim();
+}
+
+export function buildDeleteEmptyClinicSql({ clinicId } = {}) {
+  return `
+with blockers as (
+  select
+    (select count(*)::int from user_roles where clinic_id = ${sqlUuid(clinicId)}) as user_roles,
+    (select count(*)::int from patients where clinic_id = ${sqlUuid(clinicId)} and deleted_at is null) as patients,
+    (select count(*)::int from visits where clinic_id = ${sqlUuid(clinicId)}) as visits,
+    (select count(*)::int from lesions where clinic_id = ${sqlUuid(clinicId)}) as lesions,
+    (select count(*)::int from clinical_assets where clinic_id = ${sqlUuid(clinicId)}) as clinical_assets,
+    (select count(*)::int from reports where clinic_id = ${sqlUuid(clinicId)}) as reports
+),
+deleted as (
+  delete from clinics
+  where id = ${sqlUuid(clinicId)}
+    and deleted_at is null
+    and (
+      select user_roles + patients + visits + lesions + clinical_assets + reports
+      from blockers
+    ) = 0
+  returning id::text as "id", name
+)
+select row_to_json(result)::text
+from (
+  select
+    exists(select 1 from deleted) as "deleted",
+    (select id from deleted) as "id",
+    (select name from deleted) as "name",
+    jsonb_build_object(
+      'roles', blockers.user_roles,
+      'patients', blockers.patients,
+      'visits', blockers.visits,
+      'lesions', blockers.lesions,
+      'photos', blockers.clinical_assets,
+      'reports', blockers.reports
+    ) as "blockers",
+    (blockers.user_roles + blockers.patients + blockers.visits + blockers.lesions + blockers.clinical_assets + blockers.reports) as "blockerCount"
+  from blockers
 ) result;
 `.trim();
 }
@@ -325,7 +460,8 @@ with updated as (
   update clinics
   set ${clauses.join(", ")}
   where id = ${sqlUuid(clinicId)}
-  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, updated_at as "updatedAt"
+    and deleted_at is null
+  returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, status, status_reason as "statusReason", updated_at as "updatedAt"
 )
 select row_to_json(result)::text
 from (
@@ -342,7 +478,7 @@ export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false } = 
   const auditClinicWhere = allClinics ? "" : `and (al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"}) or al.clinic_id is null)`;
   return `
 select jsonb_build_object(
-  'clinics', (select count(*)::int from clinics c ${clinicWhere}),
+  'clinics', (select count(*)::int from clinics c ${clinicWhere}${clinicWhere ? " and" : " where"} c.deleted_at is null),
   'activeUsers', (
     select count(distinct u.id)::int
     from app_users u
@@ -404,6 +540,12 @@ export function createAdminManagementRepository(dbClient) {
     async disableUser(params) {
       return dbClient.queryJson(buildDisableAdminUserSql(params));
     },
+    async reactivateUser(params) {
+      return dbClient.queryJson(buildReactivateAdminUserSql(params));
+    },
+    async setUserRoleStatus(params) {
+      return dbClient.queryJson(buildSetAdminUserRoleStatusSql(params));
+    },
     async listClinics(params) {
       return dbClient.queryJson(buildListClinicsSql(params));
     },
@@ -415,6 +557,12 @@ export function createAdminManagementRepository(dbClient) {
     },
     async updateClinic(params) {
       return dbClient.queryJson(buildUpdateClinicSql(params));
+    },
+    async setClinicStatus(params) {
+      return dbClient.queryJson(buildSetClinicStatusSql(params));
+    },
+    async deleteEmptyClinic(params) {
+      return dbClient.queryJson(buildDeleteEmptyClinicSql(params));
     },
     async getAnalytics(params) {
       return dbClient.queryJson(buildAdminAnalyticsSql(params));

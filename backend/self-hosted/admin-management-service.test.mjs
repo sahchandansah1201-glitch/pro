@@ -33,6 +33,14 @@ function createService({ calls = [] } = {}) {
       calls.push(["disableUser", params]);
       return { id: params.userId, disabledAt: "2026-06-22T00:00:00.000Z" };
     },
+    async reactivateUser(params) {
+      calls.push(["reactivateUser", params]);
+      return { id: params.userId, disabledAt: null, active: true };
+    },
+    async setUserRoleStatus(params) {
+      calls.push(["setUserRoleStatus", params]);
+      return { id: params.userId, role: params.role, clinicId: params.clinicId, status: params.status };
+    },
     async listClinics(params) {
       calls.push(["listClinics", params]);
       return [];
@@ -75,6 +83,14 @@ function createService({ calls = [] } = {}) {
     async updateClinic(params) {
       calls.push(["updateClinic", params]);
       return { id: params.clinicId, name: params.name };
+    },
+    async setClinicStatus(params) {
+      calls.push(["setClinicStatus", params]);
+      return { id: params.clinicId, status: params.status, statusReason: params.reason };
+    },
+    async deleteEmptyClinic(params) {
+      calls.push(["deleteEmptyClinic", params]);
+      return { id: params.clinicId, deleted: true, blockerCount: 0, blockers: {} };
     },
     async getAnalytics(params) {
       calls.push(["getAnalytics", params]);
@@ -261,6 +277,87 @@ test("system admin updates clinic address and timezone", async () => {
       timezone: "Europe/Moscow",
     },
   ]);
+});
+
+test("system admin suspends, reactivates, and archives clinics with audit", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.setClinicStatus(
+    "10000000-0000-4000-8000-000000000001",
+    {
+      status: "suspended",
+      reason: "Не оплачено",
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.status, "suspended");
+  assert.deepEqual(calls[0], [
+    "setClinicStatus",
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      status: "suspended",
+      reason: "Не оплачено",
+      actorUserId: SYSTEM_AUTH.userId,
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.clinic.status.update");
+  assert.equal(auditEvents[0].metadata.status, "suspended");
+
+  await assert.rejects(
+    () =>
+      service.setClinicStatus(
+        "10000000-0000-4000-8000-000000000001",
+        { status: "deleted" },
+        SYSTEM_AUTH,
+        { correlationId: "test" },
+      ),
+    /validation/i,
+  );
+});
+
+test("system admin deletes only empty clinics", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.deleteEmptyClinic(
+    "10000000-0000-4000-8000-000000000001",
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.deleted, true);
+  assert.deepEqual(calls[0], [
+    "deleteEmptyClinic",
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.clinic.delete.empty");
+});
+
+test("system admin reactivates account and can disable one role without deleting the employee", async () => {
+  const { service, calls, auditEvents } = createService();
+  const reactivated = await service.reactivateUser(
+    "10000000-0000-4000-8000-000000000201",
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+  const roleStatus = await service.setUserRoleStatus(
+    "10000000-0000-4000-8000-000000000201",
+    {
+      role: "private_doctor",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      status: "disabled",
+      reason: "Пауза кабинета",
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(reactivated.item.active, true);
+  assert.equal(roleStatus.item.status, "disabled");
+  assert.deepEqual(calls.map((call) => call[0]), ["reactivateUser", "setUserRoleStatus"]);
+  assert.equal(auditEvents[0].action, "admin.user.reactivate");
+  assert.equal(auditEvents[1].action, "admin.user.role.status.update");
 });
 
 test("analytics returns aggregate counters and audit events only", async () => {

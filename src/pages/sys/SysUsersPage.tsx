@@ -20,7 +20,10 @@ import {
   isAdminSessionExpiredError,
   listAdminClinics,
   listAdminUsers,
+  reactivateAdminUser,
+  setAdminUserRoleStatus,
   type AdminClinicDTO,
+  type AdminRoleBindingDTO,
   type AdminUserDTO,
 } from "@/lib/self-hosted-admin-api";
 
@@ -108,9 +111,8 @@ function uniqueValues(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim()))));
 }
 
-function userRoleLabels(user: AdminUserDTO): string[] {
-  const labels = uniqueValues(user.roles.map((role) => roleLabel(role.role)));
-  return labels.length > 0 ? labels : ["Роль не назначена"];
+function roleStatusLabel(role: AdminRoleBindingDTO): string {
+  return role.active === false ? "роль отключена" : "роль включена";
 }
 
 function userClinicLabels(user: AdminUserDTO): string[] {
@@ -274,6 +276,50 @@ function SysUsersPageLive() {
       return;
     }
     setNote(`Доступ отключён: ${user.displayName}`);
+    await load();
+  }
+
+  async function reactivateUser(user: AdminUserDTO) {
+    if (sessionExpired) return;
+    setBusy(true);
+    const result = await reactivateAdminUser({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: user.id,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      handleAdminError(result.error);
+      return;
+    }
+    setNote(`Доступ возвращён: ${user.displayName}`);
+    await load();
+  }
+
+  async function changeRoleStatus(user: AdminUserDTO, role: AdminRoleBindingDTO, status: "active" | "disabled") {
+    if (sessionExpired) return;
+    setBusy(true);
+    const result = await setAdminUserRoleStatus({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: user.id,
+      payload: {
+        role: role.role,
+        clinicId: role.clinicId,
+        status,
+        reason: status === "disabled" ? "Решение администратора Dermatolog Pro" : null,
+      },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      handleAdminError(result.error);
+      return;
+    }
+    setNote(
+      status === "disabled"
+        ? `Роль отключена: ${roleLabel(role.role)} · ${user.displayName}`
+        : `Роль возвращена: ${roleLabel(role.role)} · ${user.displayName}`,
+    );
     await load();
   }
 
@@ -448,11 +494,20 @@ function SysUsersPageLive() {
                   <div className="text-[11px] text-muted-foreground">{user.email}</div>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {userRoleLabels(user).map((label) => (
-                    <span key={label} className="rounded-full border border-border px-2 py-1 text-[11px] text-foreground">
-                      {label}
-                    </span>
-                  ))}
+                  {user.roles.length > 0 ? (
+                    user.roles.map((role) => (
+                      <span
+                        key={`${role.role}-${role.clinicId ?? "global"}`}
+                        className={`rounded-full border px-2 py-1 text-[11px] ${
+                          role.active === false ? "border-slate-200 bg-slate-50 text-muted-foreground" : "border-border text-foreground"
+                        }`}
+                      >
+                        {roleLabel(role.role)} · {roleStatusLabel(role)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="rounded-full border border-border px-2 py-1 text-[11px] text-foreground">Роль не назначена</span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {userClinicLabels(user).map((label) => (
@@ -466,15 +521,45 @@ function SysUsersPageLive() {
                     {user.active ? "Доступ включён" : "Доступ отключён"}
                   </span>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={() => void disableUser(user)}
-                  disabled={busy || sessionExpired || !user.active}
-                >
-                  Отключить доступ
-                </Button>
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  {user.active ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => void disableUser(user)}
+                      disabled={busy || sessionExpired}
+                    >
+                      Отключить доступ
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => void reactivateUser(user)}
+                      disabled={busy || sessionExpired}
+                    >
+                      Вернуть доступ
+                    </Button>
+                  )}
+                </div>
+                {user.roles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 lg:col-span-5">
+                    {user.roles.map((role) => (
+                      <Button
+                        key={`${user.id}-${role.role}-${role.clinicId ?? "global"}-${role.active}`}
+                        type="button"
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => void changeRoleStatus(user, role, role.active === false ? "active" : "disabled")}
+                        disabled={busy || sessionExpired}
+                      >
+                        {role.active === false ? "Вернуть роль" : "Отключить роль"} · {roleLabel(role.role)}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

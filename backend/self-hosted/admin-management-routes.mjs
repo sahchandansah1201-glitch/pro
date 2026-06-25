@@ -9,8 +9,20 @@ function adminUserDisablePath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/disable$/);
 }
 
+function adminUserReactivatePath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/reactivate$/);
+}
+
+function adminUserRoleStatusPath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/role-status$/);
+}
+
 function adminClinicPath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/clinics\/([^/]+)$/);
+}
+
+function adminClinicStatusPath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/clinics\/([^/]+)\/status$/);
 }
 
 function safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin }) {
@@ -103,6 +115,37 @@ export async function handleAdminManagementRequest({
     }
   }
 
+  const userReactivate = adminUserReactivatePath(url.pathname);
+  if (userReactivate && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.reactivateUser(
+        decodeURIComponent(userReactivate[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  const userRoleStatus = adminUserRoleStatusPath(url.pathname);
+  if (userRoleStatus && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.setUserRoleStatus(
+        decodeURIComponent(userRoleStatus[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/admin/clinics") {
     if (method === "GET") {
       try {
@@ -148,6 +191,36 @@ export async function handleAdminManagementRequest({
       const authContext = await runtimeServices.authService.authenticate(request.headers);
       const result = await runtimeServices.adminManagementService.updateClinic(
         decodeURIComponent(clinic[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (clinic && method === "DELETE") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.deleteEmptyClinic(
+        decodeURIComponent(clinic[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicStatus = adminClinicStatusPath(url.pathname);
+  if (clinicStatus && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.setClinicStatus(
+        decodeURIComponent(clinicStatus[1]),
         parseJsonBody(request.body),
         authContext,
         { correlationId },

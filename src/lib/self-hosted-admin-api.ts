@@ -11,6 +11,9 @@ export interface AdminRoleBindingDTO {
   clinicId: string | null;
   clinicName: string | null;
   clinicSlug: string | null;
+  active: boolean;
+  disabledAt: string | null;
+  clinicStatus?: AdminClinicStatus;
 }
 
 export interface AdminUserDTO {
@@ -29,11 +32,32 @@ export interface AdminClinicDTO {
   name: string;
   address: string;
   timezone: string;
+  status: AdminClinicStatus;
+  statusReason: string | null;
+  statusChangedAt: string | null;
   createdAt: string | null;
   updatedAt?: string | null;
   usersCount?: number;
   patientsCount?: number;
   visitsCount?: number;
+}
+
+export type AdminClinicStatus = "active" | "suspended" | "archived";
+
+export interface AdminClinicDeleteResultDTO {
+  id: string | null;
+  name: string | null;
+  deleted: boolean;
+  blockerCount: number;
+  blockers: Record<string, number>;
+}
+
+export interface AdminRoleStatusDTO {
+  userId: string;
+  role: string;
+  clinicId: string | null;
+  status: "active" | "disabled";
+  disabledAt: string | null;
 }
 
 export interface AdminAnalyticsDTO {
@@ -148,6 +172,9 @@ function normalizeRole(input: unknown): AdminRoleBindingDTO {
     clinicId: item.clinicId == null ? null : String(item.clinicId),
     clinicName: item.clinicName == null ? null : String(item.clinicName),
     clinicSlug: item.clinicSlug == null ? null : String(item.clinicSlug),
+    active: item.active !== false,
+    disabledAt: item.disabledAt == null ? null : String(item.disabledAt),
+    clinicStatus: item.clinicStatus == null ? undefined : (String(item.clinicStatus) as AdminClinicStatus),
   };
 }
 
@@ -172,11 +199,37 @@ function normalizeClinic(input: unknown): AdminClinicDTO {
     name: String(item.name ?? ""),
     address: String(item.address ?? ""),
     timezone: String(item.timezone ?? "Europe/Moscow"),
+    status: (String(item.status ?? "active") as AdminClinicStatus),
+    statusReason: item.statusReason == null ? null : String(item.statusReason),
+    statusChangedAt: item.statusChangedAt == null ? null : String(item.statusChangedAt),
     createdAt: item.createdAt == null ? null : String(item.createdAt),
     updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
     usersCount: Number(item.usersCount ?? 0),
     patientsCount: Number(item.patientsCount ?? 0),
     visitsCount: Number(item.visitsCount ?? 0),
+  };
+}
+
+function normalizeClinicDeleteResult(input: unknown): AdminClinicDeleteResultDTO {
+  const item = isRecord(input) ? input : {};
+  const blockers = isRecord(item.blockers) ? item.blockers : {};
+  return {
+    id: item.id == null ? null : String(item.id),
+    name: item.name == null ? null : String(item.name),
+    deleted: item.deleted === true,
+    blockerCount: Number(item.blockerCount ?? 0),
+    blockers: Object.fromEntries(Object.entries(blockers).map(([key, value]) => [key, Number(value ?? 0)])),
+  };
+}
+
+function normalizeRoleStatus(input: unknown): AdminRoleStatusDTO {
+  const item = isRecord(input) ? input : {};
+  return {
+    userId: String(item.userId ?? ""),
+    role: String(item.role ?? ""),
+    clinicId: item.clinicId == null ? null : String(item.clinicId),
+    status: item.status === "disabled" ? "disabled" : "active",
+    disabledAt: item.disabledAt == null ? null : String(item.disabledAt),
   };
 }
 
@@ -226,6 +279,31 @@ export async function disableAdminUser(args: BaseArgs & { userId: string }): Pro
   return ok(normalizeUser(body.item));
 }
 
+export async function reactivateAdminUser(args: BaseArgs & { userId: string }): Promise<SelfHostedApiResult<AdminUserDTO>> {
+  const result = await request(args, `/api/v1/admin/users/${encodeURIComponent(args.userId)}/reactivate`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason: "admin_action" }),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminUserDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeUser(body.item));
+}
+
+export async function setAdminUserRoleStatus(
+  args: BaseArgs & {
+    userId: string;
+    payload: { role: string; clinicId?: string | null; status: "active" | "disabled"; reason?: string | null };
+  },
+): Promise<SelfHostedApiResult<AdminRoleStatusDTO>> {
+  const result = await request(args, `/api/v1/admin/users/${encodeURIComponent(args.userId)}/role-status`, {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminRoleStatusDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeRoleStatus(body.item));
+}
+
 export async function listAdminClinics(args: BaseArgs & { search?: string }): Promise<SelfHostedApiResult<AdminClinicDTO[]>> {
   const query = args.search ? `?search=${encodeURIComponent(args.search)}` : "";
   return itemsFrom(await request(args, `/api/v1/admin/clinics${query}`), normalizeClinic);
@@ -253,6 +331,27 @@ export async function updateAdminClinic(
   if (!result.ok) return result as SelfHostedApiResult<AdminClinicDTO>;
   const body = isRecord(result.value) ? result.value : {};
   return ok(normalizeClinic(body.item));
+}
+
+export async function setAdminClinicStatus(
+  args: BaseArgs & { clinicId: string; payload: { status: AdminClinicStatus; reason?: string | null } },
+): Promise<SelfHostedApiResult<AdminClinicDTO>> {
+  const result = await request(args, `/api/v1/admin/clinics/${encodeURIComponent(args.clinicId)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinic(body.item));
+}
+
+export async function deleteAdminClinic(args: BaseArgs & { clinicId: string }): Promise<SelfHostedApiResult<AdminClinicDeleteResultDTO>> {
+  const result = await request(args, `/api/v1/admin/clinics/${encodeURIComponent(args.clinicId)}`, {
+    method: "DELETE",
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicDeleteResultDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicDeleteResult(body.item));
 }
 
 export async function createAdminPrivatePractice(

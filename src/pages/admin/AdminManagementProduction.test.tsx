@@ -216,6 +216,56 @@ describe("Production admin management UI", () => {
     );
   });
 
+  it("suspends, reactivates, archives, and deletes an empty clinic through visible controls", async () => {
+    const activeClinic = { ...clinic, status: "active", statusReason: null, statusChangedAt: null, usersCount: 0, patientsCount: 0, visitsCount: 0 };
+    const suspendedClinic = { ...activeClinic, status: "suspended" };
+    const archivedClinic = { ...activeClinic, status: "archived" };
+    let clinicItems = [activeClinic];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/clinics/clinic-1/status") && init?.method === "PATCH") {
+        const body = JSON.parse(String(init.body));
+        const next = body.status === "suspended" ? suspendedClinic : body.status === "archived" ? archivedClinic : activeClinic;
+        clinicItems = [next];
+        return json({ item: next });
+      }
+      if (href.endsWith("/api/v1/admin/clinics/clinic-1") && init?.method === "DELETE") {
+        clinicItems = [];
+        return json({ item: { id: "clinic-1", deleted: true, blockerCount: 0, blockers: {} } });
+      }
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: clinicItems });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminClinicsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Клиники и кабинеты" })).toBeInTheDocument();
+    expect(await screen.findByText("Работает")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Приостановить" }));
+    expect(await screen.findByText("Статус обновлён: Кабинет Морозова · Приостановлена")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/clinics/clinic-1/status",
+      expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"status":"suspended"') }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Вернуть в работу" }));
+    expect(await screen.findByText("Статус обновлён: Кабинет Морозова · Работает")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "В архив" }));
+    expect(await screen.findByText("Статус обновлён: Кабинет Морозова · Архив")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить пустую запись" }));
+    expect(await screen.findByText(/Подтвердите удаление пустой записи/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Подтвердить удаление" }));
+    expect(await screen.findByText("Пустая запись удалена: Кабинет Морозова")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/clinics/clinic-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("shows one employee with all assigned roles and clinics", async () => {
     const fetchMock = vi.fn((url: string | URL | Request) => {
       const href = String(url);
@@ -233,6 +283,46 @@ describe("Production admin management UI", () => {
     expect(screen.getAllByText("Частный врач").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Кабинет Морозова").length).toBeGreaterThan(0);
     expect(screen.getByText(/один человек может иметь несколько ролей/i)).toBeInTheDocument();
+  });
+
+  it("reactivates employees and disables one role without removing the account", async () => {
+    const disabledOwner = { ...owner, active: false, disabledAt: "2026-06-25T00:00:00.000Z" };
+    const rolePausedOwner = {
+      ...owner,
+      roles: owner.roles.map((role) => (role.role === "private_doctor" ? { ...role, active: false, disabledAt: "2026-06-25T00:00:00.000Z" } : role)),
+    };
+    let users = [disabledOwner];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/users/user-1/reactivate") && init?.method === "PATCH") {
+        users = [owner];
+        return json({ item: owner });
+      }
+      if (href.endsWith("/api/v1/admin/users/user-1/role-status") && init?.method === "PATCH") {
+        users = [rolePausedOwner];
+        return json({ item: { userId: "user-1", role: "private_doctor", clinicId: "clinic-1", status: "disabled" } });
+      }
+      if (href.includes("/api/v1/admin/users")) return json({ items: users });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Вернуть доступ" }));
+    expect(await screen.findByText("Доступ возвращён: Морозов Дмитрий Игоревич")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Отключить роль · Частный врач/ }));
+    expect(await screen.findByText("Роль отключена: Частный врач · Морозов Дмитрий Игоревич")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/role-status",
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"status":"disabled"'),
+      }),
+    );
   });
 
   it("creates a second system administrator with visible progress and success feedback", async () => {

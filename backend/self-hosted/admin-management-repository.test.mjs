@@ -6,7 +6,11 @@ import {
   buildCreateAdminUserSql,
   buildCreateClinicSql,
   buildCreatePrivatePracticeSql,
+  buildDeleteEmptyClinicSql,
   buildDisableAdminUserSql,
+  buildReactivateAdminUserSql,
+  buildSetAdminUserRoleStatusSql,
+  buildSetClinicStatusSql,
   buildUpdateClinicSql,
 } from "./admin-management-repository.mjs";
 
@@ -68,6 +72,35 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     }),
     "updated",
   );
+
+  assertMutationUsesWritableCte(
+    buildReactivateAdminUserSql({
+      userId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
+    buildSetClinicStatusSql({
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      status: "suspended",
+      reason: "billing_pause",
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
+    buildSetAdminUserRoleStatusSql({
+      userId: "10000000-0000-4000-8000-000000000101",
+      role: "doctor",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      status: "disabled",
+      reason: "temporary_pause",
+      actorUserId: "10000000-0000-4000-8000-000000000102",
+    }),
+    "updated",
+  );
 });
 
 test("private practice SQL creates clinic and owner roles atomically with writable CTEs", () => {
@@ -90,4 +123,21 @@ test("private practice SQL creates clinic and owner roles atomically with writab
   assert.match(sql, /'clinic_admin'/);
   assert.match(sql, /'private_doctor'/);
   assert.match(sql, /address/);
+});
+
+test("clinic delete SQL deletes only empty clinics and returns blocker counts", () => {
+  const sql = buildDeleteEmptyClinicSql({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+  });
+
+  assert.match(sql, /^with\s+blockers\s+as\s*\(/i);
+  assert.match(sql, /delete from clinics/i);
+  assert.match(sql, /user_roles/);
+  assert.match(sql, /patients/);
+  assert.match(sql, /visits/);
+  assert.match(sql, /clinical_assets/);
+  assert.match(sql, /reports/);
+  assert.match(sql, /"blockerCount"/);
+  assert.doesNotMatch(sql, DIRECT_DML_IN_FROM_PATTERN);
+  assert.doesNotMatch(sql, WRITABLE_CTE_IN_SUBQUERY_PATTERN);
 });

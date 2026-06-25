@@ -18,8 +18,11 @@ import {
   adminApiErrorText,
   createAdminClinic,
   createAdminPrivatePractice,
+  deleteAdminClinic,
   listAdminClinics,
+  setAdminClinicStatus,
   updateAdminClinic,
+  type AdminClinicStatus,
   type AdminClinicDTO,
 } from "@/lib/self-hosted-admin-api";
 
@@ -116,6 +119,22 @@ function timezoneLabel(value: string) {
   return TIMEZONE_OPTIONS.find((item) => item.value === value)?.label ?? "Часовой пояс не указан";
 }
 
+const CLINIC_STATUS_LABEL: Record<AdminClinicStatus, string> = {
+  active: "Работает",
+  suspended: "Приостановлена",
+  archived: "Архив",
+};
+
+const CLINIC_STATUS_CLASS: Record<AdminClinicStatus, string> = {
+  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  suspended: "border-amber-200 bg-amber-50 text-amber-800",
+  archived: "border-slate-200 bg-slate-50 text-slate-600",
+};
+
+function clinicLinkedCount(clinic: AdminClinicDTO): number {
+  return (clinic.usersCount ?? 0) + (clinic.patientsCount ?? 0) + (clinic.visitsCount ?? 0);
+}
+
 function TimezoneSelect({
   value,
   onChange,
@@ -148,6 +167,7 @@ function AdminClinicsPageLive() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [lastChangedClinicId, setLastChangedClinicId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", address: "", timezone: "Europe/Moscow" });
   const [editForm, setEditForm] = useState<{ id: string; name: string; address: string; timezone: string } | null>(null);
   const [privateForm, setPrivateForm] = useState({
@@ -271,6 +291,54 @@ function AdminClinicsPageLive() {
     setNote(`Изменения сохранены: ${result.value?.name ?? editForm.name}`);
     setEditForm(null);
     await load();
+  }
+
+  async function changeClinicStatus(clinic: AdminClinicDTO, status: AdminClinicStatus) {
+    setBusy(true);
+    const result = await setAdminClinicStatus({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      clinicId: clinic.id,
+      payload: { status, reason: status === "active" ? null : "Решение администратора Dermatolog Pro" },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    if (result.value) {
+      setLastChangedClinicId(result.value.id);
+      setClinics((current) => current.map((item) => (item.id === result.value!.id ? { ...item, ...result.value! } : item)));
+    }
+    setDeleteConfirmId(null);
+    setNote(`Статус обновлён: ${result.value?.name ?? clinic.name} · ${CLINIC_STATUS_LABEL[status]}`);
+    await load();
+  }
+
+  async function deleteClinicIfEmpty(clinic: AdminClinicDTO) {
+    if (deleteConfirmId !== clinic.id) {
+      setDeleteConfirmId(clinic.id);
+      setNote(`Подтвердите удаление пустой записи: ${clinic.name}. Рабочие клиники с данными удалять нельзя.`);
+      return;
+    }
+    setBusy(true);
+    const result = await deleteAdminClinic({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      clinicId: clinic.id,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    if (!result.value?.deleted) {
+      setNote("Клиника не удалена: есть связанные сотрудники, пациенты, визиты, снимки или отчёты.");
+      return;
+    }
+    setClinics((current) => current.filter((item) => item.id !== clinic.id));
+    setDeleteConfirmId(null);
+    setNote(`Пустая запись удалена: ${clinic.name}`);
   }
 
   const totals = clinics.reduce(
@@ -443,7 +511,7 @@ function AdminClinicsPageLive() {
             {clinics.map((clinic) => (
               <div
                 key={clinic.id}
-                className={`grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_0.7fr] ${
+                className={`grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_1.2fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] ${
                   clinic.id === lastChangedClinicId ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : ""
                 }`}
               >
@@ -455,6 +523,11 @@ function AdminClinicsPageLive() {
                 <div className="text-[12px] text-muted-foreground">{timezoneLabel(clinic.timezone)}</div>
                 <div className="text-[12px] text-muted-foreground">пользователей: {clinic.usersCount ?? 0}</div>
                 <div className="text-[12px] text-muted-foreground">визитов: {clinic.visitsCount ?? 0}</div>
+                <div className="text-[12px]">
+                  <span className={`rounded-full border px-2 py-1 text-[11px] ${CLINIC_STATUS_CLASS[clinic.status]}`}>
+                    {CLINIC_STATUS_LABEL[clinic.status]}
+                  </span>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -470,6 +543,50 @@ function AdminClinicsPageLive() {
                 >
                   Редактировать
                 </Button>
+                <div className="flex flex-wrap gap-2 lg:col-span-7">
+                  {clinic.status !== "suspended" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => void changeClinicStatus(clinic, "suspended")}
+                      disabled={busy}
+                    >
+                      Приостановить
+                    </Button>
+                  )}
+                  {clinic.status !== "active" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => void changeClinicStatus(clinic, "active")}
+                      disabled={busy}
+                    >
+                      Вернуть в работу
+                    </Button>
+                  )}
+                  {clinic.status !== "archived" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => void changeClinicStatus(clinic, "archived")}
+                      disabled={busy}
+                    >
+                      В архив
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => void deleteClinicIfEmpty(clinic)}
+                    disabled={busy || clinicLinkedCount(clinic) > 0}
+                  >
+                    {deleteConfirmId === clinic.id ? "Подтвердить удаление" : "Удалить пустую запись"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

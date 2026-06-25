@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { adminApiErrorText, createAdminClinic, createAdminPrivatePractice, updateAdminClinic } from "@/lib/self-hosted-admin-api";
+import {
+  adminApiErrorText,
+  createAdminClinic,
+  createAdminPrivatePractice,
+  deleteAdminClinic,
+  reactivateAdminUser,
+  setAdminClinicStatus,
+  setAdminUserRoleStatus,
+  updateAdminClinic,
+} from "@/lib/self-hosted-admin-api";
 
 describe("self-hosted-admin-api · private practice", () => {
   afterEach(() => {
@@ -74,6 +83,134 @@ describe("self-hosted-admin-api · private practice", () => {
           ownerEmail: "owner@example.test",
           ownerPassword: "long-password-1",
         }),
+      }),
+    );
+  });
+
+  it("updates clinic lifecycle status and deletes an empty mistaken clinic", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "clinic-1",
+              name: "Яблоко ООО",
+              status: "suspended",
+              statusReason: "Не оплачено",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "clinic-1",
+              deleted: true,
+              blockerCount: 0,
+              blockers: {},
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const suspended = await setAdminClinicStatus({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      clinicId: "clinic-1",
+      payload: { status: "suspended", reason: "Не оплачено" },
+    });
+    const deleted = await deleteAdminClinic({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      clinicId: "clinic-1",
+    });
+
+    expect(suspended.ok).toBe(true);
+    expect(suspended.value?.status).toBe("suspended");
+    expect(deleted.ok).toBe(true);
+    expect(deleted.value?.deleted).toBe(true);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://clinic.local/api/v1/admin/clinics/clinic-1/status",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ status: "suspended", reason: "Не оплачено" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://clinic.local/api/v1/admin/clinics/clinic-1",
+      expect.objectContaining({
+        method: "DELETE",
+      }),
+    );
+  });
+
+  it("reactivates user accounts and updates one role status", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "user-1",
+              email: "owner@example.test",
+              displayName: "Владелец",
+              active: true,
+              disabledAt: null,
+              roles: [],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              userId: "user-1",
+              role: "private_doctor",
+              clinicId: "clinic-1",
+              status: "disabled",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = await reactivateAdminUser({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      userId: "user-1",
+    });
+    const role = await setAdminUserRoleStatus({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      userId: "user-1",
+      payload: { role: "private_doctor", clinicId: "clinic-1", status: "disabled", reason: "Пауза кабинета" },
+    });
+
+    expect(user.ok).toBe(true);
+    expect(user.value?.active).toBe(true);
+    expect(role.ok).toBe(true);
+    expect(role.value?.status).toBe("disabled");
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://clinic.local/api/v1/admin/users/user-1/reactivate",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://clinic.local/api/v1/admin/users/user-1/role-status",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ role: "private_doctor", clinicId: "clinic-1", status: "disabled", reason: "Пауза кабинета" }),
       }),
     );
   });

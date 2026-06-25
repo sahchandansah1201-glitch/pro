@@ -27,6 +27,18 @@
         "summary": "Disable a self-hosted user account"
       }
     },
+    "/api/v1/admin/users/{userId}/reactivate": {
+      "patch": {
+        "operationId": "reactivateAdminUser",
+        "summary": "Reactivate a self-hosted user account"
+      }
+    },
+    "/api/v1/admin/users/{userId}/role-status": {
+      "patch": {
+        "operationId": "setAdminUserRoleStatus",
+        "summary": "Disable or reactivate one role binding without deleting the user"
+      }
+    },
     "/api/v1/admin/clinics": {
       "get": {
         "operationId": "listAdminClinics",
@@ -41,6 +53,16 @@
       "patch": {
         "operationId": "updateAdminClinic",
         "summary": "Update clinic identity fields"
+      },
+      "delete": {
+        "operationId": "deleteEmptyAdminClinic",
+        "summary": "Delete an empty mistaken clinic with no linked records"
+      }
+    },
+    "/api/v1/admin/clinics/{clinicId}/status": {
+      "patch": {
+        "operationId": "setAdminClinicStatus",
+        "summary": "Suspend, reactivate, or archive a clinic or private practice"
       }
     },
     "/api/v1/admin/private-practices": {

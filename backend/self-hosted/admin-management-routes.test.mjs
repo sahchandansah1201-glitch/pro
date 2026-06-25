@@ -63,6 +63,34 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async reactivateUser(userId, authContext, meta) {
+        calls.push(["reactivateUser", userId, authContext.roles, meta.correlationId]);
+        return {
+          item: { id: userId, active: true, disabledAt: null },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async setUserRoleStatus(userId, body, authContext, meta) {
+        calls.push(["setUserRoleStatus", userId, body.status, body.role, authContext.roles, meta.correlationId]);
+        return {
+          item: { id: userId, role: body.role, clinicId: body.clinicId, status: body.status },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async setClinicStatus(clinicId, body, authContext, meta) {
+        calls.push(["setClinicStatus", clinicId, body.status, authContext.roles, meta.correlationId]);
+        return {
+          item: { id: clinicId, status: body.status, statusReason: body.reason ?? null },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async deleteEmptyClinic(clinicId, authContext, meta) {
+        calls.push(["deleteEmptyClinic", clinicId, authContext.roles, meta.correlationId]);
+        return {
+          item: { id: clinicId, deleted: true, blockerCount: 0, blockers: {} },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
       async getAnalytics(authContext, meta) {
         calls.push(["getAnalytics", authContext.roles, meta.correlationId]);
         return {
@@ -154,10 +182,60 @@ test("admin management routes create clinic, create doctor, and read aggregate a
   assert.deepEqual(calls.map((call) => call[0]), ["createClinic", "createUser", "createPrivatePractice", "getAnalytics"]);
 });
 
+test("admin management routes expose lifecycle actions for clinics, users, and role bindings", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const suspended = await request("/api/v1/admin/clinics/10000000-0000-4000-8000-000000000301/status", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({ status: "suspended", reason: "Не оплачено" }),
+  });
+  assert.equal(suspended.status, 200);
+  assert.equal(suspended.json.item.status, "suspended");
+
+  const deleted = await request("/api/v1/admin/clinics/10000000-0000-4000-8000-000000000301", {
+    method: "DELETE",
+    runtime,
+  });
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.json.item.deleted, true);
+
+  const reactivated = await request("/api/v1/admin/users/10000000-0000-4000-8000-000000000201/reactivate", {
+    method: "PATCH",
+    runtime,
+  });
+  assert.equal(reactivated.status, 200);
+  assert.equal(reactivated.json.item.active, true);
+
+  const roleStatus = await request("/api/v1/admin/users/10000000-0000-4000-8000-000000000201/role-status", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({
+      role: "private_doctor",
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      status: "disabled",
+      reason: "Пауза кабинета",
+    }),
+  });
+  assert.equal(roleStatus.status, 200);
+  assert.equal(roleStatus.json.item.status, "disabled");
+
+  assert.deepEqual(calls.map((call) => call[0]), [
+    "setClinicStatus",
+    "deleteEmptyClinic",
+    "reactivateUser",
+    "setUserRoleStatus",
+  ]);
+});
+
 test("admin management OpenAPI route is public and documents operation ids", async () => {
   const response = await request("/openapi.stage6-admin-management.json", { runtime: createRuntime() });
   assert.equal(response.status, 200);
   assert.equal(response.json.paths["/api/v1/admin/users"].post.operationId, "createAdminUser");
   assert.equal(response.json.paths["/api/v1/admin/private-practices"].post.operationId, "createAdminPrivatePractice");
+  assert.equal(response.json.paths["/api/v1/admin/clinics/{clinicId}/status"].patch.operationId, "setAdminClinicStatus");
+  assert.equal(response.json.paths["/api/v1/admin/users/{userId}/reactivate"].patch.operationId, "reactivateAdminUser");
+  assert.equal(response.json.paths["/api/v1/admin/users/{userId}/role-status"].patch.operationId, "setAdminUserRoleStatus");
   assert.equal(response.json.paths["/api/v1/admin/analytics"].get.operationId, "getAdminAnalytics");
 });

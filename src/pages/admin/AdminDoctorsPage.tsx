@@ -15,9 +15,13 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   adminApiErrorText,
   createAdminDoctor,
+  disableAdminUser,
   listAdminClinics,
   listAdminDoctors,
+  reactivateAdminUser,
+  setAdminUserRoleStatus,
   type AdminClinicDTO,
+  type AdminRoleBindingDTO,
   type AdminUserDTO,
 } from "@/lib/self-hosted-admin-api";
 
@@ -145,6 +149,10 @@ function doctorClinicName(user: AdminUserDTO): string {
   return user.roles.find((role) => role.clinicName)?.clinicName ?? "—";
 }
 
+function primaryDoctorRole(user: AdminUserDTO): AdminRoleBindingDTO | null {
+  return user.roles.find((role) => role.role === "private_doctor") ?? user.roles.find((role) => role.role === "doctor") ?? null;
+}
+
 function AdminDoctorsPageLive() {
   const session = useSelfHostedApiSession();
   const [doctors, setDoctors] = useState<AdminUserDTO[]>([]);
@@ -223,6 +231,50 @@ function AdminDoctorsPageLive() {
     }
     setNote(`Врач добавлен: ${result.value?.displayName ?? form.displayName}`);
     setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    await load();
+  }
+
+  async function changeDoctorAccess(doctor: AdminUserDTO, active: boolean) {
+    setBusy(true);
+    const result = active
+      ? await reactivateAdminUser({
+          apiBaseUrl: session.apiBaseUrl,
+          apiToken: session.apiToken,
+          userId: doctor.id,
+        })
+      : await disableAdminUser({
+          apiBaseUrl: session.apiBaseUrl,
+          apiToken: session.apiToken,
+          userId: doctor.id,
+        });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(active ? `Доступ врача возвращён: ${doctor.displayName}` : `Доступ врача отключён: ${doctor.displayName}`);
+    await load();
+  }
+
+  async function changeDoctorRoleStatus(doctor: AdminUserDTO, role: AdminRoleBindingDTO, status: "active" | "disabled") {
+    setBusy(true);
+    const result = await setAdminUserRoleStatus({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: doctor.id,
+      payload: {
+        role: role.role,
+        clinicId: role.clinicId,
+        status,
+        reason: status === "disabled" ? "Решение администратора Dermatolog Pro" : null,
+      },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setNote(adminApiErrorText(result.error));
+      return;
+    }
+    setNote(status === "disabled" ? `Роль врача приостановлена: ${doctor.displayName}` : `Роль врача возвращена: ${doctor.displayName}`);
     await load();
   }
 
@@ -313,14 +365,44 @@ function AdminDoctorsPageLive() {
           </div>
           <div className="grid grid-cols-1 divide-y divide-border">
             {doctors.map((doctor) => (
-              <div key={doctor.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr_1fr_0.8fr]">
+              <div key={doctor.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_0.8fr_1fr_0.8fr_auto]">
                 <div>
                   <div className="text-[13px] font-semibold">{doctor.displayName}</div>
                   <div className="text-[11px] text-muted-foreground">{doctor.email}</div>
                 </div>
-                <div className="text-[12px] text-muted-foreground">{doctorRoleLabel(doctor.roles[0]?.role ?? "doctor")}</div>
+                <div className="text-[12px] text-muted-foreground">{doctorRoleLabel(primaryDoctorRole(doctor)?.role ?? "doctor")}</div>
                 <div className="text-[12px] text-muted-foreground">{doctorClinicName(doctor)}</div>
                 <div className="text-[12px]">{doctor.active ? "Доступ включён" : "Доступ отключён"}</div>
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => void changeDoctorAccess(doctor, !doctor.active)}
+                    disabled={busy}
+                  >
+                    {doctor.active ? "Отключить доступ" : "Вернуть доступ"}
+                  </Button>
+                </div>
+                {primaryDoctorRole(doctor) && (
+                  <div className="flex flex-wrap gap-2 lg:col-span-5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() =>
+                        void changeDoctorRoleStatus(
+                          doctor,
+                          primaryDoctorRole(doctor)!,
+                          primaryDoctorRole(doctor)!.active === false ? "active" : "disabled",
+                        )
+                      }
+                      disabled={busy}
+                    >
+                      {primaryDoctorRole(doctor)!.active === false ? "Вернуть роль врача" : "Приостановить роль врача"}
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

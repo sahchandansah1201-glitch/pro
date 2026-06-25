@@ -152,10 +152,55 @@ test.describe("Live production admin management journey", () => {
 
     await expect(page.getByText(`Изменения сохранены: ${clinicName}`)).toBeVisible();
     await expect(page.getByText(`адрес: ${updatedClinicAddress}`).first()).toBeVisible();
+
+    const suspendResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
+    );
+    await page.getByRole("button", { name: "Приостановить" }).first().click();
+    const suspendResponse = await suspendResponsePromise;
+    expect(suspendResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(suspendResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Статус обновлён: ${clinicName} · Приостановлена`)).toBeVisible();
+
+    const reactivateClinicResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
+    );
+    await page.getByRole("button", { name: "Вернуть в работу" }).first().click();
+    const reactivateClinicResponse = await reactivateClinicResponsePromise;
+    expect(reactivateClinicResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reactivateClinicResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Статус обновлён: ${clinicName} · Работает`)).toBeVisible();
+
+    const archiveResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
+    );
+    await page.getByRole("button", { name: "В архив" }).first().click();
+    const archiveResponse = await archiveResponsePromise;
+    expect(archiveResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(archiveResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Статус обновлён: ${clinicName} · Архив`)).toBeVisible();
+
+    await page.getByRole("button", { name: "Удалить пустую запись" }).first().click();
+    await expect(page.getByText(new RegExp(`Подтвердите удаление пустой записи: ${clinicName}`))).toBeVisible();
+    const deleteClinicResponsePromise = page.waitForResponse((response) =>
+      isAdminClinicResponse(response, "DELETE", /^\/api\/v1\/admin\/clinics\/[^/]+$/),
+    );
+    await page.getByRole("button", { name: "Подтвердить удаление" }).click();
+    const deleteClinicResponse = await deleteClinicResponsePromise;
+    expect(deleteClinicResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(deleteClinicResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Пустая запись удалена: ${clinicName}`)).toBeVisible();
+
     await expect(page.getByText(/Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText(/Учебный режим|демо|mock/i);
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-desktop-1280.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-mobile-390.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 900 });
 
     await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
@@ -203,6 +248,7 @@ test.describe("Live production admin management journey", () => {
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "DELETE" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
