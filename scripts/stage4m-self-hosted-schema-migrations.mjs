@@ -18,6 +18,7 @@ const DEFAULT_COMPOSE_FILES = [
 export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
+  "backend/self-hosted/db/migrations/0088_stage6_admin_lifecycle.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -35,6 +36,27 @@ select json_build_object(
     where table_schema = 'public'
       and table_name = 'clinics'
       and column_name = 'address'
+  ),
+  'clinicStatusColumn', exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinics'
+      and column_name = 'status'
+  ),
+  'clinicDeletedAtColumn', exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinics'
+      and column_name = 'deleted_at'
+  ),
+  'userRoleDisabledAtColumn', exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'user_roles'
+      and column_name = 'disabled_at'
   )
 )::text;
 `.trim();
@@ -128,7 +150,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: private_doctor role and clinics.address column",
+    "- Verification: private_doctor role, clinics.address/status/deleted_at columns, and user_roles.disabled_at column",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -175,6 +197,9 @@ export function verifyStage6AdminSchema(config, io = {}) {
   const missing = [];
   if (verification.privateDoctorRole !== true) missing.push("private_doctor role");
   if (verification.clinicAddressColumn !== true) missing.push("clinics.address column");
+  if (verification.clinicStatusColumn !== true) missing.push("clinics.status column");
+  if (verification.clinicDeletedAtColumn !== true) missing.push("clinics.deleted_at column");
+  if (verification.userRoleDisabledAtColumn !== true) missing.push("user_roles.disabled_at column");
   if (missing.length) {
     throw new Error(`Stage 6 admin schema is incomplete: ${missing.join(", ")}.`);
   }

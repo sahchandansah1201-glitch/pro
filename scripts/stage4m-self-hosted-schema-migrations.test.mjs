@@ -31,7 +31,8 @@ test("Stage 4M schema migration plan includes Stage 6 admin migrations and verif
   const out = renderStage4MSchemaMigrationPlan({ projectName: "prod" });
   assert.match(out, /0086_stage6_admin_management\.sql/);
   assert.match(out, /0087_stage6_clinic_address\.sql/);
-  assert.match(out, /private_doctor role and clinics\.address column/);
+  assert.match(out, /0088_stage6_admin_lifecycle\.sql/);
+  assert.match(out, /private_doctor role, clinics\.address\/status\/deleted_at columns, and user_roles\.disabled_at column/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -50,7 +51,13 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
         if (args.includes("--command")) {
           return {
             status: 0,
-            stdout: JSON.stringify({ privateDoctorRole: true, clinicAddressColumn: true }),
+            stdout: JSON.stringify({
+              privateDoctorRole: true,
+              clinicAddressColumn: true,
+              clinicStatusColumn: true,
+              clinicDeletedAtColumn: true,
+              userRoleDisabledAtColumn: true,
+            }),
             stderr: "",
           };
         }
@@ -61,10 +68,12 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.applied, STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls[0].input.includes("private_doctor"));
   assert.ok(calls[1].input.includes("add column if not exists address"));
-  assert.ok(calls[2].args.includes("--command"));
+  assert.ok(calls[2].input.includes("add column if not exists status"));
+  assert.ok(calls[2].input.includes("add column if not exists disabled_at"));
+  assert.ok(calls[3].args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
 
@@ -77,7 +86,13 @@ test("Stage 4M schema migration runner fails when verification reports missing a
           spawn() {
             return {
               status: 0,
-              stdout: JSON.stringify({ privateDoctorRole: true, clinicAddressColumn: false }),
+              stdout: JSON.stringify({
+                privateDoctorRole: true,
+                clinicAddressColumn: false,
+                clinicStatusColumn: true,
+                clinicDeletedAtColumn: true,
+                userRoleDisabledAtColumn: true,
+              }),
               stderr: "",
             };
           },

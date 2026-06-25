@@ -67,9 +67,16 @@ const REQUIRED_TEXT = {
   "scripts/stage4m-self-hosted-schema-migrations.mjs": [
     "0086_stage6_admin_management.sql",
     "0087_stage6_clinic_address.sql",
+    "0088_stage6_admin_lifecycle.sql",
     "private_doctor",
     "clinicAddressColumn",
     "clinics.address column",
+    "clinicStatusColumn",
+    "clinics.status column",
+    "clinicDeletedAtColumn",
+    "clinics.deleted_at column",
+    "userRoleDisabledAtColumn",
+    "user_roles.disabled_at column",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ],
   "scripts/stage4m-admin-management-db-smoke.mjs": [
