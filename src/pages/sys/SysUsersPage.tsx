@@ -98,6 +98,8 @@ const ROLE_LABEL: Record<string, string> = {
   patient: "Пациент",
 };
 
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function roleLabel(role: string): string {
   return ROLE_LABEL[role] ?? role;
 }
@@ -193,6 +195,10 @@ function SysUsersPageLive() {
       setNote("Укажите ФИО, почту и временный пароль.");
       return;
     }
+    if (!EMAIL_PATTERN.test(email)) {
+      setNote("Укажите рабочую почту сотрудника.");
+      return;
+    }
     if (password.length < 10) {
       setNote("Временный пароль должен быть не короче 10 символов.");
       return;
@@ -228,6 +234,10 @@ function SysUsersPageLive() {
     if (sessionExpired) return;
     if (!roleForm.userId) {
       setNote("Выберите учётную запись для назначения роли.");
+      return;
+    }
+    if (roleForm.role !== "system_admin" && !roleForm.clinicId) {
+      setNote("Выберите клинику для этой роли.");
       return;
     }
     setBusy(true);

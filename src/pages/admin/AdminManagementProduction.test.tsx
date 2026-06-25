@@ -323,6 +323,51 @@ describe("Production admin management UI", () => {
     );
   });
 
+  it("validates employee email before creating an account", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/users")) return json({ items: [] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ФИО сотрудника"), { target: { value: "Сотрудник" } });
+    fireEvent.change(screen.getByLabelText("Эл. почта"), { target: { value: "wrong-email" } });
+    fireEvent.change(screen.getByLabelText("Временный пароль"), { target: { value: "Admin2-password-2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Создать сотрудника" }));
+
+    expect(await screen.findByText("Укажите рабочую почту сотрудника.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("requires a clinic before assigning a non-global role", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/users")) return json({ items: [owner] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Добавить роль" }));
+
+    expect(await screen.findByText("Выберите клинику для этой роли.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/role",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
   it("blocks employee actions after an expired session and offers re-login", async () => {
     const fetchMock = vi.fn((url: string | URL | Request) => {
       const href = String(url);
