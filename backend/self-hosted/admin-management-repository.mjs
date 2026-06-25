@@ -126,24 +126,24 @@ export function buildCreateAdminUserSql({
   clinicId = null,
 } = {}) {
   return `
+with user_row as (
+  insert into app_users (email, display_name, password_hash)
+  values (${sqlLiteral(email)}, ${sqlLiteral(displayName)}, ${sqlLiteral(passwordHash)})
+  on conflict (email) do update
+    set display_name = excluded.display_name,
+        password_hash = excluded.password_hash,
+        disabled_at = null,
+        updated_at = now()
+  returning *
+),
+role_row as (
+  insert into user_roles (user_id, clinic_id, role)
+  select id, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role from user_row
+  on conflict (user_id, clinic_id, role) do nothing
+  returning id
+)
 select row_to_json(result)::text
 from (
-  with user_row as (
-    insert into app_users (email, display_name, password_hash)
-    values (${sqlLiteral(email)}, ${sqlLiteral(displayName)}, ${sqlLiteral(passwordHash)})
-    on conflict (email) do update
-      set display_name = excluded.display_name,
-          password_hash = excluded.password_hash,
-          disabled_at = null,
-          updated_at = now()
-    returning *
-  ),
-  role_row as (
-    insert into user_roles (user_id, clinic_id, role)
-    select id, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role from user_row
-    on conflict (user_id, clinic_id, role) do nothing
-    returning id
-  )
   select
     user_row.id::text as "id",
     user_row.email::text as "email",
@@ -157,14 +157,14 @@ from (
 
 export function buildAssignAdminUserRoleSql({ userId, role, clinicId = null } = {}) {
   return `
+with inserted as (
+  insert into user_roles (user_id, clinic_id, role)
+  values (${sqlUuid(userId)}, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role)
+  on conflict (user_id, clinic_id, role) do nothing
+  returning *
+)
 select row_to_json(result)::text
 from (
-  with inserted as (
-    insert into user_roles (user_id, clinic_id, role)
-    values (${sqlUuid(userId)}, ${sqlNullableUuid(clinicId)}, ${sqlLiteral(role)}::app_role)
-    on conflict (user_id, clinic_id, role) do nothing
-    returning *
-  )
   select
     u.id::text as "id",
     u.email::text as "email",
@@ -179,14 +179,14 @@ from (
 
 export function buildDisableAdminUserSql({ userId } = {}) {
   return `
-select row_to_json(result)::text
-from (
-  with updated as (
+with updated as (
   update app_users
   set disabled_at = coalesce(disabled_at, now()), updated_at = now()
   where id = ${sqlUuid(userId)}
   returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at as "disabledAt"
-  )
+)
+select row_to_json(result)::text
+from (
   select * from updated
 ) result;
 `.trim();
@@ -230,13 +230,13 @@ from (
 
 export function buildCreateClinicSql({ name, address = "", slug, timezone = "Europe/Moscow" } = {}) {
   return `
-select row_to_json(result)::text
-from (
-  with inserted as (
+with inserted as (
   insert into clinics (name, address, slug, timezone)
   values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
   returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, created_at as "createdAt"
-  )
+)
+select row_to_json(result)::text
+from (
   select * from inserted
 ) result;
 `.trim();
@@ -252,32 +252,32 @@ export function buildCreatePrivatePracticeSql({
   ownerPasswordHash,
 } = {}) {
   return `
+with clinic_row as (
+  insert into clinics (name, address, slug, timezone)
+  values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
+  returning *
+),
+user_row as (
+  insert into app_users (email, display_name, password_hash)
+  values (${sqlLiteral(ownerEmail)}, ${sqlLiteral(ownerDisplayName)}, ${sqlLiteral(ownerPasswordHash)})
+  on conflict (email) do update
+    set display_name = excluded.display_name,
+        password_hash = excluded.password_hash,
+        disabled_at = null,
+        updated_at = now()
+  returning *
+),
+role_rows as (
+  insert into user_roles (user_id, clinic_id, role)
+  select user_row.id, clinic_row.id, role_values.role::app_role
+  from user_row
+  cross join clinic_row
+  cross join (values ('clinic_admin'), ('private_doctor')) as role_values(role)
+  on conflict (user_id, clinic_id, role) do nothing
+  returning role
+)
 select row_to_json(result)::text
 from (
-  with clinic_row as (
-    insert into clinics (name, address, slug, timezone)
-    values (${sqlLiteral(name)}, ${sqlLiteral(address)}, ${sqlLiteral(slug)}, ${sqlLiteral(timezone)})
-    returning *
-  ),
-  user_row as (
-    insert into app_users (email, display_name, password_hash)
-    values (${sqlLiteral(ownerEmail)}, ${sqlLiteral(ownerDisplayName)}, ${sqlLiteral(ownerPasswordHash)})
-    on conflict (email) do update
-      set display_name = excluded.display_name,
-          password_hash = excluded.password_hash,
-          disabled_at = null,
-          updated_at = now()
-    returning *
-  ),
-  role_rows as (
-    insert into user_roles (user_id, clinic_id, role)
-    select user_row.id, clinic_row.id, role_values.role::app_role
-    from user_row
-    cross join clinic_row
-    cross join (values ('clinic_admin'), ('private_doctor')) as role_values(role)
-    on conflict (user_id, clinic_id, role) do nothing
-    returning role
-  )
   select
     jsonb_build_object(
       'id', clinic_row.id::text,
@@ -321,14 +321,14 @@ export function buildUpdateClinicSql({ clinicId, name, address, slug, timezone }
   if (timezone != null) clauses.push(`timezone = ${sqlLiteral(timezone)}`);
   clauses.push("updated_at = now()");
   return `
-select row_to_json(result)::text
-from (
-  with updated as (
+with updated as (
   update clinics
   set ${clauses.join(", ")}
   where id = ${sqlUuid(clinicId)}
   returning id::text as "id", slug, name, coalesce(address, '') as "address", timezone, updated_at as "updatedAt"
-  )
+)
+select row_to_json(result)::text
+from (
   select * from updated
 ) result;
 `.trim();
