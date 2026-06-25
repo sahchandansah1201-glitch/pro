@@ -81,6 +81,8 @@ const REQUIRED_TEXT = {
   ],
   "scripts/stage4m-admin-management-api-smoke.mjs": [
     "I_CONFIRM_CREATE_TEST_CLINIC",
+    "assertDeployReadyForStage4MMutation",
+    "Stage 4M deployment is still running",
     "/api/v1/auth/login",
     "/api/v1/admin/clinics",
     "createdClinicVisibleInList",
@@ -90,6 +92,9 @@ const REQUIRED_TEXT = {
   "scripts/run-production-admin-management-live-e2e.mjs": [
     "CREATE_TEST_CLINIC_CONFIRMATION",
     "production-admin-management-live.pw.ts",
+    "deployStatusBlocksLiveE2E",
+    "Stage 4M deployment is still running",
+    "Local dependency @playwright/test is missing",
     "STAGE4M_LIVE_ADMIN_BASE_URL",
     "STAGE4M_ADMIN_CREDENTIALS_FILE",
     "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",

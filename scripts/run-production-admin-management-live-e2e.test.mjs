@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  deployStatusBlocksLiveE2E,
   parseLiveAdminE2EArgs,
   runLiveAdminE2E,
 } from "./run-production-admin-management-live-e2e.mjs";
@@ -47,4 +48,14 @@ test("live admin e2e runner refuses to start when credentials file is missing", 
   });
 
   assert.equal(code, 2);
+});
+
+test("live admin e2e blocks when Stage 4M deployment is still running", () => {
+  const blocker = deployStatusBlocksLiveE2E({
+    deployStatusFile: "/tmp/status.json",
+    exists: () => true,
+    readFile: () => JSON.stringify({ status: "running", runId: "run-002" }),
+  });
+
+  assert.match(blocker, /deployment is still running.*run-002/);
 });

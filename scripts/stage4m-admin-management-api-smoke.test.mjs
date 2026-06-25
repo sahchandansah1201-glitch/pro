@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  assertDeployReadyForStage4MMutation,
   CREATE_TEST_CLINIC_CONFIRMATION,
   parseStage4MAdminApiSmokeArgs,
   redactSecrets,
@@ -113,6 +114,18 @@ test("Stage 4M admin API smoke fails when created clinic is absent from list", a
         readFile: () => "Email: admin@example.test\nPassword: secret-password\n",
       }),
     /Created clinic was not visible/,
+  );
+});
+
+test("Stage 4M admin API smoke refuses to mutate while deployment is running", () => {
+  assert.throws(
+    () =>
+      assertDeployReadyForStage4MMutation({
+        deployStatusFile: "/tmp/status.json",
+        exists: () => true,
+        readFile: () => JSON.stringify({ status: "running", runId: "run-001" }),
+      }),
+    /deployment is still running.*run-001/,
   );
 });
 

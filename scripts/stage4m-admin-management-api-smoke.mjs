@@ -3,12 +3,13 @@
 // This intentionally creates one test clinic through the real production API,
 // verifies it appears in the list, then edits it and verifies the updated row.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_API_BASE_URL = "https://pro.skindoktor.ru";
 const DEFAULT_CREDENTIALS_FILE = "/root/dermatolog-pro-admin-credentials.txt";
+const DEFAULT_DEPLOY_STATUS_FILE = "/opt/dermatolog-pro/logs/update-production-status.json";
 export const CREATE_TEST_CLINIC_CONFIRMATION = "I_CONFIRM_CREATE_TEST_CLINIC";
 
 function parseCredentials(text) {
@@ -54,6 +55,8 @@ export function parseStage4MAdminApiSmokeArgs(argv = [], env = process.env) {
   const parsed = {
     apiBaseUrl: env.STAGE4M_ADMIN_API_BASE_URL || env.VITE_SELF_HOSTED_API_BASE_URL || DEFAULT_API_BASE_URL,
     credentialsFile: env.STAGE4M_ADMIN_CREDENTIALS_FILE || DEFAULT_CREDENTIALS_FILE,
+    deployStatusFile: env.STAGE4M_DEPLOY_STATUS_FILE || DEFAULT_DEPLOY_STATUS_FILE,
+    ignoreDeployStatus: env.STAGE4M_IGNORE_DEPLOY_STATUS === "1",
     confirmation: env.STAGE4M_CONFIRM_CREATE_TEST_CLINIC || "",
     suffix: env.STAGE4M_ADMIN_API_SMOKE_SUFFIX || makeSuffix(),
     help: false,
@@ -75,6 +78,14 @@ export function parseStage4MAdminApiSmokeArgs(argv = [], env = process.env) {
         parsed.credentialsFile = next;
         index += 1;
       }
+    } else if (arg === "--deploy-status-json") {
+      if (!next) parsed.errors.push("--deploy-status-json requires a value");
+      else {
+        parsed.deployStatusFile = next;
+        index += 1;
+      }
+    } else if (arg === "--ignore-deploy-status") {
+      parsed.ignoreDeployStatus = true;
     } else if (arg === "--confirm-create-test-clinic") {
       if (!next) parsed.errors.push("--confirm-create-test-clinic requires a value");
       else {
@@ -106,6 +117,31 @@ export function parseStage4MAdminApiSmokeArgs(argv = [], env = process.env) {
   }
 
   return parsed;
+}
+
+export function assertDeployReadyForStage4MMutation({
+  deployStatusFile = DEFAULT_DEPLOY_STATUS_FILE,
+  ignoreDeployStatus = false,
+  exists = existsSync,
+  readFile = readFileSync,
+} = {}) {
+  if (ignoreDeployStatus || !deployStatusFile || !exists(deployStatusFile)) return;
+  let status;
+  try {
+    status = JSON.parse(readFile(deployStatusFile, "utf8"));
+  } catch (error) {
+    throw new Error(`Deploy status file is unreadable: ${error.message}`);
+  }
+  if (status?.status === "running") {
+    throw new Error(
+      `Stage 4M deployment is still running (${status.runId || "unknown run"}). Wait for deploy:stage4m:status to report ok before API smoke.`,
+    );
+  }
+  if (status?.status === "fail") {
+    throw new Error(
+      `Stage 4M deployment failed (${status.runId || "unknown run"}). Fix the deployment before API smoke.`,
+    );
+  }
 }
 
 async function jsonRequest({ apiBaseUrl, path, token, payload, method = "GET", fetchImpl }) {
@@ -146,6 +182,8 @@ export async function runStage4MAdminManagementApiSmoke({
   const config = parseStage4MAdminApiSmokeArgs([], {
     STAGE4M_ADMIN_API_BASE_URL: apiBaseUrl,
     STAGE4M_ADMIN_CREDENTIALS_FILE: credentialsFile,
+    STAGE4M_DEPLOY_STATUS_FILE: undefined,
+    STAGE4M_IGNORE_DEPLOY_STATUS: "1",
     STAGE4M_CONFIRM_CREATE_TEST_CLINIC: confirmation,
     STAGE4M_ADMIN_API_SMOKE_SUFFIX: suffix,
   });
@@ -235,6 +273,8 @@ function usage() {
     "    --api-base-url https://pro.skindoktor.ru \\",
     "    --credentials-file /root/dermatolog-pro-admin-credentials.txt \\",
     `    --confirm-create-test-clinic ${CREATE_TEST_CLINIC_CONFIRMATION}`,
+    "",
+    "The command refuses to mutate production while Stage 4M deploy status is running or failed.",
   ].join("\n");
 }
 
@@ -247,6 +287,10 @@ export async function main(argv = process.argv.slice(2)) {
       return 0;
     }
     if (parsed.errors.length) throw new Error(parsed.errors.join("\n"));
+    assertDeployReadyForStage4MMutation({
+      deployStatusFile: parsed.deployStatusFile,
+      ignoreDeployStatus: parsed.ignoreDeployStatus,
+    });
     const credentialsText = readFileSync(parsed.credentialsFile, "utf8");
     const credentials = parseCredentials(credentialsText);
     secrets.push(credentials.password);
