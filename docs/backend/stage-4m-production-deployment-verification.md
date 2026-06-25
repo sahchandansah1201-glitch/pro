@@ -195,6 +195,29 @@ signed URL, QR/session value, or credential. Use it when the question is not
 "is the server healthy?", but "can a real system administrator create and edit
 a clinic through the same HTTPS API as the UI?".
 
+## Real admin browser smoke
+
+After the API smoke passes, run the live browser journey. This is the closest
+check to how a real person uses the screen: it opens `/self-hosted/login`, logs
+in through the visible form, enters `/admin/clinics` through the product
+navigation, tries the empty form, creates a test clinic, verifies that the row
+appears in the list, edits it, verifies the updated row, inspects network
+statuses, checks console/page errors, and saves desktop/mobile screenshots.
+
+```bash
+cd /opt/dermatolog-pro/app
+npm run e2e:admin-management:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+```
+
+This command intentionally mutates production data by creating and editing a
+test clinic. It must not be replaced by mocked Playwright tests when verifying
+the real client path. A deployment is not confirmed for the clinic create/edit
+journey until this live browser smoke or an equivalent authenticated browser
+trace passes.
+
 ## Post-deploy smoke
 
 Dry-run:
