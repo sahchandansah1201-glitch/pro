@@ -163,8 +163,8 @@ test.describe("Live production admin management journey", () => {
     await page.getByLabel("ФИО сотрудника").fill(adminDisplayName);
     await page.getByLabel("Эл. почта").fill(adminEmail);
     await page.getByLabel("Временный пароль").fill(adminPassword);
-    await page.getByLabel("Роль").selectOption("system_admin");
-    await expect(page.getByLabel("Клиника")).toBeDisabled();
+    await page.getByLabel("Роль", { exact: true }).selectOption("system_admin");
+    await expect(page.getByLabel("Клиника", { exact: true })).toBeDisabled();
 
     const createUserResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),
@@ -194,7 +194,7 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
+    await expect(page.getByText(adminEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-users-mobile-390.png"), fullPage: true });
