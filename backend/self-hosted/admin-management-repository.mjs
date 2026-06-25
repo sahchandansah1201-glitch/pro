@@ -419,7 +419,9 @@ with blockers as (
     (select count(*)::int from reports where clinic_id = ${sqlUuid(clinicId)}) as reports
 ),
 deleted as (
-  delete from clinics
+  update clinics
+  set deleted_at = now(),
+      updated_at = now()
   where id = ${sqlUuid(clinicId)}
     and deleted_at is null
     and (

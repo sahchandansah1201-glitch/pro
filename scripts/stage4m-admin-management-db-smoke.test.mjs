@@ -38,6 +38,7 @@ test("Stage 4M admin DB smoke plan states the real create and edit checks", () =
   assert.match(out, /clinic create/);
   assert.match(out, /created row visibility/);
   assert.match(out, /clinic edit/);
+  assert.match(out, /clinic empty delete/);
   assert.match(out, /analytics aggregate query/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
@@ -51,6 +52,8 @@ test("Stage 4M admin DB smoke SQL exercises list, create, edit and analytics in 
   assert.match(sql, /stage4m-smoke-test-001/);
   assert.match(sql, /admin clinic list did not include the created clinic/);
   assert.match(sql, /update clinics/i);
+  assert.match(sql, /admin clinic empty delete did not return deleted true/);
+  assert.match(sql, /admin clinic empty delete did not hide the clinic row/);
   assert.match(sql, /admin analytics query did not return aggregate payload/);
   assert.match(sql, /stage4m_admin_management_db_smoke_ok/);
 });

@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url";
 import {
   buildAdminAnalyticsSql,
   buildCreateClinicSql,
+  buildDeleteEmptyClinicSql,
   buildListClinicsSql,
+  buildSetClinicStatusSql,
 } from "../backend/self-hosted/admin-management-repository.mjs";
 
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
@@ -135,6 +137,14 @@ export function buildStage4MAdminDbSmokeSql({ suffix = safeSmokeSuffix() } = {})
     limit: 5,
   }));
   const analyticsSql = withoutTrailingSemicolon(buildAdminAnalyticsSql({ allClinics: true }));
+  const statusSql = withoutTrailingSemicolon(buildSetClinicStatusSql({
+    clinicId: "00000000-0000-4000-8000-000000000000",
+    status: "archived",
+    reason: "stage4m_smoke_archive",
+  }));
+  const deleteSql = withoutTrailingSemicolon(buildDeleteEmptyClinicSql({
+    clinicId: "00000000-0000-4000-8000-000000000000",
+  }));
 
   return `
 begin;
@@ -185,6 +195,20 @@ begin
   if payload is null or position('"clinics"' in payload) = 0 then
     raise exception 'admin analytics query did not return aggregate payload';
   end if;
+
+  execute replace($sql$${statusSql}$sql$, '00000000-0000-4000-8000-000000000000', (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})) into payload;
+  if payload is null or position('"archived"' in payload) = 0 then
+    raise exception 'admin clinic archive did not return archived status';
+  end if;
+
+  execute replace($sql$${deleteSql}$sql$, '00000000-0000-4000-8000-000000000000', (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})) into payload;
+  if payload is null or position('"deleted":true' in payload) = 0 then
+    raise exception 'admin clinic empty delete did not return deleted true';
+  end if;
+
+  if exists (select 1 from clinics where slug = ${sqlLiteral(clinicSlug)} and deleted_at is null) then
+    raise exception 'admin clinic empty delete did not hide the clinic row';
+  end if;
 end
 $stage4m_admin_db_smoke$;
 
@@ -201,7 +225,7 @@ export function renderStage4MAdminDbSmokePlan(options = {}) {
     "",
     `- Project: ${config.projectName}`,
     `- Compose env file: ${config.composeEnvFile}`,
-    "- Scope: admin clinic list, clinic create, created row visibility, clinic edit, analytics aggregate query",
+    "- Scope: admin clinic list, clinic create, created row visibility, clinic edit, clinic empty delete, analytics aggregate query",
     "- Safety: wrapped in one transaction and rolled back; no patient rows, credentials, tokens, storage paths, or signed URLs are printed",
   ].join("\n");
 }

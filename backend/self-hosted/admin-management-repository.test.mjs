@@ -125,13 +125,15 @@ test("private practice SQL creates clinic and owner roles atomically with writab
   assert.match(sql, /address/);
 });
 
-test("clinic delete SQL deletes only empty clinics and returns blocker counts", () => {
+test("clinic delete SQL archives only empty clinics and returns blocker counts", () => {
   const sql = buildDeleteEmptyClinicSql({
     clinicId: "10000000-0000-4000-8000-000000000001",
   });
 
   assert.match(sql, /^with\s+blockers\s+as\s*\(/i);
-  assert.match(sql, /delete from clinics/i);
+  assert.match(sql, /update clinics/i);
+  assert.match(sql, /set deleted_at = now\(\)/i);
+  assert.doesNotMatch(sql, /delete from clinics/i);
   assert.match(sql, /user_roles/);
   assert.match(sql, /patients/);
   assert.match(sql, /visits/);
