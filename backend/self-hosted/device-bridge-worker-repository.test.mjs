@@ -236,6 +236,8 @@ test("worker hardening SQL reports backoff, stale worker, and retention metrics 
   assert.match(sql, /rate_limited_commands/);
   assert.match(sql, /cleanup_candidates/);
   assert.match(sql, /staleAfterMinutes/);
+  assert.doesNotMatch(sql, /group by b\.id\s*\)/);
+  assert.match(sql, /group by[\s\S]*b\.id,[\s\S]*b\.clinic_id,[\s\S]*b\.bridge_code,[\s\S]*b\.host_name,[\s\S]*b\.worker_status,[\s\S]*b\.worker_version,[\s\S]*b\.worker_last_seen_at/);
   assert.doesNotMatch(sql, /payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
 });
 

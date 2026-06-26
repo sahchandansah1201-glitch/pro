@@ -482,7 +482,14 @@ bridge_hardening as (
     coalesce(max(extract(epoch from (now() - c.created_at))) filter (where c.status in ('queued', 'acknowledged')), 0)::int as "maxQueueAgeSeconds"
   from scoped_bridges b
   left join command_scope c on c.bridge_id = b.id
-  group by b.id
+  group by
+    b.id,
+    b.clinic_id,
+    b.bridge_code,
+    b.host_name,
+    b.worker_status,
+    b.worker_version,
+    b.worker_last_seen_at
 )
 select jsonb_build_object(
   'summary', jsonb_build_object(
