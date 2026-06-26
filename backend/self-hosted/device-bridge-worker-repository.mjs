@@ -454,9 +454,9 @@ summary as (
          or b.worker_last_seen_at < now() - (${safeStaleAfterMinutes}::text || ' minutes')::interval
     )::int as stale_workers,
     coalesce(max(extract(epoch from (now() - c.created_at))) filter (where c.status in ('queued', 'acknowledged')), 0)::int as max_queue_age_seconds,
-    count(c.*) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as retrying_commands,
-    count(c.*) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as rate_limited_commands,
-    count(c.*) filter (
+    count(c.id) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as retrying_commands,
+    count(c.id) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as rate_limited_commands,
+    count(c.id) filter (
       where c.status in ('completed', 'failed', 'cancelled')
         and coalesce(c.completed_at, c.updated_at) < now() - (${safeRetentionDays}::text || ' days')::interval
     )::int as cleanup_candidates
@@ -476,9 +476,9 @@ bridge_hardening as (
       b.worker_last_seen_at is null
       or b.worker_last_seen_at < now() - (${safeStaleAfterMinutes}::text || ' minutes')::interval
     ) as "stale",
-    count(c.*) filter (where c.status in ('queued', 'acknowledged'))::int as "activeCommandCount",
-    count(c.*) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as "retryingCommandCount",
-    count(c.*) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as "rateLimitedCommandCount",
+    count(c.id) filter (where c.status in ('queued', 'acknowledged'))::int as "activeCommandCount",
+    count(c.id) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as "retryingCommandCount",
+    count(c.id) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as "rateLimitedCommandCount",
     coalesce(max(extract(epoch from (now() - c.created_at))) filter (where c.status in ('queued', 'acknowledged')), 0)::int as "maxQueueAgeSeconds"
   from scoped_bridges b
   left join command_scope c on c.bridge_id = b.id
