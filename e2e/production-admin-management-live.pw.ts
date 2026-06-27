@@ -81,6 +81,10 @@ function isOpsResponse(response: Response, path: string) {
   return request.method() === "GET" && new URL(response.url()).pathname === path;
 }
 
+function appMain(page: Page) {
+  return page.locator("main").first();
+}
+
 test.describe("Live production admin management journey", () => {
   test("system admin creates clinics, users, and verifies audit through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
@@ -202,7 +206,7 @@ test.describe("Live production admin management journey", () => {
     await expect(page.getByText(`Пустая запись удалена: ${clinicName}`)).toBeVisible();
 
     await expect(page.getByText(/Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
-    await expect(page.locator("main")).not.toContainText(/Учебный режим|демо|mock/i);
+    await expect(appMain(page)).not.toContainText(/Учебный режим|демо|mock/i);
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-desktop-1280.png"), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -262,7 +266,7 @@ test.describe("Live production admin management journey", () => {
     expect(auditResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { name: "Аудит" })).toBeVisible();
     await expect(page.getByText(/Рабочий режим: журнал читается из базы сервера/)).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
+    await expect(appMain(page)).not.toContainText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
     await expect(page.getByRole("tab", { name: "Клиники" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Сотрудники" })).toBeVisible();
     await expect(page.getByText(/Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
@@ -293,7 +297,7 @@ test.describe("Live production admin management journey", () => {
     expect(accessEventsResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
     await expect(page.getByText(/Данные читаются из рабочей системы клиники/)).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(
+    await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|RPC list_access_events_admin|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expect(page.getByLabel("Источник событий")).not.toContainText("Учебные данные");
@@ -325,7 +329,7 @@ test.describe("Live production admin management journey", () => {
     await page.getByRole("link", { name: "Готовность публикации" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
     await expect(page.getByText(/Рабочий режим: готовность публикации/)).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(
+    await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expectNoHorizontalOverflow(page);
@@ -359,7 +363,7 @@ test.describe("Live production admin management journey", () => {
     expect(productReadinessResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Рабочий контур" })).toBeVisible();
     await expect(page.getByText("Готовность продукта").first()).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(
+    await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|Post-deploy verification|Restore dry-run|Audit export dry-run|metadata-only|PHI|S3-compatible|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expectNoHorizontalOverflow(page);
