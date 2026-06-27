@@ -49,3 +49,30 @@ test("Stage 4M guard requires live help section coverage", () => {
 
   assert.match(errors.join("\n"), /missing live help-section coverage marker: Справка/);
 });
+
+test("Stage 4M guard rejects ambiguous live e2e sidebar link locators", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-sidebar-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'function appMain(page: Page) {',
+      '  return page.locator("main").first();',
+      '}',
+      'function sidebarLink(page: Page, name: string) {',
+      '  return page.locator(\'[data-sidebar="menu-button"]\').filter({ hasText: name }).first();',
+      '}',
+      'await page.getByRole("link", { name: "Клиники и кабинеты" }).click();',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /ambiguous sidebar link lookup for "Клиники и кабинеты"/);
+});

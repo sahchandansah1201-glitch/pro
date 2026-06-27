@@ -97,6 +97,10 @@ function appMain(page: Page) {
   return page.locator("main").first();
 }
 
+function sidebarLink(page: Page, name: string) {
+  return page.locator('[data-sidebar="menu-button"]').filter({ hasText: name }).first();
+}
+
 test.describe("Live production admin management journey", () => {
   test("system admin creates clinics, users, and verifies audit through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
@@ -152,7 +156,7 @@ test.describe("Live production admin management journey", () => {
     await page.getByRole("button", { name: /^Войти$/ }).click();
 
     await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("link", { name: "Клиники и кабинеты" }).click();
+    await sidebarLink(page, "Клиники и кабинеты").click();
     await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
     await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
 
@@ -240,7 +244,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-mobile-390.png"), fullPage: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
+    await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
     await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
     await page.getByLabel("ФИО сотрудника").fill(adminDisplayName);
@@ -272,7 +276,7 @@ test.describe("Live production admin management journey", () => {
     await page.getByLabel("Пароль").fill(adminPassword);
     await page.getByRole("button", { name: /^Войти$/ }).click();
     await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
+    await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByText(adminDisplayName).first()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -284,7 +288,7 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     const auditResponsePromise = page.waitForResponse(isAdminAuditResponse);
-    await page.getByRole("link", { name: "Аудит" }).click();
+    await sidebarLink(page, "Аудит").click();
     const auditResponse = await auditResponsePromise;
     expect(auditResponse.status()).toBeGreaterThanOrEqual(200);
     expect(auditResponse.status()).toBeLessThan(300);
@@ -315,7 +319,7 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     const accessEventsResponsePromise = page.waitForResponse(isAdminAuditResponse);
-    await page.getByRole("link", { name: "События доступа" }).click();
+    await sidebarLink(page, "События доступа").click();
     const accessEventsResponse = await accessEventsResponsePromise;
     expect(accessEventsResponse.status()).toBeGreaterThanOrEqual(200);
     expect(accessEventsResponse.status()).toBeLessThan(300);
@@ -350,7 +354,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-admin-access-events-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole("link", { name: "Готовность публикации" }).click();
+    await sidebarLink(page, "Готовность публикации").click();
     await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
     await expect(page.getByText(/Рабочий режим: готовность публикации/)).toBeVisible();
     await expect(appMain(page)).not.toContainText(
@@ -373,7 +377,7 @@ test.describe("Live production admin management journey", () => {
     const productReadinessResponsePromise = page.waitForResponse((response) =>
       isOpsResponse(response, "/api/v1/product/readiness"),
     );
-    await page.getByRole("link", { name: "Рабочий контур" }).click();
+    await sidebarLink(page, "Рабочий контур").click();
     const [opsStatusResponse, opsRuntimeResponse, productReadinessResponse] = await Promise.all([
       opsStatusResponsePromise,
       opsRuntimeResponsePromise,
@@ -403,7 +407,7 @@ test.describe("Live production admin management journey", () => {
     const serviceKeysListResponsePromise = page.waitForResponse((response) =>
       isAdminServiceKeyResponse(response, "GET", /^\/api\/v1\/admin\/service-keys$/),
     );
-    await page.getByRole("link", { name: "Служебные ключи" }).click();
+    await sidebarLink(page, "Служебные ключи").click();
     const serviceKeysListResponse = await serviceKeysListResponsePromise;
     expect(serviceKeysListResponse.status()).toBeGreaterThanOrEqual(200);
     expect(serviceKeysListResponse.status()).toBeLessThan(300);
@@ -463,7 +467,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-admin-api-keys-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole("link", { name: "Справка" }).click();
+    await sidebarLink(page, "Справка").click();
     await expect(page.getByRole("heading", { level: 1, name: "Справка" })).toBeVisible();
     await expect(page.getByText("Безопасность и границы текущей версии")).toBeVisible();
     await expect(page.getByText("Права на разделы проверяются сервером и зависят от роли сотрудника.")).toBeVisible();
@@ -485,7 +489,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-admin-help-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole("link", { name: "Клиники и кабинеты" }).click();
+    await sidebarLink(page, "Клиники и кабинеты").click();
     await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
     await page.getByLabel("Название клиники").fill(clinicAdminClinicName);
     await page.getByLabel("Адрес клиники").fill(clinicAdminClinicAddress);
@@ -500,7 +504,7 @@ test.describe("Live production admin management journey", () => {
     expect(createClinicAdminClinicResponse.status()).toBeLessThan(300);
     await expect(page.getByText(`Клиника сохранена и добавлена в список: ${clinicAdminClinicName}`)).toBeVisible();
 
-    await page.getByRole("link", { name: "Сотрудники и доступ" }).click();
+    await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
     await page.getByLabel("ФИО сотрудника").fill(clinicAdminDisplayName);
     await page.getByLabel("Эл. почта").fill(clinicAdminEmail);

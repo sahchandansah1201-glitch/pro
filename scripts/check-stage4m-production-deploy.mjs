@@ -115,6 +115,8 @@ const REQUIRED_TEXT = {
     "/self-hosted/login",
     "function appMain(page: Page)",
     'return page.locator("main").first();',
+    "function sidebarLink(page: Page, name: string)",
+    'data-sidebar="menu-button"',
     "Адрес системы клиники",
     "Клиники и кабинеты",
     "Создать клинику",
@@ -185,6 +187,17 @@ const PROTECTED_RUNTIME_FILES = [
   "scripts/stage4m-production-deploy-verify.mjs",
 ];
 
+const LIVE_E2E_SIDEBAR_LINK_NAMES = new Set([
+  "Клиники и кабинеты",
+  "Сотрудники и доступ",
+  "Аудит",
+  "События доступа",
+  "Готовность публикации",
+  "Рабочий контур",
+  "Служебные ключи",
+  "Справка",
+]);
+
 function read(root, file) {
   return readFileSync(join(root, file), "utf8");
 }
@@ -216,12 +229,19 @@ export function validateLiveE2EContract(errors, root) {
   }
 
   const allowedMainLocatorLine = 'return page.locator("main").first();';
+  const directSidebarLinkPattern = /page\.getByRole\(["']link["'],\s*\{\s*name:\s*["']([^"']+)["']/;
   const content = read(root, file);
   const lines = content.split(/\r?\n/);
   lines.forEach((line, index) => {
     if (line.includes('page.locator("main")') && line.trim() !== allowedMainLocatorLine) {
       errors.push(
         `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
+      );
+    }
+    const directSidebarLinkMatch = line.match(directSidebarLinkPattern);
+    if (directSidebarLinkMatch && LIVE_E2E_SIDEBAR_LINK_NAMES.has(directSidebarLinkMatch[1])) {
+      errors.push(
+        `${file}:${index + 1} uses ambiguous sidebar link lookup for "${directSidebarLinkMatch[1]}"; use sidebarLink(page, "${directSidebarLinkMatch[1]}")`,
       );
     }
   });
