@@ -19,6 +19,7 @@ const REQUIRED_FILES = [
   "scripts/stage4m-admin-management-api-smoke.test.mjs",
   "scripts/run-production-admin-management-live-e2e.mjs",
   "scripts/run-production-admin-management-live-e2e.test.mjs",
+  "e2e/live-admin-test-helpers.ts",
   "e2e/production-admin-management-live.pw.ts",
   "scripts/check-stage4m-production-deploy.mjs",
   "scripts/check-stage4m-production-deploy.test.mjs",
@@ -113,10 +114,11 @@ const REQUIRED_TEXT = {
   ],
   "e2e/production-admin-management-live.pw.ts": [
     "/self-hosted/login",
-    "function appMain(page: Page)",
-    'return page.locator("main").first();',
-    "function sidebarLink(page: Page, name: string)",
-    'data-sidebar="menu-button"',
+    'from "./live-admin-test-helpers"',
+    "appMain",
+    "expectMainTapTargets",
+    "expectNoHorizontalOverflow",
+    "sidebarLink",
     "Адрес системы клиники",
     "Клиники и кабинеты",
     "Создать клинику",
@@ -135,6 +137,16 @@ const REQUIRED_TEXT = {
     "Поиск по разделам справки",
     "live-admin-help-desktop-1280.png",
     "live-admin-help-mobile-390.png",
+  ],
+  "e2e/live-admin-test-helpers.ts": [
+    "export function appMain(page: Page)",
+    'return page.locator("main").first();',
+    "export function sidebarLink(page: Page, name: string)",
+    'data-sidebar="menu-button"',
+    "export async function expectNoHorizontalOverflow(page: Page)",
+    "export async function expectMainTapTargets(page: Page)",
+    "HTMLInputElement",
+    "label.getBoundingClientRect()",
   ],
   "docs/backend/stage-4m-production-deployment-verification.md": [
     "Stage 4M",
@@ -187,17 +199,6 @@ const PROTECTED_RUNTIME_FILES = [
   "scripts/stage4m-production-deploy-verify.mjs",
 ];
 
-const LIVE_E2E_SIDEBAR_LINK_NAMES = new Set([
-  "Клиники и кабинеты",
-  "Сотрудники и доступ",
-  "Аудит",
-  "События доступа",
-  "Готовность публикации",
-  "Рабочий контур",
-  "Служебные ключи",
-  "Справка",
-]);
-
 function read(root, file) {
   return readFileSync(join(root, file), "utf8");
 }
@@ -228,20 +229,28 @@ export function validateLiveE2EContract(errors, root) {
     return;
   }
 
-  const allowedMainLocatorLine = 'return page.locator("main").first();';
-  const directSidebarLinkPattern = /page\.getByRole\(["']link["'],\s*\{\s*name:\s*["']([^"']+)["']/;
+  const helperImportPattern =
+    /import\s*\{[^}]*\bappMain\b[^}]*\bexpectMainTapTargets\b[^}]*\bexpectNoHorizontalOverflow\b[^}]*\bsidebarLink\b[^}]*\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s;
   const content = read(root, file);
+  if (!helperImportPattern.test(content)) {
+    errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
+  }
+  for (const helperName of ["appMain", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
+    const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
+    if (inlineHelperPattern.test(content)) {
+      errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
+    }
+  }
   const lines = content.split(/\r?\n/);
   lines.forEach((line, index) => {
-    if (line.includes('page.locator("main")') && line.trim() !== allowedMainLocatorLine) {
+    if (line.includes('page.locator("main")')) {
       errors.push(
         `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
       );
     }
-    const directSidebarLinkMatch = line.match(directSidebarLinkPattern);
-    if (directSidebarLinkMatch && LIVE_E2E_SIDEBAR_LINK_NAMES.has(directSidebarLinkMatch[1])) {
+    if (/page\.getByRole\(["']link["']/.test(line)) {
       errors.push(
-        `${file}:${index + 1} uses ambiguous sidebar link lookup for "${directSidebarLinkMatch[1]}"; use sidebarLink(page, "${directSidebarLinkMatch[1]}")`,
+        `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
       );
     }
   });
