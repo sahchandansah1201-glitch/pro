@@ -46,7 +46,7 @@ function statusLabel(status: string): string {
   if (status === "unavailable") return "Недоступно";
   if (status === "pending") return "Ожидает";
   if (status === "unknown") return "Нет данных";
-  return status || "Неизвестно";
+  return "Неизвестно";
 }
 
 function systemTermLabel(value: string): string {
@@ -56,20 +56,70 @@ function systemTermLabel(value: string): string {
     "object-storage": "Файлы клиники",
     "PostgreSQL connectivity": "Связь с базой данных",
     "PostgreSQL connection verified": "Связь с базой данных проверена",
+    "PostgreSQL persistence": "Хранение в базе данных",
     "Migration bundle": "Пакет обновлений",
     "Self-hosted PostgreSQL migration bundle is present": "Пакет обновлений базы найден",
     "Backup dry-run": "План резервной копии",
+    "Backup after deploy": "Резервная копия после обновления",
     "Deploy smoke dry-run": "Проверка развёртывания",
+    "Post-deploy verification": "Проверка после обновления",
+    "Rollback drill": "Проверка отката",
+    "Restore dry-run": "Пробная проверка восстановления",
+    "Audit export dry-run": "План экспорта аудита",
     "Plan backup": "Проверить план резервной копии",
     "Plan smoke": "Проверить план развёртывания",
+    "Plan restore": "Проверить план восстановления",
+    "Plan audit export": "Проверить план экспорта аудита",
     "Full deterministic preflight": "Полная предварительная проверка",
     "Self-hosted compose smoke": "Проверка состава системы",
     "React frontend": "Интерфейс продукта",
+    "Node self-hosted API": "Рабочая система",
+    "Self-hosted object storage": "Файлы клиники",
+    "Object storage runtime": "Файлы клиники",
     "Device Bridge worker operations": "Связь с приборами",
+    "Clinical patient/visit/asset workflows": "Клинические рабочие процессы",
+    "Server operations": "Операции сервера",
     "dist build": "интерфейс собран",
+    "self-hosted API clients": "подключение к рабочей системе",
+    "system_admin ops UI": "панель системного администратора",
+    "/healthz": "проверка доступности",
+    "/readyz": "проверка готовности",
+    "/api/v1/meta": "служебная справка",
+    "/api/v1/product/readiness": "готовность продукта",
+    "db/migrations/0001-0013": "пакет обновлений базы",
+    "local auth seed": "первичная учётная запись",
+    "append-only audit": "неизменяемый журнал",
+    "OBJECT_STORAGE_LOCAL_DIR": "локальное хранилище файлов",
+    "OBJECT_STORAGE_ENDPOINT": "точка хранения файлов",
+    "backend download proxy": "безопасная выдача файлов",
+    "patients CRUD": "карты пациентов",
+    "visit workspace writes": "записи визитов",
+    "asset binary upload/download": "загрузка и скачивание файлов",
+    "registry": "реестр",
+    "command queue": "очередь команд",
+    "worker lifecycle": "состояние обработчика",
+    "audit replay/export": "журнал и экспорт",
+    "backup/restore dry-runs": "планы копии и восстановления",
+    "deploy smoke": "проверка обновления",
+    "runtime checks": "проверки среды",
+    "observability": "наблюдение",
+    "External S3-compatible endpoint configured behind backend proxy": "Файлы клиники настроены через защищённый серверный доступ",
+    "Local backend-owned object storage is writable": "Файлы клиники доступны для записи",
+    "Local backend-owned object storage is nearly full": "Место для файлов клиники почти заполнено",
+    "Local backend-owned object storage is not writable": "Файлы клиники временно недоступны для записи",
+    "Plan destructive restore without executing restore": "Показывает план восстановления без запуска восстановления",
+    "Prepare metadata-only audit export without PHI and secrets": "Готовит безопасный экспорт журнала без персональных данных и секретов",
+    "Планирует резервное копирование PostgreSQL и backend-owned object storage.":
+      "Планирует резервную копию базы данных и файлов клиники.",
+    "Показывает destructive restore-план без выполнения восстановления.":
+      "Показывает план восстановления без запуска восстановления.",
+    "Проверяет docker-compose smoke-план до запуска production stack.":
+      "Проверяет план обновления перед запуском рабочей системы.",
+    "Готовит metadata-only audit export без PHI и секретов.":
+      "Готовит безопасный экспорт журнала без персональных данных и секретов.",
     "audit export": "служебный журнал готов",
   };
-  return labels[value] ?? value;
+  return labels[value] ?? "служебная проверка";
 }
 
 function systemValueLabel(value: string | undefined): string {
@@ -84,9 +134,10 @@ function systemValueLabel(value: string | undefined): string {
     "Node self-hosted API": "рабочая система клиники",
     "operator-owned PostgreSQL": "база данных клиники",
     "operator-owned object storage": "файлы клиники",
+    "operator-owned object storage or local filesystem": "файлы клиники",
     "metadata-only operational readiness": "только служебная готовность",
   };
-  return labels[value] ?? value;
+  return labels[value] ?? "служебное значение скрыто";
 }
 
 function formatDateTime(value: string): string {

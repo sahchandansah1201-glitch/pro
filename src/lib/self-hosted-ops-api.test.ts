@@ -242,9 +242,9 @@ describe("self-hosted-ops-api", () => {
   it("builds safe audit export preview", () => {
     const preview = buildStage4OAuditExportPreview(toSelfHostedOpsStatus(OPS_STATUS_BODY));
     expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
-    expect(preview).toContain("created_at");
+    expect(preview).toContain("дата события");
     expect(preview).not.toContain(STAGE4O_AUDIT_EXPORT_COMMAND);
-    expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
+    expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|created_at/i);
   });
 
   it("builds safe operations preview for server-owned dry runs", () => {
@@ -270,7 +270,7 @@ describe("self-hosted-ops-api", () => {
     expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
     expect(preview).toContain("готово к установке");
     expect(preview).toContain("Полная предварительная проверка");
-    expect(preview).toContain("Проверка локального состава");
+    expect(preview).toContain("Проверка состава системы");
     expect(preview).not.toMatch(/ready_for_server_deploy|Full deterministic preflight|Self-hosted compose smoke/);
     expect(preview).not.toContain("npm run preflight:all");
     expect(preview).not.toContain("npm run smoke:stage4k");

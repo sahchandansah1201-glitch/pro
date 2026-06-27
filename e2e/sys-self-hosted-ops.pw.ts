@@ -55,13 +55,20 @@ const RUNTIME_CHECKS = {
       expectedCount: 10,
       latest: "0010_stage4s_device_bridge_worker_contract.sql",
     },
+    {
+      key: "object_storage_runtime",
+      label: "Object storage runtime",
+      status: "ready",
+      detail: "External S3-compatible endpoint configured behind backend proxy",
+      connected: true,
+    },
   ],
   commands: [
     {
       key: "backup_dry_run",
       label: "Backup dry-run",
       command: "npm run ops:stage4l:backup:dry-run",
-      description: "Plan backup",
+      description: "Планирует резервное копирование PostgreSQL и backend-owned object storage.",
       status: "ready",
       dryRunOnly: true,
     },
@@ -69,7 +76,23 @@ const RUNTIME_CHECKS = {
       key: "deploy_smoke_dry_run",
       label: "Deploy smoke dry-run",
       command: "npm run smoke:stage4k:dry-run",
-      description: "Plan smoke",
+      description: "Проверяет docker-compose smoke-план до запуска production stack.",
+      status: "ready",
+      dryRunOnly: true,
+    },
+    {
+      key: "restore_dry_run",
+      label: "Restore dry-run",
+      command: "npm run ops:stage4l:restore:dry-run",
+      description: "Показывает destructive restore-план без выполнения восстановления.",
+      status: "ready",
+      dryRunOnly: true,
+    },
+    {
+      key: "audit_export_dry_run",
+      label: "Audit export dry-run",
+      command: "npm run ops:stage4n:audit-export:dry-run",
+      description: "Готовит metadata-only audit export без PHI и секретов.",
       status: "ready",
       dryRunOnly: true,
     },
@@ -95,12 +118,55 @@ const PRODUCT_READINESS = {
     browserHardwareApis: false,
   },
   capabilities: [
-    { key: "frontend", label: "React frontend", status: "ready", evidence: ["dist build"] },
-    { key: "device_bridge", label: "Device Bridge worker operations", status: "ready", evidence: ["audit export"] },
+    {
+      key: "frontend",
+      label: "React frontend",
+      status: "ready",
+      evidence: ["dist build", "self-hosted API clients", "system_admin ops UI"],
+    },
+    {
+      key: "backend",
+      label: "Node self-hosted API",
+      status: "ready",
+      evidence: ["/healthz", "/readyz", "/api/v1/meta", "/api/v1/product/readiness"],
+    },
+    {
+      key: "postgres",
+      label: "PostgreSQL persistence",
+      status: "ready",
+      evidence: ["db/migrations/0001-0013", "local auth seed", "append-only audit"],
+    },
+    {
+      key: "object_storage",
+      label: "Self-hosted object storage",
+      status: "ready",
+      evidence: ["OBJECT_STORAGE_LOCAL_DIR", "OBJECT_STORAGE_ENDPOINT", "backend download proxy"],
+    },
+    {
+      key: "clinical_workflows",
+      label: "Clinical patient/visit/asset workflows",
+      status: "ready",
+      evidence: ["patients CRUD", "visit workspace writes", "asset binary upload/download"],
+    },
+    {
+      key: "device_bridge",
+      label: "Device Bridge worker operations",
+      status: "ready",
+      evidence: ["registry", "command queue", "worker lifecycle", "audit replay/export"],
+    },
+    {
+      key: "operations",
+      label: "Server operations",
+      status: "ready",
+      evidence: ["backup/restore dry-runs", "deploy smoke", "runtime checks", "observability"],
+    },
   ],
   gates: [
     { key: "full_preflight", label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
     { key: "compose_smoke", label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+    { key: "post_deploy", label: "Post-deploy verification", command: "npm run deploy:stage4m:post-deploy:dry-run", required: true },
+    { key: "backup_after_deploy", label: "Backup after deploy", command: "npm run deploy:stage4m:backup-after-deploy:dry-run", required: true },
+    { key: "rollback_drill", label: "Rollback drill", command: "npm run deploy:stage4m:rollback-drill:dry-run", required: true },
   ],
   openapi: ["/openapi.stage4y.json", "/openapi.stage4z.json"],
   privacy: {
@@ -189,6 +255,9 @@ test.describe("/sys/self-hosted-ops", () => {
     await expect(page.locator("body")).not.toContainText("Ivanova Natalia");
     await expect(page.locator("body")).not.toContainText("bucket/key");
     await expect(page.locator("body")).not.toContainText("storage_object_path");
+    await expect(page.locator("body")).not.toContainText(
+      /self-hosted|PostgreSQL|backend-owned|Object storage|Post-deploy|production stack|metadata-only|PHI|S3-compatible|Node self-hosted|Server operations|Restore dry-run|Audit export dry-run/i,
+    );
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),
