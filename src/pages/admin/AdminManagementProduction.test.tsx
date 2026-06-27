@@ -562,7 +562,7 @@ describe("Production admin management UI", () => {
       }),
     );
     expect(screen.getByText(/Рабочий режим: журнал читается из базы сервера/)).toBeInTheDocument();
-    expect(screen.queryByText(/Учебный режим|Экспорт отключён/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath/i)).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Клиники" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Сотрудники" })).toBeInTheDocument();
     expect(screen.getAllByText("Клиника создана").length).toBeGreaterThan(0);

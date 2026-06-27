@@ -330,7 +330,7 @@ function SysAuditPageLive() {
           role="status"
           className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
         >
-          Рабочий режим: журнал читается из базы сервера. Коды объектов, служебные payload и защищённые поля скрыты.
+          Рабочий режим: журнал читается из базы сервера. Коды объектов, служебные данные и защищённые поля скрыты.
         </div>
 
         <Card className="p-3">

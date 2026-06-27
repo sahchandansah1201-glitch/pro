@@ -71,8 +71,13 @@ function isAdminUserResponse(response: Response, method: string, matcher: RegExp
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isAdminAuditResponse(response: Response) {
+  const request = response.request();
+  return request.method() === "GET" && new URL(response.url()).pathname === "/api/v1/admin/audit-events";
+}
+
 test.describe("Live production admin management journey", () => {
-  test("system admin creates and edits clinic and creates a second admin through the visible UI", async ({ page }, testInfo) => {
+  test("system admin creates clinics, users, and verifies audit through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
 
     const { email, password } = parseCredentials(readFileSync(CREDENTIALS_FILE, "utf8"));
@@ -243,6 +248,37 @@ test.describe("Live production admin management journey", () => {
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-users-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const auditResponsePromise = page.waitForResponse(isAdminAuditResponse);
+    await page.getByRole("link", { name: "Аудит" }).click();
+    const auditResponse = await auditResponsePromise;
+    expect(auditResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(auditResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { name: "Аудит" })).toBeVisible();
+    await expect(page.getByText(/Рабочий режим: журнал читается из базы сервера/)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
+    await expect(page.getByRole("tab", { name: "Клиники" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Сотрудники" })).toBeVisible();
+    await expect(page.getByText(/Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
+
+    await page.getByLabel("Поиск аудита").fill(`нет совпадений ${suffix}`);
+    await expect(page.getByText("События не найдены. Измените фильтр или обновите журнал.")).toBeVisible();
+    await page.getByLabel("Поиск аудита").fill("");
+    await page.getByRole("button", { name: "Проверить целостность" }).click();
+    await expect(page.getByText(/Целостность: записей/)).toBeVisible();
+    const auditDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Скачать журнал" }).click();
+    const auditDownload = await auditDownloadPromise;
+    expect(auditDownload.suggestedFilename()).toMatch(/^audit-events-\d{4}-\d{2}-\d{2}\.csv$/);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-audit-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { name: "Аудит" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-audit-mobile-390.png"), fullPage: true });
 
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
