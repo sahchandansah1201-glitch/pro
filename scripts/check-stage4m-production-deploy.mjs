@@ -129,6 +129,10 @@ const REQUIRED_TEXT = {
     "/api/v1/admin/service-keys",
     "live-admin-api-keys-desktop-1280.png",
     "live-admin-api-keys-mobile-390.png",
+    "Справка",
+    "Поиск по разделам справки",
+    "live-admin-help-desktop-1280.png",
+    "live-admin-help-mobile-390.png",
   ],
   "docs/backend/stage-4m-production-deployment-verification.md": [
     "Stage 4M",
@@ -212,7 +216,8 @@ export function validateLiveE2EContract(errors, root) {
   }
 
   const allowedMainLocatorLine = 'return page.locator("main").first();';
-  const lines = read(root, file).split(/\r?\n/);
+  const content = read(root, file);
+  const lines = content.split(/\r?\n/);
   lines.forEach((line, index) => {
     if (line.includes('page.locator("main")') && line.trim() !== allowedMainLocatorLine) {
       errors.push(
@@ -220,6 +225,14 @@ export function validateLiveE2EContract(errors, root) {
       );
     }
   });
+  for (const text of [
+    "Справка",
+    "Поиск по разделам справки",
+    "live-admin-help-desktop-1280.png",
+    "live-admin-help-mobile-390.png",
+  ]) {
+    if (!content.includes(text)) errors.push(`${file} missing live help-section coverage marker: ${text}`);
+  }
 }
 
 function validatePackageScripts(errors, root) {

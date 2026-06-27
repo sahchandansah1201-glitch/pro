@@ -456,6 +456,28 @@ test.describe("Live production admin management journey", () => {
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-api-keys-mobile-390.png"), fullPage: true });
 
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("link", { name: "Справка" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Справка" })).toBeVisible();
+    await expect(page.getByText("Безопасность и границы текущей версии")).toBeVisible();
+    await expect(page.getByText("Права на разделы проверяются сервером и зависят от роли сотрудника.")).toBeVisible();
+    await expect(page.getByText("Помощник записи даёт только навигационную подсказку для передачи врачу.")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная|учебный|учебное|учебном|учебные|демо|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential|MVP|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|raw ID|лид/i,
+    );
+    await page.getByLabel("Поиск по разделам справки").fill(`нет раздела ${suffix}`);
+    await expect(page.getByText(/Ничего не найдено по запросу/)).toBeVisible();
+    await page.getByRole("button", { name: "Очистить поиск" }).click();
+    await expect(page.getByText(/Ничего не найдено по запросу/)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-help-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Справка" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-help-mobile-390.png"), fullPage: true });
+
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);

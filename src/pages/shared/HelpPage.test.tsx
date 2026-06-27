@@ -27,7 +27,7 @@ const NETWORK_TOKENS = [
 ];
 
 const FORBIDDEN_VISIBLE =
-  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|Telegram|CRM|ERP|RoleGuard|raw ID)\b|демо|бэкенд|лид/i;
+  /\b(MVP|AI|XAI|Demo|demo|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|Telegram|CRM|ERP|RoleGuard|raw ID)\b|демо|учебн|бэкенд|лид/i;
 
 const renderHelp = () =>
   render(
@@ -43,8 +43,9 @@ describe("HelpPage", () => {
   it("рендерит заголовок и баннер безопасности", () => {
     renderHelp();
     expect(screen.getByText("Справка")).toBeInTheDocument();
-    expect(screen.getByText(/Проверка доступа на экране.+учебная/i)).toBeInTheDocument();
-    expect(screen.getByText(/Сводка помощника.+не диагноз/i)).toBeInTheDocument();
+    expect(screen.getByText(/Права на разделы проверяются сервером/i)).toBeInTheDocument();
+    expect(screen.getByText(/Пациентские данные, снимки и служебные значения не выводятся/i)).toBeInTheDocument();
+    expect(screen.getByText(/Помощник записи даёт только навигационную подсказку/i)).toBeInTheDocument();
     expect(screen.getByText(/Финальное медицинское решение/i)).toBeInTheDocument();
   });
 

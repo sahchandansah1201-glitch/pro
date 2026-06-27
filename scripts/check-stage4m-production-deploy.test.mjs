@@ -30,3 +30,22 @@ test("Stage 4M guard rejects ambiguous live e2e main locators", () => {
 
   assert.match(errors.join("\n"), /ambiguous page\.locator\("main"\)/);
 });
+
+test("Stage 4M guard requires live help section coverage", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-help-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'function appMain(page: Page) {',
+      '  return page.locator("main").first();',
+      '}',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live help-section coverage marker: Справка/);
+});
