@@ -5,6 +5,7 @@ import {
   createAdminClinic,
   createAdminPrivatePractice,
   deleteAdminClinic,
+  listAdminAuditEvents,
   reactivateAdminUser,
   setAdminClinicStatus,
   setAdminUserRoleStatus,
@@ -365,5 +366,55 @@ describe("self-hosted-admin-api · clinics", () => {
     expect(result.ok).toBe(false);
     expect(adminApiErrorText(result.error)).toBe("Сессия истекла. Выйдите и войдите в систему заново.");
     expect(adminApiErrorText(result.error)).not.toMatch(/Invalid or expired authorization token/i);
+  });
+
+  it("lists production audit events through the safe admin audit API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "audit-1",
+              action: "admin.clinic.create",
+              entityType: "clinic",
+              actorName: "Админ 2",
+              clinicName: "Яблоко ООО",
+              createdAt: "2026-06-27T08:00:00.000Z",
+              metadataJson: { hidden: true },
+              storagePath: "must-not-be-used",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listAdminAuditEvents({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value).toEqual([
+      {
+        id: "audit-1",
+        action: "admin.clinic.create",
+        entityType: "clinic",
+        actorName: "Админ 2",
+        clinicName: "Яблоко ООО",
+        createdAt: "2026-06-27T08:00:00.000Z",
+      },
+    ]);
+    expect(JSON.stringify(result.value)).not.toMatch(/metadataJson|storagePath|must-not-be-used/);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/audit-events",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer token-admin",
+        }),
+      }),
+    );
   });
 });

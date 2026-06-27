@@ -86,6 +86,12 @@
         "operationId": "getAdminAnalytics",
         "summary": "Read production aggregate statistics without patient rows"
       }
+    },
+    "/api/v1/admin/audit-events": {
+      "get": {
+        "operationId": "listAdminAuditEvents",
+        "summary": "List sanitized production audit events for system administrators"
+      }
     }
   },
   "components": {

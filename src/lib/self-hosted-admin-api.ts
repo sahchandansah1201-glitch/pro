@@ -79,6 +79,15 @@ export interface AdminAnalyticsDTO {
   }>;
 }
 
+export interface AdminAuditEventDTO {
+  id: string;
+  action: string;
+  entityType: string;
+  actorName: string | null;
+  clinicName: string | null;
+  createdAt: string | null;
+}
+
 export interface AdminPrivatePracticeDTO {
   clinic: AdminClinicDTO;
   owner: AdminUserDTO;
@@ -230,6 +239,18 @@ function normalizeRoleStatus(input: unknown): AdminRoleStatusDTO {
     clinicId: item.clinicId == null ? null : String(item.clinicId),
     status: item.status === "disabled" ? "disabled" : "active",
     disabledAt: item.disabledAt == null ? null : String(item.disabledAt),
+  };
+}
+
+function normalizeAuditEvent(input: unknown): AdminAuditEventDTO {
+  const item = isRecord(input) ? input : {};
+  return {
+    id: String(item.id ?? ""),
+    action: String(item.action ?? ""),
+    entityType: String(item.entityType ?? ""),
+    actorName: item.actorName == null ? null : String(item.actorName),
+    clinicName: item.clinicName == null ? null : String(item.clinicName),
+    createdAt: item.createdAt == null ? null : String(item.createdAt),
   };
 }
 
@@ -425,6 +446,10 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
         })
       : [],
   });
+}
+
+export async function listAdminAuditEvents(args: BaseArgs): Promise<SelfHostedApiResult<AdminAuditEventDTO[]>> {
+  return itemsFrom(await request(args, "/api/v1/admin/audit-events"), normalizeAuditEvent);
 }
 
 export function adminApiErrorText(error: SelfHostedApiError | null): string {

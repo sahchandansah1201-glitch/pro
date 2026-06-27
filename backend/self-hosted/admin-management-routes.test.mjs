@@ -108,6 +108,23 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async listAuditEvents(params, authContext, meta) {
+        calls.push(["listAuditEvents", params, authContext.roles, meta.correlationId]);
+        return {
+          items: [
+            {
+              id: "audit-1",
+              action: "admin.clinic.create",
+              entityType: "clinic",
+              actorName: "System Admin",
+              clinicName: "Яблоко ООО",
+              createdAt: "2026-06-22T00:00:00.000Z",
+            },
+          ],
+          meta: { limit: 100, offset: 0, count: 1 },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
     },
   };
 }
@@ -238,4 +255,29 @@ test("admin management OpenAPI route is public and documents operation ids", asy
   assert.equal(response.json.paths["/api/v1/admin/users/{userId}/reactivate"].patch.operationId, "reactivateAdminUser");
   assert.equal(response.json.paths["/api/v1/admin/users/{userId}/role-status"].patch.operationId, "setAdminUserRoleStatus");
   assert.equal(response.json.paths["/api/v1/admin/analytics"].get.operationId, "getAdminAnalytics");
+  assert.equal(response.json.paths["/api/v1/admin/audit-events"].get.operationId, "listAdminAuditEvents");
+});
+
+test("admin management routes list safe production audit events", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const response = await request("/api/v1/admin/audit-events", { runtime });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.items[0].action, "admin.clinic.create");
+  assert.equal(response.json.items[0].clinicName, "Яблоко ООО");
+  assert.equal(response.body.includes("metadata_json"), false);
+  assert.equal(response.body.includes("storagePath"), false);
+  assert.deepEqual(calls[0], [
+    "listAuditEvents",
+    {
+      limit: 50,
+      offset: 0,
+      search: "",
+    },
+    ["system_admin"],
+    "stage4i-local",
+  ]);
 });

@@ -368,3 +368,23 @@ test("analytics returns aggregate counters and audit events only", async () => {
   assert.deepEqual(result.item.recentAuditEvents, [{ id: "audit-1", action: "admin.user.create" }]);
   assert.equal(JSON.stringify(result).includes("patientName"), false);
 });
+
+test("system admin lists audit events through safe service scope", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.listAuditEvents({}, SYSTEM_AUTH, { correlationId: "test-audit" });
+
+  assert.deepEqual(result.items, [{ id: "audit-1", action: "admin.user.create" }]);
+  assert.deepEqual(calls[0], [
+    "listAuditEvents",
+    {
+      allClinics: true,
+      clinicIds: [],
+      limit: 100,
+      roles: ["system_admin"],
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.audit.list");
+  assert.equal(auditEvents[0].entityType, "audit");
+  assert.equal(auditEvents[0].correlationId, "test-audit");
+  assert.equal(JSON.stringify(result).includes("metadata_json"), false);
+});

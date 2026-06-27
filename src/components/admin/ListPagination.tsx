@@ -47,7 +47,7 @@ export function ListPagination({
             disabled={!canPrev}
             aria-label="Первая страница"
             onClick={() => onPageChange(1)}
-            className="min-h-[44px] px-2 sm:min-h-[32px]"
+            className="min-h-[44px] min-w-11 px-2 sm:min-h-[32px]"
           >
             «
           </Button>
@@ -58,7 +58,7 @@ export function ListPagination({
             disabled={!canPrev}
             aria-label="Предыдущая страница"
             onClick={() => onPageChange(page - 1)}
-            className="min-h-[44px] px-2 sm:min-h-[32px]"
+            className="min-h-[44px] min-w-11 px-2 sm:min-h-[32px]"
           >
             ←
           </Button>
@@ -75,7 +75,7 @@ export function ListPagination({
             disabled={!canNext}
             aria-label="Следующая страница"
             onClick={() => onPageChange(page + 1)}
-            className="min-h-[44px] px-2 sm:min-h-[32px]"
+            className="min-h-[44px] min-w-11 px-2 sm:min-h-[32px]"
           >
             →
           </Button>
@@ -86,7 +86,7 @@ export function ListPagination({
             disabled={!canNext}
             aria-label="Последняя страница"
             onClick={() => onPageChange(pageCount)}
-            className="min-h-[44px] px-2 sm:min-h-[32px]"
+            className="min-h-[44px] min-w-11 px-2 sm:min-h-[32px]"
           >
             »
           </Button>

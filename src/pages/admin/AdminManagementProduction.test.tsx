@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
 import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
+import SysAuditPage from "@/pages/sys/SysAuditPage";
 import SysUsersPage from "@/pages/sys/SysUsersPage";
 
 vi.mock("@/lib/app-mode", () => ({
@@ -499,5 +500,86 @@ describe("Production admin management UI", () => {
       "https://clinic.local/api/v1/admin/doctors",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("renders production audit from the server, supports search, integrity check, and export", async () => {
+    const createObjectUrl = vi.fn(() => "blob:admin-audit");
+    const revokeObjectUrl = vi.fn();
+    const clickSpy = vi.fn();
+    const appendSpy = vi.spyOn(document.body, "appendChild");
+    const originalCreateElement = document.createElement.bind(document);
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: createObjectUrl,
+      revokeObjectURL: revokeObjectUrl,
+    });
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", { value: clickSpy });
+      }
+      return element;
+    });
+
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/audit-events")) {
+        return json({
+          items: [
+            {
+              id: "audit-1",
+              action: "admin.clinic.create",
+              entityType: "clinic",
+              actorName: "Админ 2",
+              clinicName: "Яблоко ООО",
+              createdAt: "2026-06-27T08:00:00.000Z",
+              storagePath: "hidden",
+            },
+            {
+              id: "audit-2",
+              action: "admin.user.role.assign",
+              entityType: "admin_user",
+              actorName: "Админ 2",
+              clinicName: null,
+              createdAt: "2026-06-27T08:05:00.000Z",
+            },
+          ],
+        });
+      }
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysAuditPage />);
+
+    expect(await screen.findByRole("heading", { name: "Аудит" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/audit-events",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer admin-token",
+        }),
+      }),
+    );
+    expect(screen.getByText(/Рабочий режим: журнал читается из базы сервера/)).toBeInTheDocument();
+    expect(screen.queryByText(/Учебный режим|Экспорт отключён/)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Клиники" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Сотрудники" })).toBeInTheDocument();
+    expect(screen.getAllByText("Клиника создана").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Роль назначена").length).toBeGreaterThan(0);
+    expect(screen.queryByText("hidden")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Поиск аудита"), { target: { value: "нет совпадений" } });
+    expect(await screen.findByText("События не найдены. Измените фильтр или обновите журнал.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Поиск аудита"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Проверить целостность" }));
+    expect(await screen.findByText(/Целостность: записей 2/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Скачать журнал" }));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(createObjectUrl).toHaveBeenCalled();
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:admin-audit");
+    expect(appendSpy).toHaveBeenCalled();
   });
 });

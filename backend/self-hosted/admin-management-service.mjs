@@ -485,5 +485,19 @@ export function createAdminManagementService({ adminManagementRepository, auditR
       });
       return { item: { ...analytics, recentAuditEvents: auditEvents }, scope };
     },
+
+    async listAuditEvents(params, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const items = await adminManagementRepository.listAuditEvents({ ...params, ...scope, limit: 100 });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.audit.list",
+        entityType: "audit",
+        correlationId: meta.correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return { items, meta: listMeta({ limit: 100, offset: 0 }, items), scope };
+    },
   };
 }

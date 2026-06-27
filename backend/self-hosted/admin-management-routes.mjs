@@ -272,5 +272,21 @@ export async function handleAdminManagementRequest({
     }
   }
 
+  if (url.pathname === "/api/v1/admin/audit-events" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const params = parseAdminListParams(url.searchParams);
+      const result = await runtimeServices.adminManagementService.listAuditEvents(params, authContext, { correlationId });
+      return jsonResponse(
+        200,
+        { stage: "6A", source: "postgres", items: result.items, meta: result.meta, generatedAt: now(), correlationId },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
   return null;
 }
