@@ -125,6 +125,67 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async listServiceKeys(params, authContext, meta) {
+        calls.push(["listServiceKeys", params, authContext.roles, meta.correlationId]);
+        return {
+          items: [
+            {
+              id: "10000000-0000-4000-8000-000000000401",
+              label: "Мост устройств",
+              owner: "Кабинет",
+              masked: "dpk_1234…abcd",
+              scopes: ["device:write"],
+              status: "active",
+            },
+          ],
+          meta: { limit: 50, offset: 0, count: 1 },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async createServiceKey(body, authContext, meta) {
+        calls.push(["createServiceKey", body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: "10000000-0000-4000-8000-000000000401",
+            label: body.label,
+            owner: body.owner,
+            masked: "dpk_1234…abcd",
+            scopes: body.scopes,
+            status: "active",
+            secretOnce: "dpk_created_once",
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async rotateServiceKey(keyId, body, authContext, meta) {
+        calls.push(["rotateServiceKey", keyId, body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: keyId,
+            label: "Мост устройств",
+            owner: "Кабинет",
+            masked: "dpk_5678…efgh",
+            scopes: ["device:write"],
+            status: "active",
+            secretOnce: "dpk_rotated_once",
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async revokeServiceKey(keyId, authContext, meta) {
+        calls.push(["revokeServiceKey", keyId, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: keyId,
+            label: "Мост устройств",
+            owner: "Кабинет",
+            masked: "dpk_5678…efgh",
+            scopes: ["device:write"],
+            status: "revoked",
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
     },
   };
 }
@@ -246,6 +307,50 @@ test("admin management routes expose lifecycle actions for clinics, users, and r
   ]);
 });
 
+test("admin management routes manage service keys without storing raw values in list", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const list = await request("/api/v1/admin/service-keys", { runtime });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.items[0].label, "Мост устройств");
+  assert.equal(list.body.includes("dpk_created_once"), false);
+
+  const created = await request("/api/v1/admin/service-keys", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({
+      label: "Мост устройств",
+      owner: "Кабинет",
+      scopes: ["device:write"],
+      expiresInDays: 30,
+    }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.json.item.secretOnce, "dpk_created_once");
+
+  const rotated = await request("/api/v1/admin/service-keys/10000000-0000-4000-8000-000000000401/rotate", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({ expiresInDays: 90 }),
+  });
+  assert.equal(rotated.status, 200);
+  assert.equal(rotated.json.item.secretOnce, "dpk_rotated_once");
+
+  const revoked = await request("/api/v1/admin/service-keys/10000000-0000-4000-8000-000000000401/revoke", {
+    method: "PATCH",
+    runtime,
+  });
+  assert.equal(revoked.status, 200);
+  assert.equal(revoked.json.item.status, "revoked");
+  assert.deepEqual(calls.map((call) => call[0]).slice(-4), [
+    "listServiceKeys",
+    "createServiceKey",
+    "rotateServiceKey",
+    "revokeServiceKey",
+  ]);
+});
+
 test("admin management OpenAPI route is public and documents operation ids", async () => {
   const response = await request("/openapi.stage6-admin-management.json", { runtime: createRuntime() });
   assert.equal(response.status, 200);
@@ -256,6 +361,10 @@ test("admin management OpenAPI route is public and documents operation ids", asy
   assert.equal(response.json.paths["/api/v1/admin/users/{userId}/role-status"].patch.operationId, "setAdminUserRoleStatus");
   assert.equal(response.json.paths["/api/v1/admin/analytics"].get.operationId, "getAdminAnalytics");
   assert.equal(response.json.paths["/api/v1/admin/audit-events"].get.operationId, "listAdminAuditEvents");
+  assert.equal(response.json.paths["/api/v1/admin/service-keys"].get.operationId, "listAdminServiceKeys");
+  assert.equal(response.json.paths["/api/v1/admin/service-keys"].post.operationId, "createAdminServiceKey");
+  assert.equal(response.json.paths["/api/v1/admin/service-keys/{keyId}/rotate"].patch.operationId, "rotateAdminServiceKey");
+  assert.equal(response.json.paths["/api/v1/admin/service-keys/{keyId}/revoke"].patch.operationId, "revokeAdminServiceKey");
 });
 
 test("admin management routes list safe production audit events", async () => {

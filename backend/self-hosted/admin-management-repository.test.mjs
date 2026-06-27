@@ -9,8 +9,11 @@ import {
   buildDeleteEmptyClinicSql,
   buildDisableAdminUserSql,
   buildReactivateAdminUserSql,
+  buildCreateServiceKeySql,
   buildSetAdminUserRoleStatusSql,
   buildSetClinicStatusSql,
+  buildRotateServiceKeySql,
+  buildRevokeServiceKeySql,
   buildUpdateClinicSql,
 } from "./admin-management-repository.mjs";
 
@@ -101,6 +104,58 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     }),
     "updated",
   );
+
+  assertMutationUsesWritableCte(
+    buildCreateServiceKeySql({
+      label: "Мост устройств",
+      owner: "Кабинет",
+      scopes: ["device:write"],
+      secretPrefix: "dpk_1234",
+      secretHint: "abcd",
+      secretSha256: "hash",
+      expiresAt: "2026-07-01T00:00:00.000Z",
+      createdByUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "inserted",
+  );
+
+  assertMutationUsesWritableCte(
+    buildRotateServiceKeySql({
+      keyId: "10000000-0000-4000-8000-000000000401",
+      secretPrefix: "dpk_5678",
+      secretHint: "efgh",
+      secretSha256: "hash2",
+      expiresAt: "2026-08-01T00:00:00.000Z",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
+    buildRevokeServiceKeySql({
+      keyId: "10000000-0000-4000-8000-000000000401",
+    }),
+    "updated",
+  );
+});
+
+test("service key SQL stores hash and mask without raw key value", () => {
+  const sql = buildCreateServiceKeySql({
+    label: "Мост устройств",
+    owner: "Кабинет",
+    scopes: ["device:write", "directory:read"],
+    secretPrefix: "dpk_1234",
+    secretHint: "abcd",
+    secretSha256: "sha256hash",
+    expiresAt: "2026-07-01T00:00:00.000Z",
+    createdByUserId: "10000000-0000-4000-8000-000000000101",
+  });
+
+  assert.match(sql, /secret_sha256/);
+  assert.match(sql, /secret_prefix/);
+  assert.match(sql, /secret_hint/);
+  assert.match(sql, /array\['device:write', 'directory:read'\]::text\[\]/);
+  assert.doesNotMatch(sql, /secretOnce/);
+  assert.doesNotMatch(sql, /dpk_[A-Za-z0-9_-]{20,}/);
 });
 
 test("private practice SQL creates clinic and owner roles atomically with writable CTEs", () => {

@@ -92,11 +92,9 @@ describe("Sys pages — render & safety", () => {
     expect(screen.getByText(/Целостность: записей/)).toBeInTheDocument();
   });
 
-  it("SysApiKeysPage shows masked keys only and never raw secret-like values", () => {
+  it("SysApiKeysPage demo branch never renders raw secret-like values", () => {
     const { container } = renderRouted(<SysApiKeysPage />);
-    expect(screen.getAllByText("ключ •••• 01").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("ключ •••• 02").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("ключ •••• 03").length).toBeGreaterThan(0);
+    expect(screen.getByText("Учебная витрина ключей")).toBeInTheDocument();
     const html = container.innerHTML;
     expect(html).not.toMatch(/[A-Za-z0-9_-]{24,}/);
   });

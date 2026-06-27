@@ -4,9 +4,13 @@ import {
   adminApiErrorText,
   createAdminClinic,
   createAdminPrivatePractice,
+  createAdminServiceKey,
   deleteAdminClinic,
   listAdminAuditEvents,
+  listAdminServiceKeys,
   reactivateAdminUser,
+  revokeAdminServiceKey,
+  rotateAdminServiceKey,
   setAdminClinicStatus,
   setAdminUserRoleStatus,
   updateAdminClinic,
@@ -415,6 +419,135 @@ describe("self-hosted-admin-api · clinics", () => {
           Authorization: "Bearer token-admin",
         }),
       }),
+    );
+  });
+
+  it("manages service keys with masked list values and one-time create/rotate secrets", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "key-1",
+                label: "Мост РДС",
+                owner: "Кабинет",
+                masked: "dpk_abcd…wxyz",
+                scopes: ["device:write"],
+                status: "active",
+                secretOnce: "must-not-leak-from-list",
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "key-1",
+              label: "Мост РДС",
+              owner: "Кабинет",
+              masked: "dpk_abcd…wxyz",
+              scopes: ["device:write"],
+              status: "active",
+              secretOnce: "dpk_created_once",
+            },
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "key-1",
+              label: "Мост РДС",
+              owner: "Кабинет",
+              masked: "dpk_efgh…lmno",
+              scopes: ["device:write"],
+              status: "active",
+              secretOnce: "dpk_rotated_once",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "key-1",
+              label: "Мост РДС",
+              owner: "Кабинет",
+              masked: "dpk_efgh…lmno",
+              scopes: ["device:write"],
+              status: "revoked",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const listed = await listAdminServiceKeys({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      search: "РДС",
+    });
+    const created = await createAdminServiceKey({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      payload: {
+        label: "Мост РДС",
+        owner: "Кабинет",
+        scopes: ["device:write"],
+        expiresInDays: 90,
+      },
+    });
+    const rotated = await rotateAdminServiceKey({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      keyId: "key-1",
+      payload: { expiresInDays: 90 },
+    });
+    const revoked = await revokeAdminServiceKey({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      keyId: "key-1",
+    });
+
+    expect(listed.ok).toBe(true);
+    expect(listed.value?.[0]).toMatchObject({ label: "Мост РДС", masked: "dpk_abcd…wxyz" });
+    expect(JSON.stringify(listed.value)).not.toContain("must-not-leak-from-list");
+    expect(created.value?.secretOnce).toBe("dpk_created_once");
+    expect(rotated.value?.secretOnce).toBe("dpk_rotated_once");
+    expect(revoked.value?.status).toBe("revoked");
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://clinic.local/api/v1/admin/service-keys?search=%D0%A0%D0%94%D0%A1",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-admin",
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://clinic.local/api/v1/admin/service-keys",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://clinic.local/api/v1/admin/service-keys/key-1/rotate",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://clinic.local/api/v1/admin/service-keys/key-1/revoke",
+      expect.objectContaining({ method: "PATCH" }),
     );
   });
 });

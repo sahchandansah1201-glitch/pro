@@ -93,6 +93,23 @@ export interface AdminPrivatePracticeDTO {
   owner: AdminUserDTO;
 }
 
+export type AdminServiceKeyStatus = "active" | "revoked";
+
+export interface AdminServiceKeyDTO {
+  id: string;
+  label: string;
+  owner: string;
+  masked: string;
+  scopes: string[];
+  status: AdminServiceKeyStatus;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  rotatedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string | null;
+  secretOnce?: string;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -252,6 +269,28 @@ function normalizeAuditEvent(input: unknown): AdminAuditEventDTO {
     clinicName: item.clinicName == null ? null : String(item.clinicName),
     createdAt: item.createdAt == null ? null : String(item.createdAt),
   };
+}
+
+function normalizeServiceKey(input: unknown, { includeSecretOnce = false } = {}): AdminServiceKeyDTO {
+  const item = isRecord(input) ? input : {};
+  return {
+    id: String(item.id ?? ""),
+    label: String(item.label ?? ""),
+    owner: String(item.owner ?? ""),
+    masked: String(item.masked ?? ""),
+    scopes: Array.isArray(item.scopes) ? item.scopes.map(String) : [],
+    status: item.status === "revoked" ? "revoked" : "active",
+    lastUsedAt: item.lastUsedAt == null ? null : String(item.lastUsedAt),
+    expiresAt: item.expiresAt == null ? null : String(item.expiresAt),
+    rotatedAt: item.rotatedAt == null ? null : String(item.rotatedAt),
+    revokedAt: item.revokedAt == null ? null : String(item.revokedAt),
+    createdAt: item.createdAt == null ? null : String(item.createdAt),
+    secretOnce: includeSecretOnce && item.secretOnce != null ? String(item.secretOnce) : undefined,
+  };
+}
+
+function normalizeServiceKeyWithSecret(input: unknown): AdminServiceKeyDTO {
+  return normalizeServiceKey(input, { includeSecretOnce: true });
 }
 
 function itemsFrom<T>(result: SelfHostedApiResult<unknown>, normalize: (item: unknown) => T): SelfHostedApiResult<T[]> {
@@ -450,6 +489,52 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
 
 export async function listAdminAuditEvents(args: BaseArgs): Promise<SelfHostedApiResult<AdminAuditEventDTO[]>> {
   return itemsFrom(await request(args, "/api/v1/admin/audit-events"), normalizeAuditEvent);
+}
+
+export async function listAdminServiceKeys(args: BaseArgs & { search?: string }): Promise<SelfHostedApiResult<AdminServiceKeyDTO[]>> {
+  const query = args.search ? `?search=${encodeURIComponent(args.search)}` : "";
+  return itemsFrom(await request(args, `/api/v1/admin/service-keys${query}`), normalizeServiceKey);
+}
+
+export async function createAdminServiceKey(
+  args: BaseArgs & {
+    payload: {
+      label: string;
+      owner: string;
+      scopes: string[];
+      expiresInDays: number;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminServiceKeyDTO>> {
+  const result = await request(args, "/api/v1/admin/service-keys", {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminServiceKeyDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeServiceKeyWithSecret(body.item));
+}
+
+export async function rotateAdminServiceKey(
+  args: BaseArgs & { keyId: string; payload: { expiresInDays: number } },
+): Promise<SelfHostedApiResult<AdminServiceKeyDTO>> {
+  const result = await request(args, `/api/v1/admin/service-keys/${encodeURIComponent(args.keyId)}/rotate`, {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminServiceKeyDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeServiceKeyWithSecret(body.item));
+}
+
+export async function revokeAdminServiceKey(args: BaseArgs & { keyId: string }): Promise<SelfHostedApiResult<AdminServiceKeyDTO>> {
+  const result = await request(args, `/api/v1/admin/service-keys/${encodeURIComponent(args.keyId)}/revoke`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason: "admin_action" }),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminServiceKeyDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeServiceKey(body.item));
 }
 
 export function adminApiErrorText(error: SelfHostedApiError | null): string {

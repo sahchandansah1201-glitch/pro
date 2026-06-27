@@ -25,6 +25,14 @@ function adminClinicStatusPath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/clinics\/([^/]+)\/status$/);
 }
 
+function serviceKeyRotatePath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/service-keys\/([^/]+)\/rotate$/);
+}
+
+function serviceKeyRevokePath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/service-keys\/([^/]+)\/revoke$/);
+}
+
 function safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin }) {
   const publicError = publicErrorFor(error);
   return errorResponse({ ...publicError, correlationId, config, requestOrigin });
@@ -283,6 +291,69 @@ export async function handleAdminManagementRequest({
         config,
         requestOrigin,
       );
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/admin/service-keys") {
+    if (method === "GET") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const params = parseAdminListParams(url.searchParams);
+        const result = await runtimeServices.adminManagementService.listServiceKeys(params, authContext, { correlationId });
+        return jsonResponse(
+          200,
+          { stage: "6A", source: "postgres", items: result.items, meta: result.meta, generatedAt: now(), correlationId },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+
+    if (method === "POST") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.adminManagementService.createServiceKey(
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+        return jsonResponse(201, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+  }
+
+  const serviceKeyRotate = serviceKeyRotatePath(url.pathname);
+  if (serviceKeyRotate && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.rotateServiceKey(
+        decodeURIComponent(serviceKeyRotate[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  const serviceKeyRevoke = serviceKeyRevokePath(url.pathname);
+  if (serviceKeyRevoke && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.revokeServiceKey(
+        decodeURIComponent(serviceKeyRevoke[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
     } catch (error) {
       return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
     }

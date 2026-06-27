@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from "node:crypto";
+
 import { hashPassword } from "./auth-crypto.mjs";
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import { ForbiddenError, requireAnyRole } from "./rbac.mjs";
@@ -9,6 +11,12 @@ const SYSTEM_CREATABLE_ROLES = ["system_admin", "clinic_admin", "doctor", "priva
 const CLINIC_CREATABLE_ROLES = ["doctor", "private_doctor", "assistant", "operator"];
 const CLINIC_LIFECYCLE_STATUSES = ["active", "suspended", "archived"];
 const ROLE_LIFECYCLE_STATUSES = ["active", "disabled"];
+const SERVICE_KEY_SCOPES = [
+  "device:write",
+  "booking:write",
+  "directory:read",
+  "audit:read",
+];
 
 export class AdminManagementValidationError extends Error {
   constructor(details = [], message = "Admin management payload failed validation.") {
@@ -225,6 +233,45 @@ function normalizePrivatePracticePayload(input = {}) {
   if (owner.password.length < 10) details.push({ field: "ownerPassword", message: "Пароль должен быть не короче 10 символов." });
   if (details.length > 0) throw new AdminManagementValidationError(details);
   return { clinic, owner };
+}
+
+function normalizeServiceKeyPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const scopes = Array.isArray(input.scopes)
+    ? Array.from(new Set(input.scopes.map((item) => cleanString(item, 80)).filter(Boolean)))
+    : [];
+  const expiresInDays = Number.parseInt(String(input.expiresInDays ?? "90"), 10);
+  const payload = {
+    label: cleanString(input.label, 180),
+    owner: cleanString(input.owner, 180),
+    scopes,
+    expiresInDays: Number.isFinite(expiresInDays) ? expiresInDays : 90,
+  };
+  const details = [];
+  if (!payload.label || payload.label.length < 3) details.push({ field: "label", message: "Укажите название ключа." });
+  if (!payload.owner || payload.owner.length < 3) details.push({ field: "owner", message: "Укажите владельца или назначение." });
+  if (payload.scopes.length === 0) details.push({ field: "scopes", message: "Выберите хотя бы одну область доступа." });
+  const invalidScopes = payload.scopes.filter((scope) => !SERVICE_KEY_SCOPES.includes(scope));
+  if (invalidScopes.length > 0) details.push({ field: "scopes", message: "Выберите доступ из списка." });
+  if (payload.expiresInDays < 1 || payload.expiresInDays > 365) {
+    details.push({ field: "expiresInDays", message: "Срок действия должен быть от 1 до 365 дней." });
+  }
+  if (details.length > 0) throw new AdminManagementValidationError(details);
+  return payload;
+}
+
+function serviceKeyMaterial(expiresInDays = 90) {
+  const secret = `dpk_${randomBytes(32).toString("base64url")}`;
+  const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
+  return {
+    secret,
+    secretPrefix: secret.slice(0, 8),
+    secretHint: secret.slice(-4),
+    secretSha256: createHash("sha256").update(secret).digest("hex"),
+    expiresAt,
+  };
 }
 
 function listMeta(params, items) {
@@ -498,6 +545,84 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         metadata: { allClinics: scope.allClinics },
       });
       return { items, meta: listMeta({ limit: 100, offset: 0 }, items), scope };
+    },
+
+    async listServiceKeys(params, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const items = await adminManagementRepository.listServiceKeys(params);
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "admin.service_key.list",
+        entityType: "service_key",
+        correlationId: meta.correlationId,
+        metadata: { secretValuesReturned: false },
+      });
+      return { items, meta: listMeta(params, items), scope: { allClinics: true, clinicIds: [] } };
+    },
+
+    async createServiceKey(input, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const payload = normalizeServiceKeyPayload(input);
+      const material = serviceKeyMaterial(payload.expiresInDays);
+      const { secret, ...storedMaterial } = material;
+      const item = await adminManagementRepository.createServiceKey({
+        ...payload,
+        ...storedMaterial,
+        createdByUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "admin.service_key.create",
+        entityType: "service_key",
+        entityId: item?.id || null,
+        correlationId: meta.correlationId,
+        metadata: {
+          scopes: payload.scopes,
+          secretStoredAsHash: true,
+          secretReturnedOnce: true,
+        },
+      });
+      return { item: { ...item, secretOnce: secret }, scope: { allClinics: true, clinicIds: [] } };
+    },
+
+    async rotateServiceKey(keyId, input, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const safeKeyId = assertUuid(keyId, "keyId");
+      const expiresInDays = Number.parseInt(String(isPlainObject(input) ? input.expiresInDays ?? "90" : "90"), 10);
+      if (!Number.isFinite(expiresInDays) || expiresInDays < 1 || expiresInDays > 365) {
+        throw new AdminManagementValidationError([{ field: "expiresInDays", message: "Срок действия должен быть от 1 до 365 дней." }]);
+      }
+      const material = serviceKeyMaterial(expiresInDays);
+      const { secret, ...storedMaterial } = material;
+      const item = await adminManagementRepository.rotateServiceKey({ keyId: safeKeyId, ...storedMaterial });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "admin.service_key.rotate",
+        entityType: "service_key",
+        entityId: safeKeyId,
+        correlationId: meta.correlationId,
+        metadata: { secretStoredAsHash: true, secretReturnedOnce: true },
+      });
+      return { item: { ...item, secretOnce: secret }, scope: { allClinics: true, clinicIds: [] } };
+    },
+
+    async revokeServiceKey(keyId, authContext, meta = {}) {
+      if (!hasSystemRole(authContext)) throw new ForbiddenError();
+      const safeKeyId = assertUuid(keyId, "keyId");
+      const item = await adminManagementRepository.revokeServiceKey({ keyId: safeKeyId });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "admin.service_key.revoke",
+        entityType: "service_key",
+        entityId: safeKeyId,
+        correlationId: meta.correlationId,
+        metadata: { secretValuesReturned: false },
+      });
+      return { item, scope: { allClinics: true, clinicIds: [] } };
     },
   };
 }

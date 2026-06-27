@@ -33,6 +33,7 @@ const COMPLETE_SCHEMA = {
   clinicStatusColumn: true,
   clinicDeletedAtColumn: true,
   userRoleDisabledAtColumn: true,
+  serviceApiKeysTable: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
   deviceBridgeCommandsTable: true,
@@ -48,7 +49,9 @@ test("Stage 4M schema migration plan includes Device Bridge and Stage 6 admin mi
   assert.match(out, /0086_stage6_admin_management\.sql/);
   assert.match(out, /0087_stage6_clinic_address\.sql/);
   assert.match(out, /0088_stage6_admin_lifecycle\.sql/);
+  assert.match(out, /0090_stage6_service_keys\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
+  assert.match(out, /service_api_keys table/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -89,6 +92,7 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[8].input.includes("add column if not exists address"));
   assert.ok(calls[9].input.includes("add column if not exists status"));
   assert.ok(calls[9].input.includes("add column if not exists disabled_at"));
+  assert.ok(calls[10].input.includes("create table if not exists service_api_keys"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
@@ -134,5 +138,27 @@ test("Stage 4M schema migration runner fails when Device Bridge lifecycle column
         },
       ),
     /device_bridge_commands lifecycle columns/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when service keys table is missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                serviceApiKeysTable: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /service_api_keys table/,
   );
 });

@@ -26,6 +26,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
   "backend/self-hosted/db/migrations/0088_stage6_admin_lifecycle.sql",
+  "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -64,6 +65,12 @@ select json_build_object(
     where table_schema = 'public'
       and table_name = 'user_roles'
       and column_name = 'disabled_at'
+  ),
+  'serviceApiKeysTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'service_api_keys'
   ),
   'deviceBridgesTable', exists (
     select 1
@@ -211,7 +218,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, private_doctor role, clinics.address/status/deleted_at columns, and user_roles.disabled_at column",
+    "- Verification: Device Bridge tables/worker/command columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, and service_api_keys table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -261,6 +268,7 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.clinicStatusColumn !== true) missing.push("clinics.status column");
   if (verification.clinicDeletedAtColumn !== true) missing.push("clinics.deleted_at column");
   if (verification.userRoleDisabledAtColumn !== true) missing.push("user_roles.disabled_at column");
+  if (verification.serviceApiKeysTable !== true) missing.push("service_api_keys table");
   if (verification.deviceBridgesTable !== true) missing.push("device_bridges table");
   if (verification.medicalDevicesTable !== true) missing.push("medical_devices table");
   if (verification.deviceBridgeCommandsTable !== true) missing.push("device_bridge_commands table");

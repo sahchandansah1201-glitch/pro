@@ -20,6 +20,11 @@ function sqlNullableText(value) {
   return value == null ? "null" : sqlLiteral(value);
 }
 
+function sqlTextArray(values = []) {
+  const items = (Array.isArray(values) ? values : []).map(sqlLiteral);
+  return `array[${items.join(", ")}]::text[]`;
+}
+
 function sqlUuid(value) {
   return `${sqlLiteral(value)}::uuid`;
 }
@@ -528,6 +533,158 @@ from (
 `.trim();
 }
 
+export function buildListServiceKeysSql({ limit = DEFAULT_LIMIT, offset = 0, search = "" } = {}) {
+  const safe = pagination({ limit, offset });
+  const safeSearch = normalizeSearch(search);
+  const searchWhere = safeSearch
+    ? `where (k.label ilike '%' || ${sqlLiteral(safeSearch)} || '%' or k.owner ilike '%' || ${sqlLiteral(safeSearch)} || '%')`
+    : "";
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    k.id::text as "id",
+    k.label as "label",
+    k.owner as "owner",
+    (k.secret_prefix || '…' || k.secret_hint) as "masked",
+    k.scopes as "scopes",
+    k.status as "status",
+    k.last_used_at as "lastUsedAt",
+    k.expires_at as "expiresAt",
+    k.rotated_at as "rotatedAt",
+    k.revoked_at as "revokedAt",
+    k.created_at as "createdAt"
+  from service_api_keys k
+  ${searchWhere}
+  order by k.created_at desc, k.id desc
+  limit ${safe.limit}
+  offset ${safe.offset}
+) result;
+`.trim();
+}
+
+export function buildCreateServiceKeySql({
+  label,
+  owner,
+  scopes = [],
+  secretPrefix,
+  secretHint,
+  secretSha256,
+  expiresAt = null,
+  createdByUserId = null,
+} = {}) {
+  return `
+with inserted as (
+  insert into service_api_keys (
+    label,
+    owner,
+    secret_prefix,
+    secret_hint,
+    secret_sha256,
+    scopes,
+    expires_at,
+    created_by_user_id
+  )
+  values (
+    ${sqlLiteral(label)},
+    ${sqlLiteral(owner)},
+    ${sqlLiteral(secretPrefix)},
+    ${sqlLiteral(secretHint)},
+    ${sqlLiteral(secretSha256)},
+    ${sqlTextArray(scopes)},
+    ${expiresAt ? `${sqlLiteral(expiresAt)}::timestamptz` : "null"},
+    ${sqlNullableUuid(createdByUserId)}
+  )
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    id::text as "id",
+    label,
+    owner,
+    (secret_prefix || '…' || secret_hint) as "masked",
+    scopes,
+    status,
+    last_used_at as "lastUsedAt",
+    expires_at as "expiresAt",
+    rotated_at as "rotatedAt",
+    revoked_at as "revokedAt",
+    created_at as "createdAt"
+  from inserted
+) result;
+`.trim();
+}
+
+export function buildRotateServiceKeySql({
+  keyId,
+  secretPrefix,
+  secretHint,
+  secretSha256,
+  expiresAt = null,
+} = {}) {
+  return `
+with updated as (
+  update service_api_keys
+  set secret_prefix = ${sqlLiteral(secretPrefix)},
+      secret_hint = ${sqlLiteral(secretHint)},
+      secret_sha256 = ${sqlLiteral(secretSha256)},
+      expires_at = ${expiresAt ? `${sqlLiteral(expiresAt)}::timestamptz` : "expires_at"},
+      status = 'active',
+      rotated_at = now(),
+      revoked_at = null,
+      updated_at = now()
+  where id = ${sqlUuid(keyId)}
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    id::text as "id",
+    label,
+    owner,
+    (secret_prefix || '…' || secret_hint) as "masked",
+    scopes,
+    status,
+    last_used_at as "lastUsedAt",
+    expires_at as "expiresAt",
+    rotated_at as "rotatedAt",
+    revoked_at as "revokedAt",
+    created_at as "createdAt"
+  from updated
+) result;
+`.trim();
+}
+
+export function buildRevokeServiceKeySql({ keyId } = {}) {
+  return `
+with updated as (
+  update service_api_keys
+  set status = 'revoked',
+      revoked_at = coalesce(revoked_at, now()),
+      updated_at = now()
+  where id = ${sqlUuid(keyId)}
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    id::text as "id",
+    label,
+    owner,
+    (secret_prefix || '…' || secret_hint) as "masked",
+    scopes,
+    status,
+    last_used_at as "lastUsedAt",
+    expires_at as "expiresAt",
+    rotated_at as "rotatedAt",
+    revoked_at as "revokedAt",
+    created_at as "createdAt"
+  from updated
+) result;
+`.trim();
+}
+
 export function createAdminManagementRepository(dbClient) {
   return {
     async listUsers(params) {
@@ -571,6 +728,18 @@ export function createAdminManagementRepository(dbClient) {
     },
     async listAuditEvents(params) {
       return dbClient.queryJson(buildListAuditEventsSql(params));
+    },
+    async listServiceKeys(params) {
+      return dbClient.queryJson(buildListServiceKeysSql(params));
+    },
+    async createServiceKey(params) {
+      return dbClient.queryJson(buildCreateServiceKeySql(params));
+    },
+    async rotateServiceKey(params) {
+      return dbClient.queryJson(buildRotateServiceKeySql(params));
+    },
+    async revokeServiceKey(params) {
+      return dbClient.queryJson(buildRevokeServiceKeySql(params));
     },
   };
 }

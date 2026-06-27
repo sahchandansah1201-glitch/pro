@@ -92,6 +92,28 @@
         "operationId": "listAdminAuditEvents",
         "summary": "List sanitized production audit events for system administrators"
       }
+    },
+    "/api/v1/admin/service-keys": {
+      "get": {
+        "operationId": "listAdminServiceKeys",
+        "summary": "List masked service access keys without returning secret values"
+      },
+      "post": {
+        "operationId": "createAdminServiceKey",
+        "summary": "Create a service access key and return its secret value once"
+      }
+    },
+    "/api/v1/admin/service-keys/{keyId}/rotate": {
+      "patch": {
+        "operationId": "rotateAdminServiceKey",
+        "summary": "Rotate a service access key and return its new secret value once"
+      }
+    },
+    "/api/v1/admin/service-keys/{keyId}/revoke": {
+      "patch": {
+        "operationId": "revokeAdminServiceKey",
+        "summary": "Revoke a service access key without returning secret values"
+      }
     }
   },
   "components": {

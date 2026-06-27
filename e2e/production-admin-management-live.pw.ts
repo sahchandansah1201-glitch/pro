@@ -76,6 +76,11 @@ function isAdminAuditResponse(response: Response) {
   return request.method() === "GET" && new URL(response.url()).pathname === "/api/v1/admin/audit-events";
 }
 
+function isAdminServiceKeyResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 function isOpsResponse(response: Response, path: string) {
   const request = response.request();
   return request.method() === "GET" && new URL(response.url()).pathname === path;
@@ -97,6 +102,8 @@ test.describe("Live production admin management journey", () => {
     const adminDisplayName = `Админ 2 ${suffix}`;
     const adminEmail = `admin2-${suffix}@skindoktor.ru`;
     const adminPassword = `Dp-${suffix}-Admin-2026!`;
+    const serviceKeyLabel = `Проверочный ключ ${suffix}`;
+    const serviceKeyOwner = `Автотест ${suffix}`;
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const adminResponses: { method: string; path: string; status: number }[] = [];
@@ -108,7 +115,11 @@ test.describe("Live production admin management journey", () => {
     page.on("response", (response) => {
       try {
         const url = new URL(response.url());
-        if (url.pathname.startsWith("/api/v1/admin/clinics") || url.pathname.startsWith("/api/v1/admin/users")) {
+        if (
+          url.pathname.startsWith("/api/v1/admin/clinics") ||
+          url.pathname.startsWith("/api/v1/admin/users") ||
+          url.pathname.startsWith("/api/v1/admin/service-keys")
+        ) {
           adminResponses.push({
             method: response.request().method(),
             path: url.pathname,
@@ -375,9 +386,75 @@ test.describe("Live production admin management journey", () => {
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-self-hosted-ops-mobile-390.png"), fullPage: true });
 
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const serviceKeysListResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceKeyResponse(response, "GET", /^\/api\/v1\/admin\/service-keys$/),
+    );
+    await page.getByRole("link", { name: "Служебные ключи" }).click();
+    const serviceKeysListResponse = await serviceKeysListResponsePromise;
+    expect(serviceKeysListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(serviceKeysListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Служебные ключи" })).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная|учебное действие|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+
+    await page.getByLabel("Название служебного ключа").fill(serviceKeyLabel);
+    await page.getByLabel("Владелец или назначение").fill(serviceKeyOwner);
+    const createServiceKeyResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceKeyResponse(response, "POST", /^\/api\/v1\/admin\/service-keys$/),
+    );
+    await page.getByRole("button", { name: "Создать ключ" }).click();
+    const createServiceKeyResponse = await createServiceKeyResponsePromise;
+    expect(createServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(createServiceKeyResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Ключ создан: ${serviceKeyLabel}. Значение показано один раз.`)).toBeVisible();
+    await expect(page.getByText("Новый ключ показан один раз")).toBeVisible();
+    await page.getByRole("button", { name: "Скрыть ключ" }).click();
+    await expect(page.getByText("Новый ключ показан один раз")).toHaveCount(0);
+    const serviceKeyRegion = page.getByRole("region", { name: `Служебный ключ ${serviceKeyLabel}` });
+    await expect(serviceKeyRegion).toBeVisible();
+    await expect(serviceKeyRegion).toContainText(serviceKeyOwner);
+
+    const rotateServiceKeyResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceKeyResponse(response, "PATCH", /^\/api\/v1\/admin\/service-keys\/[^/]+\/rotate$/),
+    );
+    await serviceKeyRegion.getByRole("button", { name: "Обновить ключ" }).click();
+    const rotateServiceKeyResponse = await rotateServiceKeyResponsePromise;
+    expect(rotateServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(rotateServiceKeyResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Ключ обновлён: ${serviceKeyLabel}. Новое значение показано один раз.`)).toBeVisible();
+    await expect(page.getByText("Новый ключ показан один раз")).toBeVisible();
+    await page.getByRole("button", { name: "Скрыть ключ" }).click();
+    await expect(page.getByText("Новый ключ показан один раз")).toHaveCount(0);
+
+    const revokeServiceKeyResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceKeyResponse(response, "PATCH", /^\/api\/v1\/admin\/service-keys\/[^/]+\/revoke$/),
+    );
+    await serviceKeyRegion.getByRole("button", { name: "Отозвать ключ" }).click();
+    const revokeServiceKeyResponse = await revokeServiceKeyResponsePromise;
+    expect(revokeServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(revokeServiceKeyResponse.status()).toBeLessThan(300);
+    await expect(page.getByText(`Ключ отозван: ${serviceKeyLabel}.`)).toBeVisible();
+    await expect(serviceKeyRegion.getByText("Отозван")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная|учебное действие|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-api-keys-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Служебные ключи" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-api-keys-mobile-390.png"), fullPage: true });
+
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/service-keys" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/rotate/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/revoke/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "DELETE" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);

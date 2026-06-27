@@ -109,6 +109,43 @@ function createService({ calls = [] } = {}) {
       calls.push(["listAuditEvents", params]);
       return [{ id: "audit-1", action: "admin.user.create" }];
     },
+    async listServiceKeys(params) {
+      calls.push(["listServiceKeys", params]);
+      return [];
+    },
+    async createServiceKey(params) {
+      calls.push(["createServiceKey", { ...params, secretSha256: params.secretSha256 ? "[hash]" : "" }]);
+      return {
+        id: "10000000-0000-4000-8000-000000000401",
+        label: params.label,
+        owner: params.owner,
+        masked: `${params.secretPrefix}…${params.secretHint}`,
+        scopes: params.scopes,
+        status: "active",
+      };
+    },
+    async rotateServiceKey(params) {
+      calls.push(["rotateServiceKey", { ...params, secretSha256: params.secretSha256 ? "[hash]" : "" }]);
+      return {
+        id: params.keyId,
+        label: "Мост устройств",
+        owner: "Кабинет",
+        masked: `${params.secretPrefix}…${params.secretHint}`,
+        scopes: ["device:write"],
+        status: "active",
+      };
+    },
+    async revokeServiceKey(params) {
+      calls.push(["revokeServiceKey", params]);
+      return {
+        id: params.keyId,
+        label: "Мост устройств",
+        owner: "Кабинет",
+        masked: "dpk_1234…abcd",
+        scopes: ["device:write"],
+        status: "revoked",
+      };
+    },
   };
   const auditEvents = [];
   const auditRepository = {
@@ -251,6 +288,64 @@ test("system admin creates clinic from Russian name and human address without ma
     },
   ]);
   assert.equal(auditEvents[0].action, "admin.clinic.create");
+});
+
+test("system admin manages service keys with one-time secret and hashed storage", async () => {
+  const { service, calls, auditEvents } = createService();
+  const created = await service.createServiceKey(
+    {
+      label: "Мост устройств",
+      owner: "Кабинет тестовый",
+      scopes: ["device:write", "directory:read"],
+      expiresInDays: 30,
+    },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(created.item.label, "Мост устройств");
+  assert.match(created.item.secretOnce, /^dpk_[A-Za-z0-9_-]+$/);
+  assert.equal(calls[0][0], "createServiceKey");
+  assert.equal(calls[0][1].secretSha256, "[hash]");
+  assert.equal(JSON.stringify(calls[0]).includes(created.item.secretOnce), false);
+  assert.equal(auditEvents[0].action, "admin.service_key.create");
+  assert.equal(auditEvents[0].metadata.secretStoredAsHash, true);
+
+  const rotated = await service.rotateServiceKey(
+    "10000000-0000-4000-8000-000000000401",
+    { expiresInDays: 90 },
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+  assert.match(rotated.item.secretOnce, /^dpk_[A-Za-z0-9_-]+$/);
+  assert.equal(calls[1][0], "rotateServiceKey");
+  assert.equal(calls[1][1].secretSha256, "[hash]");
+
+  const revoked = await service.revokeServiceKey(
+    "10000000-0000-4000-8000-000000000401",
+    SYSTEM_AUTH,
+    { correlationId: "test" },
+  );
+  assert.equal(revoked.item.status, "revoked");
+  assert.equal(calls[2][0], "revokeServiceKey");
+});
+
+test("clinic admin cannot manage service keys", async () => {
+  const { service } = createService();
+  await assert.rejects(
+    () =>
+      service.createServiceKey(
+        {
+          label: "Мост устройств",
+          owner: "Кабинет тестовый",
+          scopes: ["device:write"],
+          expiresInDays: 30,
+        },
+        CLINIC_AUTH,
+        { correlationId: "test" },
+      ),
+    /Forbidden/i,
+  );
 });
 
 test("system admin updates clinic address and timezone", async () => {
