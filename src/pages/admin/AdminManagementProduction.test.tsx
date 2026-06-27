@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
 import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
+import AdminHomePage from "@/pages/admin/AdminHomePage";
 import SysAuditPage from "@/pages/sys/SysAuditPage";
 import SysUsersPage from "@/pages/sys/SysUsersPage";
 
@@ -69,6 +70,47 @@ describe("Production admin management UI", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("renders the clinic admin home from working admin APIs without training copy", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/analytics")) {
+        return json({
+          item: {
+            clinics: 1,
+            activeUsers: 2,
+            doctors: 1,
+            patients: 0,
+            visits: 0,
+            photos: 0,
+            signedReports: 0,
+            auditEvents7d: 3,
+            recentAuditEvents: [],
+          },
+        });
+      }
+      if (href.endsWith("/api/v1/admin/clinics")) {
+        return json({ items: [clinic] });
+      }
+      if (href.endsWith("/api/v1/admin/doctors")) {
+        return json({ items: [owner] });
+      }
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminHomePage />);
+
+    expect(await screen.findByRole("heading", { name: "Операционный центр клиники" })).toBeInTheDocument();
+    expect(await screen.findByText("Рабочий режим: показатели читаются из рабочей базы сервиса. Персональные строки, фото и медицинские выводы не выводятся.")).toBeInTheDocument();
+    expect((await screen.findAllByText("Кабинет Морозова")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Морозов Дмитрий Игоревич")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Учебный режим|учебная оценка|Учебная система|демо|mock/i);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/analytics",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer admin-token" }) }),
+    );
   });
 
   it("creates a private practice from the clinics-first screen", async () => {
