@@ -109,6 +109,8 @@ const REQUIRED_TEXT = {
   ],
   "e2e/production-admin-management-live.pw.ts": [
     "/self-hosted/login",
+    "function appMain(page: Page)",
+    'return page.locator("main").first();',
     "Адрес системы клиники",
     "Клиники и кабинеты",
     "Создать клинику",
@@ -194,6 +196,24 @@ function scanRuntimeCoupling(errors, root) {
   }
 }
 
+export function validateLiveE2EContract(errors, root) {
+  const file = "e2e/production-admin-management-live.pw.ts";
+  if (!existsSync(join(root, file))) {
+    errors.push(`Missing required file: ${file}`);
+    return;
+  }
+
+  const allowedMainLocatorLine = 'return page.locator("main").first();';
+  const lines = read(root, file).split(/\r?\n/);
+  lines.forEach((line, index) => {
+    if (line.includes('page.locator("main")') && line.trim() !== allowedMainLocatorLine) {
+      errors.push(
+        `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
+      );
+    }
+  });
+}
+
 function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of [
@@ -229,6 +249,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
     else errors.push(`Missing required file (text check): ${file}`);
   }
   scanRuntimeCoupling(errors, root);
+  validateLiveE2EContract(errors, root);
   validatePackageScripts(errors, root);
   return { ok: errors.length === 0, errors, checkedFiles: REQUIRED_FILES.length };
 }
