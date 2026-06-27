@@ -292,7 +292,11 @@ test.describe("Live production admin management journey", () => {
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|RPC list_access_events_admin|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expect(page.getByLabel("Источник событий")).not.toContainText("Учебные данные");
-    await expect(page.getByText(/Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
+    await expect(
+      page
+        .locator("tbody tr", { hasText: /Клиника создана|Сотрудник создан|Роль назначена/ })
+        .first(),
+    ).toBeVisible();
 
     await page.getByLabel("Поиск событий доступа").fill(`нет совпадений ${suffix}`);
     await expect(page.getByText("События не найдены. Измените фильтры или обновите журнал.").first()).toBeVisible();
