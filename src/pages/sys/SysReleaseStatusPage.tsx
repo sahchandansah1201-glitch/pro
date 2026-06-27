@@ -1295,7 +1295,7 @@ export default function SysReleaseStatusPage() {
         </div>
 
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.
+          Рабочий режим: готовность публикации видна системному администратору, отчёт и проверки доступны без раскрытия секретов.
         </div>
 
         <section

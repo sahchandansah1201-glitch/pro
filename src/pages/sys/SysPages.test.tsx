@@ -35,10 +35,17 @@ describe("Sys pages — render & safety", () => {
     ["SysReleaseStatusPage", <SysReleaseStatusPage />, /Готовность публикации/],
     ["SysSelfHostedOpsPage", <SysSelfHostedOpsPage />, /Рабочий контур/],
     ["SysApiKeysPage", <SysApiKeysPage />, /Служебные ключи/],
-  ])("%s renders demo banner and is not a placeholder", (_n, ui, headingRe) => {
+  ])("%s renders status banner and is not a placeholder", (name, ui, headingRe) => {
     const { container, unmount } = renderRouted(ui);
     expect(screen.getAllByRole("heading", { name: headingRe }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Учебный режим\. Рабочие роли, аудит, ключи и мост устройств/)).toBeInTheDocument();
+    if (name === "SysReleaseStatusPage") {
+      expect(
+        screen.getByText(/Рабочий режим: готовность публикации видна системному администратору/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Учебный режим/)).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByText(/Учебный режим\. Рабочие роли, аудит, ключи и мост устройств/)).toBeInTheDocument();
+    }
     expect(screen.queryByText(/Раздел будет реализован в следующих задачах/)).not.toBeInTheDocument();
     const html = container.innerHTML;
     for (const t of FORBIDDEN) expect(html, `forbidden token ${t}`).not.toContain(t);

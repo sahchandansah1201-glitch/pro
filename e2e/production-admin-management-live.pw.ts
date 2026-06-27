@@ -316,6 +316,22 @@ test.describe("Live production admin management journey", () => {
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-access-events-mobile-390.png"), fullPage: true });
 
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("link", { name: "Готовность публикации" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
+    await expect(page.getByText(/Рабочий режим: готовность публикации/)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(
+      /Учебный режим|учебная роль|system_admin|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-release-status-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-release-status-mobile-390.png"), fullPage: true });
+
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
