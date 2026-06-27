@@ -39,6 +39,7 @@ import {
 } from "@/lib/self-hosted-device-api";
 import type { Device } from "@/lib/domain";
 import { pollBackoffLabel, recoveryStateLabel, sysDeviceStatusLabel } from "./sysDeviceLabels";
+import { sysDeviceText } from "./sysDeviceText";
 
 /**
  * Sys Devices — мост устройств и электронные дерматоскопы.
@@ -97,42 +98,6 @@ const POLARIZATION_LABEL: Record<string, string> = {
 
 function polarizationLabel(value: string): string {
   return POLARIZATION_LABEL[value] ?? "не указано";
-}
-
-function sysDeviceText(value: string | undefined): string {
-  if (!value) return "нет данных";
-  const labels: Record<string, string> = {
-    "Worker heartbeat telemetry": "Связь службы моста",
-    "Worker health pressure": "Давление состояния службы",
-    "1 bridge worker visible.": "Мост на связи: 1.",
-    "1 stale worker.": "Устаревших служб: 1.",
-    "Incident drill register": "Реестр учений по инцидентам",
-    "Incident drills are repository-defined.": "Учения по инцидентам описаны в проекте.",
-    "Next batch handoff": "Передача следующего шага",
-    "Stage 9B-9D remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
-    "Stage 9N-9Z remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
-    "Stage 10A-10L remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
-    "Incident pressure reviewed": "Давление инцидентов проверено",
-    "Self-hosted product boundary": "Граница продукта клиники",
-    "none/none.": "внешние зависимости отсутствуют.",
-    "Fleet reliability register": "Реестр надёжности парка",
-    "Fleet reliability is repository-defined.": "Надёжность парка описана в проекте.",
-    "Command SLO reviewed": "Норма обработки команд проверена",
-    "Lifecycle assurance register": "Реестр жизненного цикла",
-    "Lifecycle assurance is repository-defined.": "Жизненный цикл описан в проекте.",
-    "Maintenance window reviewed": "Окно обслуживания проверено",
-    "Review required.": "Нужен разбор.",
-    "backend_only": "только рабочая система",
-    "backend-only": "только рабочая система",
-    audit: "аудит",
-    manual: "вручную",
-    manual_system_admin: "вручную системным администратором",
-    none: "нет",
-  };
-  if (labels[value]) return labels[value];
-  const commandCount = value.match(/^(\d+) command\(s\)\.$/);
-  if (commandCount) return `команд: ${commandCount[1]}.`;
-  return value;
 }
 
 function bridgeLabel(bridges: BridgeRow[], bridgeId: string | null | undefined): string {
@@ -681,7 +646,7 @@ export default function SysDevicesPage() {
                             <div className="min-w-0">
                               <div className="truncate text-[11px] font-semibold">Мост {index + 1}</div>
                               <div className="truncate text-[11px] text-muted-foreground">
-                                адрес скрыт · версия {bridge.workerVersion || "не указана"}
+                                адрес скрыт · версия службы скрыта
                               </div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -736,7 +701,7 @@ export default function SysDevicesPage() {
                   >
                     <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span>
-                      Показываются только служебные метаданные. Секреты, сырые команды,
+                      Показываются только служебные данные. Секреты, сырые команды,
                       пути хранения, имена пациентов и аппаратный доступ браузера не выводятся.
                     </span>
                   </div>
@@ -798,7 +763,7 @@ export default function SysDevicesPage() {
                           <div className="min-w-0">
                             <div className="truncate text-[11px] font-semibold">Мост {index + 1}</div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              адрес скрыт · версия {bridge.workerVersion || "не указана"}
+                              адрес скрыт · версия службы скрыта
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -924,7 +889,7 @@ export default function SysDevicesPage() {
                     aria-label="Граница данных восстановления команд"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Управляются только служебные метаданные: аренда, повторы, отмена и аудит
+                    Управляются только служебные данные: аренда, повторы, отмена и аудит
                     восстановления. Секреты службы, сырые команды, пути хранения, имена пациентов
                     и аппаратный доступ браузера не выводятся.
                   </div>
@@ -980,7 +945,7 @@ export default function SysDevicesPage() {
                   >
                     <div className="font-semibold text-foreground">Правила повтора</div>
                     <div className="mt-1">
-                      политика {sysDeviceText(workerAudit.policy.replayPolicy)} · видимость данных {sysDeviceText(workerAudit.policy.payloadVisibility)} · типы команд скрыты
+                      повтор {sysDeviceText(workerAudit.policy.replayPolicy)} · видимость данных {sysDeviceText(workerAudit.policy.payloadVisibility)} · типы команд скрыты
                     </div>
                   </div>
                   <div
@@ -1093,8 +1058,8 @@ export default function SysDevicesPage() {
                     aria-label="Граница данных готовности моста устройств"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Показываются только безопасные агрегаты жизненного цикла из PostgreSQL.
-                    Видимость данных: только служебные метаданные; внешняя среда{" "}
+                    Показываются только безопасные агрегаты жизненного цикла из рабочей системы.
+                    Видимость данных: только служебные данные; внешняя среда{" "}
                     {sysDeviceText(productionReadiness.readiness.policy.managedRuntimeDependency)}; аппаратный доступ браузера{" "}
                     {productionReadiness.readiness.policy.browserHardwareApis ? "включён" : "выключен"}.
                   </div>
@@ -1185,10 +1150,10 @@ export default function SysDevicesPage() {
                     aria-label="Граница данных непрерывности операций"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Публикуются только служебные метаданные непрерывности. Внешняя среда{" "}
+                    Публикуются только служебные данные непрерывности. Внешняя среда{" "}
                     {sysDeviceText(operationsContinuity.continuity.productBoundary.managedRuntimeDependency)}; внешняя база{" "}
                     {sysDeviceText(operationsContinuity.continuity.productBoundary.managedDatabaseDependency)}; видимость данных:
-                    только служебные метаданные; следующий шаг скрыт из интерфейса.
+                    только служебные данные; следующий шаг скрыт из интерфейса.
                   </div>
                 </div>
               ) : (
@@ -1280,7 +1245,7 @@ export default function SysDevicesPage() {
                     Показываются только агрегаты надёжности парка. Внешняя среда{" "}
                     {sysDeviceText(fleetReliability.reliability.productBoundary.managedRuntimeDependency)}; внешняя база{" "}
                     {sysDeviceText(fleetReliability.reliability.productBoundary.managedDatabaseDependency)}; видимость данных:
-                    только служебные метаданные; следующий шаг скрыт из интерфейса.
+                    только служебные данные; следующий шаг скрыт из интерфейса.
                   </div>
                 </div>
               ) : (
@@ -1373,7 +1338,7 @@ export default function SysDevicesPage() {
                     хранения аудита и передачи смены. Внешняя среда{" "}
                     {sysDeviceText(lifecycleAssurance.assurance.productBoundary.managedRuntimeDependency)};
                     внешняя база {sysDeviceText(lifecycleAssurance.assurance.productBoundary.managedDatabaseDependency)};
-                    видимость данных: только служебные метаданные;
+                    видимость данных: только служебные данные;
                     следующий шаг скрыт из интерфейса.
                   </div>
                 </div>

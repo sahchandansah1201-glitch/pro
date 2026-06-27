@@ -644,14 +644,14 @@ describe("SysDevicesPage", () => {
     expect(screen.queryByText("br-live-01")).not.toBeInTheDocument();
     expect(screen.getByText("Реестр устройств загружен из рабочей системы.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Наблюдение службы моста устройств" })).toHaveTextContent(
-      "версия stage4t-local-worker",
+      "версия службы скрыта",
     );
     expect(screen.getByRole("region", { name: "Жизненный цикл команд моста устройств" })).toHaveTextContent(
       "Служебная команда",
     );
     expect(container.innerHTML).not.toContain("raw_failed_state");
     expect(screen.getByRole("note", { name: "Граница данных службы моста устройств" })).toHaveTextContent(
-      "служебные метаданные",
+      "служебные данные",
     );
     expect(screen.getByRole("region", { name: "Устойчивость службы моста устройств" })).toHaveTextContent(
       "На очистку",
@@ -728,6 +728,9 @@ describe("SysDevicesPage", () => {
     );
     expect(screen.getByRole("note", { name: "Граница данных жизненного цикла" })).toHaveTextContent(
       "следующий шаг скрыт",
+    );
+    expect(container.textContent || "").not.toMatch(
+      /Device Bridge|Command|Worker|Stage|backend|self-hosted|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|payload|OpenAPI|PostgreSQL|SLO|repository|CI|project-memory|frontend|hypothesis/i,
     );
     expect(fetchMock).toHaveBeenCalledTimes(10);
 
