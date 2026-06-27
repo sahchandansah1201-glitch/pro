@@ -8,6 +8,10 @@ import AdminHomePage from "@/pages/admin/AdminHomePage";
 import SysAuditPage from "@/pages/sys/SysAuditPage";
 import SysUsersPage from "@/pages/sys/SysUsersPage";
 
+const sessionMock = vi.hoisted(() => ({
+  roles: ["system_admin"] as string[],
+}));
+
 vi.mock("@/lib/app-mode", () => ({
   isProductionAppMode: () => true,
 }));
@@ -23,7 +27,7 @@ vi.mock("@/lib/self-hosted-api-session", () => ({
     user: {
       id: "system-admin-1",
       displayName: "Администратор Dermatolog Pro",
-      roles: ["system_admin"],
+      roles: sessionMock.roles,
     },
   }),
 }));
@@ -68,6 +72,7 @@ function renderRouted(ui: React.ReactElement) {
 
 describe("Production admin management UI", () => {
   afterEach(() => {
+    sessionMock.roles = ["system_admin"];
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -253,6 +258,56 @@ describe("Production admin management UI", () => {
         body: JSON.stringify({
           name: "Яблоко ООО",
           address: "ул. Северная, 11, Краснодар",
+          timezone: "Europe/Moscow",
+        }),
+      }),
+    );
+  });
+
+  it("limits clinic_admin clinic screen to scoped clinic editing without system-only actions", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    const updatedClinic = {
+      ...clinic,
+      address: "Краснодар, обновлённый адрес",
+      updatedAt: "2026-06-23T00:01:00.000Z",
+    };
+    let clinicItems = [clinic];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/clinics/clinic-1") && init?.method === "PATCH") {
+        clinicItems = [updatedClinic];
+        return json({ item: updatedClinic });
+      }
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: clinicItems });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminClinicsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Клиники и кабинеты" })).toBeInTheDocument();
+    expect(screen.getByText("Доступ администратора клиники")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Название клиники")).not.toBeInTheDocument();
+    expect(screen.queryByText("Создать частный кабинет")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Приостановить" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В архив" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Удалить пустую запись" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    fireEvent.change(screen.getByLabelText("Адрес редактируемой клиники"), {
+      target: { value: "Краснодар, обновлённый адрес" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+
+    expect(await screen.findByText("Изменения сохранены: Кабинет Морозова")).toBeInTheDocument();
+    expect(screen.getByText("адрес: Краснодар, обновлённый адрес")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/clinics/clinic-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Кабинет Морозова",
+          address: "Краснодар, обновлённый адрес",
           timezone: "Europe/Moscow",
         }),
       }),

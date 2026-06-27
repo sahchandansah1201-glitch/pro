@@ -4,8 +4,12 @@ export function appMain(page: Page) {
   return page.locator("main").first();
 }
 
+export function sidebarLinks(page: Page, name: string) {
+  return page.locator('[data-sidebar="menu-button"]').filter({ hasText: name });
+}
+
 export function sidebarLink(page: Page, name: string) {
-  return page.locator('[data-sidebar="menu-button"]').filter({ hasText: name }).first();
+  return sidebarLinks(page, name).first();
 }
 
 export async function expectNoHorizontalOverflow(page: Page) {

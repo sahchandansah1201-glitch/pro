@@ -14,6 +14,7 @@ import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mo
 import type { PartnerTier } from "@/lib/domain";
 import { isProductionAppMode } from "@/lib/app-mode";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { selfHostedRoles } from "@/lib/self-hosted-role";
 import {
   adminApiErrorText,
   createAdminClinic,
@@ -162,6 +163,7 @@ function TimezoneSelect({
 
 function AdminClinicsPageLive() {
   const session = useSelfHostedApiSession();
+  const canCreateClinicRecords = selfHostedRoles(session).includes("system_admin");
   const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -373,91 +375,101 @@ function AdminClinicsPageLive() {
           </AdminOpsCard>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <Card className="p-3">
-            <div className="mb-1 text-[13px] font-semibold">Создать клинику</div>
-            <p className="mb-3 text-[12px] text-muted-foreground">
-              Для медицинского центра, сети или филиала. Сотрудников назначайте следующим шагом.
-            </p>
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1.2fr_0.9fr]">
-              <Input
-                value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Название клиники"
-                aria-label="Название клиники"
-                className="min-h-11"
-              />
-              <Input
-                value={form.address}
-                onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
-                placeholder="Адрес клиники"
-                aria-label="Адрес клиники"
-                className="min-h-11"
-              />
-              <TimezoneSelect
-                value={form.timezone}
-                onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
-                label="Часовой пояс клиники"
-              />
-            </div>
-            <Button type="button" className="mt-3 min-h-11" onClick={submitClinic} disabled={busy}>
-              Создать клинику
-            </Button>
-          </Card>
+        {canCreateClinicRecords ? (
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <Card className="p-3">
+              <div className="mb-1 text-[13px] font-semibold">Создать клинику</div>
+              <p className="mb-3 text-[12px] text-muted-foreground">
+                Для медицинского центра, сети или филиала. Сотрудников назначайте следующим шагом.
+              </p>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1.2fr_0.9fr]">
+                <Input
+                  value={form.name}
+                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Название клиники"
+                  aria-label="Название клиники"
+                  className="min-h-11"
+                />
+                <Input
+                  value={form.address}
+                  onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+                  placeholder="Адрес клиники"
+                  aria-label="Адрес клиники"
+                  className="min-h-11"
+                />
+                <TimezoneSelect
+                  value={form.timezone}
+                  onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
+                  label="Часовой пояс клиники"
+                />
+              </div>
+              <Button type="button" className="mt-3 min-h-11" onClick={submitClinic} disabled={busy}>
+                Создать клинику
+              </Button>
+            </Card>
 
+            <Card className="p-3">
+              <div className="mb-1 text-[13px] font-semibold">Создать частный кабинет</div>
+              <p className="mb-3 text-[12px] text-muted-foreground">
+                Для одного врача-владельца. Он сразу получит доступ администратора кабинета и частного врача.
+              </p>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                <Input
+                  value={privateForm.clinicName}
+                  onChange={(event) => setPrivateForm((current) => ({ ...current, clinicName: event.target.value }))}
+                  placeholder="Название кабинета"
+                  aria-label="Название кабинета"
+                  className="min-h-11"
+                />
+                <Input
+                  value={privateForm.address}
+                  onChange={(event) => setPrivateForm((current) => ({ ...current, address: event.target.value }))}
+                  placeholder="Адрес кабинета"
+                  aria-label="Адрес кабинета"
+                  className="min-h-11"
+                />
+                <Input
+                  value={privateForm.ownerDisplayName}
+                  onChange={(event) => setPrivateForm((current) => ({ ...current, ownerDisplayName: event.target.value }))}
+                  placeholder="ФИО владельца"
+                  aria-label="ФИО владельца кабинета"
+                  className="min-h-11"
+                />
+                <Input
+                  value={privateForm.ownerEmail}
+                  onChange={(event) => setPrivateForm((current) => ({ ...current, ownerEmail: event.target.value }))}
+                  placeholder="Эл. почта владельца"
+                  aria-label="Эл. почта владельца кабинета"
+                  className="min-h-11"
+                />
+                <Input
+                  value={privateForm.ownerPassword}
+                  onChange={(event) => setPrivateForm((current) => ({ ...current, ownerPassword: event.target.value }))}
+                  placeholder="Временный пароль"
+                  aria-label="Временный пароль владельца кабинета"
+                  type="password"
+                  className="min-h-11"
+                />
+                <TimezoneSelect
+                  value={privateForm.timezone}
+                  onChange={(timezone) => setPrivateForm((current) => ({ ...current, timezone }))}
+                  label="Часовой пояс кабинета"
+                />
+              </div>
+              <Button type="button" className="mt-3 min-h-11" onClick={submitPrivatePractice} disabled={busy}>
+                Создать кабинет и владельца
+              </Button>
+            </Card>
+          </div>
+        ) : (
           <Card className="p-3">
-            <div className="mb-1 text-[13px] font-semibold">Создать частный кабинет</div>
-            <p className="mb-3 text-[12px] text-muted-foreground">
-              Для одного врача-владельца. Он сразу получит доступ администратора кабинета и частного врача.
+            <div className="mb-1 text-[13px] font-semibold">Доступ администратора клиники</div>
+            <p className="text-[12px] text-muted-foreground">
+              Вы можете обновлять данные своей клиники и назначать врачей в доступной области.
+              Создание новых клиник, частных кабинетов, архивирование и удаление выполняет системный администратор Dermatolog Pro.
             </p>
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-              <Input
-                value={privateForm.clinicName}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, clinicName: event.target.value }))}
-                placeholder="Название кабинета"
-                aria-label="Название кабинета"
-                className="min-h-11"
-              />
-              <Input
-                value={privateForm.address}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, address: event.target.value }))}
-                placeholder="Адрес кабинета"
-                aria-label="Адрес кабинета"
-                className="min-h-11"
-              />
-              <Input
-                value={privateForm.ownerDisplayName}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerDisplayName: event.target.value }))}
-                placeholder="ФИО владельца"
-                aria-label="ФИО владельца кабинета"
-                className="min-h-11"
-              />
-              <Input
-                value={privateForm.ownerEmail}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerEmail: event.target.value }))}
-                placeholder="Эл. почта владельца"
-                aria-label="Эл. почта владельца кабинета"
-                className="min-h-11"
-              />
-              <Input
-                value={privateForm.ownerPassword}
-                onChange={(event) => setPrivateForm((current) => ({ ...current, ownerPassword: event.target.value }))}
-                placeholder="Временный пароль"
-                aria-label="Временный пароль владельца кабинета"
-                type="password"
-                className="min-h-11"
-              />
-              <TimezoneSelect
-                value={privateForm.timezone}
-                onChange={(timezone) => setPrivateForm((current) => ({ ...current, timezone }))}
-                label="Часовой пояс кабинета"
-              />
-            </div>
-            <Button type="button" className="mt-3 min-h-11" onClick={submitPrivatePractice} disabled={busy}>
-              Создать кабинет и владельца
-            </Button>
           </Card>
-        </div>
+        )}
 
         {editForm && (
           <Card role="region" aria-label="Редактирование клиники" className="border-primary/30 bg-primary/5 p-3">
@@ -543,50 +555,52 @@ function AdminClinicsPageLive() {
                 >
                   Редактировать
                 </Button>
-                <div className="flex flex-wrap gap-2 lg:col-span-7">
-                  {clinic.status !== "suspended" && (
+                {canCreateClinicRecords && (
+                  <div className="flex flex-wrap gap-2 lg:col-span-7">
+                    {clinic.status !== "suspended" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => void changeClinicStatus(clinic, "suspended")}
+                        disabled={busy}
+                      >
+                        Приостановить
+                      </Button>
+                    )}
+                    {clinic.status !== "active" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => void changeClinicStatus(clinic, "active")}
+                        disabled={busy}
+                      >
+                        Вернуть в работу
+                      </Button>
+                    )}
+                    {clinic.status !== "archived" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => void changeClinicStatus(clinic, "archived")}
+                        disabled={busy}
+                      >
+                        В архив
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
                       className="min-h-11"
-                      onClick={() => void changeClinicStatus(clinic, "suspended")}
-                      disabled={busy}
+                      onClick={() => void deleteClinicIfEmpty(clinic)}
+                      disabled={busy || clinicLinkedCount(clinic) > 0}
                     >
-                      Приостановить
+                      {deleteConfirmId === clinic.id ? "Подтвердить удаление" : "Удалить пустую запись"}
                     </Button>
-                  )}
-                  {clinic.status !== "active" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11"
-                      onClick={() => void changeClinicStatus(clinic, "active")}
-                      disabled={busy}
-                    >
-                      Вернуть в работу
-                    </Button>
-                  )}
-                  {clinic.status !== "archived" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11"
-                      onClick={() => void changeClinicStatus(clinic, "archived")}
-                      disabled={busy}
-                    >
-                      В архив
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
-                    onClick={() => void deleteClinicIfEmpty(clinic)}
-                    disabled={busy || clinicLinkedCount(clinic) > 0}
-                  >
-                    {deleteConfirmId === clinic.id ? "Подтвердить удаление" : "Удалить пустую запись"}
-                  </Button>
-                </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
