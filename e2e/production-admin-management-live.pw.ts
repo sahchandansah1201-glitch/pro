@@ -76,6 +76,11 @@ function isAdminAuditResponse(response: Response) {
   return request.method() === "GET" && new URL(response.url()).pathname === "/api/v1/admin/audit-events";
 }
 
+function isOpsResponse(response: Response, path: string) {
+  const request = response.request();
+  return request.method() === "GET" && new URL(response.url()).pathname === path;
+}
+
 test.describe("Live production admin management journey", () => {
   test("system admin creates clinics, users, and verifies audit through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
@@ -331,6 +336,40 @@ test.describe("Live production admin management journey", () => {
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-release-status-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const opsStatusResponsePromise = page.waitForResponse((response) => isOpsResponse(response, "/api/v1/ops/status"));
+    const opsRuntimeResponsePromise = page.waitForResponse((response) =>
+      isOpsResponse(response, "/api/v1/ops/runtime-checks"),
+    );
+    const productReadinessResponsePromise = page.waitForResponse((response) =>
+      isOpsResponse(response, "/api/v1/product/readiness"),
+    );
+    await page.getByRole("link", { name: "Рабочий контур" }).click();
+    const [opsStatusResponse, opsRuntimeResponse, productReadinessResponse] = await Promise.all([
+      opsStatusResponsePromise,
+      opsRuntimeResponsePromise,
+      productReadinessResponsePromise,
+    ]);
+    expect(opsStatusResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(opsStatusResponse.status()).toBeLessThan(300);
+    expect(opsRuntimeResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(opsRuntimeResponse.status()).toBeLessThan(300);
+    expect(productReadinessResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(productReadinessResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Рабочий контур" })).toBeVisible();
+    await expect(page.getByText("Готовность продукта").first()).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(
+      /Учебный режим|учебная роль|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|Post-deploy verification|Restore dry-run|Audit export dry-run|metadata-only|PHI|S3-compatible|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-self-hosted-ops-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Рабочий контур" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-self-hosted-ops-mobile-390.png"), fullPage: true });
 
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
