@@ -26,33 +26,39 @@ import {
   buildTableXlsxBlob,
   limitAccessEventExportRows,
   type AccessEventExportColumnKey,
-  type AccessEventSource,
   type XlsxCellValue,
 } from "@/lib/admin-access-events";
+import { isProductionAppMode } from "@/lib/app-mode";
 import { blobFromParts } from "@/lib/blob-utils";
 import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
+import { adminApiErrorText, listAdminAuditEvents } from "@/lib/self-hosted-admin-api";
 import {
-  getAuditLogs,
-  getClinicById,
-  getImages,
-  getLesionById,
-  getPatientById,
-  getReports,
-  getVisitById,
-  getVisitsByPatientId,
-} from "@/lib/mock-data";
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import { selfHostedRoles } from "@/lib/self-hosted-role";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase-client";
 import { useListPagination } from "@/lib/use-list-pagination";
-import { DEMO_USERS } from "@/lib/users";
-import { ROLE_BY_ID } from "@/lib/roles";
-import type { AuditLog } from "@/lib/domain";
-import type { Tables } from "@/integrations/supabase/types";
+import {
+  FILTERS,
+  SOURCE_FILTERS,
+  actionLabel,
+  buildDemoRows,
+  contextLabel,
+  entityBucket,
+  entityLabel,
+  filterLabel,
+  fromAdminAuditEvent,
+  fromViewRow,
+  rowDate,
+  sourceLabel,
+  type AccessEventsViewRow,
+  type AccessEventRow,
+  type FilterKey,
+  type SourceFilter,
+} from "./accessEventsViewModel";
 
-type AccessEventsViewRow = Tables<"access_events_admin">;
-
-type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
-type SourceFilter = "all" | AccessEventSource;
 type ExportScope = "all_pages" | "current_page" | "custom_range";
 type ExportLogFilter = "all" | "csv" | "xlsx" | "success" | "cancelled" | "error" | "repeated";
 type ExportStatusKind = "info" | "error";
@@ -66,34 +72,6 @@ const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings
 const EXPORT_LOG_FILTER_STORAGE_KEY = "derma-pro:sys-access-events:export-log-filter";
 const EXPORT_LOG_STORAGE_KEY = "derma-pro:sys-access-events:export-log";
 const EXPORT_LOG_PAGE_SIZE = 3;
-
-interface AccessEventRow {
-  id: string;
-  createdAt: string;
-  clinicName: string;
-  actorLabel: string;
-  action: string;
-  entity: string;
-  entityId: string | null;
-  patientCode: string | null;
-  visitId: string | null;
-  lesionLabel: string | null;
-  source: AccessEventSource;
-}
-
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "Все" },
-  { key: "clinical", label: "Клиника" },
-  { key: "admin", label: "Администрирование" },
-  { key: "integrations", label: "Интеграции" },
-  { key: "devices", label: "Устройства" },
-];
-
-const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
-  { key: "all", label: "Все источники" },
-  { key: "api", label: "Рабочая система" },
-  { key: "demo", label: "Учебные данные" },
-];
 
 const EXPORT_LOG_FILTERS: { key: ExportLogFilter; label: string }[] = [
   { key: "all", label: "Все экспорты" },
@@ -257,215 +235,6 @@ function writeExportLogFilter(value: ExportLogFilter): void {
   } catch {
     // Filter persistence is best-effort; never block the UI.
   }
-}
-
-const ENTITY_BUCKET: Record<string, FilterKey> = {
-  visit: "clinical",
-  image: "clinical",
-  assessment: "clinical",
-  lesion: "clinical",
-  report: "clinical",
-  appointment: "admin",
-  lead: "admin",
-  bot_dialog: "admin",
-  integration: "integrations",
-  device: "devices",
-};
-
-function actorLabel(actorId: string | null): string {
-  if (!actorId) return "Системное событие";
-  const user = Object.values(DEMO_USERS).find((u) => u.id === actorId);
-  if (!user) return actorId;
-  return `${ROLE_BY_ID[user.role].short}`;
-}
-
-const ENTITY_LABEL: Record<string, string> = {
-  visit: "визит",
-  image: "снимок",
-  assessment: "оценка",
-  lesion: "очаг",
-  report: "отчёт",
-  appointment: "запись",
-  lead: "заявка",
-  bot_dialog: "обращение",
-  integration: "интеграция",
-  device: "устройство",
-};
-
-const ACTION_LABEL: Record<string, string> = {
-  "visit.open": "Открыт визит",
-  "visit.close": "Закрыт визит",
-  "image.capture": "Добавлен снимок",
-  "image.delete": "Удалён снимок",
-  "assessment.update": "Оценка обновлена",
-  "report.publish": "Отчёт опубликован",
-  "report.share": "Отчёт открыт по ссылке",
-  "report.generate": "Отчёт сформирован",
-  "lead.create": "Заявка создана",
-  "lead.update": "Заявка обновлена",
-  "bot_dialog.handoff": "Обращение передано",
-  "appointment.create": "Запись создана",
-  "device.connect": "Устройство подключено",
-  "device.register": "Устройство зарегистрировано",
-  "integration.sync": "Интеграция обновлена",
-};
-
-function entityLabel(entity: string): string {
-  return ENTITY_LABEL[entity] ?? "объект";
-}
-
-function actionLabel(action: string): string {
-  return ACTION_LABEL[action] ?? "Системное действие";
-}
-
-function sourceLabel(source: AccessEventSource): string {
-  return source === "api" ? "Рабочая система" : "Учебные данные";
-}
-
-function clinicFromLog(log: AuditLog): string {
-  let clinicId = typeof log.payload.clinicId === "string" ? log.payload.clinicId : null;
-  if (!clinicId && typeof log.payload.visitId === "string") {
-    clinicId = getVisitById(log.payload.visitId)?.clinicId ?? null;
-  }
-  if (!clinicId && log.entity === "visit") {
-    clinicId = getVisitById(log.entityId)?.clinicId ?? null;
-  }
-  if (!clinicId && log.entity === "lesion") {
-    const patientId = getLesionById(log.entityId)?.patientId;
-    clinicId = patientId ? getVisitsByPatientId(patientId)[0]?.clinicId ?? null : null;
-  }
-  if (!clinicId && typeof log.payload.lesionId === "string") {
-    const patientId = getLesionById(log.payload.lesionId)?.patientId;
-    clinicId = patientId ? getVisitsByPatientId(patientId)[0]?.clinicId ?? null : null;
-  }
-  if (!clinicId && log.entity === "image") {
-    const image = getImages().find((i) => i.id === log.entityId);
-    clinicId = image ? getVisitById(image.visitId)?.clinicId ?? null : null;
-  }
-  if (!clinicId && log.entity === "report") {
-    const report = getReports().find((r) => r.id === log.entityId);
-    clinicId = report ? getVisitById(report.visitId)?.clinicId ?? null : null;
-  }
-  return clinicId ? getClinicById(clinicId)?.name ?? clinicId : "—";
-}
-
-function patientCodeFromLog(log: AuditLog): string | null {
-  if (typeof log.payload.visitId === "string") {
-    const visit = getVisitById(log.payload.visitId);
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "visit") {
-    const visit = getVisitById(log.entityId);
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "lesion") {
-    const lesion = getLesionById(log.entityId);
-    return lesion ? getPatientById(lesion.patientId)?.code ?? null : null;
-  }
-  if (typeof log.payload.lesionId === "string") {
-    const lesion = getLesionById(log.payload.lesionId);
-    return lesion ? getPatientById(lesion.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "image") {
-    const image = getImages().find((i) => i.id === log.entityId);
-    const visit = image ? getVisitById(image.visitId) : null;
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "report") {
-    const report = getReports().find((r) => r.id === log.entityId);
-    const visit = report ? getVisitById(report.visitId) : null;
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  return null;
-}
-
-function visitIdFromLog(log: AuditLog): string | null {
-  if (typeof log.payload.visitId === "string") return log.payload.visitId;
-  return log.entity === "visit" ? log.entityId : null;
-}
-
-function lesionLabelFromLog(log: AuditLog): string | null {
-  if (log.entity === "lesion") return getLesionById(log.entityId)?.label ?? log.entityId;
-  if (typeof log.payload.lesionId === "string") {
-    return getLesionById(log.payload.lesionId)?.label ?? log.payload.lesionId;
-  }
-  return null;
-}
-
-function fromDemoLog(log: AuditLog): AccessEventRow {
-  return {
-    id: log.id,
-    createdAt: log.createdAt,
-    clinicName: clinicFromLog(log),
-    actorLabel: actorLabel(log.actorId),
-    action: log.action,
-    entity: log.entity,
-    entityId: log.entityId,
-    patientCode: patientCodeFromLog(log),
-    visitId: visitIdFromLog(log),
-    lesionLabel: lesionLabelFromLog(log),
-    source: "demo",
-  };
-}
-
-function fromViewRow(row: AccessEventsViewRow): AccessEventRow {
-  return {
-    id: row.id,
-    createdAt: row.created_at,
-    clinicName: row.clinic_name,
-    actorLabel: row.actor_full_name ?? row.actor_id ?? "Системное событие",
-    action: row.action,
-    entity: row.entity,
-    entityId: row.entity_id,
-    patientCode: row.patient_code,
-    visitId: row.visit_id,
-    lesionLabel: row.lesion_label,
-    source: "api",
-  };
-}
-
-function buildDemoRows(): AccessEventRow[] {
-  return getAuditLogs()
-    .map(fromDemoLog)
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-}
-
-function contextLabel(row: AccessEventRow): string {
-  const parts = [];
-  if (row.visitId) parts.push("визит: код скрыт");
-  if (row.lesionLabel) parts.push(`очаг ${row.lesionLabel}`);
-  return parts.length > 0 ? parts.join(" · ") : "—";
-}
-
-function rowDate(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
-
-function filterLabel(
-  filter: FilterKey,
-  sourceFilter: SourceFilter,
-  entityFilter: string,
-  clinicFilter: string,
-  actorFilter: string,
-  actionFilter: string,
-  patientCodeFilter: string,
-  dateFrom: string,
-  dateTo: string,
-): string {
-  const parts = [
-    FILTERS.find((f) => f.key === filter)?.label ?? "Все",
-    SOURCE_FILTERS.find((f) => f.key === sourceFilter)?.label ?? "Все источники",
-  ];
-  if (entityFilter !== "all") parts.push(`сущность: ${entityLabel(entityFilter)}`);
-  if (clinicFilter !== "all") parts.push(`клиника: ${clinicFilter}`);
-  if (actorFilter !== "all") parts.push(`актор: ${actorFilter}`);
-  if (actionFilter !== "all") parts.push(`действие: ${actionLabel(actionFilter)}`);
-  if (patientCodeFilter.trim()) parts.push(`номер карты: ${formatCardNumber(patientCodeFilter.trim())}`);
-  if (dateFrom) parts.push(`с ${dateFrom}`);
-  if (dateTo) parts.push(`по ${dateTo}`);
-  return parts.join(" · ");
 }
 
 function downloadBlob(filename: string, blob: Blob) {
@@ -684,12 +453,18 @@ function exportLogFilename(format: "csv" | "xlsx", filter: ExportLogFilter, coun
 
 export default function SysAccessEventsPage() {
   const { role } = useRole();
-  const configured = isSupabaseConfigured();
+  const productionMode = isProductionAppMode();
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
+  const canReadProductionAccessEvents =
+    productionMode && selfHostedConfigured && selfHostedRoles(selfHostedSession).includes("system_admin");
+  const canReadAccessEvents = productionMode ? canReadProductionAccessEvents : role === "system_admin";
+  const supabaseConfigured = isSupabaseConfigured();
   const exportRunRef = useRef<ExportRunContext | null>(null);
   const [storedFilters] = useState(readFilterState);
   const [storedExportSettings] = useState(readExportSettings);
   const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
-  const [source, setSource] = useState<AccessEventSource>("demo");
+  const [source, setSource] = useState<AccessEventRow["source"]>("demo");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState(storedFilters.query);
@@ -723,6 +498,9 @@ export default function SysAccessEventsPage() {
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [reloadTick, setReloadTick] = useState(0);
+  const visibleSourceFilters = productionMode
+    ? SOURCE_FILTERS.filter((item) => item.key !== "demo")
+    : SOURCE_FILTERS;
 
   const announceExportStatus = useCallback((message: string, kind: ExportStatusKind = "info") => {
     setExportStatusKind(kind);
@@ -771,6 +549,12 @@ export default function SysAccessEventsPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (productionMode && sourceFilter === "demo") {
+      setSourceFilter("all");
+    }
+  }, [productionMode, sourceFilter]);
 
   useEffect(() => {
     if (cooldownUntil <= now) return;
@@ -824,7 +608,62 @@ export default function SysAccessEventsPage() {
   }, [exportLog]);
 
   useEffect(() => {
-    if (!configured || role !== "system_admin") {
+    if (productionMode) {
+      if (!canReadProductionAccessEvents) {
+        setRows([]);
+        setSource("api");
+        setError(
+          selfHostedConfigured
+            ? "Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса."
+            : "Войдите в рабочую систему, чтобы открыть события доступа.",
+        );
+        setLoading(false);
+        setLastRefreshAt(new Date().toISOString());
+        appendQueryLog("Рабочий журнал", "доступ не открыт");
+        return;
+      }
+
+      let cancelled = false;
+      setLoading(true);
+      setError(null);
+      void listAdminAuditEvents({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+      })
+        .then((result) => {
+          if (cancelled) return;
+          if (!result.ok) {
+            setRows([]);
+            setSource("api");
+            setError(adminApiErrorText(result.error));
+            setLastRefreshAt(new Date().toISOString());
+            appendQueryLog("Рабочий журнал", "ошибка загрузки");
+            return;
+          }
+          const safeRows = result.value.map(fromAdminAuditEvent);
+          setRows(safeRows);
+          setSource("api");
+          setLastRefreshAt(new Date().toISOString());
+          appendQueryLog("Рабочий журнал", `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setRows([]);
+          setSource("api");
+          setError("Сбой сети при загрузке событий доступа.");
+          setLastRefreshAt(new Date().toISOString());
+          appendQueryLog("Рабочий журнал", "сбой сети");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!supabaseConfigured || role !== "system_admin") {
       setRows(buildDemoRows());
       setSource("demo");
       setError(null);
@@ -880,7 +719,17 @@ export default function SysAccessEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [appendQueryLog, configured, reloadTick, role]);
+  }, [
+    appendQueryLog,
+    canReadProductionAccessEvents,
+    productionMode,
+    reloadTick,
+    role,
+    selfHostedConfigured,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+    supabaseConfigured,
+  ]);
 
   const entityOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.entity))).sort((a, b) => a.localeCompare(b)),
@@ -924,7 +773,7 @@ export default function SysAccessEventsPage() {
     const q = query.trim().toLowerCase();
     const patientCode = patientCodeFilter.trim().toLowerCase();
     return rows.filter((row) => {
-      if (filter !== "all" && ENTITY_BUCKET[row.entity] !== filter) return false;
+      if (filter !== "all" && entityBucket(row.entity) !== filter) return false;
       if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (entityFilter !== "all" && row.entity !== entityFilter) return false;
       if (clinicFilter !== "all" && row.clinicName !== clinicFilter) return false;
@@ -1130,12 +979,12 @@ export default function SysAccessEventsPage() {
   }, [announceExportStatus]);
 
   useEffect(() => {
-    if (!autoRefresh || role !== "system_admin") return;
+    if (!autoRefresh || !canReadAccessEvents) return;
     const timer = window.setInterval(() => {
       requestRefresh("Автообновление событий");
     }, AUTO_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [autoRefresh, requestRefresh, role]);
+  }, [autoRefresh, canReadAccessEvents, requestRefresh]);
 
   const runExport = useCallback(
     async ({
@@ -1439,7 +1288,7 @@ export default function SysAccessEventsPage() {
     appendQueryLog("Журнал экспортов", `выгружен книгой ${filteredExportLog.length}`);
   }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
-  if (role !== "system_admin") {
+  if (!canReadAccessEvents) {
     return (
       <div className="flex h-full flex-col">
         <PageHeader title="События доступа" subtitle="Только для системного администратора." />
@@ -1450,8 +1299,9 @@ export default function SysAccessEventsPage() {
           >
             <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
             <span>
-              Этот раздел доступен только роли system_admin. Переключите учебную роль на
-              системного администратора, чтобы открыть журнал.
+              {productionMode
+                ? "Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса."
+                : "Нет доступа в учебном режиме. Переключите роль на системного администратора, чтобы открыть журнал."}
             </span>
           </div>
         </div>
@@ -1589,7 +1439,7 @@ export default function SysAccessEventsPage() {
                 className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
                 aria-label="Источник событий"
               >
-                {SOURCE_FILTERS.map((f) => (
+                {visibleSourceFilters.map((f) => (
                   <option key={f.key} value={f.key}>
                     {f.label}
                   </option>
@@ -2168,79 +2018,93 @@ export default function SysAccessEventsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((row) => (
-                <tr key={row.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2 text-muted-foreground">{formatDateTime(row.createdAt)}</td>
-                  <td className="px-3 py-2">{row.clinicName}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{row.actorLabel}</td>
-                  <td className="px-3 py-2">{actionLabel(row.action)}</td>
-                  <td className="px-3 py-2">
-                    <span>{entityLabel(row.entity)}</span>
-                    <span className="ml-1 font-mono text-[11px] text-muted-foreground">
-                      код скрыт
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-[11px] text-muted-foreground">
-                    {formatCardNumber(row.patientCode)}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {contextLabel(row)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1 text-[12px]"
-                      onClick={() => setSelectedRow(row)}
-                      aria-label={`Подробнее о событии ${row.id}`}
-                    >
-                      <Eye className="h-3.5 w-3.5" aria-hidden />
-                      Подробнее
-                    </Button>
+              {visible.length > 0 ? (
+                visible.map((row) => (
+                  <tr key={row.id} className="border-b border-border/60 last:border-0">
+                    <td className="px-3 py-2 text-muted-foreground">{formatDateTime(row.createdAt)}</td>
+                    <td className="px-3 py-2">{row.clinicName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.actorLabel}</td>
+                    <td className="px-3 py-2">{actionLabel(row.action)}</td>
+                    <td className="px-3 py-2">
+                      <span>{entityLabel(row.entity)}</span>
+                      <span className="ml-1 font-mono text-[11px] text-muted-foreground">
+                        код скрыт
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                      {formatCardNumber(row.patientCode)}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {contextLabel(row)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-[12px]"
+                        onClick={() => setSelectedRow(row)}
+                        aria-label={`Подробнее о событии ${row.id}`}
+                      >
+                        <Eye className="h-3.5 w-3.5" aria-hidden />
+                        Подробнее
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                    События не найдены. Измените фильтры или обновите журнал.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </Card>
 
         <div className="grid grid-cols-1 gap-2 md:hidden">
-          {visible.map((row) => (
-            <Card key={row.id} className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-[12px] font-semibold">{actionLabel(row.action)}</div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {formatDateTime(row.createdAt)} · {row.actorLabel}
+          {visible.length > 0 ? (
+            visible.map((row) => (
+              <Card key={row.id} className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold">{actionLabel(row.action)}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {formatDateTime(row.createdAt)} · {row.actorLabel}
+                    </div>
                   </div>
+                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {sourceLabel(row.source)}
+                  </span>
                 </div>
-                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {sourceLabel(row.source)}
-                </span>
-              </div>
-              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                <dt className="text-muted-foreground">Клиника</dt>
-                <dd className="text-right">{row.clinicName}</dd>
-                <dt className="text-muted-foreground">Сущность</dt>
-                <dd className="text-right">{entityLabel(row.entity)}</dd>
-                <dt className="text-muted-foreground">Номер карты</dt>
-                <dd className="text-right text-[11px]">{formatCardNumber(row.patientCode)}</dd>
-                <dt className="text-muted-foreground">Контекст</dt>
-                <dd className="text-right">{contextLabel(row)}</dd>
-              </dl>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
-                onClick={() => setSelectedRow(row)}
-                aria-label={`Подробнее о событии ${row.id}`}
-              >
-                <Eye className="h-3.5 w-3.5" aria-hidden />
-                Подробнее
-              </Button>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                  <dt className="text-muted-foreground">Клиника</dt>
+                  <dd className="text-right">{row.clinicName}</dd>
+                  <dt className="text-muted-foreground">Сущность</dt>
+                  <dd className="text-right">{entityLabel(row.entity)}</dd>
+                  <dt className="text-muted-foreground">Номер карты</dt>
+                  <dd className="text-right text-[11px]">{formatCardNumber(row.patientCode)}</dd>
+                  <dt className="text-muted-foreground">Контекст</dt>
+                  <dd className="text-right">{contextLabel(row)}</dd>
+                </dl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
+                  onClick={() => setSelectedRow(row)}
+                  aria-label={`Подробнее о событии ${row.id}`}
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden />
+                  Подробнее
+                </Button>
+              </Card>
+            ))
+          ) : (
+            <Card role="status" aria-live="polite" className="p-3 text-[12px] text-muted-foreground">
+              События не найдены. Измените фильтры или обновите журнал.
             </Card>
-          ))}
+          )}
         </div>
 
         <ListPagination

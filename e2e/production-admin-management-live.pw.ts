@@ -280,6 +280,38 @@ test.describe("Live production admin management journey", () => {
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-audit-mobile-390.png"), fullPage: true });
 
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const accessEventsResponsePromise = page.waitForResponse(isAdminAuditResponse);
+    await page.getByRole("link", { name: "События доступа" }).click();
+    const accessEventsResponse = await accessEventsResponsePromise;
+    expect(accessEventsResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(accessEventsResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
+    await expect(page.getByText(/Данные читаются из рабочей системы клиники/)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(
+      /Учебный режим|учебная роль|system_admin|backend|self-hosted|RPC list_access_events_admin|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expect(page.getByLabel("Источник событий")).not.toContainText("Учебные данные");
+    await expect(page.getByText(/Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
+
+    await page.getByLabel("Поиск событий доступа").fill(`нет совпадений ${suffix}`);
+    await expect(page.getByText("События не найдены. Измените фильтры или обновите журнал.").first()).toBeVisible();
+    await page.getByLabel("Поиск событий доступа").fill("");
+    const accessDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Скачать события доступа таблицей" }).click();
+    const accessDownload = await accessDownloadPromise;
+    expect(accessDownload.suggestedFilename()).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-\d+-rows-\d+-cols\.csv$/,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-access-events-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-access-events-mobile-390.png"), fullPage: true });
+
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);

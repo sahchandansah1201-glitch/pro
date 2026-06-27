@@ -14,6 +14,44 @@ import {
   buildAccessEventsXlsxBytes,
   limitAccessEventExportRows,
 } from "@/lib/admin-access-events";
+
+const appModeMock = vi.hoisted(() => ({ production: false }));
+const sessionMock = vi.hoisted(() => ({
+  session: {
+    apiBaseUrl: "https://pro.skindoktor.ru",
+    apiToken: "admin-token",
+    status: "configured",
+    user: {
+      id: "system-admin-1",
+      displayName: "Администратор Dermatolog Pro",
+      roles: ["system_admin"],
+    },
+  },
+}));
+const adminApiMock = vi.hoisted(() => ({
+  listAdminAuditEvents: vi.fn(),
+  adminApiErrorText: vi.fn((error: { message?: string } | null) => error?.message ?? "Действие не выполнено."),
+}));
+
+vi.mock("@/lib/app-mode", () => ({
+  isProductionAppMode: () => appModeMock.production,
+}));
+
+vi.mock("@/lib/self-hosted-api-session", () => ({
+  isSelfHostedApiConfigured: (session: { status: string; apiToken: string | null }) =>
+    session.status === "configured" && Boolean(session.apiToken),
+  useSelfHostedApiSession: () => sessionMock.session,
+}));
+
+vi.mock("@/lib/self-hosted-admin-api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/self-hosted-admin-api")>();
+  return {
+    ...actual,
+    listAdminAuditEvents: adminApiMock.listAdminAuditEvents,
+    adminApiErrorText: adminApiMock.adminApiErrorText,
+  };
+});
+
 import SysAccessEventsPage from "./SysAccessEventsPage";
 
 function renderPage(role = "system_admin") {
@@ -41,6 +79,21 @@ function firstMockArg<T>(mock: ReturnType<typeof vi.fn>): T {
 describe("SysAccessEventsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    appModeMock.production = false;
+    sessionMock.session = {
+      apiBaseUrl: "https://pro.skindoktor.ru",
+      apiToken: "admin-token",
+      status: "configured",
+      user: {
+        id: "system-admin-1",
+        displayName: "Администратор Dermatolog Pro",
+        roles: ["system_admin"],
+      },
+    };
+    adminApiMock.listAdminAuditEvents.mockReset();
+    adminApiMock.adminApiErrorText.mockImplementation(
+      (error: { message?: string } | null) => error?.message ?? "Действие не выполнено.",
+    );
   });
 
   afterEach(() => {
@@ -66,9 +119,38 @@ describe("SysAccessEventsPage", () => {
   it("blocks non-system-admin roles before rendering rows or export", () => {
     renderPage("clinic_admin");
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/только роли system_admin/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Нет доступа в учебном режиме/i);
     expect(screen.queryByRole("button", { name: "Скачать события доступа таблицей" })).not.toBeInTheDocument();
     expect(screen.queryByText("Отчёт открыт по ссылке")).not.toBeInTheDocument();
+  });
+
+  it("uses the self-hosted system admin session for production access events", async () => {
+    appModeMock.production = true;
+    adminApiMock.listAdminAuditEvents.mockResolvedValue({
+      ok: true,
+      value: [
+        {
+          id: "audit-1",
+          action: "admin.user.create",
+          entityType: "admin_user",
+          actorName: "Админ 2",
+          clinicName: "Dermatolog Pro",
+          createdAt: "2026-06-27T10:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+
+    renderPage("doctor");
+
+    expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
+    await waitFor(() => expect(adminApiMock.listAdminAuditEvents).toHaveBeenCalledTimes(1));
+    expect((await screen.findAllByText("Сотрудник создан")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("сотрудник").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Источник событий")).not.toHaveTextContent("Учебные данные");
+    expect(screen.getByText(/Данные читаются из рабочей системы клиники/i)).toBeInTheDocument();
+    expect(screen.queryByText(/system_admin|учебн/i)).not.toBeInTheDocument();
   });
 
   it("filters rows by query and event bucket", () => {
@@ -125,7 +207,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Действие события"), {
       target: { value: "report.generate" },
     });
-    fireEvent.change(screen.getByLabelText("Код пациента события"), {
+    fireEvent.change(screen.getByLabelText("Номер карты в событии"), {
       target: { value: "DP-2026-0001" },
     });
 
@@ -133,7 +215,7 @@ describe("SysAccessEventsPage", () => {
     expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
     expect(nonOptionTextCount("Открыт визит")).toBe(0);
     expect(screen.getAllByText(/клиника: Дерма-Про · Центр/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/код пациента: DP-2026-0001/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/номер карты: карта 0001/).length).toBeGreaterThan(0);
   });
 
   it("lets system admin change access-events page size", () => {
@@ -256,7 +338,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Действие события"), {
       target: { value: "report.generate" },
     });
-    fireEvent.change(screen.getByLabelText("Код пациента события"), {
+    fireEvent.change(screen.getByLabelText("Номер карты в событии"), {
       target: { value: "DP-2026-0001" },
     });
     fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
@@ -267,7 +349,7 @@ describe("SysAccessEventsPage", () => {
     renderPage();
 
     expect(screen.getByLabelText("Действие события")).toHaveValue("report.generate");
-    expect(screen.getByLabelText("Код пациента события")).toHaveValue("DP-2026-0001");
+    expect(screen.getByLabelText("Номер карты в событии")).toHaveValue("DP-2026-0001");
     expect(screen.getByLabelText("Размер страницы событий")).toHaveValue("5");
     expect(nonOptionTextCount("Отчёт сформирован")).toBeGreaterThan(0);
     expect(nonOptionTextCount("Открыт визит")).toBe(0);
