@@ -137,6 +137,7 @@ describe("SysApiKeysPage production", () => {
     await waitFor(() => expect(adminApiMock.revokeAdminServiceKey).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(`Ключ отозван: ${activeKey.label}.`)).toBeInTheDocument();
     expect(screen.getByText("Отозван")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Рабочий контур" })).toHaveClass("min-h-11");
 
     expect(adminApiMock.createAdminServiceKey).toHaveBeenCalledWith(
       expect.objectContaining({

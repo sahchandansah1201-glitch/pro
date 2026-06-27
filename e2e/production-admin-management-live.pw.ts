@@ -37,13 +37,20 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectMainTapTargets(page: Page) {
   const offenders = await page.evaluate(() => {
     const root = document.querySelector("main") ?? document.body;
+    const tapRect = (el: HTMLElement) => {
+      if (el instanceof HTMLInputElement && el.type === "checkbox") {
+        const label = el.closest("label");
+        if (label instanceof HTMLElement) return label.getBoundingClientRect();
+      }
+      return el.getBoundingClientRect();
+    };
     return Array.from(
       root.querySelectorAll<HTMLElement>(
         'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="tab"], [role="combobox"]',
       ),
     )
       .map((el) => {
-        const rect = el.getBoundingClientRect();
+        const rect = tapRect(el);
         const style = getComputedStyle(el);
         return {
           text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 80),

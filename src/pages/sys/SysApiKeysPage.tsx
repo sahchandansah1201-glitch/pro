@@ -412,7 +412,7 @@ function SysApiKeysPageLive() {
 
         <Card className="p-3 text-[12px] text-muted-foreground">
           Значения ключей не записываются в интерфейс и не попадают в список. Для проверки состояния сервера используйте{" "}
-          <Link to="/sys/self-hosted-ops" className="font-medium text-foreground underline">
+          <Link to="/sys/self-hosted-ops" className="inline-flex min-h-11 items-center font-medium text-foreground underline">
             Рабочий контур
           </Link>
           .
