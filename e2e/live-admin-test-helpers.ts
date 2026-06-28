@@ -5,7 +5,11 @@ export function appMain(page: Page) {
 }
 
 export function mainText(page: Page, text: string | RegExp) {
-  return appMain(page).getByText(text);
+  return appMain(page).getByText(text).first();
+}
+
+export function bannerText(page: Page, text: string | RegExp) {
+  return page.getByRole("banner").getByText(text).first();
 }
 
 export function sidebarLinks(page: Page, name: string) {

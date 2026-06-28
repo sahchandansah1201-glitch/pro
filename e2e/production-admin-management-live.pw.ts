@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 
 import { expect, type Response, test } from "@playwright/test";
 
-import { appMain, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
+import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
 
 const BASE_URL = (process.env.STAGE4M_LIVE_ADMIN_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
 const CREDENTIALS_FILE = process.env.STAGE4M_ADMIN_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
@@ -109,13 +109,13 @@ test.describe("Live production admin management journey", () => {
     await page.getByLabel("Пароль").fill(password);
     await page.getByRole("button", { name: /^Войти$/ }).click();
 
-    await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
+    await expect(bannerText(page, "Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
     await sidebarLink(page, "Клиники и кабинеты").click();
     await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
-    await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
+    await expect(mainText(page, /Учебный режим/i)).toHaveCount(0);
 
     await page.getByRole("button", { name: "Создать клинику" }).click();
-    await expect(page.getByText("Укажите название и адрес клиники.")).toBeVisible();
+    await expect(mainText(page, "Укажите название и адрес клиники.")).toBeVisible();
 
     await page.getByLabel("Название клиники").fill(clinicName);
     await page.getByLabel("Адрес клиники").fill(clinicAddress);
@@ -130,9 +130,9 @@ test.describe("Live production admin management journey", () => {
     expect(createResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createResponse.status()).toBeLessThan(300);
 
-    await expect(page.getByText(`Клиника сохранена и добавлена в список: ${clinicName}`)).toBeVisible();
-    await expect(page.getByText(clinicName).first()).toBeVisible();
-    await expect(page.getByText(`адрес: ${clinicAddress}`).first()).toBeVisible();
+    await expect(mainText(page, `Клиника сохранена и добавлена в список: ${clinicName}`)).toBeVisible();
+    await expect(mainText(page, clinicName).first()).toBeVisible();
+    await expect(mainText(page, `адрес: ${clinicAddress}`).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Редактировать" }).first().click();
     await expect(page.getByRole("region", { name: "Редактирование клиники" })).toBeVisible();
@@ -146,8 +146,8 @@ test.describe("Live production admin management journey", () => {
     expect(updateResponse.status()).toBeGreaterThanOrEqual(200);
     expect(updateResponse.status()).toBeLessThan(300);
 
-    await expect(page.getByText(`Изменения сохранены: ${clinicName}`)).toBeVisible();
-    await expect(page.getByText(`адрес: ${updatedClinicAddress}`).first()).toBeVisible();
+    await expect(mainText(page, `Изменения сохранены: ${clinicName}`)).toBeVisible();
+    await expect(mainText(page, `адрес: ${updatedClinicAddress}`).first()).toBeVisible();
 
     const suspendResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
@@ -156,7 +156,7 @@ test.describe("Live production admin management journey", () => {
     const suspendResponse = await suspendResponsePromise;
     expect(suspendResponse.status()).toBeGreaterThanOrEqual(200);
     expect(suspendResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Статус обновлён: ${clinicName} · Приостановлена`)).toBeVisible();
+    await expect(mainText(page, `Статус обновлён: ${clinicName} · Приостановлена`)).toBeVisible();
 
     const reactivateClinicResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
@@ -165,7 +165,7 @@ test.describe("Live production admin management journey", () => {
     const reactivateClinicResponse = await reactivateClinicResponsePromise;
     expect(reactivateClinicResponse.status()).toBeGreaterThanOrEqual(200);
     expect(reactivateClinicResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Статус обновлён: ${clinicName} · Работает`)).toBeVisible();
+    await expect(mainText(page, `Статус обновлён: ${clinicName} · Работает`)).toBeVisible();
 
     const archiveResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "PATCH", /^\/api\/v1\/admin\/clinics\/[^/]+\/status$/),
@@ -174,10 +174,10 @@ test.describe("Live production admin management journey", () => {
     const archiveResponse = await archiveResponsePromise;
     expect(archiveResponse.status()).toBeGreaterThanOrEqual(200);
     expect(archiveResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Статус обновлён: ${clinicName} · Архив`)).toBeVisible();
+    await expect(mainText(page, `Статус обновлён: ${clinicName} · Архив`)).toBeVisible();
 
     await page.getByRole("button", { name: "Удалить пустую запись" }).first().click();
-    await expect(page.getByText(new RegExp(`Подтвердите удаление пустой записи: ${clinicName}`))).toBeVisible();
+    await expect(mainText(page, new RegExp(`Подтвердите удаление пустой записи: ${clinicName}`))).toBeVisible();
     const deleteClinicResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "DELETE", /^\/api\/v1\/admin\/clinics\/[^/]+$/),
     );
@@ -185,9 +185,9 @@ test.describe("Live production admin management journey", () => {
     const deleteClinicResponse = await deleteClinicResponsePromise;
     expect(deleteClinicResponse.status()).toBeGreaterThanOrEqual(200);
     expect(deleteClinicResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Пустая запись удалена: ${clinicName}`)).toBeVisible();
+    await expect(mainText(page, `Пустая запись удалена: ${clinicName}`)).toBeVisible();
 
-    await expect(page.getByText(/Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
+    await expect(mainText(page, /Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
     await expect(appMain(page)).not.toContainText(/Учебный режим|демо|mock/i);
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-clinics-desktop-1280.png"), fullPage: true });
@@ -200,7 +200,7 @@ test.describe("Live production admin management journey", () => {
 
     await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
-    await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
+    await expect(mainText(page, /Учебный режим/i)).toHaveCount(0);
     await page.getByLabel("ФИО сотрудника").fill(adminDisplayName);
     await page.getByLabel("Эл. почта").fill(adminEmail);
     await page.getByLabel("Временный пароль").fill(adminPassword);
@@ -215,11 +215,11 @@ test.describe("Live production admin management journey", () => {
     expect(createUserResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createUserResponse.status()).toBeLessThan(300);
 
-    await expect(page.getByText(`Учётная запись создана: ${adminDisplayName}`)).toBeVisible();
-    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
-    await expect(page.getByText(adminEmail).first()).toBeVisible();
-    await expect(page.getByText("Системный администратор").first()).toBeVisible();
-    await expect(page.getByText(/Сессия истекла|Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
+    await expect(mainText(page, `Учётная запись создана: ${adminDisplayName}`)).toBeVisible();
+    await expect(mainText(page, adminDisplayName).first()).toBeVisible();
+    await expect(mainText(page, adminEmail).first()).toBeVisible();
+    await expect(mainText(page, "Системный администратор").first()).toBeVisible();
+    await expect(mainText(page, /Сессия истекла|Invalid or expired authorization token|Database is unavailable/i)).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-users-created-desktop-1280.png"), fullPage: true });
 
@@ -229,13 +229,13 @@ test.describe("Live production admin management journey", () => {
     await page.getByLabel("Эл. почта").fill(adminEmail);
     await page.getByLabel("Пароль").fill(adminPassword);
     await page.getByRole("button", { name: /^Войти$/ }).click();
-    await expect(page.getByText("Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
+    await expect(bannerText(page, "Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
     await sidebarLink(page, "Сотрудники и доступ").click();
-    await expect(page.getByText(adminDisplayName).first()).toBeVisible();
+    await expect(mainText(page, adminDisplayName).first()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByText(adminEmail).first()).toBeVisible();
+    await expect(mainText(page, adminEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-users-mobile-390.png"), fullPage: true });
@@ -247,17 +247,17 @@ test.describe("Live production admin management journey", () => {
     expect(auditResponse.status()).toBeGreaterThanOrEqual(200);
     expect(auditResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { name: "Аудит" })).toBeVisible();
-    await expect(page.getByText(/Рабочий режим: журнал читается из базы сервера/)).toBeVisible();
+    await expect(mainText(page, /Рабочий режим: журнал читается из базы сервера/)).toBeVisible();
     await expect(appMain(page)).not.toContainText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
     await expect(page.getByRole("tab", { name: "Клиники" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Сотрудники" })).toBeVisible();
-    await expect(page.getByText(/Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
+    await expect(mainText(page, /Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
 
     await page.getByLabel("Поиск аудита").fill(`нет совпадений ${suffix}`);
-    await expect(page.getByText("События не найдены. Измените фильтр или обновите журнал.")).toBeVisible();
+    await expect(mainText(page, "События не найдены. Измените фильтр или обновите журнал.")).toBeVisible();
     await page.getByLabel("Поиск аудита").fill("");
     await page.getByRole("button", { name: "Проверить целостность" }).click();
-    await expect(page.getByText(/Целостность: записей/)).toBeVisible();
+    await expect(mainText(page, /Целостность: записей/)).toBeVisible();
     const auditDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Скачать журнал" }).click();
     const auditDownload = await auditDownloadPromise;
@@ -278,7 +278,7 @@ test.describe("Live production admin management journey", () => {
     expect(accessEventsResponse.status()).toBeGreaterThanOrEqual(200);
     expect(accessEventsResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
-    await expect(page.getByText(/Данные читаются из рабочей системы клиники/)).toBeVisible();
+    await expect(mainText(page, /Данные читаются из рабочей системы клиники/)).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|RPC list_access_events_admin|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -290,7 +290,7 @@ test.describe("Live production admin management journey", () => {
     ).toBeVisible();
 
     await page.getByLabel("Поиск событий доступа").fill(`нет совпадений ${suffix}`);
-    await expect(page.getByText("События не найдены. Измените фильтры или обновите журнал.").first()).toBeVisible();
+    await expect(mainText(page, "События не найдены. Измените фильтры или обновите журнал.").first()).toBeVisible();
     await page.getByLabel("Поиск событий доступа").fill("");
     const accessDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Скачать события доступа таблицей" }).click();
@@ -310,7 +310,7 @@ test.describe("Live production admin management journey", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await sidebarLink(page, "Готовность публикации").click();
     await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
-    await expect(page.getByText(/Рабочий режим: готовность публикации/)).toBeVisible();
+    await expect(mainText(page, /Рабочий режим: готовность публикации/)).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -344,7 +344,7 @@ test.describe("Live production admin management journey", () => {
     expect(productReadinessResponse.status()).toBeGreaterThanOrEqual(200);
     expect(productReadinessResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Рабочий контур" })).toBeVisible();
-    await expect(page.getByText("Готовность продукта").first()).toBeVisible();
+    await expect(mainText(page, "Готовность продукта").first()).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|Post-deploy verification|Restore dry-run|Audit export dry-run|metadata-only|PHI|S3-compatible|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -379,10 +379,10 @@ test.describe("Live production admin management journey", () => {
     const createServiceKeyResponse = await createServiceKeyResponsePromise;
     expect(createServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createServiceKeyResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Ключ создан: ${serviceKeyLabel}. Значение показано один раз.`)).toBeVisible();
-    await expect(page.getByText("Новый ключ показан один раз")).toBeVisible();
+    await expect(mainText(page, `Ключ создан: ${serviceKeyLabel}. Значение показано один раз.`)).toBeVisible();
+    await expect(mainText(page, "Новый ключ показан один раз")).toBeVisible();
     await page.getByRole("button", { name: "Скрыть ключ" }).click();
-    await expect(page.getByText("Новый ключ показан один раз")).toHaveCount(0);
+    await expect(mainText(page, "Новый ключ показан один раз")).toHaveCount(0);
     const serviceKeyRegion = page.getByRole("region", { name: `Служебный ключ ${serviceKeyLabel}` });
     await expect(serviceKeyRegion).toBeVisible();
     await expect(serviceKeyRegion).toContainText(serviceKeyOwner);
@@ -394,10 +394,10 @@ test.describe("Live production admin management journey", () => {
     const rotateServiceKeyResponse = await rotateServiceKeyResponsePromise;
     expect(rotateServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
     expect(rotateServiceKeyResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Ключ обновлён: ${serviceKeyLabel}. Новое значение показано один раз.`)).toBeVisible();
-    await expect(page.getByText("Новый ключ показан один раз")).toBeVisible();
+    await expect(mainText(page, `Ключ обновлён: ${serviceKeyLabel}. Новое значение показано один раз.`)).toBeVisible();
+    await expect(mainText(page, "Новый ключ показан один раз")).toBeVisible();
     await page.getByRole("button", { name: "Скрыть ключ" }).click();
-    await expect(page.getByText("Новый ключ показан один раз")).toHaveCount(0);
+    await expect(mainText(page, "Новый ключ показан один раз")).toHaveCount(0);
 
     const revokeServiceKeyResponsePromise = page.waitForResponse((response) =>
       isAdminServiceKeyResponse(response, "PATCH", /^\/api\/v1\/admin\/service-keys\/[^/]+\/revoke$/),
@@ -406,7 +406,7 @@ test.describe("Live production admin management journey", () => {
     const revokeServiceKeyResponse = await revokeServiceKeyResponsePromise;
     expect(revokeServiceKeyResponse.status()).toBeGreaterThanOrEqual(200);
     expect(revokeServiceKeyResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Ключ отозван: ${serviceKeyLabel}.`)).toBeVisible();
+    await expect(mainText(page, `Ключ отозван: ${serviceKeyLabel}.`)).toBeVisible();
     await expect(serviceKeyRegion.getByText("Отозван")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная|учебное действие|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
@@ -423,16 +423,16 @@ test.describe("Live production admin management journey", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await sidebarLink(page, "Справка").click();
     await expect(page.getByRole("heading", { level: 1, name: "Справка" })).toBeVisible();
-    await expect(page.getByText("Безопасность и границы текущей версии")).toBeVisible();
-    await expect(page.getByText("Права на разделы проверяются сервером и зависят от роли сотрудника.")).toBeVisible();
-    await expect(page.getByText("Помощник записи даёт только навигационную подсказку для передачи врачу.")).toBeVisible();
+    await expect(mainText(page, "Безопасность и границы текущей версии")).toBeVisible();
+    await expect(mainText(page, "Права на разделы проверяются сервером и зависят от роли сотрудника.")).toBeVisible();
+    await expect(mainText(page, "Помощник записи даёт только навигационную подсказку для передачи врачу.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная|учебный|учебное|учебном|учебные|демо|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential|MVP|metadata|workflow|policy|evidence|rollout|monitoring|validation|governance|readiness|Device Bridge|Body Map|Mini App|raw ID|лид/i,
     );
     await page.getByLabel("Поиск по разделам справки").fill(`нет раздела ${suffix}`);
-    await expect(page.getByText(/Ничего не найдено по запросу/)).toBeVisible();
+    await expect(mainText(page, /Ничего не найдено по запросу/)).toBeVisible();
     await page.getByRole("button", { name: "Очистить поиск" }).click();
-    await expect(page.getByText(/Ничего не найдено по запросу/)).toHaveCount(0);
+    await expect(mainText(page, /Ничего не найдено по запросу/)).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-help-desktop-1280.png"), fullPage: true });
 
@@ -456,7 +456,7 @@ test.describe("Live production admin management journey", () => {
     const createClinicAdminClinicResponse = await createClinicAdminClinicResponsePromise;
     expect(createClinicAdminClinicResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createClinicAdminClinicResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Клиника сохранена и добавлена в список: ${clinicAdminClinicName}`)).toBeVisible();
+    await expect(mainText(page, `Клиника сохранена и добавлена в список: ${clinicAdminClinicName}`)).toBeVisible();
 
     await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
@@ -472,8 +472,8 @@ test.describe("Live production admin management journey", () => {
     const createClinicAdminResponse = await createClinicAdminResponsePromise;
     expect(createClinicAdminResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createClinicAdminResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Учётная запись создана: ${clinicAdminDisplayName}`)).toBeVisible();
-    await expect(page.getByText(clinicAdminEmail).first()).toBeVisible();
+    await expect(mainText(page, `Учётная запись создана: ${clinicAdminDisplayName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminEmail).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Выйти" }).click();
     await expect(page.getByRole("button", { name: /^Войти$/ })).toBeVisible({ timeout: 15_000 });
@@ -484,12 +484,12 @@ test.describe("Live production admin management journey", () => {
       isAdminClinicResponse(response, "GET", /^\/api\/v1\/admin\/analytics$/),
     );
     await page.getByRole("button", { name: /^Войти$/ }).click();
-    await expect(page.getByText("Рабочее место · Администратор клиники")).toBeVisible({ timeout: 15_000 });
+    await expect(bannerText(page, "Рабочее место · Администратор клиники")).toBeVisible({ timeout: 15_000 });
     const clinicAdminAnalyticsResponse = await clinicAdminAnalyticsResponsePromise;
     expect(clinicAdminAnalyticsResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminAnalyticsResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Операционный центр клиники" })).toBeVisible();
-    await expect(page.getByText("Рабочий режим: показатели читаются из рабочей базы сервиса. Персональные строки, фото и медицинские выводы не выводятся.")).toBeVisible();
+    await expect(mainText(page, "Рабочий режим: показатели читаются из рабочей базы сервиса. Персональные строки, фото и медицинские выводы не выводятся.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|учебная оценка|Учебная система|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -536,14 +536,14 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminClinicListResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminClinicListResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
-    await expect(page.getByText("Доступ администратора клиники")).toBeVisible();
+    await expect(mainText(page, "Доступ администратора клиники")).toBeVisible();
     await expect(page.getByRole("button", { name: "Создать клинику" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Создать кабинет и владельца" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Приостановить" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "В архив" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Удалить пустую запись" })).toHaveCount(0);
-    await expect(page.getByText(clinicAdminClinicName).first()).toBeVisible();
-    await expect(page.getByText(`адрес: ${clinicAdminClinicAddress}`).first()).toBeVisible();
+    await expect(mainText(page, clinicAdminClinicName).first()).toBeVisible();
+    await expect(mainText(page, `адрес: ${clinicAdminClinicAddress}`).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Редактировать" }).first().click();
     await expect(page.getByRole("region", { name: "Редактирование клиники" })).toBeVisible();
@@ -555,8 +555,8 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminUpdateResponse = await clinicAdminUpdateResponsePromise;
     expect(clinicAdminUpdateResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminUpdateResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Изменения сохранены: ${clinicAdminClinicName}`)).toBeVisible();
-    await expect(page.getByText(`адрес: ${clinicAdminUpdatedAddress}`).first()).toBeVisible();
+    await expect(mainText(page, `Изменения сохранены: ${clinicAdminClinicName}`)).toBeVisible();
+    await expect(mainText(page, `адрес: ${clinicAdminUpdatedAddress}`).first()).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -590,8 +590,8 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminCreateDoctorResponse = await clinicAdminCreateDoctorResponsePromise;
     expect(clinicAdminCreateDoctorResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminCreateDoctorResponse.status()).toBeLessThan(300);
-    await expect(page.getByText(`Врач добавлен: ${clinicAdminDoctorName}`)).toBeVisible();
-    await expect(page.getByText(clinicAdminDoctorEmail).first()).toBeVisible();
+    await expect(mainText(page, `Врач добавлен: ${clinicAdminDoctorName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -613,7 +613,7 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminAnalyticsDeepResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminAnalyticsDeepResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Аналитика" })).toBeVisible();
-    await expect(page.getByText("Рабочий режим: показаны только агрегаты. Персональные строки, фото, диагнозы и внутренние ссылки не выводятся.")).toBeVisible();
+    await expect(mainText(page, "Рабочий режим: показаны только агрегаты. Персональные строки, фото, диагнозы и внутренние ссылки не выводятся.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );

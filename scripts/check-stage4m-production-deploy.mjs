@@ -116,6 +116,7 @@ const REQUIRED_TEXT = {
     "/self-hosted/login",
     'from "./live-admin-test-helpers"',
     "appMain",
+    "bannerText",
     "mainText",
     "expectMainTapTargets",
     "expectNoHorizontalOverflow",
@@ -143,7 +144,9 @@ const REQUIRED_TEXT = {
     "export function appMain(page: Page)",
     'return page.locator("main").first();',
     "export function mainText(page: Page, text: string | RegExp)",
-    "return appMain(page).getByText(text);",
+    "return appMain(page).getByText(text).first();",
+    "export function bannerText(page: Page, text: string | RegExp)",
+    'return page.getByRole("banner").getByText(text).first();',
     "export function sidebarLink(page: Page, name: string)",
     'data-sidebar="menu-button"',
     "export async function expectNoHorizontalOverflow(page: Page)",
@@ -233,12 +236,12 @@ export function validateLiveE2EContract(errors, root) {
   }
 
   const helperImportPattern =
-    /import\s*\{[^}]*\bappMain\b[^}]*\bexpectMainTapTargets\b[^}]*\bexpectNoHorizontalOverflow\b[^}]*\bsidebarLink\b[^}]*\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s;
+    /import\s*\{(?=[^}]*\bappMain\b)(?=[^}]*\bbannerText\b)(?=[^}]*\bmainText\b)(?=[^}]*\bexpectMainTapTargets\b)(?=[^}]*\bexpectNoHorizontalOverflow\b)(?=[^}]*\bsidebarLink\b)[^}]*\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s;
   const content = read(root, file);
   if (!helperImportPattern.test(content)) {
     errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
   }
-  for (const helperName of ["appMain", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
+  for (const helperName of ["appMain", "bannerText", "mainText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
     const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
     if (inlineHelperPattern.test(content)) {
       errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
@@ -256,9 +259,9 @@ export function validateLiveE2EContract(errors, root) {
         `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
       );
     }
-    if (/page\.getByText\(\s*\/(?:Администратор клиники|Системный администратор|Дерматолог|Оператор|Пациент)/.test(line)) {
+    if (/page\.getByText\(/.test(line)) {
       errors.push(
-        `${file}:${index + 1} uses direct role text regex; use mainText(page, ...) or a scoped locator`,
+        `${file}:${index + 1} uses direct page.getByText; use mainText(page, ...), bannerText(page, ...), or a scoped locator`,
       );
     }
   });
