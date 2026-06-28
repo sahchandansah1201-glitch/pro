@@ -116,6 +116,7 @@ const REQUIRED_TEXT = {
     "/self-hosted/login",
     'from "./live-admin-test-helpers"',
     "appMain",
+    "mainText",
     "expectMainTapTargets",
     "expectNoHorizontalOverflow",
     "sidebarLink",
@@ -141,6 +142,8 @@ const REQUIRED_TEXT = {
   "e2e/live-admin-test-helpers.ts": [
     "export function appMain(page: Page)",
     'return page.locator("main").first();',
+    "export function mainText(page: Page, text: string | RegExp)",
+    "return appMain(page).getByText(text);",
     "export function sidebarLink(page: Page, name: string)",
     'data-sidebar="menu-button"',
     "export async function expectNoHorizontalOverflow(page: Page)",
@@ -251,6 +254,11 @@ export function validateLiveE2EContract(errors, root) {
     if (/page\.getByRole\(["']link["']/.test(line)) {
       errors.push(
         `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
+      );
+    }
+    if (/page\.getByText\(\s*\/(?:Администратор клиники|Системный администратор|Дерматолог|Оператор|Пациент)/.test(line)) {
+      errors.push(
+        `${file}:${index + 1} uses direct role text regex; use mainText(page, ...) or a scoped locator`,
       );
     }
   });

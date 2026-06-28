@@ -4,6 +4,10 @@ export function appMain(page: Page) {
   return page.locator("main").first();
 }
 
+export function mainText(page: Page, text: string | RegExp) {
+  return appMain(page).getByText(text);
+}
+
 export function sidebarLinks(page: Page, name: string) {
   return page.locator('[data-sidebar="menu-button"]').filter({ hasText: name });
 }

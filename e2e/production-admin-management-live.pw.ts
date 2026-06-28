@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 
 import { expect, type Response, test } from "@playwright/test";
 
-import { appMain, expectMainTapTargets, expectNoHorizontalOverflow, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
+import { appMain, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
 
 const BASE_URL = (process.env.STAGE4M_LIVE_ADMIN_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
 const CREDENTIALS_FILE = process.env.STAGE4M_ADMIN_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
@@ -628,8 +628,8 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/sys/users", { waitUntil: "networkidle" });
-    await expect(page.getByText("Нет доступа")).toBeVisible();
-    await expect(page.getByText(/Администратор клиники/)).toBeVisible();
+    await expect(mainText(page, "Нет доступа")).toBeVisible();
+    await expect(mainText(page, "Администратор клиники")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
 

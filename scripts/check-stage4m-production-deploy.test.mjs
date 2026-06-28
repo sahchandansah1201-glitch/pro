@@ -126,3 +126,26 @@ test("Stage 4M guard rejects any direct live e2e link locator", () => {
 
   assert.match(errors.join("\n"), /uses direct page\.getByRole\("link"\); use a live helper/);
 });
+
+test("Stage 4M guard rejects broad live e2e role text regex locators", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-role-text-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'import { appMain, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'await expect(page.getByText(/Администратор клиники/)).toBeVisible();',
+      'await expect(mainText(page, "Нет доступа")).toBeVisible();',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /uses direct role text regex; use mainText\(page, \.\.\.\) or a scoped locator/);
+});
