@@ -57,7 +57,7 @@ const REQUIRED_TEXT = {
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
     "Свободные окна клиники",
     "listSelfHostedClinicAvailableSlots",
-    "локальный PostgreSQL cache",
+    "локальный кэш",
   ],
   "docs/backend/stage-5r-clinic-available-slots-contract.md": [
     "Stage 5R",
@@ -158,4 +158,3 @@ export function main() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.exit(main());
 }
-

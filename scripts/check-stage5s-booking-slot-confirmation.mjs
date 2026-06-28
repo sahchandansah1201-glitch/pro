@@ -62,7 +62,7 @@ const REQUIRED_TEXT = {
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
     "Свободное окно для записи",
     "bookSelfHostedClinicBookingRequestFromSlot",
-    "локальный PostgreSQL cache",
+    "локальный кэш",
   ],
   "docs/backend/stage-5s-booking-slot-confirmation.md": [
     "Stage 5S",

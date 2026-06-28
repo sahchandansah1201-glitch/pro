@@ -30,16 +30,16 @@ const REQUIRED_TEXT = {
     "getDialogs",
   ],
   "src/pages/operator/OperatorConsolePageLive.tsx": [
-    "Production intake queue",
-    "self-hosted backend /api/v1/leads/appointments",
+    "Консоль оператора",
+    "Данные загружены из системы клиники.",
     "listSelfHostedLeadsAppointments",
     "createSelfHostedLead",
     "updateSelfHostedLeadStatus",
     "bookSelfHostedLeadAppointment",
-    "Создать лид",
-    "Квалифицировать лид",
-    "Записать лид",
-    "operator-owned PostgreSQL",
+    "Создать заявку",
+    "Уточнить",
+    "Записать",
+    "Экран показывает только рабочие заявки оператора.",
   ],
   "src/pages/operator/OperatorConsolePage.production.test.tsx": [
     "Stage 5M production intake",
@@ -57,7 +57,8 @@ const REQUIRED_TEXT = {
   ],
   "src/components/shell/AppSidebar.tsx": [
     "PRODUCTION_NAV_BY_ROLE",
-    "Лиды",
+    "Заявки",
+    "Запросы на запись",
   ],
   "docs/backend/stage-5m-production-intake-operator-workspace.md": [
     "Stage 5M",

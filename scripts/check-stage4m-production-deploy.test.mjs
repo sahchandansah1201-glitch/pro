@@ -9,7 +9,7 @@ import { collectStage4MChecks, validateLiveE2EContract } from "./check-stage4m-p
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 29);
+  assert.equal(result.checkedFiles, 32);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {
@@ -190,4 +190,55 @@ test("Stage 4M guard requires live private doctor practice coverage", () => {
   validateLiveE2EContract(errors, root);
 
   assert.match(errors.join("\n"), /missing live coverage marker: Центр частной практики/);
+});
+
+test("Stage 4M guard requires live operator workspace coverage", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-operator-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  const helperImport =
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, pageHeaderText, sidebarLink } from "./live-admin-test-helpers";';
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(root, "e2e", "production-doctor-workspace-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Рабочий стол";',
+      '"Центр частной практики";',
+      '"/api/v1/admin/private-practices";',
+      '"/api/v1/doctor/dashboard";',
+      '"/api/v1/leads/appointments";',
+      '"live-doctor-desk-desktop-1280.png";',
+      '"live-doctor-desk-mobile-390.png";',
+      '"live-private-doctor-practice-desktop-1280.png";',
+      '"live-private-doctor-practice-mobile-390.png";',
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(root, "e2e", "production-operator-workspace-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Консоль оператора";',
+      '"/api/v1/leads/appointments";',
+      '"/api/v1/leads";',
+      '"live-operator-console-desktop-1280.png";',
+      '"live-operator-console-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: Запросы на запись/);
 });

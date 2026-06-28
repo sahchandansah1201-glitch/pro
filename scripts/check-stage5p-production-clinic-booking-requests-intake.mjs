@@ -65,7 +65,8 @@ const REQUIRED_TEXT = {
     "/api/v1/clinic/booking-requests",
   ],
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
-    "Production booking requests",
+    "Запросы на запись",
+    "Данные загружены из системы клиники.",
     "listSelfHostedClinicBookingRequests",
     "updateSelfHostedClinicBookingRequest",
     "Подтвердить запись",

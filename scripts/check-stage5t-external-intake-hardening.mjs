@@ -63,9 +63,9 @@ const REQUIRED_TEXT = {
     "runtimeCallsExternalSystems",
   ],
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
-    "Hardening:",
+    "Защита импорта включена",
     "Дубликаты 24ч",
-    "runtime calls",
+    "внешние вызовы",
     "getSelfHostedExternalIntakeStatus",
   ],
   "docs/backend/stage-5t-external-intake-hardening.md": [

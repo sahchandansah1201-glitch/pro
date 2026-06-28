@@ -253,7 +253,7 @@ export default function OperatorConsolePageLive() {
                   id="stage5m-status-filter"
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as LeadStatusFilter)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                  className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
                 >
                   {Object.entries(STATUS_LABEL).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -269,7 +269,7 @@ export default function OperatorConsolePageLive() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Пациент, код, описание заявки"
-                  className="h-9"
+                  className="min-h-11"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function OperatorConsolePageLive() {
                     id="stage5m-new-lead-source"
                     value={draftSource}
                     onChange={(event) => setDraftSource(event.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                    className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
                   >
                     {Object.entries(SOURCE_LABEL).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
@@ -330,7 +330,7 @@ export default function OperatorConsolePageLive() {
                   type="submit"
                   size="sm"
                   disabled={busyKey === "create" || draftSummary.trim().length === 0}
-                  className="h-9 text-[12px]"
+                  className="min-h-11 text-[12px]"
                 >
                   {busyKey === "create" ? "Создаём…" : "Создать заявку"}
                 </Button>
@@ -405,7 +405,7 @@ function LeadQueueRow({
             variant="outline"
             disabled={busyKey === `qualified:${lead.id}`}
             aria-label={`Уточнить заявку: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
-            className="h-7 px-2 text-[11px]"
+            className="min-h-11 px-2 text-[11px]"
             onClick={() => {
               void onQualify(lead);
             }}
@@ -420,7 +420,7 @@ function LeadQueueRow({
             variant="outline"
             disabled={busyKey === `book:${lead.id}`}
             aria-label={`Записать заявку: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
-            className="h-7 px-2 text-[11px]"
+            className="min-h-11 px-2 text-[11px]"
             onClick={() => {
               void onBook(lead);
             }}
@@ -435,7 +435,7 @@ function LeadQueueRow({
             variant="ghost"
             disabled={busyKey === `lost:${lead.id}`}
             aria-label={`Закрыть заявку без записи: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
-            className="h-7 px-2 text-[11px]"
+            className="min-h-11 px-2 text-[11px]"
             onClick={() => {
               void onLost(lead);
             }}
@@ -458,7 +458,7 @@ function AppointmentRow({ appointment }: { appointment: SelfHostedAppointmentOve
         </div>
       </div>
       {appointment.patient.id ? (
-        <Button asChild size="sm" variant="outline" className="h-7 px-2 text-[11px]">
+        <Button asChild size="sm" variant="outline" className="min-h-11 px-2 text-[11px]">
           <Link to={`/patients/${appointment.patient.id}/visits/${appointment.visitId}`}>Визит</Link>
         </Button>
       ) : (

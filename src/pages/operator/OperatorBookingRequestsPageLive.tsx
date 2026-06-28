@@ -431,7 +431,7 @@ export default function OperatorBookingRequestsPageLive() {
                       type="button"
                       size="sm"
                       variant={selectedSlotId === slot.id ? "default" : "outline"}
-                      className="h-8 text-[12px]"
+                      className="min-h-11 text-[12px]"
                       onClick={() => setSelectedSlotId(slot.id)}
                       aria-label={`Выбрать окно ${slotLabel(slot)}`}
                     >
@@ -464,7 +464,7 @@ export default function OperatorBookingRequestsPageLive() {
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                  className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
                   aria-label="Фильтр статуса заявок на запись"
                 >
                   {Object.entries(STATUS_LABEL).map(([value, label]) => (
@@ -479,7 +479,7 @@ export default function OperatorBookingRequestsPageLive() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Пациент, код, причина"
-                  className="h-9"
+                  className="min-h-11"
                 />
               </label>
             </div>
@@ -511,7 +511,7 @@ export default function OperatorBookingRequestsPageLive() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+                        className="min-h-11 text-[12px]"
                         disabled={busyKey === `reviewing:${request.id}`}
                         onClick={() => void updateRequest(request, "reviewing", { clinicNote: request.clinicNote })}
                         aria-label={`Взять в работу заявку: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
@@ -522,7 +522,7 @@ export default function OperatorBookingRequestsPageLive() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+                        className="min-h-11 text-[12px]"
                         disabled={busyKey === `cancelled:${request.id}`}
                         onClick={() => void updateRequest(request, "cancelled", { clinicNote: request.clinicNote })}
                         aria-label={`Отменить заявку: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
@@ -565,7 +565,7 @@ export default function OperatorBookingRequestsPageLive() {
                       aria-label="Свободное окно для записи"
                       value={selectedSlotId}
                       onChange={(event) => setSelectedSlotId(event.target.value)}
-                      className="h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                      className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
                     >
                       <option value="">Выберите локально кэшированное окно</option>
                       {availableSlots.items.map((slot) => (
@@ -587,13 +587,14 @@ export default function OperatorBookingRequestsPageLive() {
                   />
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="submit" size="sm" disabled={busyKey === `reviewing:${selected.id}`}>
+                  <Button type="submit" size="sm" className="min-h-11" disabled={busyKey === `reviewing:${selected.id}`}>
                     Сохранить
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
+                    className="min-h-11"
                     disabled={Boolean(selected.assignedVisitId) || !selectedSlotId || busyKey === `booked:${selected.id}`}
                     onClick={() => void bookSelected()}
                   >

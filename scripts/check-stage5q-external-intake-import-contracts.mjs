@@ -60,9 +60,9 @@ const REQUIRED_TEXT = {
     "/api/v1/integrations/booking-imports",
   ],
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
-    "Импорт CRM и рекламных источников",
+    "Входящие источники записи",
     "listSelfHostedExternalIntakeImports",
-    "локальный backend contract",
+    "защищённый импорт",
   ],
   "docs/backend/stage-5q-external-intake-import-contracts.md": [
     "Stage 5Q",
