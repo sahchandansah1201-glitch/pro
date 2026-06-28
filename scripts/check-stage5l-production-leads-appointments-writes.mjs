@@ -32,6 +32,9 @@ const REQUIRED_TEXT = {
     "buildCreateLeadSql",
     "buildUpdateLeadStatusSql",
     "buildBookLeadAppointmentSql",
+    "with inserted as",
+    "with updated as",
+    "with selected_lead as",
     "insert into visits",
   ],
   "backend/self-hosted/leads-appointments-write-service.mjs": [
@@ -61,9 +64,9 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/DeskPageLive.tsx": [
     "createSelfHostedLead",
-    "Краткое описание лида",
-    "Квалифицировать лид",
-    "Создать запись из лида",
+    "Краткое описание заявки",
+    "Квалифицировать заявку",
+    "Создать запись из заявки",
   ],
   "docs/backend/stage-5l-production-leads-appointments-writes.md": [
     "Stage 5L",

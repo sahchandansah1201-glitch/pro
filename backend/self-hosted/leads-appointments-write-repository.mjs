@@ -86,27 +86,27 @@ export function buildCreateLeadSql({
   actorUserId,
 } = {}) {
   return `
+with inserted as (
+  insert into leads (
+    clinic_id,
+    patient_id,
+    source,
+    status,
+    safe_summary,
+    created_by
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlNullableUuid(patientId)},
+    ${sqlLiteral(source)},
+    'new',
+    ${sqlLiteral(safeSummary)},
+    ${sqlUuid(actorUserId)}
+  )
+  returning *
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with inserted as (
-    insert into leads (
-      clinic_id,
-      patient_id,
-      source,
-      status,
-      safe_summary,
-      created_by
-    )
-    values (
-      ${sqlUuid(clinicId)},
-      ${sqlNullableUuid(patientId)},
-      ${sqlLiteral(source)},
-      'new',
-      ${sqlLiteral(safeSummary)},
-      ${sqlUuid(actorUserId)}
-    )
-    returning *
-  )
   select
     ${leadSelect("l")}
   from inserted l
@@ -123,17 +123,17 @@ export function buildUpdateLeadStatusSql({
   allClinics = false,
 } = {}) {
   return `
+with updated as (
+  update leads l
+  set status = ${sqlLiteral(status)},
+      updated_at = now()
+  where l.id = ${sqlUuid(leadId)}
+    and l.deleted_at is null
+    ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+  returning l.*
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with updated as (
-    update leads l
-    set status = ${sqlLiteral(status)},
-        updated_at = now()
-    where l.id = ${sqlUuid(leadId)}
-      and l.deleted_at is null
-      ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
-    returning l.*
-  )
   select
     ${leadSelect("l")}
   from updated l
@@ -154,6 +154,43 @@ export function buildBookLeadAppointmentSql({
 } = {}) {
   const patientSql = sqlNullableUuid(patientId);
   return `
+with selected_lead as (
+  select l.*
+  from leads l
+  where l.id = ${sqlUuid(leadId)}
+    and l.deleted_at is null
+    ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+    and coalesce(${patientSql}, l.patient_id) is not null
+  limit 1
+),
+booked_lead as (
+  update leads l
+  set status = 'booked',
+      patient_id = coalesce(${patientSql}, l.patient_id),
+      updated_at = now()
+  from selected_lead s
+  where l.id = s.id
+  returning l.*
+),
+inserted_visit as (
+  insert into visits (
+    clinic_id,
+    patient_id,
+    doctor_user_id,
+    status,
+    started_at,
+    chief_complaint
+  )
+  select
+    l.clinic_id,
+    l.patient_id,
+    ${sqlNullableUuid(doctorUserId)},
+    'draft'::visit_status,
+    ${sqlLiteral(startedAt)}::timestamptz,
+    ${sqlNullableText(chiefComplaint)}
+  from booked_lead l
+  returning *
+)
 select jsonb_build_object(
   'lead', (
     select row_to_json(lead_row)
@@ -177,47 +214,7 @@ select jsonb_build_object(
       limit 1
     ) appointment_row
   )
-)::text
-from (
-  with selected_lead as (
-    select l.*
-    from leads l
-    where l.id = ${sqlUuid(leadId)}
-      and l.deleted_at is null
-      ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
-      and coalesce(${patientSql}, l.patient_id) is not null
-    limit 1
-  ),
-  booked_lead as (
-    update leads l
-    set status = 'booked',
-        patient_id = coalesce(${patientSql}, l.patient_id),
-        updated_at = now()
-    from selected_lead s
-    where l.id = s.id
-    returning l.*
-  ),
-  inserted_visit as (
-    insert into visits (
-      clinic_id,
-      patient_id,
-      doctor_user_id,
-      status,
-      started_at,
-      chief_complaint
-    )
-    select
-      l.clinic_id,
-      l.patient_id,
-      ${sqlNullableUuid(doctorUserId)},
-      'draft'::visit_status,
-      ${sqlLiteral(startedAt)}::timestamptz,
-      ${sqlNullableText(chiefComplaint)}
-    from booked_lead l
-    returning *
-  )
-  select 1
-) execution;
+)::text;
 `.trim();
 }
 

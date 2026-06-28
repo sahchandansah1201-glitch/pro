@@ -14,6 +14,10 @@ const PATIENT_ID = "10000000-0000-4000-8000-000000000201";
 const DOCTOR_ID = "10000000-0000-4000-8000-000000000101";
 const LEAD_ID = "10000000-0000-4000-8000-000000000501";
 
+function assertNoNestedDataModifyingCte(sql) {
+  assert.doesNotMatch(sql, /from\s*\(\s*with\s+(inserted|updated|selected_lead)\s+as\s*\(/i);
+}
+
 test("Stage 5L SQL creates leads safely in local PostgreSQL", () => {
   const sql = buildCreateLeadSql({
     clinicId: CLINIC_ID,
@@ -23,10 +27,12 @@ test("Stage 5L SQL creates leads safely in local PostgreSQL", () => {
     actorUserId: DOCTOR_ID,
   });
 
+  assert.match(sql, /^with inserted as \(\s*insert into leads/i);
   assert.match(sql, /insert into leads/i);
   assert.match(sql, /'site'/);
   assert.match(sql, /'Patient asked for screening'/);
   assert.match(sql, /left join patients p/);
+  assertNoNestedDataModifyingCte(sql);
   assert.doesNotMatch(sql, /SUPABASE_|api-read|api-write|edge function|storage_object_path|signed_url/i);
 });
 
@@ -37,9 +43,11 @@ test("Stage 5L SQL updates lead status inside clinic scope", () => {
     clinicIds: [CLINIC_ID, "not-a-uuid"],
   });
 
+  assert.match(sql, /^with updated as \(\s*update leads l/i);
   assert.match(sql, /update leads l/i);
   assert.match(sql, /set status = 'qualified'/);
   assert.match(sql, /and l\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/);
+  assertNoNestedDataModifyingCte(sql);
   assert.doesNotMatch(sql, /not-a-uuid/);
 });
 
@@ -53,10 +61,12 @@ test("Stage 5L SQL books a lead by updating it and inserting a visit", () => {
     chiefComplaint: "Screening visit",
   });
 
+  assert.match(sql, /^with selected_lead as \(/i);
   assert.match(sql, /booked_lead as/i);
   assert.match(sql, /insert into visits/i);
   assert.match(sql, /'draft'::visit_status/);
   assert.match(sql, /'2026-05-20T09:00:00.000Z'::timestamptz/);
+  assertNoNestedDataModifyingCte(sql);
 });
 
 test("Stage 5L normalizers return safe lead and booking DTOs", () => {
