@@ -12,6 +12,7 @@ test("buildFindActiveUserByEmailSql looks up active user and role bindings safel
 
   assert.match(sql, /from app_users u/);
   assert.match(sql, /user_roles ur/);
+  assert.match(sql, /'clinicName', c\.name/);
   assert.match(sql, /disabled_at is null/);
   assert.match(sql, /doctor\.o''hara@example\.invalid/);
   assert.doesNotMatch(sql, /supabase|auth\.users/i);
@@ -33,13 +34,13 @@ test("createAuthRepository normalizes user rows", async () => {
           email: "doctor@example.invalid",
           displayName: "Demo Doctor",
           passwordHash: "$scrypt$hash",
-          roles: [{ role: "doctor", clinicId: "clinic-1", clinicSlug: "demo" }],
+          roles: [{ role: "doctor", clinicId: "clinic-1", clinicName: "Demo Clinic", clinicSlug: "demo" }],
         };
       }
       return {
         id: "u-1",
         displayName: "Demo Doctor",
-        roles: [{ role: "doctor", clinicId: "clinic-1", clinicSlug: "demo" }],
+        roles: [{ role: "doctor", clinicId: "clinic-1", clinicName: "Demo Clinic", clinicSlug: "demo" }],
       };
     },
   });
@@ -49,6 +50,8 @@ test("createAuthRepository normalizes user rows", async () => {
 
   assert.equal(user.displayName, "Demo Doctor");
   assert.equal(user.roles[0].role, "doctor");
+  assert.equal(user.roles[0].clinicName, "Demo Clinic");
   assert.equal(context.roles[0].clinicSlug, "demo");
+  assert.equal(context.roles[0].clinicName, "Demo Clinic");
   assert.equal(context.passwordHash, undefined);
 });

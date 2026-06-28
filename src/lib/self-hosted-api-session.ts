@@ -5,10 +5,18 @@ export const SELF_HOSTED_API_TOKEN_KEY = "derma-pro:self-hosted-api-token";
 export const SELF_HOSTED_API_USER_KEY = "derma-pro:self-hosted-api-user";
 export const SELF_HOSTED_API_SESSION_EVENT = "derma-pro:self-hosted-api-session";
 
+export interface SelfHostedApiSessionRoleBinding {
+  role: string;
+  clinicId: string | null;
+  clinicName: string | null;
+  clinicSlug: string | null;
+}
+
 export interface SelfHostedApiSessionUser {
   id: string;
   displayName: string;
   roles: string[];
+  roleBindings?: SelfHostedApiSessionRoleBinding[];
 }
 
 export interface SelfHostedApiSession {
@@ -51,8 +59,23 @@ function parseUser(raw: string | null): SelfHostedApiSessionUser | null {
     const roles = Array.isArray(data.roles)
       ? data.roles.filter((r): r is string => typeof r === "string")
       : [];
+    const roleBindings = Array.isArray(data.roleBindings)
+      ? data.roleBindings.flatMap((binding): SelfHostedApiSessionRoleBinding[] => {
+          if (!binding || typeof binding !== "object" || Array.isArray(binding)) return [];
+          const record = binding as unknown as Record<string, unknown>;
+          if (typeof record.role !== "string") return [];
+          return [
+            {
+              role: record.role,
+              clinicId: typeof record.clinicId === "string" ? record.clinicId : null,
+              clinicName: typeof record.clinicName === "string" ? record.clinicName : null,
+              clinicSlug: typeof record.clinicSlug === "string" ? record.clinicSlug : null,
+            },
+          ];
+        })
+      : [];
     if (!id) return null;
-    return { id, displayName, roles };
+    return { id, displayName, roles, roleBindings };
   } catch {
     return null;
   }
@@ -102,6 +125,7 @@ export function writeSelfHostedApiSession(input: WriteSelfHostedApiSessionInput)
         id: input.user.id,
         displayName: input.user.displayName,
         roles: input.user.roles,
+        roleBindings: input.user.roleBindings ?? [],
       }),
     );
   } else if (input.user === null) {

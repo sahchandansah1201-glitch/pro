@@ -59,8 +59,8 @@ describe("self-hosted-auth-api", () => {
           id: "u-1",
           displayName: "Демо Доктор",
           roles: [
-            { role: "doctor", clinicId: "c-1", clinicSlug: "demo" },
-            { role: "doctor", clinicId: "c-2", clinicSlug: "demo-2" },
+            { role: "doctor", clinicId: "c-1", clinicName: "Клиника 1", clinicSlug: "demo" },
+            { role: "doctor", clinicId: "c-2", clinicName: "Клиника 2", clinicSlug: "demo-2" },
           ],
         },
         correlationId: "cid-1",
@@ -81,6 +81,10 @@ describe("self-hosted-auth-api", () => {
       id: "u-1",
       displayName: "Демо Доктор",
       roles: ["doctor"],
+      roleBindings: [
+        { role: "doctor", clinicId: "c-1", clinicName: "Клиника 1", clinicSlug: "demo" },
+        { role: "doctor", clinicId: "c-2", clinicName: "Клиника 2", clinicSlug: "demo-2" },
+      ],
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -122,14 +126,19 @@ describe("self-hosted-auth-api", () => {
         user: {
           id: "u-1",
           displayName: "Демо Доктор",
-          roles: [{ role: "doctor", clinicId: "c-1", clinicSlug: "demo" }],
+          roles: [{ role: "doctor", clinicId: "c-1", clinicName: "Клиника 1", clinicSlug: "demo" }],
         },
       }),
     );
 
     const result = await fetchSelfHostedMe({ apiBaseUrl: BASE, apiToken: "jwt-token" });
     expect(result.ok).toBe(true);
-    expect(result.value).toEqual({ id: "u-1", displayName: "Демо Доктор", roles: ["doctor"] });
+    expect(result.value).toEqual({
+      id: "u-1",
+      displayName: "Демо Доктор",
+      roles: ["doctor"],
+      roleBindings: [{ role: "doctor", clinicId: "c-1", clinicName: "Клиника 1", clinicSlug: "demo" }],
+    });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer jwt-token");
   });

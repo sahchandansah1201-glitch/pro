@@ -26,6 +26,7 @@ function publicRoles(roles = []) {
   return roles.map((role) => ({
     role: role.role,
     clinicId: role.clinicId,
+    clinicName: role.clinicName,
     clinicSlug: role.clinicSlug,
   }));
 }

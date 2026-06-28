@@ -62,7 +62,7 @@ describe("SelfHostedLoginPage", () => {
         user: {
           id: "u-1",
           displayName: "Демо Доктор",
-          roles: [{ role: "doctor", clinicId: "c-1" }],
+          roles: [{ role: "doctor", clinicId: "c-1", clinicName: "Кабинет Морозова", clinicSlug: "morozov" }],
         },
       }),
     );
@@ -86,6 +86,7 @@ describe("SelfHostedLoginPage", () => {
       "http://localhost:8080",
     );
     expect(window.localStorage.getItem(SELF_HOSTED_API_USER_KEY)).toContain("Демо Доктор");
+    expect(window.localStorage.getItem(SELF_HOSTED_API_USER_KEY)).toContain("Кабинет Морозова");
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url).toBe("http://localhost:8080/api/v1/auth/login");
   });

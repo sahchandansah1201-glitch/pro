@@ -6,7 +6,10 @@ import {
   type SelfHostedApiError,
   type SelfHostedApiResult,
 } from "@/lib/self-hosted-patient-api";
-import type { SelfHostedApiSessionUser } from "@/lib/self-hosted-api-session";
+import type {
+  SelfHostedApiSessionRoleBinding,
+  SelfHostedApiSessionUser,
+} from "@/lib/self-hosted-api-session";
 
 export interface SelfHostedLoginArgs {
   apiBaseUrl: string | null | undefined;
@@ -88,12 +91,42 @@ function rolesToList(input: unknown): string[] {
   return [...out];
 }
 
+function roleBindingsFrom(input: unknown): SelfHostedApiSessionRoleBinding[] {
+  if (!Array.isArray(input)) return [];
+  return input.flatMap((item): SelfHostedApiSessionRoleBinding[] => {
+    if (typeof item === "string") {
+      return [
+        {
+          role: item,
+          clinicId: null,
+          clinicName: null,
+          clinicSlug: null,
+        },
+      ];
+    }
+    if (!isRecord(item) || typeof item.role !== "string") return [];
+    return [
+      {
+        role: item.role,
+        clinicId: typeof item.clinicId === "string" ? item.clinicId : null,
+        clinicName: typeof item.clinicName === "string" ? item.clinicName : null,
+        clinicSlug: typeof item.clinicSlug === "string" ? item.clinicSlug : null,
+      },
+    ];
+  });
+}
+
 function extractUser(input: unknown): SelfHostedApiSessionUser | null {
   if (!isRecord(input)) return null;
   const id = typeof input.id === "string" ? input.id : "";
   const displayName = typeof input.displayName === "string" ? input.displayName : "";
   if (!id) return null;
-  return { id, displayName, roles: rolesToList(input.roles) };
+  return {
+    id,
+    displayName,
+    roles: rolesToList(input.roles),
+    roleBindings: roleBindingsFrom(input.roles),
+  };
 }
 
 function validateBaseUrl(baseUrl: string | null | undefined): SelfHostedApiError | null {

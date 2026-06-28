@@ -22,6 +22,7 @@ function normalizeUser(row) {
       ? row.roles.map((role) => ({
           role: String(role.role),
           clinicId: role.clinicId ? String(role.clinicId) : null,
+          clinicName: role.clinicName ? String(role.clinicName) : null,
           clinicSlug: role.clinicSlug ? String(role.clinicSlug) : null,
         }))
       : [],
@@ -45,6 +46,7 @@ from (
           jsonb_build_object(
             'role', ur.role::text,
             'clinicId', ur.clinic_id::text,
+            'clinicName', c.name,
             'clinicSlug', c.slug
           )
           order by ur.role::text, c.slug
@@ -76,6 +78,7 @@ from (
           jsonb_build_object(
             'role', ur.role::text,
             'clinicId', ur.clinic_id::text,
+            'clinicName', c.name,
             'clinicSlug', c.slug
           )
           order by ur.role::text, c.slug
@@ -111,6 +114,7 @@ export function createAuthRepository(dbClient) {
           ? row.roles.map((role) => ({
               role: String(role.role),
               clinicId: role.clinicId ? String(role.clinicId) : null,
+              clinicName: role.clinicName ? String(role.clinicName) : null,
               clinicSlug: role.clinicSlug ? String(role.clinicSlug) : null,
             }))
           : [],

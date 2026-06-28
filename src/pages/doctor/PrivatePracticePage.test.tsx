@@ -27,6 +27,20 @@ vi.mock("@/lib/self-hosted-api-session", () => ({
       id: "owner-1",
       displayName: "Морозов Дмитрий Игоревич",
       roles: ["clinic_admin", "private_doctor"],
+      roleBindings: [
+        {
+          role: "clinic_admin",
+          clinicId: "clinic-1",
+          clinicName: "Кабинет Морозова",
+          clinicSlug: "private",
+        },
+        {
+          role: "private_doctor",
+          clinicId: "clinic-1",
+          clinicName: "Кабинет Морозова",
+          clinicSlug: "private",
+        },
+      ],
     },
   }),
 }));
@@ -220,6 +234,36 @@ describe("PrivatePracticePage · private doctor practice center", () => {
       }),
     );
     expect(await screen.findByText(/Заявка создана в системе клиники/)).toBeInTheDocument();
+  });
+
+  it("uses the private doctor role binding as the cabinet identity before any queue data exists", async () => {
+    mocks.productionMode = true;
+    mocks.getDashboard.mockResolvedValue({
+      ok: true,
+      value: {
+        ...dashboardFixture(),
+        upcoming: [],
+        awaitingConclusions: [],
+        assetIssues: [],
+        devices: [],
+      },
+      error: null,
+    });
+    mocks.listLeads.mockResolvedValue({
+      ok: true,
+      value: {
+        ...leadsFixture(),
+        leads: [],
+        appointments: [],
+      },
+      error: null,
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Центр частной практики" })).toBeInTheDocument();
+    expect(await screen.findByText(/Морозов Дмитрий Игоревич · Кабинет Морозова/)).toBeInTheDocument();
+    expect(screen.queryByText(/частный кабинет/i)).not.toBeInTheDocument();
   });
 
   it("is routed only to private doctors", () => {

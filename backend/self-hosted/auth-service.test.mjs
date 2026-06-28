@@ -21,6 +21,7 @@ function createService(overrides = {}) {
       {
         role: "doctor",
         clinicId: "10000000-0000-4000-8000-000000000001",
+        clinicName: "Dermatolog Pro Demo Clinic",
         clinicSlug: "demo-clinic",
       },
     ],
@@ -61,6 +62,7 @@ test("login issues a bearer token, role bindings, and audit event", async () => 
   assert.match(result.accessToken, /^[^.]+\.[^.]+\.[^.]+$/);
   assert.equal(result.user.displayName, "Demo Doctor");
   assert.equal(result.user.roles[0].role, "doctor");
+  assert.equal(result.user.roles[0].clinicName, "Dermatolog Pro Demo Clinic");
   assert.equal(auditEvents[0].action, "auth.login");
   assert.doesNotMatch(JSON.stringify(result), /demo-password|passwordHash|\$scrypt/);
 });
@@ -87,4 +89,5 @@ test("authenticate verifies token and reloads current role bindings", async () =
   assert.deepEqual(context.roles, ["doctor"]);
   assert.deepEqual(context.clinicIds, ["10000000-0000-4000-8000-000000000001"]);
   assert.equal(context.roleBindings[0].clinicSlug, "demo-clinic");
+  assert.equal(context.roleBindings[0].clinicName, "Dermatolog Pro Demo Clinic");
 });

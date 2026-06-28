@@ -32,6 +32,7 @@ import {
 } from "@/lib/self-hosted-leads-appointments-api";
 import {
   isSelfHostedApiConfigured,
+  type SelfHostedApiSessionRoleBinding,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 
@@ -118,8 +119,13 @@ function publicErrorMessage(error: SelfHostedApiError | null | undefined): strin
 function clinicNameFromData(
   dashboard: SelfHostedDoctorDashboard,
   leadsAppointments: SelfHostedLeadsAppointmentsOverview,
+  roleBindings: SelfHostedApiSessionRoleBinding[] = [],
 ) {
+  const roleClinicName =
+    roleBindings.find((binding) => binding.role === "private_doctor" && binding.clinicName)?.clinicName ||
+    roleBindings.find((binding) => binding.clinicName)?.clinicName;
   return (
+    roleClinicName ||
     dashboard.upcoming.find((visit) => visit.clinicName)?.clinicName ||
     dashboard.awaitingConclusions.find((visit) => visit.clinicName)?.clinicName ||
     leadsAppointments.leads.find((lead) => lead.clinic.name)?.clinic.name ||
@@ -214,7 +220,7 @@ export default function PrivatePracticePageLive() {
     await refreshLeads();
   }
 
-  const clinicName = clinicNameFromData(dashboard, leadsAppointments);
+  const clinicName = clinicNameFromData(dashboard, leadsAppointments, session.user?.roleBindings);
   const displayName = session.user?.displayName || "Частный врач";
 
   return (
