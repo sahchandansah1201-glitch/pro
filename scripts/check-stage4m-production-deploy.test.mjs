@@ -156,3 +156,38 @@ test("Stage 4M guard rejects direct live e2e page text locators", () => {
 
   assert.match(errors.join("\n"), /uses direct page\.getByText; use mainText\(page, \.\.\.\), bannerText\(page, \.\.\.\), or a scoped locator/);
 });
+
+test("Stage 4M guard requires live private doctor practice coverage", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-private-doctor-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  const helperImport =
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";';
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(root, "e2e", "production-doctor-workspace-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Рабочий стол";',
+      '"/api/v1/doctor/dashboard";',
+      '"/api/v1/leads/appointments";',
+      '"live-doctor-desk-desktop-1280.png";',
+      '"live-doctor-desk-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: Центр частной практики/);
+});

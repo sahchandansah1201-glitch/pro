@@ -95,6 +95,8 @@ export function usage() {
     "",
     "This test creates a temporary clinic and doctor through the visible admin UI,",
     "then signs in as the doctor and verifies the production workspace journey.",
+    "It also creates a private practice owner, signs in as that owner,",
+    "and verifies the separate private doctor practice-center journey.",
   ].join("\n");
 }
 

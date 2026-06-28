@@ -181,6 +181,9 @@ const REQUIRED_TEXT = {
     "Клиники и кабинеты",
     "Врачи",
     "Добавить врача",
+    "/api/v1/admin/private-practices",
+    "Создать кабинет и владельца",
+    "Центр частной практики",
     "/api/v1/doctor/dashboard",
     "/api/v1/leads/appointments",
     "/api/v1/leads",
@@ -188,6 +191,8 @@ const REQUIRED_TEXT = {
     "Добавить заявку",
     "live-doctor-desk-desktop-1280.png",
     "live-doctor-desk-mobile-390.png",
+    "live-private-doctor-practice-desktop-1280.png",
+    "live-private-doctor-practice-mobile-390.png",
   ],
   "e2e/live-admin-test-helpers.ts": [
     "export function appMain(page: Page)",
@@ -294,10 +299,14 @@ export function validateLiveE2EContract(errors, root) {
       file: "e2e/production-doctor-workspace-live.pw.ts",
       markers: [
         "Рабочий стол",
+        "Центр частной практики",
+        "/api/v1/admin/private-practices",
         "/api/v1/doctor/dashboard",
         "/api/v1/leads/appointments",
         "live-doctor-desk-desktop-1280.png",
         "live-doctor-desk-mobile-390.png",
+        "live-private-doctor-practice-desktop-1280.png",
+        "live-private-doctor-practice-mobile-390.png",
       ],
     },
   ];

@@ -16,6 +16,7 @@ import {
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
+import { isProductionAppMode } from "@/lib/app-mode";
 import {
   getAppointments,
   getClinicById,
@@ -36,6 +37,7 @@ import type {
   LeadStatus,
   Visit,
 } from "@/lib/domain";
+import PrivatePracticePageLive from "@/pages/doctor/PrivatePracticePageLive";
 
 const PRIVATE_DOCTOR = DEMO_USERS.private_doctor;
 const PRIVATE_CLINIC_ID = PRIVATE_DOCTOR.clinicId ?? "";
@@ -231,6 +233,10 @@ function buildPracticeData() {
 }
 
 export default function PrivatePracticePage() {
+  return isProductionAppMode() ? <PrivatePracticePageLive /> : <PrivatePracticePageDemo />;
+}
+
+function PrivatePracticePageDemo() {
   const data = buildPracticeData();
   const deviceReady = data.devices.length > 0;
   const clinicName = data.clinic?.name ?? "Частный кабинет";
