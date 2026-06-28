@@ -9,6 +9,7 @@ import {
   expectMainTapTargets,
   expectNoHorizontalOverflow,
   mainText,
+  pageHeaderText,
   sidebarLink,
   sidebarLinks,
 } from "./live-admin-test-helpers";
@@ -286,7 +287,7 @@ test.describe("Live production doctor workspace journey", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Центр частной практики" })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(mainText(page, `${ownerDisplayName} · ${practiceName}`)).toBeVisible();
+    await expect(pageHeaderText(page, "Центр частной практики", `${ownerDisplayName} · ${practiceName}`)).toBeVisible();
     await expect(mainText(page, "Источник данных: система клиники.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|учебная очередь|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,

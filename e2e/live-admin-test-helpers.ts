@@ -12,6 +12,10 @@ export function bannerText(page: Page, text: string | RegExp) {
   return page.getByRole("banner").getByText(text).filter({ visible: true }).first();
 }
 
+export function pageHeaderText(page: Page, title: string, text: string | RegExp) {
+  return page.getByRole("heading", { level: 1, name: title }).locator("..").getByText(text).filter({ visible: true }).first();
+}
+
 export function sidebarLinks(page: Page, name: string) {
   return page.locator('[data-sidebar="menu-button"]').filter({ hasText: name });
 }

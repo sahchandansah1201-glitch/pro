@@ -173,6 +173,7 @@ const REQUIRED_TEXT = {
     "appMain",
     "bannerText",
     "mainText",
+    "pageHeaderText",
     "expectMainTapTargets",
     "expectNoHorizontalOverflow",
     "sidebarLink",
@@ -201,6 +202,8 @@ const REQUIRED_TEXT = {
     "return appMain(page).getByText(text).filter({ visible: true }).first();",
     "export function bannerText(page: Page, text: string | RegExp)",
     'return page.getByRole("banner").getByText(text).filter({ visible: true }).first();',
+    "export function pageHeaderText(page: Page, title: string, text: string | RegExp)",
+    'page.getByRole("heading", { level: 1, name: title })',
     "export function sidebarLink(page: Page, name: string)",
     'data-sidebar="menu-button"',
     "export async function expectNoHorizontalOverflow(page: Page)",
@@ -321,7 +324,7 @@ export function validateLiveE2EContract(errors, root) {
     if (!helperImportPattern.test(content)) {
       errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
     }
-    for (const helperName of ["appMain", "bannerText", "mainText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
+    for (const helperName of ["appMain", "bannerText", "mainText", "pageHeaderText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
       const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
       if (inlineHelperPattern.test(content)) {
         errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
