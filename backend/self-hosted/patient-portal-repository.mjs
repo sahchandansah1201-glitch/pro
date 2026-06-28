@@ -1350,37 +1350,37 @@ export function buildCreatePatientPortalBookingRequestSql({
 } = {}) {
   const safeUserId = safeUuid(userId);
   return `
+with portal_patient as (
+  select
+    p.id as patient_id,
+    p.clinic_id
+  from patient_user_links pul
+  join patients p on p.id = pul.patient_id and p.deleted_at is null
+  where pul.user_id = ${sqlUuid(safeUserId)}
+  order by pul.created_at asc
+  limit 1
+),
+inserted as (
+  insert into patient_portal_booking_requests (
+    clinic_id,
+    patient_id,
+    requested_by_user_id,
+    preferred_from,
+    preferred_to,
+    reason
+  )
+  select
+    pp.clinic_id,
+    pp.patient_id,
+    ${sqlUuid(safeUserId)},
+    ${sqlLiteral(preferredFrom)}::timestamptz,
+    ${sqlNullableTimestamp(preferredTo)},
+    ${sqlNullableText(reason)}
+  from portal_patient pp
+  returning *
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with portal_patient as (
-    select
-      p.id as patient_id,
-      p.clinic_id
-    from patient_user_links pul
-    join patients p on p.id = pul.patient_id and p.deleted_at is null
-    where pul.user_id = ${sqlUuid(safeUserId)}
-    order by pul.created_at asc
-    limit 1
-  ),
-  inserted as (
-    insert into patient_portal_booking_requests (
-      clinic_id,
-      patient_id,
-      requested_by_user_id,
-      preferred_from,
-      preferred_to,
-      reason
-    )
-    select
-      pp.clinic_id,
-      pp.patient_id,
-      ${sqlUuid(safeUserId)},
-      ${sqlLiteral(preferredFrom)}::timestamptz,
-      ${sqlNullableTimestamp(preferredTo)},
-      ${sqlNullableText(reason)}
-    from portal_patient pp
-    returning *
-  )
   select
     br.id::text as "id",
     br.status as "status",
@@ -1407,40 +1407,40 @@ export function buildUpdatePatientPortalReminderPreferencesSql({
 } = {}) {
   const safeUserId = safeUuid(userId);
   return `
+with portal_patient as (
+  select p.id as patient_id
+  from patient_user_links pul
+  join patients p on p.id = pul.patient_id and p.deleted_at is null
+  where pul.user_id = ${sqlUuid(safeUserId)}
+  order by pul.created_at asc
+  limit 1
+),
+upserted as (
+  insert into patient_portal_reminder_preferences (
+    user_id,
+    patient_id,
+    appointment_reminders_enabled,
+    report_notifications_enabled,
+    preferred_channel,
+    updated_at
+  )
+  select
+    ${sqlUuid(safeUserId)},
+    pp.patient_id,
+    ${appointmentRemindersEnabled ? "true" : "false"},
+    ${reportNotificationsEnabled ? "true" : "false"},
+    ${sqlLiteral(preferredChannel)},
+    now()
+  from portal_patient pp
+  on conflict (user_id) do update
+  set appointment_reminders_enabled = excluded.appointment_reminders_enabled,
+      report_notifications_enabled = excluded.report_notifications_enabled,
+      preferred_channel = excluded.preferred_channel,
+      updated_at = now()
+  returning *
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with portal_patient as (
-    select p.id as patient_id
-    from patient_user_links pul
-    join patients p on p.id = pul.patient_id and p.deleted_at is null
-    where pul.user_id = ${sqlUuid(safeUserId)}
-    order by pul.created_at asc
-    limit 1
-  ),
-  upserted as (
-    insert into patient_portal_reminder_preferences (
-      user_id,
-      patient_id,
-      appointment_reminders_enabled,
-      report_notifications_enabled,
-      preferred_channel,
-      updated_at
-    )
-    select
-      ${sqlUuid(safeUserId)},
-      pp.patient_id,
-      ${appointmentRemindersEnabled ? "true" : "false"},
-      ${reportNotificationsEnabled ? "true" : "false"},
-      ${sqlLiteral(preferredChannel)},
-      now()
-    from portal_patient pp
-    on conflict (user_id) do update
-    set appointment_reminders_enabled = excluded.appointment_reminders_enabled,
-        report_notifications_enabled = excluded.report_notifications_enabled,
-        preferred_channel = excluded.preferred_channel,
-        updated_at = now()
-    returning *
-  )
   select
     pref.appointment_reminders_enabled as "appointmentRemindersEnabled",
     pref.report_notifications_enabled as "reportNotificationsEnabled",

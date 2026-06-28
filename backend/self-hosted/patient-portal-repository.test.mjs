@@ -157,10 +157,12 @@ test("Stage 5O SQL writes booking requests and reminder preferences through pati
   assert.match(bookingSql, /insert into patient_portal_booking_requests/i);
   assert.match(bookingSql, /patient_user_links/);
   assert.match(bookingSql, /requested_by_user_id/);
+  assert.doesNotMatch(bookingSql, /from\s*\(\s*with\s+(portal_patient|inserted)\s+as\s*\(/i);
   assert.doesNotMatch(bookingSql, /physician_text|storage_object_path|signed_url/i);
   assert.match(preferencesSql, /insert into patient_portal_reminder_preferences/i);
   assert.match(preferencesSql, /on conflict \(user_id\) do update/i);
   assert.match(preferencesSql, /preferred_channel/);
+  assert.doesNotMatch(preferencesSql, /from\s*\(\s*with\s+(portal_patient|upserted)\s+as\s*\(/i);
   assert.doesNotMatch(preferencesSql, /physician_text|storage_object_path|signed_url/i);
 });
 

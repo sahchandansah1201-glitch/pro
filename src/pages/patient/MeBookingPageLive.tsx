@@ -86,7 +86,7 @@ export default function MeBookingPageLive() {
                   <input
                     aria-label="Предпочтительное начало записи"
                     type="datetime-local"
-                    className="min-h-[40px] rounded-md border border-input bg-background px-3 text-[13px]"
+                    className="min-h-[44px] rounded-md border border-input bg-background px-3 text-[13px]"
                     value={preferredFrom}
                     onChange={(event) => setPreferredFrom(event.target.value)}
                     required
@@ -97,7 +97,7 @@ export default function MeBookingPageLive() {
                   <input
                     aria-label="Предпочтительное окончание записи"
                     type="datetime-local"
-                    className="min-h-[40px] rounded-md border border-input bg-background px-3 text-[13px]"
+                    className="min-h-[44px] rounded-md border border-input bg-background px-3 text-[13px]"
                     value={preferredTo}
                     onChange={(event) => setPreferredTo(event.target.value)}
                   />
