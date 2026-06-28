@@ -19,8 +19,11 @@ const REQUIRED_FILES = [
   "scripts/stage4m-admin-management-api-smoke.test.mjs",
   "scripts/run-production-admin-management-live-e2e.mjs",
   "scripts/run-production-admin-management-live-e2e.test.mjs",
+  "scripts/run-production-doctor-workspace-live-e2e.mjs",
+  "scripts/run-production-doctor-workspace-live-e2e.test.mjs",
   "e2e/live-admin-test-helpers.ts",
   "e2e/production-admin-management-live.pw.ts",
+  "e2e/production-doctor-workspace-live.pw.ts",
   "scripts/check-stage4m-production-deploy.mjs",
   "scripts/check-stage4m-production-deploy.test.mjs",
   "docs/backend/stage-4m-production-deployment-verification.md",
@@ -112,6 +115,16 @@ const REQUIRED_TEXT = {
     "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",
     "Credentials file not found",
   ],
+  "scripts/run-production-doctor-workspace-live-e2e.mjs": [
+    "CREATE_TEST_CLINIC_CONFIRMATION",
+    "production-doctor-workspace-live.pw.ts",
+    "deployStatusBlocksLiveE2E",
+    "Local dependency @playwright/test is missing",
+    "STAGE4M_LIVE_DOCTOR_BASE_URL",
+    "STAGE4M_DOCTOR_SETUP_CREDENTIALS_FILE",
+    "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",
+    "Credentials file not found",
+  ],
   "e2e/production-admin-management-live.pw.ts": [
     "/self-hosted/login",
     'from "./live-admin-test-helpers"',
@@ -139,6 +152,28 @@ const REQUIRED_TEXT = {
     "Поиск по разделам справки",
     "live-admin-help-desktop-1280.png",
     "live-admin-help-mobile-390.png",
+  ],
+  "e2e/production-doctor-workspace-live.pw.ts": [
+    "/self-hosted/login",
+    'from "./live-admin-test-helpers"',
+    "appMain",
+    "bannerText",
+    "mainText",
+    "expectMainTapTargets",
+    "expectNoHorizontalOverflow",
+    "sidebarLink",
+    "sidebarLinks",
+    "Рабочий стол",
+    "Клиники и кабинеты",
+    "Врачи",
+    "Добавить врача",
+    "/api/v1/doctor/dashboard",
+    "/api/v1/leads/appointments",
+    "/api/v1/leads",
+    "Краткое описание заявки",
+    "Добавить заявку",
+    "live-doctor-desk-desktop-1280.png",
+    "live-doctor-desk-mobile-390.png",
   ],
   "e2e/live-admin-test-helpers.ts": [
     "export function appMain(page: Page)",
@@ -229,49 +264,67 @@ function scanRuntimeCoupling(errors, root) {
 }
 
 export function validateLiveE2EContract(errors, root) {
-  const file = "e2e/production-admin-management-live.pw.ts";
-  if (!existsSync(join(root, file))) {
-    errors.push(`Missing required file: ${file}`);
-    return;
-  }
-
   const helperImportPattern =
     /import\s*\{(?=[^}]*\bappMain\b)(?=[^}]*\bbannerText\b)(?=[^}]*\bmainText\b)(?=[^}]*\bexpectMainTapTargets\b)(?=[^}]*\bexpectNoHorizontalOverflow\b)(?=[^}]*\bsidebarLink\b)[^}]*\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s;
-  const content = read(root, file);
-  if (!helperImportPattern.test(content)) {
-    errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
-  }
-  for (const helperName of ["appMain", "bannerText", "mainText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
-    const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
-    if (inlineHelperPattern.test(content)) {
-      errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
+  const liveFiles = [
+    {
+      file: "e2e/production-admin-management-live.pw.ts",
+      markers: [
+        "Справка",
+        "Поиск по разделам справки",
+        "live-admin-help-desktop-1280.png",
+        "live-admin-help-mobile-390.png",
+      ],
+    },
+    {
+      file: "e2e/production-doctor-workspace-live.pw.ts",
+      markers: [
+        "Рабочий стол",
+        "/api/v1/doctor/dashboard",
+        "/api/v1/leads/appointments",
+        "live-doctor-desk-desktop-1280.png",
+        "live-doctor-desk-mobile-390.png",
+      ],
+    },
+  ];
+
+  for (const { file, markers } of liveFiles) {
+    if (!existsSync(join(root, file))) {
+      errors.push(`Missing required file: ${file}`);
+      continue;
     }
-  }
-  const lines = content.split(/\r?\n/);
-  lines.forEach((line, index) => {
-    if (line.includes('page.locator("main")')) {
-      errors.push(
-        `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
-      );
+
+    const content = read(root, file);
+    if (!helperImportPattern.test(content)) {
+      errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
     }
-    if (/page\.getByRole\(["']link["']/.test(line)) {
-      errors.push(
-        `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
-      );
+    for (const helperName of ["appMain", "bannerText", "mainText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
+      const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
+      if (inlineHelperPattern.test(content)) {
+        errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
+      }
     }
-    if (/page\.getByText\(/.test(line)) {
-      errors.push(
-        `${file}:${index + 1} uses direct page.getByText; use mainText(page, ...), bannerText(page, ...), or a scoped locator`,
-      );
+    const lines = content.split(/\r?\n/);
+    lines.forEach((line, index) => {
+      if (line.includes('page.locator("main")')) {
+        errors.push(
+          `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
+        );
+      }
+      if (/page\.getByRole\(["']link["']/.test(line)) {
+        errors.push(
+          `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
+        );
+      }
+      if (/page\.getByText\(/.test(line)) {
+        errors.push(
+          `${file}:${index + 1} uses direct page.getByText; use mainText(page, ...), bannerText(page, ...), or a scoped locator`,
+        );
+      }
+    });
+    for (const text of markers) {
+      if (!content.includes(text)) errors.push(`${file} missing live coverage marker: ${text}`);
     }
-  });
-  for (const text of [
-    "Справка",
-    "Поиск по разделам справки",
-    "live-admin-help-desktop-1280.png",
-    "live-admin-help-mobile-390.png",
-  ]) {
-    if (!content.includes(text)) errors.push(`${file} missing live help-section coverage marker: ${text}`);
   }
 }
 
@@ -289,6 +342,7 @@ function validatePackageScripts(errors, root) {
     '"smoke:stage4m:admin-db"',
     '"smoke:stage4m:admin-api"',
     '"e2e:admin-management:live"',
+    '"e2e:doctor-workspace:live"',
     '"deploy:self-hosted:update"',
     '"deploy:stage4m:rollback-drill:dry-run"',
   ]) {

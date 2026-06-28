@@ -56,8 +56,8 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/DeskPageLive.tsx": [
     "listSelfHostedLeadsAppointments",
-    "Источник данных: self-hosted backend /api/v1/leads/appointments",
-    "Лиды и записи",
+    "Источник данных: система клиники.",
+    "Заявки и записи",
   ],
   "docs/backend/stage-5k-production-leads-appointments-contracts.md": [
     "Stage 5K",

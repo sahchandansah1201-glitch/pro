@@ -352,7 +352,7 @@ export default function DeskPageLive() {
               asChild
               variant="outline"
               size="sm"
-              className="h-8 text-[12px]"
+              className="min-h-11 text-[12px]"
             >
               <Link to="/self-hosted/login">Войти</Link>
             </Button>
@@ -551,7 +551,7 @@ export default function DeskPageLive() {
                       id="stage5l-lead-source"
                       value={newLeadSource}
                       onChange={(event) => setNewLeadSource(event.target.value)}
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                      className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
                     >
                       {Object.entries(LEAD_SOURCE_LABEL).map(
                         ([value, label]) => (
@@ -569,7 +569,7 @@ export default function DeskPageLive() {
                       leadBusy === "create" ||
                       newLeadSummary.trim().length === 0
                     }
-                    className="h-9 text-[12px]"
+                    className="min-h-11 text-[12px]"
                   >
                     {leadBusy === "create" ? "Создаём…" : "Добавить заявку"}
                   </Button>
@@ -868,7 +868,7 @@ function LeadRow({
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 px-2 text-[11px]"
+            className="min-h-11 px-2 text-[11px]"
             aria-label={leadActionLabel("Квалифицировать заявку", lead)}
             disabled={busy === `qualify:${lead.id}`}
             onClick={() => {
@@ -883,7 +883,7 @@ function LeadRow({
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 px-2 text-[11px]"
+            className="min-h-11 px-2 text-[11px]"
             aria-label={leadActionLabel("Создать запись из заявки", lead)}
             disabled={busy === `book:${lead.id}`}
             onClick={() => {

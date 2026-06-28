@@ -9,7 +9,7 @@ import { collectStage4MChecks, validateLiveE2EContract } from "./check-stage4m-p
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 24);
+  assert.equal(result.checkedFiles, 27);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {
@@ -47,7 +47,7 @@ test("Stage 4M guard requires live help section coverage", () => {
   const errors = [];
   validateLiveE2EContract(errors, root);
 
-  assert.match(errors.join("\n"), /missing live help-section coverage marker: Справка/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Справка/);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e sidebar link locators", () => {

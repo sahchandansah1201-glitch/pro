@@ -22,6 +22,8 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0011_stage4v_device_bridge_production_hardening.sql",
   "backend/self-hosted/db/migrations/0012_stage4w_device_bridge_command_safety.sql",
   "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql",
+  "backend/self-hosted/db/migrations/0015_stage5k_leads_appointments_contract.sql",
+  "backend/self-hosted/db/migrations/0016_stage5l_leads_appointments_write_contract.sql",
   "backend/self-hosted/db/migrations/0089_stage6_device_bridge_existing_volume_repair.sql",
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
@@ -125,6 +127,30 @@ select json_build_object(
         'replay_requested_by',
         'replay_policy'
       )
+  ),
+  'leadsTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'leads'
+  ),
+  'leadsRequiredColumns', (
+    select count(*) = 10
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'leads'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'patient_id',
+        'source',
+        'status',
+        'safe_summary',
+        'created_by',
+        'created_at',
+        'updated_at',
+        'deleted_at'
+      )
   )
 )::text;
 `.trim();
@@ -218,7 +244,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, and service_api_keys table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, and service_api_keys table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -276,6 +302,8 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.deviceBridgeCommandLifecycleColumns !== true) {
     missing.push("device_bridge_commands lifecycle columns");
   }
+  if (verification.leadsTable !== true) missing.push("leads table");
+  if (verification.leadsRequiredColumns !== true) missing.push("leads write columns");
   if (missing.length) {
     throw new Error(`Self-hosted production schema is incomplete: ${missing.join(", ")}.`);
   }
