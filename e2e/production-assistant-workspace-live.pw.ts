@@ -354,17 +354,25 @@ test.describe("Live production assistant capture journey", () => {
     }
 
     for (const expected of [
-      ["GET", "/api/v1/visits"],
-      ["POST", "/api/v1/visits"],
+      {
+        method: "GET",
+        label: "/api/v1/visits",
+        pathMatches: (path: string) => path === "/api/v1/visits",
+      },
+      {
+        method: "POST",
+        label: "/api/v1/visits/{id}/assets",
+        pathMatches: (path: string) => /\/api\/v1\/visits\/[^/]+\/assets/.test(path),
+      },
     ] as const) {
       expect(
         captureResponses.some((response) =>
-          response.method === expected[0] &&
-          (expected[1] === "/api/v1/visits" ? response.path === expected[1] : /\/api\/v1\/visits\/[^/]+\/assets/.test(response.path)) &&
+          response.method === expected.method &&
+          expected.pathMatches(response.path) &&
           response.status >= 200 &&
           response.status < 300,
         ),
-        `missing successful ${expected[0]} ${expected[1]}`,
+        `missing successful ${expected.method} ${expected.label}`,
       ).toBe(true);
     }
     expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);
