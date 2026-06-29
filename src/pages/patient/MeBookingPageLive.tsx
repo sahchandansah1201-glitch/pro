@@ -114,7 +114,7 @@ export default function MeBookingPageLive() {
                   />
                 </label>
                 <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-                  <Button type="submit" disabled={submitStatus === "saving"}>
+                  <Button type="submit" className="min-h-[44px]" disabled={submitStatus === "saving"}>
                     {submitStatus === "saving" ? "Отправляем…" : "Отправить запрос"}
                   </Button>
                   <div

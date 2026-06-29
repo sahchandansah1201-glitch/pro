@@ -558,7 +558,9 @@ describe("Patient portal · Stage 5N production", () => {
     fireEvent.change(screen.getByLabelText("Причина запроса на запись"), {
       target: { value: "Контроль после лечения" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Отправить запрос" }));
+    const submitButton = screen.getByRole("button", { name: "Отправить запрос" });
+    expect(submitButton).toHaveClass("min-h-[44px]");
+    fireEvent.click(submitButton);
 
     expect(await screen.findByText("Запрос на запись отправлен в клинику.")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
