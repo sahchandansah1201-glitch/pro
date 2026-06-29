@@ -192,6 +192,45 @@ test("Stage 4M guard requires live private doctor practice coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Центр частной практики/);
 });
 
+test("Stage 4M guard requires live doctor patient registry coverage", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-doctor-patients-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  const helperImport =
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";';
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(root, "e2e", "production-doctor-workspace-live.pw.ts"),
+    [
+      helperImport,
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Рабочий стол";',
+      '"Центр частной практики";',
+      '"/api/v1/admin/private-practices";',
+      '"/api/v1/doctor/dashboard";',
+      '"/api/v1/leads/appointments";',
+      '"live-doctor-desk-desktop-1280.png";',
+      '"live-doctor-desk-mobile-390.png";',
+      '"live-private-doctor-practice-desktop-1280.png";',
+      '"live-private-doctor-practice-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/patients/);
+});
+
 test("Stage 4M guard requires live operator workspace coverage", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-operator-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
@@ -218,8 +257,15 @@ test("Stage 4M guard requires live operator workspace coverage", () => {
       '"/api/v1/admin/private-practices";',
       '"/api/v1/doctor/dashboard";',
       '"/api/v1/leads/appointments";',
+      '"/api/v1/patients";',
+      '"Новый пациент";',
+      '"Создать пациента";',
+      '"Сохранить изменения";',
+      '"Архивировать";',
       '"live-doctor-desk-desktop-1280.png";',
       '"live-doctor-desk-mobile-390.png";',
+      '"live-doctor-patients-desktop-1280.png";',
+      '"live-doctor-patients-mobile-390.png";',
       '"live-private-doctor-practice-desktop-1280.png";',
       '"live-private-doctor-practice-mobile-390.png";',
     ].join("\n"),
@@ -269,8 +315,15 @@ test("Stage 4M guard requires live patient portal coverage", () => {
       '"/api/v1/admin/private-practices";',
       '"/api/v1/doctor/dashboard";',
       '"/api/v1/leads/appointments";',
+      '"/api/v1/patients";',
+      '"Новый пациент";',
+      '"Создать пациента";',
+      '"Сохранить изменения";',
+      '"Архивировать";',
       '"live-doctor-desk-desktop-1280.png";',
       '"live-doctor-desk-mobile-390.png";',
+      '"live-doctor-patients-desktop-1280.png";',
+      '"live-doctor-patients-mobile-390.png";',
       '"live-private-doctor-practice-desktop-1280.png";',
       '"live-private-doctor-practice-mobile-390.png";',
     ].join("\n"),

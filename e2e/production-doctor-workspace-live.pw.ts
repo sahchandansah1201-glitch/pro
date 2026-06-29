@@ -53,6 +53,8 @@ test.describe("Live production doctor workspace journey", () => {
     const doctorEmail = `doctor-live-${suffix}@skindoktor.ru`;
     const doctorPassword = `Dp-${suffix}-Doctor-2026!`;
     const leadSummary = `Проверочная заявка врача ${suffix}`;
+    const patientFullName = `Пациент Врача ${suffix}`;
+    const updatedPatientFullName = `Пациент Врача ${suffix} обновлён`;
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const doctorResponses: { method: string; path: string; status: number }[] = [];
@@ -67,7 +69,9 @@ test.describe("Live production doctor workspace journey", () => {
         if (
           url.pathname === "/api/v1/doctor/dashboard" ||
           url.pathname === "/api/v1/leads/appointments" ||
-          url.pathname === "/api/v1/leads"
+          url.pathname === "/api/v1/leads" ||
+          url.pathname === "/api/v1/patients" ||
+          /^\/api\/v1\/patients\/[^/]+$/.test(url.pathname)
         ) {
           doctorResponses.push({
             method: response.request().method(),
@@ -182,6 +186,90 @@ test.describe("Live production doctor workspace journey", () => {
     expect(createLeadResponse.status()).toBeLessThan(300);
     await expect(mainText(page, /создана в системе клиники/)).toBeVisible();
     await expect(mainText(page, leadSummary).first()).toBeVisible();
+
+    const patientsListResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/patients$/),
+    );
+    await sidebarLink(page, "Пациенты").click();
+    const patientsListResponse = await patientsListResponsePromise;
+    expect(patientsListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(patientsListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Пациенты" })).toBeVisible();
+    await expect(mainText(page, "Рабочий режим:")).toBeVisible();
+
+    await page.getByRole("button", { name: "Новый пациент" }).click();
+    const createPatientDialog = page.getByRole("dialog", { name: "Новый пациент" });
+    await expect(createPatientDialog).toBeVisible();
+    await createPatientDialog.getByRole("button", { name: "Создать пациента" }).click();
+    await expect(createPatientDialog.getByText("Укажите ФИО пациента.")).toBeVisible();
+    await createPatientDialog.getByLabel("ФИО").fill(patientFullName);
+    await createPatientDialog.getByLabel("Дата рождения").fill("1990-06-15");
+    await createPatientDialog.getByLabel("Пол пациента").click();
+    await page.getByRole("option", { name: "Мужской" }).click();
+    await createPatientDialog.getByLabel("Фототип пациента").click();
+    await page.getByRole("option", { name: "III" }).click();
+    await createPatientDialog.getByLabel("Согласие на медицинскую съёмку").click();
+    const createPatientResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "POST", /^\/api\/v1\/patients$/),
+    );
+    await createPatientDialog.getByRole("button", { name: "Создать пациента" }).click();
+    const createPatientResponse = await createPatientResponsePromise;
+    expect(createPatientResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(createPatientResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Пациент ${patientFullName} создан в системе клиники.`)).toBeVisible();
+    await expect(mainText(page, patientFullName)).toBeVisible();
+
+    await page.getByLabel(`Редактировать пациента ${patientFullName}`).filter({ visible: true }).first().click();
+    const editPatientDialog = page.getByRole("dialog", { name: "Редактировать пациента" });
+    await expect(editPatientDialog).toBeVisible();
+    await editPatientDialog.getByLabel("ФИО").fill(updatedPatientFullName);
+    const editPatientResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "PATCH", /^\/api\/v1\/patients\/[^/]+$/),
+    );
+    await editPatientDialog.getByRole("button", { name: "Сохранить изменения" }).click();
+    const editPatientResponse = await editPatientResponsePromise;
+    expect(editPatientResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(editPatientResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Изменения по пациенту ${updatedPatientFullName} сохранены в системе клиники.`)).toBeVisible();
+    await expect(mainText(page, updatedPatientFullName)).toBeVisible();
+
+    const patientDetailResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/patients\/[^/]+$/),
+    );
+    await appMain(page).getByRole("link", { name: updatedPatientFullName }).click();
+    const patientDetailResponse = await patientDetailResponsePromise;
+    expect(patientDetailResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(patientDetailResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: updatedPatientFullName })).toBeVisible();
+    await expect(mainText(page, "Данные из системы клиники")).toBeVisible();
+    await appMain(page).getByRole("link", { name: "К списку" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Пациенты" })).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-patients-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Пациенты" })).toBeVisible();
+    await expect(mainText(page, updatedPatientFullName)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-patients-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByLabel(`Скрыть пациента ${updatedPatientFullName}`).filter({ visible: true }).first().click();
+    await expect(page.getByRole("alertdialog", { name: "Архивировать пациента?" })).toBeVisible();
+    const archivePatientResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "DELETE", /^\/api\/v1\/patients\/[^/]+$/),
+    );
+    await page.getByRole("button", { name: "Архивировать" }).click();
+    const archivePatientResponse = await archivePatientResponsePromise;
+    expect(archivePatientResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(archivePatientResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Пациент ${updatedPatientFullName} архивирован в системе клиники.`)).toBeVisible();
+    await expect(page.getByLabel(`Редактировать пациента ${updatedPatientFullName}`)).toHaveCount(0);
+
+    await sidebarLink(page, "Рабочий стол").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Рабочий стол" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-doctor-desk-desktop-1280.png"), fullPage: true });
 
@@ -201,6 +289,11 @@ test.describe("Live production doctor workspace journey", () => {
     expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/doctor/dashboard" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/leads/appointments" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "POST" && item.path === "/api/v1/leads" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/patients" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "POST" && item.path === "/api/v1/patients" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "PATCH" && /^\/api\/v1\/patients\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "GET" && /^\/api\/v1\/patients\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "DELETE" && /^\/api\/v1\/patients\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
