@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   AuthRequiredError,
   ForbiddenError,
+  assetWriteScope,
   deviceCommandScope,
   deviceReadScope,
   leadsAppointmentsReadScope,
@@ -83,6 +84,19 @@ test("patientReadScope scopes clinic roles and allows system_admin globally", ()
       roles: ["system_admin"],
     },
   );
+
+  assert.deepEqual(
+    patientReadScope({
+      userId: "assistant-1",
+      roles: ["assistant"],
+      clinicIds: ["clinic-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1"],
+      roles: ["assistant"],
+    },
+  );
 });
 
 test("patientPortalScope allows only linked patient role identity", () => {
@@ -105,7 +119,7 @@ test("patientPortalScope allows only linked patient role identity", () => {
   assert.throws(() => patientPortalScope(null), AuthRequiredError);
 });
 
-test("visitWriteScope allows doctors/system admins and rejects clinic admins/operators", () => {
+test("visitWriteScope allows doctors/system admins and rejects clinic admins/operators/assistants", () => {
   assert.deepEqual(
     visitWriteScope({
       userId: "doctor-1",
@@ -138,6 +152,60 @@ test("visitWriteScope allows doctors/system admins and rejects clinic admins/ope
   );
   assert.throws(
     () => visitWriteScope({ userId: "operator", roles: ["operator"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+  assert.throws(
+    () => visitWriteScope({ userId: "assistant", roles: ["assistant"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+});
+
+test("assetWriteScope allows capture roles without broadening visit write scope", () => {
+  assert.deepEqual(
+    assetWriteScope({
+      userId: "assistant-1",
+      roles: ["assistant"],
+      clinicIds: ["clinic-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1"],
+      roles: ["assistant"],
+    },
+  );
+
+  assert.deepEqual(
+    assetWriteScope({
+      userId: "private-doctor",
+      roles: ["private_doctor"],
+      clinicIds: ["practice-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["practice-1"],
+      roles: ["private_doctor"],
+    },
+  );
+
+  assert.deepEqual(
+    assetWriteScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.throws(
+    () => assetWriteScope({ userId: "operator", roles: ["operator"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+  assert.throws(
+    () => assetWriteScope({ userId: "clinic-admin", roles: ["clinic_admin"], clinicIds: ["clinic-1"] }),
     ForbiddenError,
   );
 });

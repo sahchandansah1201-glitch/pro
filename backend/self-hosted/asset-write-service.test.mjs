@@ -20,6 +20,11 @@ const authContext = {
   roles: ["doctor"],
   clinicIds: [CLINIC_ID],
 };
+const assistantAuthContext = {
+  userId: USER_ID,
+  roles: ["assistant"],
+  clinicIds: [CLINIC_ID],
+};
 
 test("normalizeCreateAssetPayload accepts frontend aliases and rejects unsafe fields", () => {
   const payload = normalizeCreateAssetPayload({
@@ -169,6 +174,30 @@ test("createVisitAsset registers metadata, returns safe DTO and audits", async (
   assert.equal(result.asset.objectKey, undefined);
   assert.equal(audits[0].action, "asset.create");
   assert.equal(audits[0].metadata.kind, "dermoscopy");
+});
+
+test("createVisitAsset allows assistant capture without exposing object storage details", async () => {
+  const data = Buffer.from("assistant-image");
+  const { service, audits, storedObjects } = createService();
+
+  const result = await service.createVisitAsset(
+    VISIT_ID,
+    {
+      kind: "overview_photo",
+      contentType: "image/png",
+      byteSize: data.byteLength,
+      dataBase64: data.toString("base64"),
+      originalFileName: "assistant.png",
+    },
+    assistantAuthContext,
+    { correlationId: "c-assistant-capture" },
+  );
+
+  assert.equal(result.asset.uploadedBy, USER_ID);
+  assert.equal(result.asset.objectKey, undefined);
+  assert.equal(storedObjects.length, 1);
+  assert.equal(audits[0].action, "asset.create");
+  assert.equal(audits[0].metadata.binaryStored, true);
 });
 
 test("createVisitAsset stores decoded bytes and verifies checksum", async () => {

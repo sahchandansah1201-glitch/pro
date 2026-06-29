@@ -218,6 +218,31 @@ the real client path. A deployment is not confirmed for the clinic create/edit
 journey until this live browser smoke or an equivalent authenticated browser
 trace passes.
 
+The same closure rule applies to each production role journey. Run only after
+`npm run deploy:stage4m:status` reports `ok`:
+
+```bash
+npm run e2e:doctor-workspace:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+
+npm run e2e:assistant-workspace:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+
+npm run e2e:operator-workspace:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+
+npm run e2e:patient-portal:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-admin-credentials.txt \
+  --confirm-create-test-clinic I_CONFIRM_CREATE_TEST_CLINIC
+```
+
 ## Post-deploy smoke
 
 Dry-run:

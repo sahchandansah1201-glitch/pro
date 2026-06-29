@@ -5,7 +5,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitReadScope, visitWriteScope } from "./rbac.mjs";
+import { assetWriteScope, visitReadScope } from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -210,7 +210,7 @@ export function createAssetWriteService({
   return {
     async createVisitAsset(visitId, input, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitWriteScope(authContext);
+      const scope = assetWriteScope(authContext);
       const payload = normalizeCreateAssetPayload(input);
       const visit = await visitWorkspaceRepository.getVisit({
         visitId: safeVisitId,

@@ -23,10 +23,12 @@ import {
   getVisitsByPatientId,
 } from "@/lib/mock-data";
 import { formatCardNumber } from "@/lib/card-number";
+import { isProductionAppMode } from "@/lib/app-mode";
 import type { ImageKind, ImageSource, VisitStatus } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BODY_MAP_DEMO_NOW as DEMO_NOW } from "@/pages/doctor/body-map-model";
+import CapturePageLive from "./CapturePageLive";
 
 type DeviceStatus = "connected" | "standby" | "offline";
 const DEVICE_STATUS: Record<string, DeviceStatus> = {
@@ -145,6 +147,8 @@ const LOCAL_STEPS = [
 ] as const;
 
 export default function CapturePage() {
+  if (isProductionAppMode()) return <CapturePageLive />;
+
   const [patientId, setPatientId] = useState("p-004");
   const initialVisits = getVisitsByPatientId("p-004");
   const initialLesions = getLesionsByPatientId("p-004");

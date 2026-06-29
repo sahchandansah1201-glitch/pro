@@ -1,4 +1,4 @@
-export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor"];
+export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor", "private_doctor", "assistant"];
 export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const PATIENT_PORTAL_ROLES = ["patient"];
 export const PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
@@ -149,6 +149,22 @@ export const VISIT_WRITE_ROLES = ["system_admin", "doctor"];
 
 export function visitWriteScope(authContext) {
   const scoped = requireAnyRole(authContext, VISIT_WRITE_ROLES);
+  if (scoped.roles.includes("system_admin")) {
+    return { allClinics: true, clinicIds: [], roles: scoped.roles };
+  }
+  const clinicIds = normalizeRoles(scoped.clinicIds);
+  if (clinicIds.length === 0) {
+    throw new ForbiddenError("The authenticated user has no clinic scope.");
+  }
+  return { allClinics: false, clinicIds, roles: scoped.roles };
+}
+
+// Capture assistants can add image assets to existing visits in their clinic,
+// but cannot mutate visits, lesions, reports, conclusions, or patient records.
+export const ASSET_WRITE_ROLES = ["system_admin", "doctor", "private_doctor", "assistant"];
+
+export function assetWriteScope(authContext) {
+  const scoped = requireAnyRole(authContext, ASSET_WRITE_ROLES);
   if (scoped.roles.includes("system_admin")) {
     return { allClinics: true, clinicIds: [], roles: scoped.roles };
   }
