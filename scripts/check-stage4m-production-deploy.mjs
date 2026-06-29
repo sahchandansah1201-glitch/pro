@@ -351,6 +351,9 @@ const REQUIRED_TEXT = {
     "export async function expectMainTapTargets(page: Page)",
     "HTMLInputElement",
     "label.getBoundingClientRect()",
+    "isBrowserInternalControl",
+    'getAttribute("aria-hidden") === "true"',
+    "el.tabIndex < 0",
   ],
   "docs/backend/stage-4m-production-deployment-verification.md": [
     "Stage 4M",

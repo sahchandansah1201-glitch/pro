@@ -45,6 +45,11 @@ export async function expectMainTapTargets(page: Page) {
       }
       return el.getBoundingClientRect();
     };
+    const isBrowserInternalControl = (el: HTMLElement, rect: DOMRect, style: CSSStyleDeclaration) => {
+      if (el.getAttribute("aria-hidden") === "true") return true;
+      if (el.tabIndex < 0 && rect.width <= 1 && rect.height <= 1) return true;
+      return style.position === "absolute" && rect.width <= 1 && rect.height <= 1 && style.pointerEvents === "none";
+    };
     return Array.from(
       root.querySelectorAll<HTMLElement>(
         'button, a[href], input:not([type="hidden"]), textarea, select, [role="button"], [role="tab"], [role="combobox"]',
@@ -60,6 +65,7 @@ export async function expectMainTapTargets(page: Page) {
           hidden:
             rect.width === 0 ||
             rect.height === 0 ||
+            isBrowserInternalControl(el, rect, style) ||
             style.display === "none" ||
             style.visibility === "hidden",
         };
