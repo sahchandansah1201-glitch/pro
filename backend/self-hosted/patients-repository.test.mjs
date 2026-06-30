@@ -107,22 +107,27 @@ test("patient detail and write SQL are clinic-scoped and use soft archive", () =
     actorUserId: "10000000-0000-4000-8000-000000000101",
   });
   assert.match(createSql, /insert into patients/);
+  assert.match(createSql, /^with inserted as \(\s*insert into patients/i);
   assert.match(createSql, /O''Hara Patient/);
   assert.match(createSql, /gen_random_uuid/);
   assert.doesNotMatch(createSql, /password_hash|object_key|metadata_json/);
+  assert.doesNotMatch(createSql, /from\s*\(\s*with\s+inserted\s+as\s*\(/i);
 
   const updateSql = buildUpdatePatientSql({
     ...scoped,
     changes: { fullName: "Updated Patient", imagingConsent: false },
   });
-  assert.match(updateSql, /update patients p/);
+  assert.match(updateSql, /^with updated as \(\s*update patients p/i);
   assert.match(updateSql, /full_name = 'Updated Patient'/);
   assert.match(updateSql, /imaging_consent = false/);
   assert.match(updateSql, /p\.deleted_at is null/);
+  assert.doesNotMatch(updateSql, /from\s*\(\s*with\s+updated\s+as\s*\(/i);
 
   const archiveSql = buildArchivePatientSql(scoped);
+  assert.match(archiveSql, /^with archived as \(\s*update patients p/i);
   assert.match(archiveSql, /set deleted_at = now\(\)/);
   assert.doesNotMatch(archiveSql, /\bdelete\s+from\b/i);
+  assert.doesNotMatch(archiveSql, /from\s*\(\s*with\s+archived\s+as\s*\(/i);
 });
 
 test("createPatientRepository delegates detail and write methods", async () => {

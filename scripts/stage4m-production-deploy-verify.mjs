@@ -346,6 +346,18 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
+    ["Verify doctor patient create/edit/archive database journey", "node", [
+      "scripts/stage4m-doctor-patient-db-smoke.mjs",
+      "verify",
+      "--project-name",
+      options.projectName,
+      "--compose-env-file",
+      options.envFile,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+    ]],
     ["Verify assistant capture asset database journey", "node", [
       "scripts/stage4m-assistant-capture-db-smoke.mjs",
       "verify",

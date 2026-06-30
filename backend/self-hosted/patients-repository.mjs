@@ -155,33 +155,33 @@ export function buildCreatePatientSql({
     ? sqlLiteral(code)
     : "concat('DP-', to_char(now(), 'YYYYMMDD'), '-', upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)))";
   return `
+with inserted as (
+  insert into patients (
+    clinic_id,
+    code,
+    full_name,
+    birth_date,
+    sex,
+    phototype,
+    imaging_consent,
+    notes,
+    created_by
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${codeSql},
+    ${sqlLiteral(fullName)},
+    ${sqlNullableDate(birthDate)},
+    ${sqlLiteral(sex)},
+    ${sqlNullableText(phototype)},
+    ${sqlNullableBoolean(imagingConsent)},
+    ${sqlNullableText(notes)},
+    ${sqlUuid(actorUserId)}
+  )
+  returning *
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with inserted as (
-    insert into patients (
-      clinic_id,
-      code,
-      full_name,
-      birth_date,
-      sex,
-      phototype,
-      imaging_consent,
-      notes,
-      created_by
-    )
-    values (
-      ${sqlUuid(clinicId)},
-      ${codeSql},
-      ${sqlLiteral(fullName)},
-      ${sqlNullableDate(birthDate)},
-      ${sqlLiteral(sex)},
-      ${sqlNullableText(phototype)},
-      ${sqlNullableBoolean(imagingConsent)},
-      ${sqlNullableText(notes)},
-      ${sqlUuid(actorUserId)}
-    )
-    returning *
-  )
   select
     ${patientSelectColumns({ includeNotes: true })}
   from inserted p
@@ -209,16 +209,16 @@ export function buildUpdatePatientSql({
   allClinics = false,
 } = {}) {
   return `
+with updated as (
+  update patients p
+  set ${buildPatientUpdateSet(changes)}
+  where p.id = ${sqlUuid(patientId)}
+    and p.deleted_at is null
+    ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
+  returning p.*
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with updated as (
-    update patients p
-    set ${buildPatientUpdateSet(changes)}
-    where p.id = ${sqlUuid(patientId)}
-      and p.deleted_at is null
-      ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
-    returning p.*
-  )
   select
     ${patientSelectColumns({ includeNotes: true })}
   from updated p
@@ -233,17 +233,17 @@ export function buildArchivePatientSql({
   allClinics = false,
 } = {}) {
   return `
+with archived as (
+  update patients p
+  set deleted_at = now(),
+      updated_at = now()
+  where p.id = ${sqlUuid(patientId)}
+    and p.deleted_at is null
+    ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
+  returning p.*
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with archived as (
-    update patients p
-    set deleted_at = now(),
-        updated_at = now()
-    where p.id = ${sqlUuid(patientId)}
-      and p.deleted_at is null
-      ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
-    returning p.*
-  )
   select
     ${patientSelectColumns({ includeNotes: true })}
   from archived p
