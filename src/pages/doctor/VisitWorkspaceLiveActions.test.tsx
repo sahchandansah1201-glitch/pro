@@ -69,6 +69,16 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(screen.queryByRole("region", { name: "Self-hosted запись визита" })).not.toBeInTheDocument();
   });
 
+  it("does not load operational follow-up data before the doctor requests it", () => {
+    configureSession();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ id: "unexpected" }));
+
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+
+    expect(screen.getByRole("region", { name: "Операционный контроль" })).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("saves visit, creates lesion, archives lesion, and saves report with bearer token", async () => {
     configureSession();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -276,7 +286,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(69);
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/operations/summary"))).toBe(true);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -940,6 +950,7 @@ describe("VisitWorkspaceLiveActions", () => {
 
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
     await waitFor(() => expect(screen.getByRole("region", { name: "Операционный контроль" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Обновить очередь" }));
     await waitFor(() => expect(screen.getByText("Контроль после визита")).toBeInTheDocument());
 
     const clickAndExpectPatch = async (

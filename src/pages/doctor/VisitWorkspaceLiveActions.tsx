@@ -1,7 +1,7 @@
 // Stage 4H · Live write controls for self-hosted visit workspace.
 // Hidden in demo mode. Keeps the existing demo tabs untouched.
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -757,11 +757,6 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicyGovernanceEvidenceReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoff.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipt.error || sopPolicies.error || queue.error));
     }
   }
-
-  useEffect(() => {
-    void loadOperationsQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, session.apiBaseUrl, session.apiToken, visit.id]);
 
   if (!configured) {
     return null;
