@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
 import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
+import AdminServicesPage from "@/pages/admin/AdminServicesPage";
 import SysAuditPage from "@/pages/sys/SysAuditPage";
 import SysUsersPage from "@/pages/sys/SysUsersPage";
 
@@ -243,7 +244,7 @@ describe("Production admin management UI", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[0]);
     fireEvent.change(screen.getByLabelText("Адрес редактируемой клиники"), {
       target: { value: "ул. Северная, 11, Краснодар" },
     });
@@ -293,7 +294,7 @@ describe("Production admin management UI", () => {
     expect(screen.queryByRole("button", { name: "В архив" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Удалить пустую запись" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Редактировать" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[0]);
     fireEvent.change(screen.getByLabelText("Адрес редактируемой клиники"), {
       target: { value: "Краснодар, обновлённый адрес" },
     });
@@ -312,6 +313,117 @@ describe("Production admin management UI", () => {
         }),
       }),
     );
+  });
+
+  it("clinic_admin creates and edits a service through the working catalog", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    const createdService = {
+      id: "service-1",
+      clinicId: "clinic-1",
+      clinicName: "Кабинет Морозова",
+      name: "Дерматоскопия",
+      category: "imaging",
+      durationMin: 25,
+      priceMin: 2500,
+      priceMax: 3500,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: true,
+      active: true,
+      createdAt: "2026-07-08T00:00:00.000Z",
+      updatedAt: "2026-07-08T00:00:00.000Z",
+    };
+    const updatedService = {
+      ...createdService,
+      name: "Дерматоскопия контрольная",
+      durationMin: 35,
+      priceMin: 3000,
+      priceMax: 4000,
+      consentNote: "Согласие на съёмку обновлено",
+      updatedAt: "2026-07-08T00:01:00.000Z",
+    };
+    let services = [] as (typeof createdService)[];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/services") && init?.method === "POST") {
+        services = [createdService];
+        return json({ item: createdService }, 201);
+      }
+      if (href.endsWith("/api/v1/admin/services/service-1") && init?.method === "PATCH") {
+        services = [updatedService];
+        return json({ item: updatedService });
+      }
+      if (href.endsWith("/api/v1/admin/services")) return json({ items: services });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminServicesPage />);
+
+    expect(await screen.findByRole("heading", { name: "Услуги и тарифы" })).toBeInTheDocument();
+    expect(screen.getByText(/Рабочий режим: услуги сохраняются в базе клиники/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Название услуги"), { target: { value: "Дерматоскопия" } });
+    fireEvent.change(screen.getByLabelText("Клиника услуги"), { target: { value: "clinic-1" } });
+    fireEvent.change(screen.getByLabelText("Категория услуги"), { target: { value: "imaging" } });
+    fireEvent.change(screen.getByLabelText("Длительность услуги"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Минимальная цена"), { target: { value: "2500" } });
+    fireEvent.change(screen.getByLabelText("Максимальная цена"), { target: { value: "3500" } });
+    fireEvent.change(screen.getByLabelText("Согласие для услуги"), { target: { value: "Согласие на съёмку" } });
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Создать услугу" }));
+
+    expect(await screen.findByText("Услуга создана: Дерматоскопия")).toBeInTheDocument();
+    expect(screen.getAllByText("Согласие на съёмку").length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/services",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          clinicId: "clinic-1",
+          name: "Дерматоскопия",
+          category: "imaging",
+          durationMin: 25,
+          priceMin: 2500,
+          priceMax: 3500,
+          consentNote: "Согласие на съёмку",
+          onlineBooking: true,
+          active: true,
+        }),
+      }),
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Редактировать" })[0]);
+    fireEvent.change(screen.getByLabelText("Название редактируемой услуги"), {
+      target: { value: "Дерматоскопия контрольная" },
+    });
+    fireEvent.change(screen.getByLabelText("Длительность редактируемой услуги"), { target: { value: "35" } });
+    fireEvent.change(screen.getByLabelText("Минимальная цена редактируемой услуги"), { target: { value: "3000" } });
+    fireEvent.change(screen.getByLabelText("Максимальная цена редактируемой услуги"), { target: { value: "4000" } });
+    fireEvent.change(screen.getByLabelText("Согласие редактируемой услуги"), {
+      target: { value: "Согласие на съёмку обновлено" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить услугу" }));
+
+    expect(await screen.findByText("Услуга обновлена: Дерматоскопия контрольная")).toBeInTheDocument();
+    expect(screen.getAllByText("Согласие на съёмку обновлено").length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/services/service-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          clinicId: "clinic-1",
+          name: "Дерматоскопия контрольная",
+          category: "imaging",
+          durationMin: 35,
+          priceMin: 3000,
+          priceMax: 4000,
+          consentNote: "Согласие на съёмку обновлено",
+          onlineBooking: true,
+          active: true,
+        }),
+      }),
+    );
+    expect(document.body).not.toHaveTextContent(/Учебный режим|демо|mock/i);
   });
 
   it("suspends, reactivates, archives, and deletes an empty clinic through visible controls", async () => {

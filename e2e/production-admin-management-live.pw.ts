@@ -45,6 +45,11 @@ function isAdminServiceKeyResponse(response: Response, method: string, matcher: 
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isAdminServiceResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 function isOpsResponse(response: Response, path: string) {
   const request = response.request();
   return request.method() === "GET" && new URL(response.url()).pathname === path;
@@ -71,6 +76,9 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminDoctorName = `Врач клиники ${suffix}`;
     const clinicAdminDoctorEmail = `clinic-doctor-${suffix}@skindoktor.ru`;
     const clinicAdminDoctorPassword = `Dp-${suffix}-Doctor-2026!`;
+    const clinicAdminServiceName = `Дерматоскопия проверочная ${suffix}`;
+    const clinicAdminUpdatedServiceName = `Дерматоскопия контрольная ${suffix}`;
+    const clinicAdminServiceConsent = `Согласие на съёмку ${suffix}`;
     const serviceKeyLabel = `Проверочный ключ ${suffix}`;
     const serviceKeyOwner = `Автотест ${suffix}`;
     const consoleErrors: string[] = [];
@@ -89,6 +97,7 @@ test.describe("Live production admin management journey", () => {
           url.pathname.startsWith("/api/v1/admin/users") ||
           url.pathname.startsWith("/api/v1/admin/doctors") ||
           url.pathname.startsWith("/api/v1/admin/analytics") ||
+          url.pathname.startsWith("/api/v1/admin/services") ||
           url.pathname.startsWith("/api/v1/admin/service-keys")
         ) {
           adminResponses.push({
@@ -605,6 +614,68 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    const clinicAdminServicesListResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceResponse(response, "GET", /^\/api\/v1\/admin\/services$/),
+    );
+    await sidebarLink(page, "Услуги").click();
+    const clinicAdminServicesListResponse = await clinicAdminServicesListResponsePromise;
+    expect(clinicAdminServicesListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminServicesListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Услуги и тарифы" })).toBeVisible();
+    await expect(mainText(page, "Рабочий режим: услуги сохраняются в базе клиники и доступны для настройки записи после проверки условий.")).toBeVisible();
+    await page.getByLabel("Название услуги").fill(clinicAdminServiceName);
+    await page.getByLabel("Клиника услуги").selectOption({ label: clinicAdminClinicName });
+    await page.getByLabel("Категория услуги").selectOption("imaging");
+    await page.getByLabel("Длительность услуги").fill("25");
+    await page.getByLabel("Минимальная цена").fill("2500");
+    await page.getByLabel("Максимальная цена").fill("3500");
+    await page.getByLabel("Согласие для услуги").fill(clinicAdminServiceConsent);
+    await appMain(page).locator("label", { hasText: "Онлайн-запись" }).locator('input[type="checkbox"]').first().check();
+
+    const clinicAdminCreateServiceResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceResponse(response, "POST", /^\/api\/v1\/admin\/services$/),
+    );
+    await page.getByRole("button", { name: "Создать услугу" }).click();
+    const clinicAdminCreateServiceResponse = await clinicAdminCreateServiceResponsePromise;
+    expect(clinicAdminCreateServiceResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminCreateServiceResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Услуга создана: ${clinicAdminServiceName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminServiceName).first()).toBeVisible();
+    await expect(mainText(page, clinicAdminServiceConsent).first()).toBeVisible();
+
+    const createdServiceRow = appMain(page).locator("tr", { hasText: clinicAdminServiceName }).first();
+    await createdServiceRow.getByRole("button", { name: "Редактировать" }).click();
+    const editServiceRegion = page.getByRole("region", { name: "Редактирование услуги" });
+    await expect(editServiceRegion).toBeVisible();
+    await editServiceRegion.getByLabel("Название редактируемой услуги").fill(clinicAdminUpdatedServiceName);
+    await editServiceRegion.getByLabel("Длительность редактируемой услуги").fill("35");
+    await editServiceRegion.getByLabel("Минимальная цена редактируемой услуги").fill("3000");
+    await editServiceRegion.getByLabel("Максимальная цена редактируемой услуги").fill("4000");
+    await editServiceRegion.getByLabel("Согласие редактируемой услуги").fill(`${clinicAdminServiceConsent} обновлено`);
+    const clinicAdminUpdateServiceResponsePromise = page.waitForResponse((response) =>
+      isAdminServiceResponse(response, "PATCH", /^\/api\/v1\/admin\/services\/[^/]+$/),
+    );
+    await editServiceRegion.getByRole("button", { name: "Сохранить услугу" }).click();
+    const clinicAdminUpdateServiceResponse = await clinicAdminUpdateServiceResponsePromise;
+    expect(clinicAdminUpdateServiceResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminUpdateServiceResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Услуга обновлена: ${clinicAdminUpdatedServiceName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminUpdatedServiceName).first()).toBeVisible();
+    await expect(mainText(page, /3\s000–4\s000 ₽/).first()).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-services-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Услуги и тарифы" })).toBeVisible();
+    await expect(mainText(page, clinicAdminUpdatedServiceName).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-services-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
     const clinicAdminAnalyticsDeepResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "GET", /^\/api\/v1\/admin\/analytics$/),
     );
@@ -638,6 +709,8 @@ test.describe("Live production admin management journey", () => {
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "GET" && item.path === "/api/v1/admin/analytics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/doctors" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/services" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/services\/[^/]+/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/service-keys" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/rotate/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/revoke/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);

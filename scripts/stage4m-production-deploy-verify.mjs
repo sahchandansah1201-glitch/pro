@@ -334,6 +334,18 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
+    ["Verify admin service catalog database journey", "node", [
+      "scripts/stage4m-admin-services-db-smoke.mjs",
+      "verify",
+      "--project-name",
+      options.projectName,
+      "--compose-env-file",
+      options.envFile,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+    ]],
     ["Verify doctor lead create/update/book database journey", "node", [
       "scripts/stage4m-doctor-lead-db-smoke.mjs",
       "verify",

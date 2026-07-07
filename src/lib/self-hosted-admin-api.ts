@@ -93,6 +93,24 @@ export interface AdminPrivatePracticeDTO {
   owner: AdminUserDTO;
 }
 
+export type AdminClinicServiceCategory = "consult" | "procedure" | "imaging";
+
+export interface AdminClinicServiceDTO {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  name: string;
+  category: AdminClinicServiceCategory;
+  durationMin: number;
+  priceMin: number;
+  priceMax: number;
+  consentNote: string;
+  onlineBooking: boolean;
+  active: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export type AdminServiceKeyStatus = "active" | "revoked";
 
 export interface AdminServiceKeyDTO {
@@ -256,6 +274,26 @@ function normalizeRoleStatus(input: unknown): AdminRoleStatusDTO {
     clinicId: item.clinicId == null ? null : String(item.clinicId),
     status: item.status === "disabled" ? "disabled" : "active",
     disabledAt: item.disabledAt == null ? null : String(item.disabledAt),
+  };
+}
+
+function normalizeClinicService(input: unknown): AdminClinicServiceDTO {
+  const item = isRecord(input) ? input : {};
+  const category = String(item.category ?? "consult");
+  return {
+    id: String(item.id ?? ""),
+    clinicId: String(item.clinicId ?? ""),
+    clinicName: String(item.clinicName ?? ""),
+    name: String(item.name ?? ""),
+    category: (["consult", "procedure", "imaging"].includes(category) ? category : "consult") as AdminClinicServiceCategory,
+    durationMin: Number(item.durationMin ?? 0),
+    priceMin: Number(item.priceMin ?? 0),
+    priceMax: Number(item.priceMax ?? 0),
+    consentNote: String(item.consentNote ?? ""),
+    onlineBooking: item.onlineBooking === true,
+    active: item.active !== false,
+    createdAt: item.createdAt == null ? null : String(item.createdAt),
+    updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
   };
 }
 
@@ -485,6 +523,62 @@ export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiRe
         })
       : [],
   });
+}
+
+export async function listAdminClinicServices(
+  args: BaseArgs & { search?: string },
+): Promise<SelfHostedApiResult<AdminClinicServiceDTO[]>> {
+  const query = args.search ? `?search=${encodeURIComponent(args.search)}` : "";
+  return itemsFrom(await request(args, `/api/v1/admin/services${query}`), normalizeClinicService);
+}
+
+export async function createAdminClinicService(
+  args: BaseArgs & {
+    payload: {
+      clinicId: string;
+      name: string;
+      category: AdminClinicServiceCategory;
+      durationMin: number;
+      priceMin: number;
+      priceMax: number;
+      consentNote?: string;
+      onlineBooking: boolean;
+      active: boolean;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicServiceDTO>> {
+  const result = await request(args, "/api/v1/admin/services", {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicServiceDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicService(body.item));
+}
+
+export async function updateAdminClinicService(
+  args: BaseArgs & {
+    serviceId: string;
+    payload: {
+      clinicId: string;
+      name: string;
+      category: AdminClinicServiceCategory;
+      durationMin: number;
+      priceMin: number;
+      priceMax: number;
+      consentNote?: string;
+      onlineBooking: boolean;
+      active: boolean;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicServiceDTO>> {
+  const result = await request(args, `/api/v1/admin/services/${encodeURIComponent(args.serviceId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicServiceDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicService(body.item));
 }
 
 export async function listAdminAuditEvents(args: BaseArgs): Promise<SelfHostedApiResult<AdminAuditEventDTO[]>> {

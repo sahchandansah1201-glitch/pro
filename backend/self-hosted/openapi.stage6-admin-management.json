@@ -87,6 +87,22 @@
         "summary": "Read production aggregate statistics without patient rows"
       }
     },
+    "/api/v1/admin/services": {
+      "get": {
+        "operationId": "listAdminClinicServices",
+        "summary": "List clinic service catalog rows inside the administrator scope"
+      },
+      "post": {
+        "operationId": "createAdminClinicService",
+        "summary": "Create a clinic service catalog row"
+      }
+    },
+    "/api/v1/admin/services/{serviceId}": {
+      "patch": {
+        "operationId": "updateAdminClinicService",
+        "summary": "Update a clinic service catalog row inside the administrator scope"
+      }
+    },
     "/api/v1/admin/audit-events": {
       "get": {
         "operationId": "listAdminAuditEvents",

@@ -84,6 +84,38 @@ function createService({ calls = [] } = {}) {
       calls.push(["updateClinic", params]);
       return { id: params.clinicId, name: params.name };
     },
+    async listClinicServices(params) {
+      calls.push(["listClinicServices", params]);
+      return [{ id: "10000000-0000-4000-8000-000000000501", name: "Первичный приём" }];
+    },
+    async createClinicService(params) {
+      calls.push(["createClinicService", params]);
+      return {
+        id: "10000000-0000-4000-8000-000000000502",
+        clinicId: params.clinicId,
+        name: params.name,
+        category: params.category,
+        durationMin: params.durationMin,
+        priceMin: params.priceMin,
+        priceMax: params.priceMax,
+        onlineBooking: params.onlineBooking,
+        active: params.active,
+      };
+    },
+    async updateClinicService(params) {
+      calls.push(["updateClinicService", params]);
+      return {
+        id: params.serviceId,
+        clinicId: params.clinicId,
+        name: params.name,
+        category: params.category,
+        durationMin: params.durationMin,
+        priceMin: params.priceMin,
+        priceMax: params.priceMax,
+        onlineBooking: params.onlineBooking,
+        active: params.active,
+      };
+    },
     async setClinicStatus(params) {
       calls.push(["setClinicStatus", params]);
       return { id: params.clinicId, status: params.status, statusReason: params.reason };
@@ -288,6 +320,91 @@ test("system admin creates clinic from Russian name and human address without ma
     },
   ]);
   assert.equal(auditEvents[0].action, "admin.clinic.create");
+});
+
+test("clinic admin lists, creates, and updates services only inside own clinic scope", async () => {
+  const { service, calls, auditEvents } = createService();
+  const listed = await service.listClinicServices({ limit: 10, offset: 0, search: "" }, CLINIC_AUTH, {
+    correlationId: "services-list",
+  });
+  const created = await service.createClinicService(
+    {
+      name: "Дерматоскопия",
+      category: "imaging",
+      durationMin: 20,
+      priceMin: 1800,
+      priceMax: 2200,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: false,
+      active: true,
+    },
+    CLINIC_AUTH,
+    { correlationId: "services-create" },
+  );
+  const updated = await service.updateClinicService(
+    "10000000-0000-4000-8000-000000000502",
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      name: "Дерматоскопия расширенная",
+      category: "imaging",
+      durationMin: 25,
+      priceMin: 2000,
+      priceMax: 2400,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: true,
+      active: true,
+    },
+    CLINIC_AUTH,
+    { correlationId: "services-update" },
+  );
+
+  assert.equal(listed.items[0].name, "Первичный приём");
+  assert.equal(created.item.clinicId, "10000000-0000-4000-8000-000000000001");
+  assert.equal(updated.item.durationMin, 25);
+  assert.deepEqual(calls.map((call) => call[0]), ["listClinicServices", "createClinicService", "updateClinicService"]);
+  assert.equal(calls[1][1].actorUserId, CLINIC_AUTH.userId);
+  assert.equal(auditEvents[0].action, "admin.services.list");
+  assert.equal(auditEvents[1].action, "admin.service.create");
+  assert.equal(auditEvents[2].action, "admin.service.update");
+});
+
+test("clinic service validation blocks missing clinic, outside clinic, and invalid prices", async () => {
+  const { service } = createService();
+  await assert.rejects(
+    () =>
+      service.createClinicService(
+        {
+          name: "Дерматоскопия",
+          category: "imaging",
+          durationMin: 20,
+          priceMin: 2200,
+          priceMax: 1800,
+          onlineBooking: true,
+          active: true,
+        },
+        SYSTEM_AUTH,
+        { correlationId: "test" },
+      ),
+    /validation/i,
+  );
+  await assert.rejects(
+    () =>
+      service.createClinicService(
+        {
+          clinicId: "10000000-0000-4000-8000-000000000099",
+          name: "Дерматоскопия",
+          category: "imaging",
+          durationMin: 20,
+          priceMin: 1800,
+          priceMax: 2200,
+          onlineBooking: true,
+          active: true,
+        },
+        CLINIC_AUTH,
+        { correlationId: "test" },
+      ),
+    /outside/i,
+  );
 });
 
 test("system admin manages service keys with one-time secret and hashed storage", async () => {

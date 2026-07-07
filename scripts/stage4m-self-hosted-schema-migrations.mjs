@@ -29,6 +29,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
   "backend/self-hosted/db/migrations/0088_stage6_admin_lifecycle.sql",
   "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
+  "backend/self-hosted/db/migrations/0091_stage6_clinic_services.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -73,6 +74,35 @@ select json_build_object(
     from information_schema.tables
     where table_schema = 'public'
       and table_name = 'service_api_keys'
+  ),
+  'clinicServicesTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'clinic_services'
+  ),
+  'clinicServicesRequiredColumns', (
+    select count(*) = 15
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinic_services'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'name',
+        'category',
+        'duration_min',
+        'price_min',
+        'price_max',
+        'consent_note',
+        'online_booking',
+        'active',
+        'created_by_user_id',
+        'updated_by_user_id',
+        'created_at',
+        'updated_at',
+        'deleted_at'
+      )
   ),
   'deviceBridgesTable', exists (
     select 1
@@ -244,7 +274,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, and service_api_keys table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, and clinic_services catalog table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -295,6 +325,8 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.clinicDeletedAtColumn !== true) missing.push("clinics.deleted_at column");
   if (verification.userRoleDisabledAtColumn !== true) missing.push("user_roles.disabled_at column");
   if (verification.serviceApiKeysTable !== true) missing.push("service_api_keys table");
+  if (verification.clinicServicesTable !== true) missing.push("clinic_services table");
+  if (verification.clinicServicesRequiredColumns !== true) missing.push("clinic_services columns");
   if (verification.deviceBridgesTable !== true) missing.push("device_bridges table");
   if (verification.medicalDevicesTable !== true) missing.push("medical_devices table");
   if (verification.deviceBridgeCommandsTable !== true) missing.push("device_bridge_commands table");

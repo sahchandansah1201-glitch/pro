@@ -20,6 +20,14 @@ function sqlNullableText(value) {
   return value == null ? "null" : sqlLiteral(value);
 }
 
+function sqlBoolean(value) {
+  return value === true ? "true" : "false";
+}
+
+function sqlInteger(value) {
+  return Number.parseInt(String(value ?? 0), 10);
+}
+
 function sqlTextArray(values = []) {
   const items = (Array.isArray(values) ? values : []).map(sqlLiteral);
   return `array[${items.join(", ")}]::text[]`;
@@ -49,6 +57,13 @@ function clinicScopeWhere({ alias = "c", clinicIds = [], allClinics = false } = 
   if (allClinics) return "";
   if (ids.length === 0) return "and false";
   return `and ${alias}.id in (${sqlUuidList(ids)})`;
+}
+
+function clinicServiceScopeWhere({ alias = "s", clinicIds = [], allClinics = false } = {}) {
+  const ids = safeUuidList(clinicIds);
+  if (allClinics) return "";
+  if (ids.length === 0) return "and false";
+  return `and ${alias}.clinic_id in (${sqlUuidList(ids)})`;
 }
 
 function userClinicScopeWhere({ alias = "ur", clinicIds = [], allClinics = false } = {}) {
@@ -477,6 +492,165 @@ from (
 `.trim();
 }
 
+export function buildListClinicServicesSql({
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  search = "",
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const safe = pagination({ limit, offset });
+  const safeSearch = normalizeSearch(search);
+  const searchWhere = safeSearch
+    ? `and (s.name ilike '%' || ${sqlLiteral(safeSearch)} || '%' or c.name ilike '%' || ${sqlLiteral(safeSearch)} || '%')`
+    : "";
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    s.id::text as "id",
+    s.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    s.name as "name",
+    s.category as "category",
+    s.duration_min as "durationMin",
+    s.price_min as "priceMin",
+    s.price_max as "priceMax",
+    s.consent_note as "consentNote",
+    s.online_booking as "onlineBooking",
+    s.active as "active",
+    s.created_at as "createdAt",
+    s.updated_at as "updatedAt"
+  from clinic_services s
+  join clinics c on c.id = s.clinic_id and c.deleted_at is null
+  where s.deleted_at is null
+    ${clinicServiceScopeWhere({ alias: "s", clinicIds, allClinics })}
+    ${searchWhere}
+  order by s.created_at desc, s.id desc
+  limit ${safe.limit}
+  offset ${safe.offset}
+) result;
+`.trim();
+}
+
+export function buildCreateClinicServiceSql({
+  clinicId,
+  name,
+  category,
+  durationMin,
+  priceMin,
+  priceMax,
+  consentNote = "",
+  onlineBooking = false,
+  active = true,
+  actorUserId = null,
+} = {}) {
+  return `
+with inserted as (
+  insert into clinic_services (
+    clinic_id,
+    name,
+    category,
+    duration_min,
+    price_min,
+    price_max,
+    consent_note,
+    online_booking,
+    active,
+    created_by_user_id,
+    updated_by_user_id
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlLiteral(name)},
+    ${sqlLiteral(category)},
+    ${sqlInteger(durationMin)},
+    ${sqlInteger(priceMin)},
+    ${sqlInteger(priceMax)},
+    ${sqlLiteral(consentNote || "")},
+    ${sqlBoolean(onlineBooking)},
+    ${sqlBoolean(active)},
+    ${sqlNullableUuid(actorUserId)},
+    ${sqlNullableUuid(actorUserId)}
+  )
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    inserted.id::text as "id",
+    inserted.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    inserted.name as "name",
+    inserted.category as "category",
+    inserted.duration_min as "durationMin",
+    inserted.price_min as "priceMin",
+    inserted.price_max as "priceMax",
+    inserted.consent_note as "consentNote",
+    inserted.online_booking as "onlineBooking",
+    inserted.active as "active",
+    inserted.created_at as "createdAt",
+    inserted.updated_at as "updatedAt"
+  from inserted
+  join clinics c on c.id = inserted.clinic_id
+) result;
+`.trim();
+}
+
+export function buildUpdateClinicServiceSql({
+  serviceId,
+  clinicId,
+  name,
+  category,
+  durationMin,
+  priceMin,
+  priceMax,
+  consentNote,
+  onlineBooking,
+  active,
+  actorUserId = null,
+} = {}) {
+  const clauses = [];
+  if (name != null) clauses.push(`name = ${sqlLiteral(name)}`);
+  if (category != null) clauses.push(`category = ${sqlLiteral(category)}`);
+  if (durationMin != null) clauses.push(`duration_min = ${sqlInteger(durationMin)}`);
+  if (priceMin != null) clauses.push(`price_min = ${sqlInteger(priceMin)}`);
+  if (priceMax != null) clauses.push(`price_max = ${sqlInteger(priceMax)}`);
+  if (consentNote != null) clauses.push(`consent_note = ${sqlLiteral(consentNote || "")}`);
+  if (onlineBooking != null) clauses.push(`online_booking = ${sqlBoolean(onlineBooking)}`);
+  if (active != null) clauses.push(`active = ${sqlBoolean(active)}`);
+  clauses.push(`updated_by_user_id = ${sqlNullableUuid(actorUserId)}`);
+  return `
+with updated as (
+  update clinic_services
+  set ${clauses.join(", ")}
+  where id = ${sqlUuid(serviceId)}
+    and clinic_id = ${sqlUuid(clinicId)}
+    and deleted_at is null
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    updated.id::text as "id",
+    updated.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    updated.name as "name",
+    updated.category as "category",
+    updated.duration_min as "durationMin",
+    updated.price_min as "priceMin",
+    updated.price_max as "priceMax",
+    updated.consent_note as "consentNote",
+    updated.online_booking as "onlineBooking",
+    updated.active as "active",
+    updated.created_at as "createdAt",
+    updated.updated_at as "updatedAt"
+  from updated
+  join clinics c on c.id = updated.clinic_id
+) result;
+`.trim();
+}
+
 export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false } = {}) {
   const clinicWhere = allClinics ? "" : `where c.id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const patientClinicWhere = allClinics ? "" : `and p.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
@@ -716,6 +890,15 @@ export function createAdminManagementRepository(dbClient) {
     },
     async updateClinic(params) {
       return dbClient.queryJson(buildUpdateClinicSql(params));
+    },
+    async listClinicServices(params) {
+      return dbClient.queryJson(buildListClinicServicesSql(params));
+    },
+    async createClinicService(params) {
+      return dbClient.queryJson(buildCreateClinicServiceSql(params));
+    },
+    async updateClinicService(params) {
+      return dbClient.queryJson(buildUpdateClinicServiceSql(params));
     },
     async setClinicStatus(params) {
       return dbClient.queryJson(buildSetClinicStatusSql(params));

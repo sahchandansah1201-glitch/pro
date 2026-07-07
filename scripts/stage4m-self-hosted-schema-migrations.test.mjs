@@ -34,6 +34,8 @@ const COMPLETE_SCHEMA = {
   clinicDeletedAtColumn: true,
   userRoleDisabledAtColumn: true,
   serviceApiKeysTable: true,
+  clinicServicesTable: true,
+  clinicServicesRequiredColumns: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
   deviceBridgeCommandsTable: true,
@@ -54,9 +56,11 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, and Stage 6 
   assert.match(out, /0087_stage6_clinic_address\.sql/);
   assert.match(out, /0088_stage6_admin_lifecycle\.sql/);
   assert.match(out, /0090_stage6_service_keys\.sql/);
+  assert.match(out, /0091_stage6_clinic_services\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
   assert.match(out, /service_api_keys table/);
+  assert.match(out, /clinic_services catalog table/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -100,6 +104,7 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[11].input.includes("add column if not exists status"));
   assert.ok(calls[11].input.includes("add column if not exists disabled_at"));
   assert.ok(calls[12].input.includes("create table if not exists service_api_keys"));
+  assert.ok(calls[13].input.includes("create table if not exists clinic_services"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
@@ -167,6 +172,28 @@ test("Stage 4M schema migration runner fails when service keys table is missing"
         },
       ),
     /service_api_keys table/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when clinic services table is missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                clinicServicesTable: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /clinic_services table/,
   );
 });
 

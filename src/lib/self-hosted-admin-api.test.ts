@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   adminApiErrorText,
   createAdminClinic,
+  createAdminClinicService,
   createAdminPrivatePractice,
   createAdminServiceKey,
   deleteAdminClinic,
+  listAdminClinicServices,
   listAdminAuditEvents,
   listAdminServiceKeys,
   reactivateAdminUser,
@@ -13,6 +15,7 @@ import {
   rotateAdminServiceKey,
   setAdminClinicStatus,
   setAdminUserRoleStatus,
+  updateAdminClinicService,
   updateAdminClinic,
 } from "@/lib/self-hosted-admin-api";
 
@@ -370,6 +373,165 @@ describe("self-hosted-admin-api · clinics", () => {
     expect(result.ok).toBe(false);
     expect(adminApiErrorText(result.error)).toBe("Сессия истекла. Выйдите и войдите в систему заново.");
     expect(adminApiErrorText(result.error)).not.toMatch(/Invalid or expired authorization token/i);
+  });
+
+  it("lists, creates, and updates clinic services through the scoped admin API", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "service-1",
+                clinicId: "clinic-1",
+                clinicName: "Яблоко ООО",
+                name: "Первичный приём",
+                category: "consult",
+                durationMin: 30,
+                priceMin: 2500,
+                priceMax: 3500,
+                consentNote: "Согласие на приём",
+                onlineBooking: true,
+                active: true,
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "service-2",
+              clinicId: "clinic-1",
+              clinicName: "Яблоко ООО",
+              name: "Дерматоскопия",
+              category: "imaging",
+              durationMin: 20,
+              priceMin: 1800,
+              priceMax: 2200,
+              consentNote: "Согласие на съёмку",
+              onlineBooking: false,
+              active: true,
+            },
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "service-2",
+              clinicId: "clinic-1",
+              clinicName: "Яблоко ООО",
+              name: "Дерматоскопия расширенная",
+              category: "imaging",
+              durationMin: 25,
+              priceMin: 2000,
+              priceMax: 2400,
+              consentNote: "Согласие на съёмку",
+              onlineBooking: true,
+              active: true,
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const listed = await listAdminClinicServices({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      search: "приём",
+    });
+    const created = await createAdminClinicService({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      payload: {
+        clinicId: "clinic-1",
+        name: "Дерматоскопия",
+        category: "imaging",
+        durationMin: 20,
+        priceMin: 1800,
+        priceMax: 2200,
+        consentNote: "Согласие на съёмку",
+        onlineBooking: false,
+        active: true,
+      },
+    });
+    const updated = await updateAdminClinicService({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      serviceId: "service-2",
+      payload: {
+        clinicId: "clinic-1",
+        name: "Дерматоскопия расширенная",
+        category: "imaging",
+        durationMin: 25,
+        priceMin: 2000,
+        priceMax: 2400,
+        consentNote: "Согласие на съёмку",
+        onlineBooking: true,
+        active: true,
+      },
+    });
+
+    expect(listed.ok).toBe(true);
+    expect(listed.value?.[0].name).toBe("Первичный приём");
+    expect(created.ok).toBe(true);
+    expect(created.value?.category).toBe("imaging");
+    expect(updated.ok).toBe(true);
+    expect(updated.value?.durationMin).toBe(25);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://clinic.local/api/v1/admin/services?search=%D0%BF%D1%80%D0%B8%D1%91%D0%BC",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer token-admin",
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://clinic.local/api/v1/admin/services",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          clinicId: "clinic-1",
+          name: "Дерматоскопия",
+          category: "imaging",
+          durationMin: 20,
+          priceMin: 1800,
+          priceMax: 2200,
+          consentNote: "Согласие на съёмку",
+          onlineBooking: false,
+          active: true,
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://clinic.local/api/v1/admin/services/service-2",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          clinicId: "clinic-1",
+          name: "Дерматоскопия расширенная",
+          category: "imaging",
+          durationMin: 25,
+          priceMin: 2000,
+          priceMax: 2400,
+          consentNote: "Согласие на съёмку",
+          onlineBooking: true,
+          active: true,
+        }),
+      }),
+    );
+    expect(JSON.stringify([listed.value, created.value, updated.value])).not.toMatch(/storagePath|signedUrl|accessToken|sessionId/i);
   });
 
   it("lists production audit events through the safe admin audit API", async () => {

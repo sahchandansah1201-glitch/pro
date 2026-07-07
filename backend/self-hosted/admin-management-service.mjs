@@ -11,6 +11,7 @@ const SYSTEM_CREATABLE_ROLES = ["system_admin", "clinic_admin", "doctor", "priva
 const CLINIC_CREATABLE_ROLES = ["doctor", "private_doctor", "assistant", "operator"];
 const CLINIC_LIFECYCLE_STATUSES = ["active", "suspended", "archived"];
 const ROLE_LIFECYCLE_STATUSES = ["active", "disabled"];
+const CLINIC_SERVICE_CATEGORIES = ["consult", "procedure", "imaging"];
 const SERVICE_KEY_SCOPES = [
   "device:write",
   "booking:write",
@@ -257,6 +258,75 @@ function normalizeServiceKeyPayload(input = {}) {
   if (invalidScopes.length > 0) details.push({ field: "scopes", message: "Выберите доступ из списка." });
   if (payload.expiresInDays < 1 || payload.expiresInDays > 365) {
     details.push({ field: "expiresInDays", message: "Срок действия должен быть от 1 до 365 дней." });
+  }
+  if (details.length > 0) throw new AdminManagementValidationError(details);
+  return payload;
+}
+
+function toInteger(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBoolean(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === "boolean") return value;
+  if (String(value) === "true") return true;
+  if (String(value) === "false") return false;
+  return fallback;
+}
+
+function resolveScopedClinicId(clinicId, scope) {
+  const requested = cleanString(clinicId, 80);
+  if (!requested && !scope.allClinics && scope.clinicIds.length === 1) return scope.clinicIds[0];
+  if (!requested) return null;
+  if (!UUID_PATTERN.test(requested)) {
+    throw new AdminManagementValidationError([{ field: "clinicId", message: "Клиника должна быть выбрана из списка." }]);
+  }
+  if (!scope.allClinics && !scope.clinicIds.includes(requested)) {
+    throw new ForbiddenError("The selected clinic is outside the authenticated user's scope.");
+  }
+  return requested;
+}
+
+function normalizeClinicServicePayload(input = {}, scope, { partial = false } = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const payload = {
+    clinicId: resolveScopedClinicId(input.clinicId, scope),
+    name: cleanString(input.name, 180),
+    category: cleanString(input.category, 40),
+    durationMin: input.durationMin == null ? null : toInteger(input.durationMin),
+    priceMin: input.priceMin == null ? null : toInteger(input.priceMin),
+    priceMax: input.priceMax == null ? null : toInteger(input.priceMax),
+    consentNote: input.consentNote == null && partial ? null : cleanString(input.consentNote, 240) || "",
+    onlineBooking: input.onlineBooking == null && partial ? null : toBoolean(input.onlineBooking, false),
+    active: input.active == null && partial ? null : toBoolean(input.active, true),
+  };
+  const details = [];
+  if (!partial || input.clinicId != null) {
+    if (!payload.clinicId) details.push({ field: "clinicId", message: "Выберите клинику." });
+  }
+  if (!partial || input.name != null) {
+    if (!payload.name || payload.name.length < 3) details.push({ field: "name", message: "Укажите название услуги." });
+  }
+  if (!partial || input.category != null) {
+    if (!CLINIC_SERVICE_CATEGORIES.includes(payload.category)) details.push({ field: "category", message: "Выберите категорию услуги." });
+  }
+  if (!partial || input.durationMin != null) {
+    if (payload.durationMin == null || payload.durationMin < 5 || payload.durationMin > 720) {
+      details.push({ field: "durationMin", message: "Длительность должна быть от 5 до 720 минут." });
+    }
+  }
+  if (!partial || input.priceMin != null) {
+    if (payload.priceMin == null || payload.priceMin < 0) details.push({ field: "priceMin", message: "Минимальная цена не может быть отрицательной." });
+  }
+  if (!partial || input.priceMax != null) {
+    if (payload.priceMax == null || payload.priceMax < 0) details.push({ field: "priceMax", message: "Максимальная цена не может быть отрицательной." });
+  }
+  if (payload.priceMin != null && payload.priceMax != null && payload.priceMax < payload.priceMin) {
+    details.push({ field: "priceMax", message: "Максимальная цена не может быть ниже минимальной." });
   }
   if (details.length > 0) throw new AdminManagementValidationError(details);
   return payload;
@@ -516,6 +586,63 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         metadata: { allClinics: scope.allClinics },
       });
       return { items, meta: listMeta(params, items), scope };
+    },
+
+    async listClinicServices(params, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const items = await adminManagementRepository.listClinicServices({ ...params, ...scope });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.services.list",
+        entityType: "clinic_service",
+        correlationId: meta.correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return { items, meta: listMeta(params, items), scope };
+    },
+
+    async createClinicService(input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const payload = normalizeClinicServicePayload(input, scope);
+      const item = await adminManagementRepository.createClinicService({
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.service.create",
+        entityType: "clinic_service",
+        entityId: item?.id || null,
+        correlationId: meta.correlationId,
+        metadata: { category: payload.category, onlineBooking: payload.onlineBooking },
+      });
+      return { item, scope };
+    },
+
+    async updateClinicService(serviceId, input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeServiceId = assertUuid(serviceId, "serviceId");
+      const payload = normalizeClinicServicePayload(input, scope, { partial: true });
+      if (!payload.clinicId) {
+        throw new AdminManagementValidationError([{ field: "clinicId", message: "Выберите клинику." }]);
+      }
+      const item = await adminManagementRepository.updateClinicService({
+        serviceId: safeServiceId,
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.service.update",
+        entityType: "clinic_service",
+        entityId: safeServiceId,
+        correlationId: meta.correlationId,
+        metadata: { fields: Object.keys(payload).filter((key) => payload[key] != null) },
+      });
+      return { item, scope };
     },
 
     async getAnalytics(authContext, meta = {}) {

@@ -5,15 +5,18 @@ import {
   buildAssignAdminUserRoleSql,
   buildCreateAdminUserSql,
   buildCreateClinicSql,
+  buildCreateClinicServiceSql,
   buildCreatePrivatePracticeSql,
   buildDeleteEmptyClinicSql,
   buildDisableAdminUserSql,
   buildReactivateAdminUserSql,
   buildCreateServiceKeySql,
+  buildListClinicServicesSql,
   buildSetAdminUserRoleStatusSql,
   buildSetClinicStatusSql,
   buildRotateServiceKeySql,
   buildRevokeServiceKeySql,
+  buildUpdateClinicServiceSql,
   buildUpdateClinicSql,
 } from "./admin-management-repository.mjs";
 
@@ -120,6 +123,39 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
   );
 
   assertMutationUsesWritableCte(
+    buildCreateClinicServiceSql({
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      name: "Дерматоскопия",
+      category: "imaging",
+      durationMin: 20,
+      priceMin: 1800,
+      priceMax: 2200,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: false,
+      active: true,
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "inserted",
+  );
+
+  assertMutationUsesWritableCte(
+    buildUpdateClinicServiceSql({
+      serviceId: "10000000-0000-4000-8000-000000000501",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      name: "Дерматоскопия расширенная",
+      category: "imaging",
+      durationMin: 25,
+      priceMin: 2000,
+      priceMax: 2400,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: true,
+      active: true,
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
     buildRotateServiceKeySql({
       keyId: "10000000-0000-4000-8000-000000000401",
       secretPrefix: "dpk_5678",
@@ -136,6 +172,35 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     }),
     "updated",
   );
+});
+
+test("clinic service SQL is scoped and exposes only operational catalog fields", () => {
+  const listSql = buildListClinicServicesSql({
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+    search: "приём",
+  });
+  const createSql = buildCreateClinicServiceSql({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    name: "Первичный приём",
+    category: "consult",
+    durationMin: 30,
+    priceMin: 2500,
+    priceMax: 3500,
+    consentNote: "Согласие на приём",
+    onlineBooking: true,
+    active: true,
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+
+  assert.match(listSql, /from clinic_services s/i);
+  assert.match(listSql, /s\.clinic_id in/);
+  assert.match(listSql, /s\.deleted_at is null/);
+  assert.match(listSql, /"clinicName"/);
+  assert.match(createSql, /insert into clinic_services/i);
+  assert.match(createSql, /duration_min/);
+  assert.match(createSql, /online_booking/);
+  assert.doesNotMatch(`${listSql}\n${createSql}`, /patientName|diagnosis|storagePath|signedUrl|accessToken|sessionId/i);
 });
 
 test("service key SQL stores hash and mask without raw key value", () => {

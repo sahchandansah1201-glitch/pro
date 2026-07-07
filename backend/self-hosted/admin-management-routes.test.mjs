@@ -142,6 +142,66 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async listClinicServices(params, authContext, meta) {
+        calls.push(["listClinicServices", params, authContext.roles, meta.correlationId]);
+        return {
+          items: [
+            {
+              id: "10000000-0000-4000-8000-000000000501",
+              clinicId: "10000000-0000-4000-8000-000000000301",
+              clinicName: "Клиника тест",
+              name: "Первичный приём",
+              category: "consult",
+              durationMin: 30,
+              priceMin: 2500,
+              priceMax: 3500,
+              consentNote: "Согласие на приём",
+              onlineBooking: true,
+              active: true,
+            },
+          ],
+          meta: { limit: 50, offset: 0, count: 1 },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async createClinicService(body, authContext, meta) {
+        calls.push(["createClinicService", body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: "10000000-0000-4000-8000-000000000502",
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            name: body.name,
+            category: body.category,
+            durationMin: body.durationMin,
+            priceMin: body.priceMin,
+            priceMax: body.priceMax,
+            consentNote: body.consentNote,
+            onlineBooking: body.onlineBooking,
+            active: body.active,
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async updateClinicService(serviceId, body, authContext, meta) {
+        calls.push(["updateClinicService", serviceId, body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: serviceId,
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            name: body.name,
+            category: body.category,
+            durationMin: body.durationMin,
+            priceMin: body.priceMin,
+            priceMax: body.priceMax,
+            consentNote: body.consentNote,
+            onlineBooking: body.onlineBooking,
+            active: body.active,
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
       async createServiceKey(body, authContext, meta) {
         calls.push(["createServiceKey", body, authContext.roles, meta.correlationId]);
         return {
@@ -351,6 +411,57 @@ test("admin management routes manage service keys without storing raw values in 
   ]);
 });
 
+test("admin management routes list, create, and update clinic services", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const list = await request("/api/v1/admin/services", { runtime });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.items[0].name, "Первичный приём");
+
+  const created = await request("/api/v1/admin/services", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      name: "Дерматоскопия",
+      category: "imaging",
+      durationMin: 20,
+      priceMin: 1800,
+      priceMax: 2200,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: false,
+      active: true,
+    }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.json.item.category, "imaging");
+
+  const updated = await request("/api/v1/admin/services/10000000-0000-4000-8000-000000000502", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      name: "Дерматоскопия расширенная",
+      category: "imaging",
+      durationMin: 25,
+      priceMin: 2000,
+      priceMax: 2400,
+      consentNote: "Согласие на съёмку",
+      onlineBooking: true,
+      active: true,
+    }),
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.item.durationMin, 25);
+  assert.equal(updated.body.includes("storagePath"), false);
+  assert.deepEqual(calls.map((call) => call[0]).slice(-3), [
+    "listClinicServices",
+    "createClinicService",
+    "updateClinicService",
+  ]);
+});
+
 test("admin management OpenAPI route is public and documents operation ids", async () => {
   const response = await request("/openapi.stage6-admin-management.json", { runtime: createRuntime() });
   assert.equal(response.status, 200);
@@ -360,6 +471,9 @@ test("admin management OpenAPI route is public and documents operation ids", asy
   assert.equal(response.json.paths["/api/v1/admin/users/{userId}/reactivate"].patch.operationId, "reactivateAdminUser");
   assert.equal(response.json.paths["/api/v1/admin/users/{userId}/role-status"].patch.operationId, "setAdminUserRoleStatus");
   assert.equal(response.json.paths["/api/v1/admin/analytics"].get.operationId, "getAdminAnalytics");
+  assert.equal(response.json.paths["/api/v1/admin/services"].get.operationId, "listAdminClinicServices");
+  assert.equal(response.json.paths["/api/v1/admin/services"].post.operationId, "createAdminClinicService");
+  assert.equal(response.json.paths["/api/v1/admin/services/{serviceId}"].patch.operationId, "updateAdminClinicService");
   assert.equal(response.json.paths["/api/v1/admin/audit-events"].get.operationId, "listAdminAuditEvents");
   assert.equal(response.json.paths["/api/v1/admin/service-keys"].get.operationId, "listAdminServiceKeys");
   assert.equal(response.json.paths["/api/v1/admin/service-keys"].post.operationId, "createAdminServiceKey");
