@@ -665,6 +665,7 @@ test.describe("Live production doctor workspace journey", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const visitResponses: { method: string; path: string; status: number }[] = [];
+    const failedApiResponses: { method: string; path: string; status: number }[] = [];
 
     setupDoctorVisitReportFixture({
       suffix,
@@ -683,6 +684,13 @@ test.describe("Live production doctor workspace journey", () => {
     page.on("response", (response) => {
       try {
         const url = new URL(response.url());
+        if (url.pathname.startsWith("/api/") && response.status() >= 400) {
+          failedApiResponses.push({
+            method: response.request().method(),
+            path: `${url.pathname}${url.search}`,
+            status: response.status(),
+          });
+        }
         if (
           url.pathname === "/api/v1/doctor/dashboard" ||
           url.pathname === "/api/v1/leads/appointments" ||
@@ -807,7 +815,8 @@ test.describe("Live production doctor workspace journey", () => {
     expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+\/report$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+\/report-package$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
-    expect(consoleErrors).toEqual([]);
+    expect(failedApiResponses, JSON.stringify(failedApiResponses, null, 2)).toEqual([]);
+    expect(consoleErrors, JSON.stringify({ failedApiResponses, consoleErrors }, null, 2)).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
 });

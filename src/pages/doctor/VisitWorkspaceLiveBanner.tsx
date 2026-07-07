@@ -6,9 +6,7 @@ import { useEffect, useState } from "react";
 
 import {
   getSelfHostedVisit,
-  listSelfHostedVisitAssets,
   listSelfHostedVisitLesions,
-  type SelfHostedVisitAssetDTO,
   type SelfHostedVisitDetailDTO,
   type SelfHostedVisitLesionDTO,
 } from "@/lib/self-hosted-visit-api";
@@ -29,7 +27,6 @@ type LoadState =
       kind: "ready";
       visit: SelfHostedVisitDetailDTO;
       lesions: SelfHostedVisitLesionDTO[];
-      assets: SelfHostedVisitAssetDTO[];
     }
   | { kind: "error"; code: string; message: string };
 
@@ -45,18 +42,13 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
     let cancelled = false;
     setState({ kind: "loading" });
     void (async () => {
-      const [visit, lesions, assets] = await Promise.all([
+      const [visit, lesions] = await Promise.all([
         getSelfHostedVisit({
           apiBaseUrl: session.apiBaseUrl,
           apiToken: session.apiToken,
           visitId,
         }),
         listSelfHostedVisitLesions({
-          apiBaseUrl: session.apiBaseUrl,
-          apiToken: session.apiToken,
-          visitId,
-        }),
-        listSelfHostedVisitAssets({
           apiBaseUrl: session.apiBaseUrl,
           apiToken: session.apiToken,
           visitId,
@@ -75,7 +67,6 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         kind: "ready",
         visit: visit.value,
         lesions: lesions.value ?? [],
-        assets: assets.value ?? [],
       });
     })();
     return () => {
@@ -142,7 +133,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         Очаги: {state.lesions.length}
       </span>
       <span className="text-muted-foreground">
-        Снимки: {state.assets.length}
+        Снимки: в карточке отчёта
       </span>
     </div>
   );

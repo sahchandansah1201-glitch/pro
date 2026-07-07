@@ -45,7 +45,7 @@ describe("VisitWorkspaceLiveBanner", () => {
     expect(banner).toHaveTextContent(/Учебный режим/);
   });
 
-  it("loads visit, lesions and assets in live mode and renders counts", async () => {
+  it("loads visit and lesions in live mode without preloading assets", async () => {
     configureSession();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
@@ -62,14 +62,6 @@ describe("VisitWorkspaceLiveBanner", () => {
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}/lesions`)) {
         return jsonResponse({ items: [{ id: "l1", label: "L1", status: "active" }] });
       }
-      if (url.endsWith(`/api/v1/visits/${VISIT_ID}/assets`)) {
-        return jsonResponse({
-          items: [
-            { id: "a1", kind: "dermoscopy" },
-            { id: "a2", kind: "overview_photo" },
-          ],
-        });
-      }
       throw new Error(`unexpected url ${url}`);
     });
 
@@ -82,8 +74,11 @@ describe("VisitWorkspaceLiveBanner", () => {
     const banner = screen.getByTestId("visit-workspace-live-banner");
     expect(banner).toHaveTextContent(/Система клиники/);
     expect(banner).toHaveTextContent(/Очаги: 1/);
-    expect(banner).toHaveTextContent(/Снимки: 2/);
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(banner).toHaveTextContent(/Снимки: в карточке отчёта/);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).not.toContain(
+      `${BASE}/api/v1/visits/${VISIT_ID}/assets`,
+    );
   });
 
   it("renders error banner when backend returns visit_not_found", async () => {

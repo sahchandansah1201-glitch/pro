@@ -65,6 +65,9 @@ function selectTab(name: RegExp) {
 }
 
 async function openTimelineTechnicalJournal() {
+  if (!screen.queryByText("Технический журнал проверки")) {
+    fireEvent.click(await screen.findByRole("button", { name: /Открыть подробный контроль/ }));
+  }
   fireEvent.click(await screen.findByText("Технический журнал проверки"));
 }
 
@@ -2499,6 +2502,8 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/нет договора выдачи фото в системе клиники/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
     expect(screen.getByText(/Требует проверки/)).toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url)).join("\n")).not.toMatch(/\/assets|patient-photo-protocol-release\/audit|lesion-comparison-viewer-qa\/review-queue|longitudinal-dataset-validation/);
+    fireEvent.click(screen.getByRole("button", { name: /Открыть подробный контроль/ }));
     expect(await screen.findByRole("region", { name: "Журнал выдачи фото" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Очередь проверки снимков" })).toBeInTheDocument();
     expect(screen.getByText(/Технический контур сравнения/)).toBeInTheDocument();
@@ -2814,6 +2819,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", createLiveWorkspaceFetchMock());
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
+    fireEvent.click(await screen.findByRole("button", { name: /Открыть подробный контроль/ }));
     const summary = await screen.findByRole("region", { name: "Рабочее решение по истории" });
     expect(within(summary).getByText("Что готово по реальным данным")).toBeInTheDocument();
     expect(within(summary).getByText("Готово: 0/3")).toBeInTheDocument();
