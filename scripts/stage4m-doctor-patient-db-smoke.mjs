@@ -166,7 +166,7 @@ begin
   values (${sqlLiteral(DOCTOR_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, 'doctor'::app_role);
 
   execute $sql$${createPatientSql}$sql$ into payload;
-  if payload is null or position(${sqlLiteral(patientName)} in payload) = 0 then
+  if payload is null or payload::jsonb->0->>'fullName' is distinct from ${sqlLiteral(patientName)} then
     raise exception 'doctor patient create did not return the created patient';
   end if;
 
@@ -176,12 +176,14 @@ begin
   end if;
 
   execute replace($sql$${updatePatientSql}$sql$, ${sqlLiteral(PATIENT_ID_PLACEHOLDER)}, patient_id) into payload;
-  if payload is null or position(${sqlLiteral(updatedPatientName)} in payload) = 0 or position('"imagingConsent":false' in payload) = 0 then
+  if payload is null
+    or payload::jsonb->0->>'fullName' is distinct from ${sqlLiteral(updatedPatientName)}
+    or payload::jsonb->0->>'imagingConsent' is distinct from 'false' then
     raise exception 'doctor patient update did not return updated patient';
   end if;
 
   execute replace($sql$${archivePatientSql}$sql$, ${sqlLiteral(PATIENT_ID_PLACEHOLDER)}, patient_id) into payload;
-  if payload is null or position('"deletedAt"' in payload) = 0 then
+  if payload is null or payload::jsonb->0->>'deletedAt' is null then
     raise exception 'doctor patient archive did not return archived patient';
   end if;
 end

@@ -52,6 +52,12 @@ test("Stage 4M doctor patient DB smoke SQL exercises create, update and archive 
   assert.match(sql, /doctor patient create did not return the created patient/);
   assert.match(sql, /doctor patient update did not return updated patient/);
   assert.match(sql, /doctor patient archive did not return archived patient/);
+  assert.match(sql, /payload::jsonb->0->>'fullName' is distinct from 'Stage 4M patient smoke test-001'/);
+  assert.match(sql, /payload::jsonb->0->>'fullName' is distinct from 'Stage 4M patient smoke updated test-001'/);
+  assert.match(sql, /payload::jsonb->0->>'imagingConsent' is distinct from 'false'/);
+  assert.match(sql, /payload::jsonb->0->>'deletedAt' is null/);
+  assert.doesNotMatch(sql, /"imagingConsent":false/);
+  assert.doesNotMatch(sql, /position\('"deletedAt"'/);
   assert.match(sql, /stage4m_doctor_patient_db_smoke_ok/);
   assert.doesNotMatch(sql, /from\s*\(\s*with\s+(inserted|updated|archived)\s+as\s*\(/i);
 });
