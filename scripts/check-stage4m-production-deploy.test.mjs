@@ -80,7 +80,7 @@ test("Stage 4M guard rejects ambiguous live e2e sidebar link locators", () => {
   const errors = [];
   validateLiveE2EContract(errors, root);
 
-  assert.match(errors.join("\n"), /uses direct page\.getByRole\("link"\); use a live helper/);
+  assert.match(errors.join("\n"), /uses direct getByRole\("link"\); use mainLink\(page, \.\.\.\) or sidebarLink/);
 });
 
 test("Stage 4M guard requires centralized live admin e2e helpers", () => {
@@ -130,7 +130,41 @@ test("Stage 4M guard rejects any direct live e2e link locator", () => {
   const errors = [];
   validateLiveE2EContract(errors, root);
 
-  assert.match(errors.join("\n"), /uses direct page\.getByRole\("link"\); use a live helper/);
+  assert.match(errors.join("\n"), /uses direct getByRole\("link"\); use mainLink\(page, \.\.\.\) or sidebarLink/);
+});
+
+test("Stage 4M guard rejects scoped direct live e2e link locators", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-scoped-link-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-doctor-workspace-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'await appMain(page).getByRole("link", { name: updatedPatientFullName }).click();',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Рабочий стол";',
+      '"Центр частной практики";',
+      '"/api/v1/admin/private-practices";',
+      '"/api/v1/doctor/dashboard";',
+      '"/api/v1/leads/appointments";',
+      '"/api/v1/patients";',
+      '"Новый пациент";',
+      '"Создать пациента";',
+      '"Сохранить изменения";',
+      '"Архивировать";',
+      '"live-doctor-desk-desktop-1280.png";',
+      '"live-doctor-desk-mobile-390.png";',
+      '"live-doctor-patients-desktop-1280.png";',
+      '"live-doctor-patients-mobile-390.png";',
+      '"live-private-doctor-practice-desktop-1280.png";',
+      '"live-private-doctor-practice-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /production-doctor-workspace-live\.pw\.ts:2 uses direct getByRole\("link"\); use mainLink\(page, \.\.\.\) or sidebarLink/);
 });
 
 test("Stage 4M guard rejects direct live e2e page text locators", () => {

@@ -8,6 +8,11 @@ export function mainText(page: Page, text: string | RegExp) {
   return appMain(page).getByText(text).filter({ visible: true }).first();
 }
 
+export function mainLink(page: Page, name: string | RegExp) {
+  const options = typeof name === "string" ? { name, exact: true } : { name };
+  return appMain(page).getByRole("link", options).filter({ visible: true }).first();
+}
+
 export function bannerText(page: Page, text: string | RegExp) {
   return page.getByRole("banner").getByText(text).filter({ visible: true }).first();
 }

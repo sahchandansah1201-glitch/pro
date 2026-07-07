@@ -8,6 +8,7 @@ import {
   bannerText,
   expectMainTapTargets,
   expectNoHorizontalOverflow,
+  mainLink,
   mainText,
   pageHeaderText,
   sidebarLink,
@@ -236,13 +237,13 @@ test.describe("Live production doctor workspace journey", () => {
     const patientDetailResponsePromise = page.waitForResponse((response) =>
       isResponse(response, "GET", /^\/api\/v1\/patients\/[^/]+$/),
     );
-    await appMain(page).getByRole("link", { name: updatedPatientFullName }).click();
+    await mainLink(page, updatedPatientFullName).click();
     const patientDetailResponse = await patientDetailResponsePromise;
     expect(patientDetailResponse.status()).toBeGreaterThanOrEqual(200);
     expect(patientDetailResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: updatedPatientFullName })).toBeVisible();
     await expect(mainText(page, "Данные из системы клиники")).toBeVisible();
-    await appMain(page).getByRole("link", { name: "К списку" }).click();
+    await mainLink(page, "К списку").click();
     await expect(page.getByRole("heading", { level: 1, name: "Пациенты" })).toBeVisible();
 
     await expectNoHorizontalOverflow(page);

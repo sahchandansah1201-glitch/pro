@@ -362,6 +362,8 @@ const REQUIRED_TEXT = {
     'return page.locator("main").first();',
     "export function mainText(page: Page, text: string | RegExp)",
     "return appMain(page).getByText(text).filter({ visible: true }).first();",
+    "export function mainLink(page: Page, name: string | RegExp)",
+    'return appMain(page).getByRole("link", options).filter({ visible: true }).first();',
     "export function bannerText(page: Page, text: string | RegExp)",
     'return page.getByRole("banner").getByText(text).filter({ visible: true }).first();',
     "export function pageHeaderText(page: Page, title: string, text: string | RegExp)",
@@ -546,7 +548,7 @@ export function validateLiveE2EContract(errors, root) {
     if (!helperImportPattern.test(content)) {
       errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
     }
-    for (const helperName of ["appMain", "bannerText", "mainText", "pageHeaderText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
+    for (const helperName of ["appMain", "bannerText", "mainLink", "mainText", "pageHeaderText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
       const inlineHelperPattern = new RegExp(`(?:async\\s+)?function\\s+${helperName}\\s*\\(`);
       if (inlineHelperPattern.test(content)) {
         errors.push(`${file} defines inline live helper ${helperName}; import it from ./live-admin-test-helpers`);
@@ -559,9 +561,9 @@ export function validateLiveE2EContract(errors, root) {
           `${file}:${index + 1} uses ambiguous page.locator("main"); use appMain(page) for live safety scans`,
         );
       }
-      if (/page\.getByRole\(["']link["']/.test(line)) {
+      if (/\.getByRole\(["']link["']/.test(line)) {
         errors.push(
-          `${file}:${index + 1} uses direct page.getByRole("link"); use a live helper or a scoped region locator`,
+          `${file}:${index + 1} uses direct getByRole("link"); use mainLink(page, ...) or sidebarLink(page, ...)`,
         );
       }
       if (/page\.getByText\(/.test(line)) {
