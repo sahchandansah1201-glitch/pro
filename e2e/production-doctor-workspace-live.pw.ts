@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 import { expect, type Response, test } from "@playwright/test";
 
@@ -19,6 +20,12 @@ const BASE_URL = (process.env.STAGE4M_LIVE_DOCTOR_BASE_URL || "https://pro.skind
 const CREDENTIALS_FILE = process.env.STAGE4M_DOCTOR_SETUP_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
 const REQUIRED_CONFIRMATION = "I_CONFIRM_CREATE_TEST_CLINIC";
 const CONFIRMATION = process.env.STAGE4M_CONFIRM_CREATE_TEST_CLINIC || "";
+const COMPOSE_ENV_FILE = process.env.STAGE4M_COMPOSE_ENV_FILE || "deploy/self-hosted/.env.production";
+const COMPOSE_PROJECT_NAME = process.env.STAGE4M_COMPOSE_PROJECT_NAME || "dermatolog-pro-production";
+const COMPOSE_FILES = [
+  process.env.STAGE4M_COMPOSE_BASE_FILE || "deploy/self-hosted/docker-compose.stage4a.yml",
+  process.env.STAGE4M_COMPOSE_PRODUCTION_FILE || "deploy/self-hosted/docker-compose.production.example.yml",
+];
 
 test.use({
   baseURL: BASE_URL,
@@ -38,6 +45,177 @@ function makeSuffix() {
 function isResponse(response: Response, method: string, matcher: RegExp) {
   const request = response.request();
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
+function sqlLiteral(value: unknown) {
+  return `'${String(value ?? "").replace(/'/g, "''")}'`;
+}
+
+function safeSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+function redact(value: unknown, secrets: string[] = []) {
+  let text = String(value ?? "")
+    .replace(/\$scrypt\$[A-Za-z0-9_./$-]+/g, "[redacted-password-hash]")
+    .replace(/postgres:\/\/([^:]+):([^@]+)@/g, "postgres://$1:[redacted]@")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted-token]");
+  for (const secret of secrets) {
+    if (secret) text = text.split(secret).join("[redacted-secret]");
+  }
+  return text;
+}
+
+function dockerComposeArgs(args: string[]) {
+  const result = ["compose", "--env-file", COMPOSE_ENV_FILE];
+  for (const file of COMPOSE_FILES) result.push("-f", file);
+  return [...result, "-p", COMPOSE_PROJECT_NAME, ...args];
+}
+
+function hashPassword(password: string) {
+  const result = spawnSync("node", ["--input-type=module", "-"], {
+    input: [
+      'import { hashPassword } from "./backend/self-hosted/auth-crypto.mjs";',
+      "const password = process.env.STAGE4M_DOCTOR_FIXTURE_PASSWORD || '';",
+      "process.stdout.write(hashPassword(password));",
+    ].join("\n"),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      STAGE4M_DOCTOR_FIXTURE_PASSWORD: password,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(redact(result.stderr || result.error?.message || `password hash failed with exit ${result.status}`, [password]));
+  }
+  return result.stdout.trim();
+}
+
+function setupDoctorVisitReportFixture({
+  suffix,
+  clinicName,
+  doctorDisplayName,
+  doctorEmail,
+  doctorPassword,
+  patientFullName,
+  visitComplaint,
+}: {
+  suffix: string;
+  clinicName: string;
+  doctorDisplayName: string;
+  doctorEmail: string;
+  doctorPassword: string;
+  patientFullName: string;
+  visitComplaint: string;
+}) {
+  const clinicSlug = safeSlug(`live-doctor-visit-report-${suffix}`);
+  const patientCode = `LIVE-REPORT-${suffix}`;
+  const passwordHash = hashPassword(doctorPassword);
+  const sql = `
+begin;
+
+with upserted_clinic as (
+  insert into clinics (slug, name, timezone, address)
+  values (${sqlLiteral(clinicSlug)}, ${sqlLiteral(clinicName)}, 'Europe/Moscow', ${sqlLiteral(`Краснодар, отчёты ${suffix}`)})
+  on conflict (slug) do update
+  set name = excluded.name,
+      address = excluded.address,
+      updated_at = now()
+  returning id, name
+),
+upserted_doctor as (
+  insert into app_users (email, display_name, password_hash, disabled_at)
+  values (${sqlLiteral(doctorEmail)}, ${sqlLiteral(doctorDisplayName)}, ${sqlLiteral(passwordHash)}, null)
+  on conflict (email) do update
+  set display_name = excluded.display_name,
+      password_hash = excluded.password_hash,
+      disabled_at = null,
+      updated_at = now()
+  returning id
+),
+doctor_role as (
+  insert into user_roles (user_id, clinic_id, role)
+  select d.id, c.id, 'doctor'::app_role
+  from upserted_doctor d
+  cross join upserted_clinic c
+  on conflict (user_id, clinic_id, role) do nothing
+  returning id
+),
+upserted_patient as (
+  insert into patients (clinic_id, code, full_name, birth_date, sex, phototype, imaging_consent, created_by)
+  select c.id, ${sqlLiteral(patientCode)}, ${sqlLiteral(patientFullName)}, '1987-04-12'::date, 'female', 'III', true, d.id
+  from upserted_clinic c
+  cross join upserted_doctor d
+  on conflict (clinic_id, code) do update
+  set full_name = excluded.full_name,
+      imaging_consent = true,
+      deleted_at = null,
+      updated_at = now()
+  returning id, clinic_id
+),
+created_visit as (
+  insert into visits (clinic_id, patient_id, doctor_user_id, status, started_at, chief_complaint)
+  select c.id, p.id, d.id, 'in_progress'::visit_status, now(), ${sqlLiteral(visitComplaint)}
+  from upserted_clinic c
+  cross join upserted_patient p
+  cross join upserted_doctor d
+  returning id, clinic_id, patient_id, doctor_user_id
+),
+created_lesion as (
+  insert into lesions (clinic_id, patient_id, visit_id, label, body_zone, body_surface, risk_level)
+  select v.clinic_id, v.patient_id, v.id, ${sqlLiteral(`Очаг отчёта ${suffix}`)}, 'предплечье', 'front', 'low'
+  from created_visit v
+  returning id
+),
+created_report as (
+  insert into reports (clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text)
+  select v.clinic_id, v.patient_id, v.id, v.doctor_user_id, 'draft', ${sqlLiteral(`Черновик врача ${suffix}`)}, ${sqlLiteral(`Текст для пациента ${suffix}`)}
+  from created_visit v
+  returning id
+)
+insert into audit_log (clinic_id, actor_user_id, action, entity_type, entity_id, correlation_id, metadata_json)
+select
+  c.id,
+  d.id,
+  'stage4m.doctor_visit_report_live_fixture',
+  'visit',
+  v.id,
+  ${sqlLiteral(`stage4m-doctor-visit-report-${suffix}`)},
+  jsonb_build_object('source', 'live_e2e_fixture', 'role', 'doctor')
+from upserted_clinic c
+cross join upserted_doctor d
+cross join created_visit v;
+
+commit;
+`.trim();
+
+  const result = spawnSync("docker", dockerComposeArgs([
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "--no-psqlrc",
+    "--quiet",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "-U",
+    "dermatolog",
+    "-d",
+    "dermatolog_pro",
+  ]), {
+    input: sql,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  if (result.error || result.status !== 0) {
+    throw new Error(redact(result.stderr || result.stdout || result.error?.message || `fixture failed with exit ${result.status}`, [
+      doctorPassword,
+      passwordHash,
+    ]));
+  }
 }
 
 test.describe("Live production doctor workspace journey", () => {
@@ -468,6 +646,167 @@ test.describe("Live production doctor workspace journey", () => {
 
     expect(practiceResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/private-practices" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(practiceResponses.some((item) => item.method === "POST" && item.path === "/api/v1/leads" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("doctor opens visits and reports from real clinic records", async ({
+    page,
+  }, testInfo) => {
+    test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
+
+    const suffix = makeSuffix();
+    const clinicName = `Клиника отчётов ${suffix}`;
+    const doctorDisplayName = `Врач отчётов ${suffix}`;
+    const doctorEmail = `doctor-reports-${suffix}@skindoktor.ru`;
+    const doctorPassword = `Dp-${suffix}-Reports-2026!`;
+    const patientFullName = `Пациент отчёта ${suffix}`;
+    const visitComplaint = `Проверка визита и отчёта ${suffix}`;
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    const visitResponses: { method: string; path: string; status: number }[] = [];
+
+    setupDoctorVisitReportFixture({
+      suffix,
+      clinicName,
+      doctorDisplayName,
+      doctorEmail,
+      doctorPassword,
+      patientFullName,
+      visitComplaint,
+    });
+
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("response", (response) => {
+      try {
+        const url = new URL(response.url());
+        if (
+          url.pathname === "/api/v1/doctor/dashboard" ||
+          url.pathname === "/api/v1/leads/appointments" ||
+          url.pathname === "/api/v1/visits" ||
+          /^\/api\/v1\/visits\/[^/]+$/.test(url.pathname) ||
+          /^\/api\/v1\/visits\/[^/]+\/lesions$/.test(url.pathname) ||
+          /^\/api\/v1\/visits\/[^/]+\/report$/.test(url.pathname) ||
+          /^\/api\/v1\/visits\/[^/]+\/report-package$/.test(url.pathname)
+        ) {
+          visitResponses.push({
+            method: response.request().method(),
+            path: url.pathname,
+            status: response.status(),
+          });
+        }
+      } catch {
+        // Ignore non-URL response records.
+      }
+    });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/self-hosted/login", { waitUntil: "networkidle" });
+    await page.getByLabel("Адрес системы клиники").fill(BASE_URL);
+    await page.getByLabel("Эл. почта").fill(doctorEmail);
+    await page.getByLabel("Пароль").fill(doctorPassword);
+    await page.getByRole("button", { name: /^Войти$/ }).click();
+    await expect(bannerText(page, "Рабочее место · Дерматолог")).toBeVisible({ timeout: 15_000 });
+
+    const visitsResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits$/),
+    );
+    await sidebarLink(page, "Визиты").click();
+    const visitsResponse = await visitsResponsePromise;
+    expect(visitsResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(visitsResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Визиты" })).toBeVisible();
+    await expect(mainText(page, "Данные загружаются из системы клиники.")).toBeVisible();
+
+    const visitSearchResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits$/),
+    );
+    await page.getByLabel("Поиск визитов").fill(patientFullName);
+    const visitSearchResponse = await visitSearchResponsePromise;
+    expect(visitSearchResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(visitSearchResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, patientFullName)).toBeVisible();
+    await expect(mainText(page, visitComplaint)).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|учебная очередь|учебн|демо|mock|system_admin|clinic_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-visits-desktop-1280.png"), fullPage: true });
+
+    const visitDetailResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits\/[^/]+$/),
+    );
+    await mainLink(page, "Открыть визит").click();
+    const visitDetailResponse = await visitDetailResponsePromise;
+    expect(visitDetailResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(visitDetailResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(patientFullName) })).toBeVisible();
+    await expect(mainText(page, "Источник данных: система клиники")).toBeVisible();
+
+    const reportResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits\/[^/]+\/report$/),
+    );
+    const reportPackageResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits\/[^/]+\/report-package$/),
+    );
+    await page.getByRole("tab", { name: "Отчёт" }).click();
+    const [reportResponse, reportPackageResponse] = await Promise.all([
+      reportResponsePromise,
+      reportPackageResponsePromise,
+    ]);
+    expect(reportResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reportResponse.status()).toBeLessThan(300);
+    expect(reportPackageResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reportPackageResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, "Рабочий отчёт")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|учебная очередь|учебн|демо|mock|system_admin|clinic_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+
+    await sidebarLink(page, "Отчёты").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Отчёты" })).toBeVisible();
+    const reportQueueResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/visits$/),
+    );
+    await page.getByLabel("Поиск отчётов").fill(patientFullName);
+    const reportQueueResponse = await reportQueueResponsePromise;
+    expect(reportQueueResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reportQueueResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, patientFullName)).toBeVisible();
+    await expect(mainText(page, "Черновик открыт")).toBeVisible();
+    await expect(mainText(page, "Источник данных: система клиники.")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|учебная очередь|учебн|демо|mock|system_admin|clinic_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-reports-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Отчёты" })).toBeVisible();
+    await expect(mainText(page, patientFullName)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-reports-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await sidebarLink(page, "Визиты").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Визиты" })).toBeVisible();
+    await page.getByLabel("Поиск визитов").fill(patientFullName);
+    await expect(mainText(page, patientFullName)).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-visits-mobile-390.png"), fullPage: true });
+
+    expect(visitResponses.some((item) => item.method === "GET" && item.path === "/api/v1/doctor/dashboard" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(visitResponses.some((item) => item.method === "GET" && item.path === "/api/v1/leads/appointments" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(visitResponses.some((item) => item.method === "GET" && item.path === "/api/v1/visits" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+\/report$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(visitResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+\/report-package$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });

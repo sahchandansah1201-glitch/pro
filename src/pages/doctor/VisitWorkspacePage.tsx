@@ -1721,7 +1721,7 @@ function ProductionClinicalWorkspacePanel({
     <Section title={title}>
       <div className="space-y-4">
         <div className="rounded-sm border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочая запись клиники: учебные оценки и учебный отчёт скрыты. Статус записи:{" "}
+          Рабочая запись клиники: показаны только данные этого визита. Статус записи:{" "}
           <span className="font-medium text-foreground">{humanDisplayValue(itemStatus)}</span>.
         </div>
 

@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import DoctorReportsPage from "./DoctorReportsPage";
+import DoctorReportsPageDemo from "./DoctorReportsPageDemo";
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <DoctorReportsPage />
+      <MemoryRouter>
+      <DoctorReportsPageDemo />
     </MemoryRouter>,
   );
 }
