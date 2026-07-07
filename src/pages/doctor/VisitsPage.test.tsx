@@ -69,6 +69,7 @@ describe("VisitsPage · Stage 5J clinic schedule", () => {
     );
 
     expect((await screen.findAllByText("Пациент из системы")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Повод: Контроль/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Данные загружаются из системы клиники/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Что делать с визитами сейчас" })).toBeInTheDocument();
     expect(screen.getByText("Клиника Север")).toBeInTheDocument();

@@ -66,11 +66,13 @@ function visitHref(visit: SelfHostedVisitScheduleItemDTO): string {
 
 function VisitRow({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
   const href = visitHref(visit);
+  const complaint = visit.chiefComplaint?.trim();
   return (
     <div className="grid grid-cols-[1.2fr_1fr_1fr_110px_40px] items-center border-b border-border px-4 py-3 text-row last:border-b-0">
       <div className="min-w-0">
         <div className="truncate font-medium">{visit.patient.fullName ?? "Пациент"}</div>
         <div className="truncate text-muted-foreground">{formatCardNumber(visit.patient.code)}</div>
+        {complaint ? <div className="truncate text-muted-foreground">Повод: {complaint}</div> : null}
       </div>
       <div>{visit.startedAt ? formatDateTime(visit.startedAt) : "—"}</div>
       <div className="truncate">{visit.clinic.name ?? "Клиника"}</div>
@@ -84,6 +86,7 @@ function VisitRow({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
 
 function VisitCard({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
   const href = visitHref(visit);
+  const complaint = visit.chiefComplaint?.trim();
   return (
     <article className="rounded-md border border-border bg-surface px-3 py-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -97,6 +100,11 @@ function VisitCard({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
           <p className="mt-1 text-[12px] text-muted-foreground">
             № {formatCardNumber(visit.patient.code)} · {statusLabel(visit.status)}
           </p>
+          {complaint ? (
+            <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+              Повод: {complaint}
+            </p>
+          ) : null}
         </div>
         <Button asChild variant="outline" size="sm" className="min-h-11 shrink-0">
           <Link to={href}>Открыть</Link>
