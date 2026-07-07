@@ -16,6 +16,7 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 
 interface VisitWorkspaceLiveBannerProps {
   visitId: string | undefined;
@@ -121,7 +122,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         data-mode="error"
         className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-[12px] text-destructive"
       >
-        Система клиники вернула ошибку: {state.code}. {state.message}
+        Система клиники: {selfHostedPublicErrorText(state)}
       </div>
     );
   }

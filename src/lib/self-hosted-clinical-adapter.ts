@@ -7,7 +7,7 @@ import type {
 } from "@/lib/self-hosted-visit-api";
 import { selfHostedPatientToDomain } from "@/lib/self-hosted-patient-api";
 
-export const SELF_HOSTED_LIVE_SOURCE_LABEL = "Источник данных: self-hosted backend";
+export const SELF_HOSTED_LIVE_SOURCE_LABEL = "Источник данных: система клиники";
 
 function normalizeSex(input: unknown): Sex {
   return input === "male" ? "male" : "female";
@@ -43,7 +43,7 @@ export function selfHostedVisitToDomain(dto: SelfHostedVisitDTO): Visit {
   return {
     id: dto.id,
     patientId: dto.patientId ?? projectedPatientId ?? "",
-    doctorId: dto.doctorUserId ?? "self-hosted-backend",
+    doctorId: dto.doctorUserId ?? "system-clinic",
     assistantId: null,
     clinicId: dto.clinicId ?? "self-hosted-clinic",
     status,
@@ -57,7 +57,7 @@ export function selfHostedVisitDetailToPatient(dto: SelfHostedVisitDetailDTO): P
   return {
     id: dto.patient.id ?? dto.patientId ?? "",
     code: dto.patient.code ?? "—",
-    fullName: dto.patient.fullName ?? "Пациент self-hosted",
+    fullName: dto.patient.fullName ?? "Пациент системы клиники",
     birthDate: "1900-01-01",
     sex: "female",
     phototype: "II",
@@ -67,7 +67,7 @@ export function selfHostedVisitDetailToPatient(dto: SelfHostedVisitDetailDTO): P
       imaging: false,
       telemed: false,
     },
-    createdBy: "self-hosted-backend",
+    createdBy: "system-clinic",
     createdAt: dto.createdAt ?? "",
   };
 }

@@ -427,7 +427,7 @@ function createLiveWorkspaceFetchMock() {
               id: "live-visit",
               clinicId: "clinic-1",
               patientId: "live-patient",
-              doctorUserId: "doctor-1",
+              doctorUserId: "edc29a29-afa5-4608-a93e-de2c728472c3",
               status: "in_progress",
               startedAt: "2026-05-12T09:00:00.000Z",
               signedAt: null,
@@ -2422,12 +2422,41 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
 
     expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
     expect(screen.getByText(/Источник данных: система клиники/)).toBeInTheDocument();
+    expect(screen.getAllByText(/врач клиники/i).length).toBeGreaterThan(0);
+    expect(document.body).not.toHaveTextContent(/edc29a29-afa5-4608-a93e-de2c728472c3/);
     expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Визит не найден/)).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/"))) {
       expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer local-jwt" });
     }
+  });
+
+  it("maps technical production API errors to public clinic-system copy", async () => {
+    const baseFetchMock = createLiveWorkspaceFetchMock();
+    const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/visits/live-visit/assessment")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "database_unavailable",
+                message: "Database is unavailable for the self-hosted backend.",
+              },
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      return baseFetchMock(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
+
+    expect(await screen.findByText(/Рабочая база временно недоступна/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Database is unavailable|self-hosted|backend|PostgreSQL/i);
   });
 });
 
@@ -2450,13 +2479,13 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
 
     expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /Рабочая оценка/ })).toBeInTheDocument();
-    expect(screen.getByText(/учебные оценки и учебный отчёт скрыты/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/учебн|Database is unavailable|self-hosted|backend|PostgreSQL/i);
     expect(screen.getByDisplayValue(/Рабочая оценка/)).toBeInTheDocument();
 
     selectTab(/Заключение/);
     expect(await screen.findByRole("heading", { name: /Рабочее заключение/ })).toBeInTheDocument();
     expect(screen.getByDisplayValue(/Рабочее заключение/)).toBeInTheDocument();
-    expect(screen.getAllByText(/учебные оценки и учебный отчёт скрыты/).length).toBeGreaterThan(0);
+    expect(document.body).not.toHaveTextContent(/учебн|Database is unavailable|self-hosted|backend|PostgreSQL/i);
 
     selectTab(/Отчёт/);
     expect(await screen.findByRole("heading", { name: /Рабочий отчёт/ })).toBeInTheDocument();
@@ -2626,7 +2655,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("validatorEmail");
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
-    expect(screen.getAllByText(/учебные оценки и учебный отчёт скрыты/).length).toBeGreaterThan(0);
+    expect(document.body).not.toHaveTextContent(/учебн|Database is unavailable|self-hosted|backend|PostgreSQL/i);
   });
 
   it("does not synthesize production clinical or reviewer approval counts from zero values", () => {
@@ -3457,7 +3486,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
 
-    expect(screen.getByText(/локальное учебное добавление очага отключено/)).toBeInTheDocument();
+    expect(screen.getByText(/локальное добавление очага отключено/)).toBeInTheDocument();
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
     expect(screen.queryByRole("button", { name: /Добавить локально/ })).toBeNull();
   });

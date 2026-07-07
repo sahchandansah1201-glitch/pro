@@ -105,6 +105,8 @@ describe("VisitWorkspaceLiveBanner", () => {
       const banner = screen.getByTestId("visit-workspace-live-banner");
       expect(banner.dataset.mode).toBe("error");
     });
-    expect(screen.getByTestId("visit-workspace-live-banner")).toHaveTextContent(/visit_not_found/);
+    expect(screen.getByTestId("visit-workspace-live-banner")).toHaveTextContent(
+      /Запись не найдена или недоступна для текущей клиники/,
+    );
   });
 });

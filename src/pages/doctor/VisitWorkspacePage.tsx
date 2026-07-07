@@ -43,6 +43,7 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 import {
   getSelfHostedVisit,
   listSelfHostedVisitLesions,
@@ -146,9 +147,9 @@ const SEX_LABEL_SHORT: Record<Patient["sex"], string> = {
   female: "жен.",
 };
 
-function userName(id: string | null | undefined): string {
+function staffName(id: string | null | undefined, fallback = "сотрудник клиники"): string {
   if (!id) return "—";
-  return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? id;
+  return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? fallback;
 }
 
 type LiveWorkspaceState =
@@ -237,14 +238,14 @@ export default function VisitWorkspacePage() {
       if (!visitResult.ok || !visitResult.value) {
         setLiveState({
           kind: "error",
-          message: visitResult.error?.message ?? "Не удалось загрузить визит из системы клиники.",
+          message: selfHostedPublicErrorText(visitResult.error, "Не удалось загрузить визит из системы клиники."),
         });
         return;
       }
       if (!lesionsResult.ok) {
         setLiveState({
           kind: "error",
-          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита из системы клиники.",
+          message: selfHostedPublicErrorText(lesionsResult.error, "Не удалось загрузить очаги визита из системы клиники."),
         });
         return;
       }
@@ -294,7 +295,7 @@ export default function VisitWorkspacePage() {
   if (!patient || !visit || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title="Визит не найден" subtitle="Карточка визита отсутствует в учебных данных." />
+        <PageHeader title="Визит не найден" subtitle="Карточка визита отсутствует в системе клиники." />
         <div className="p-4">
           <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
             <Link to={id ? `/patients/${id}` : "/patients"}>К карточке пациента</Link>
@@ -323,7 +324,7 @@ export default function VisitWorkspacePage() {
     { label: "Фототип", value: String(patient.phototype) },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
     { label: "Клиника", value: clinic?.name ?? "—" },
-    { label: "Врач", value: userName(visit.doctorId) },
+    { label: "Врач", value: staffName(visit.doctorId, "врач клиники") },
   ];
 
   return (
@@ -361,7 +362,7 @@ export default function VisitWorkspacePage() {
           className="border-b border-border bg-surface px-4 py-2 text-[12px] text-muted-foreground"
         >
           <span className="font-medium text-foreground">Источник данных: система клиники</span>
-          {" · "}рабочее место визита не использует учебные данные пациента и визита.
+          {" · "}рабочее место визита показывает только данные системы клиники.
         </div>
       ) : null}
 
@@ -569,7 +570,7 @@ function ProductionClinicalWorkspacePanel({
         ? await getSelfHostedVisitConclusion(args)
         : await getSelfHostedVisitReport(args);
     if (!result.ok) {
-      setState({ kind: "error", message: result.error?.message ?? "Не удалось загрузить рабочую запись." });
+      setState({ kind: "error", message: selfHostedPublicErrorText(result.error, "Не удалось загрузить рабочую запись.") });
       return;
     }
     if (kind === "assessment") {
@@ -698,7 +699,7 @@ function ProductionClinicalWorkspacePanel({
           });
     setSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить рабочую запись.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить рабочую запись."));
       return;
     }
     await load();
@@ -722,7 +723,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setPolicySaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить политику выдачи фото.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить политику выдачи фото."));
       return;
     }
     await load();
@@ -747,7 +748,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить запуск проверки истории.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить запуск проверки истории."));
       return;
     }
     await load();
@@ -785,7 +786,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutSopSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить правила запуска истории.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить правила запуска истории."));
       return;
     }
     await load();
@@ -831,7 +832,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить подтверждения запуска.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить подтверждения запуска."));
       return;
     }
     await load();
@@ -882,7 +883,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutMonitoringSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить наблюдение результатов.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить наблюдение результатов."));
       return;
     }
     await load();
@@ -936,7 +937,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutIncidentProcedureSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить порядок инцидентов.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить порядок инцидентов."));
       return;
     }
     await load();
@@ -985,7 +986,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutClinicalValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить клиническую проверку.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить клиническую проверку."));
       return;
     }
     await load();
@@ -1042,7 +1043,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutPostValidationMonitoringSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить наблюдение после проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить наблюдение после проверки."));
       return;
     }
     await load();
@@ -1104,7 +1105,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutObservationGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить контроль наблюдения.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить контроль наблюдения."));
       return;
     }
     await load();
@@ -1158,7 +1159,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutExceptionGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить закрытие исключений.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить закрытие исключений."));
       return;
     }
     await load();
@@ -1213,7 +1214,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutOutcomeGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить контроль результатов.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить контроль результатов."));
       return;
     }
     await load();
@@ -1268,7 +1269,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutLongitudinalClinicalValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить проверку истории.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить проверку истории."));
       return;
     }
     await load();
@@ -1325,7 +1326,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить проверку закрытых снимков.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить проверку закрытых снимков."));
       return;
     }
     await load();
@@ -1387,7 +1388,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить контроль закрытой проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить контроль закрытой проверки."));
       return;
     }
     await load();
@@ -1455,7 +1456,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить подтверждения закрытой проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить подтверждения закрытой проверки."));
       return;
     }
     await load();
@@ -1510,7 +1511,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionDatasetEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить подтверждение рабочих данных.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить подтверждение рабочих данных."));
       return;
     }
     await load();
@@ -1572,7 +1573,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionReviewerRollbackEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить откат рабочей проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить откат рабочей проверки."));
       return;
     }
     await load();
@@ -1632,7 +1633,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionReviewerGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить контроль рабочей проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить контроль рабочей проверки."));
       return;
     }
     await load();
@@ -1689,7 +1690,7 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionReviewerEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить подтверждение рабочей проверки.");
+      setStatus(selfHostedPublicErrorText(result.error, "Не удалось сохранить подтверждение рабочей проверки."));
       return;
     }
     await load();
@@ -4428,15 +4429,15 @@ function ProductionClinicalWorkspaceEmptyState({
   const copy = {
     assessment: {
       title: "Оценка ждёт систему клиники",
-      text: "Рабочее место клиники: учебные данные скрыты. Клиническая оценка будет доступна после подключения системы клиники.",
+      text: "Рабочее место клиники показывает только рабочие данные. Клиническая оценка будет доступна после подключения системы клиники.",
     },
     conclusion: {
       title: "Заключение ждёт систему клиники",
-      text: "Рабочее место клиники: учебные данные скрыты. Заключение не собирается из учебных данных.",
+      text: "Рабочее место клиники показывает только рабочие данные. Заключение собирается из записей системы клиники.",
     },
     report: {
       title: "Отчёт ждёт систему клиники",
-      text: "Рабочее место клиники: учебные данные скрыты. Рабочий отчёт будет собираться только из данных системы клиники.",
+      text: "Рабочее место клиники показывает только рабочие данные. Рабочий отчёт собирается из данных системы клиники.",
     },
   }[kind];
 
@@ -4446,7 +4447,7 @@ function ProductionClinicalWorkspaceEmptyState({
         <p>{detail || copy.text}</p>
         <p>
           Граница рабочей системы: экран показывает только данные пациента, визита и очагов из системы клиники.
-          Учебные оценки не подставляются.
+          Локальные примеры не подставляются.
         </p>
       </div>
     </Section>
@@ -4464,8 +4465,8 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
         <Field term="Статус" value={VISIT_STATUS[visit.status]} />
         <Field term="Начат" value={formatDateTime(visit.startedAt)} />
         <Field term="Закрыт" value={visit.closedAt ? formatDateTime(visit.closedAt) : "—"} />
-        <Field term="Врач" value={userName(visit.doctorId)} />
-        <Field term="Ассистент" value={userName(visit.assistantId)} />
+        <Field term="Врач" value={staffName(visit.doctorId, "врач клиники")} />
+        <Field term="Ассистент" value={staffName(visit.assistantId, "ассистент клиники")} />
         <Field term="Клиника" value={clinic ? `${clinic.name} · ${clinic.address}` : "—"} />
       </Section>
 
@@ -4613,7 +4614,7 @@ function BodyMapTab({
   const handlePlace = (np: { view: View; x: number; y: number }) => {
     if (productionMode) {
       setProductionPlacementNotice(
-        "Рабочий режим: локальное учебное добавление очага отключено. Используйте запись визита из системы клиники.",
+        "Рабочий режим: локальное добавление очага отключено. Используйте запись визита из системы клиники.",
       );
       return;
     }
@@ -5026,7 +5027,7 @@ function BodyMapTab({
             </div>
             {productionMode ? (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Рабочее место клиники: учебные данные скрыты. Карта тела показывает только
+                Рабочее место клиники показывает только рабочие данные. Карта тела показывает только
                 размещение очага из системы клиники; оценки и отчёты ждут рабочие контракты.
               </p>
             ) : (

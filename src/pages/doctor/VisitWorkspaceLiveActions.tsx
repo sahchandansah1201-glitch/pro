@@ -11,6 +11,7 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 import {
   createSelfHostedClinicalFollowUpSopPolicyTemplate,
   createSelfHostedVisitFollowUp,
@@ -553,10 +554,8 @@ const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIV
 
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
-  if (!error) return "Не удалось сохранить изменения.";
-  if (error.code === "forbidden") return "Недостаточно прав для записи в систему клиники.";
-  if (error.code === "validation_error") return "Проверьте поля: система клиники вернула ошибку.";
-  return error.message || "Не удалось сохранить изменения.";
+  if (error?.code === "validation_error") return "Проверьте поля: система клиники вернула ошибку.";
+  return selfHostedPublicErrorText(error, "Не удалось сохранить изменения.");
 }
 
 const STATE_LABELS: Record<string, string> = {
