@@ -65,6 +65,11 @@ function isAdminGovernanceResponse(response: Response, method: string, matcher: 
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isDeviceResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 function isOpsResponse(response: Response, path: string) {
   const request = response.request();
   return request.method() === "GET" && new URL(response.url()).pathname === path;
@@ -104,6 +109,7 @@ test.describe("Live production admin management journey", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const adminResponses: { method: string; path: string; status: number }[] = [];
+    const deviceResponses: { method: string; path: string; status: number }[] = [];
     const governanceResponses: { method: string; path: string; status: number }[] = [];
 
     page.on("console", (msg) => {
@@ -131,6 +137,13 @@ test.describe("Live production admin management journey", () => {
         }
         if (url.pathname.startsWith("/api/v1/patient-photo-protocol-release/governance")) {
           governanceResponses.push({
+            method: response.request().method(),
+            path: url.pathname,
+            status: response.status(),
+          });
+        }
+        if (url.pathname.startsWith("/api/v1/device")) {
+          deviceResponses.push({
             method: response.request().method(),
             path: url.pathname,
             status: response.status(),
@@ -269,6 +282,21 @@ test.describe("Live production admin management journey", () => {
     await page.getByLabel("Пароль").fill(adminPassword);
     await page.getByRole("button", { name: /^Войти$/ }).click();
     await expect(bannerText(page, "Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
+    for (const name of [
+      "Клиники и кабинеты",
+      "Сотрудники и доступ",
+      "Врачи",
+      "Аналитика",
+      "Устройства",
+      "Аудит",
+      "События доступа",
+      "Готовность публикации",
+      "Рабочий контур",
+      "Служебные ключи",
+      "Справка",
+    ]) {
+      await expect(sidebarLinks(page, name), `system_admin sidebar should include ${name}`).toHaveCount(1);
+    }
     await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(mainText(page, adminDisplayName).first()).toBeVisible();
 
@@ -278,6 +306,56 @@ test.describe("Live production admin management journey", () => {
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-admin-users-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const deviceBridgeResponsePromise = page.waitForResponse((response) =>
+      isDeviceResponse(response, "GET", /^\/api\/v1\/device-bridges$/),
+    );
+    const devicesResponsePromise = page.waitForResponse((response) =>
+      isDeviceResponse(response, "GET", /^\/api\/v1\/devices$/),
+    );
+    const deviceWorkerStatusResponsePromise = page.waitForResponse((response) =>
+      isDeviceResponse(response, "GET", /^\/api\/v1\/device-bridge-worker\/status$/),
+    );
+    const deviceReadinessResponsePromise = page.waitForResponse((response) =>
+      isDeviceResponse(response, "GET", /^\/api\/v1\/device-bridge-worker\/production-readiness$/),
+    );
+    await sidebarLink(page, "Устройства").click();
+    const [
+      deviceBridgeResponse,
+      devicesResponse,
+      deviceWorkerStatusResponse,
+      deviceReadinessResponse,
+    ] = await Promise.all([
+      deviceBridgeResponsePromise,
+      devicesResponsePromise,
+      deviceWorkerStatusResponsePromise,
+      deviceReadinessResponsePromise,
+    ]);
+    for (const response of [
+      deviceBridgeResponse,
+      devicesResponse,
+      deviceWorkerStatusResponse,
+      deviceReadinessResponse,
+    ]) {
+      expect(response.status()).toBeGreaterThanOrEqual(200);
+      expect(response.status()).toBeLessThan(300);
+    }
+    await expect(page.getByRole("heading", { level: 1, name: "Устройства" })).toBeVisible();
+    await expect(mainText(page, "Рабочая система подключена. Устройства и мосты читаются из реестра рабочей системы клиники.")).toBeVisible();
+    await expect(mainText(page, "Реестр устройств загружен из рабочей системы.")).toBeVisible();
+    await expect(mainText(page, "Служба моста устройств")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|Object storage runtime|storagePath|signedUrl|accessToken|qrToken|sessionId|credential|Device Bridge|metadata|payload_json|worker-only/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-devices-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Устройства" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-devices-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
     const auditResponsePromise = page.waitForResponse(isAdminAuditResponse);
@@ -905,6 +983,14 @@ test.describe("Live production admin management journey", () => {
       "/api/v1/patient-photo-protocol-release/governance/revoke-expired",
     ]) {
       expect(governanceResponses.some((item) => item.method === "POST" && item.path === path && item.status >= 200 && item.status < 300)).toBe(true);
+    }
+    for (const path of [
+      "/api/v1/device-bridges",
+      "/api/v1/devices",
+      "/api/v1/device-bridge-worker/status",
+      "/api/v1/device-bridge-worker/production-readiness",
+    ]) {
+      expect(deviceResponses.some((item) => item.method === "GET" && item.path === path && item.status >= 200 && item.status < 300)).toBe(true);
     }
     expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "DELETE" && item.status >= 200 && item.status < 300)).toBe(true);

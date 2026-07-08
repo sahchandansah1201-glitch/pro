@@ -370,6 +370,18 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
+    ["Verify device bridge registry database journey", "node", [
+      "scripts/stage4m-device-bridge-db-smoke.mjs",
+      "verify",
+      "--project-name",
+      options.projectName,
+      "--compose-env-file",
+      options.envFile,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+    ]],
     ["Verify doctor lead create/update/book database journey", "node", [
       "scripts/stage4m-doctor-lead-db-smoke.mjs",
       "verify",
