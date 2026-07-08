@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildCreatePatientPortalBookingRequestSql,
   buildPatientPortalOverviewSql,
+  buildPatientPortalReportSql,
   buildUpdatePatientPortalReminderPreferencesSql,
 } from "../backend/self-hosted/patient-portal-repository.mjs";
 
@@ -19,8 +20,11 @@ const DEFAULT_COMPOSE_FILES = [
   "deploy/self-hosted/docker-compose.production.example.yml",
 ];
 const CLINIC_ID = "10000000-0000-4000-8000-000000000111";
+const DOCTOR_ID = "10000000-0000-4000-8000-000000000181";
 const PATIENT_USER_ID = "10000000-0000-4000-8000-000000000211";
 const PATIENT_ID = "10000000-0000-4000-8000-000000000311";
+const VISIT_ID = "10000000-0000-4000-8000-000000000411";
+const REPORT_ID = "10000000-0000-4000-8000-000000000511";
 
 function redact(value) {
   return String(value || "")
@@ -124,7 +128,13 @@ export function buildStage4MPatientPortalDbSmokeSql({ suffix = safeSmokeSuffix()
   const clinicSlug = `stage4m-patient-portal-${safeSuffix}`.slice(0, 80).replace(/-+$/g, "");
   const patientName = `Stage 4M patient portal smoke ${safeSuffix}`;
   const bookingReason = `Stage 4M patient booking smoke ${safeSuffix}`;
+  const patientReportText = `Stage 4M patient-safe report smoke ${safeSuffix}`;
+  const physicianOnlyText = `Stage 4M physician-only report smoke ${safeSuffix}`;
   const overviewSql = withoutTrailingSemicolon(buildPatientPortalOverviewSql({ userId: PATIENT_USER_ID }));
+  const reportSql = withoutTrailingSemicolon(buildPatientPortalReportSql({
+    userId: PATIENT_USER_ID,
+    reportId: REPORT_ID,
+  }));
   const bookingSql = withoutTrailingSemicolon(buildCreatePatientPortalBookingRequestSql({
     userId: PATIENT_USER_ID,
     preferredFrom: "2026-07-15T10:00:00.000Z",
@@ -151,8 +161,14 @@ begin
   insert into app_users (id, email, display_name)
   values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(`stage4m-patient-${safeSuffix}@example.invalid`)}, 'Stage 4M patient portal smoke user');
 
+  insert into app_users (id, email, display_name)
+  values (${sqlLiteral(DOCTOR_ID)}::uuid, ${sqlLiteral(`stage4m-patient-report-doctor-${safeSuffix}@example.invalid`)}, 'Stage 4M patient report smoke doctor');
+
   insert into user_roles (user_id, clinic_id, role)
   values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, 'patient'::app_role);
+
+  insert into user_roles (user_id, clinic_id, role)
+  values (${sqlLiteral(DOCTOR_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, 'doctor'::app_role);
 
   insert into patients (id, clinic_id, code, full_name, imaging_consent, created_by)
   values (${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(`STAGE4M-PATIENT-${safeSuffix}`)}, ${sqlLiteral(patientName)}, false, null);
@@ -160,9 +176,29 @@ begin
   insert into patient_user_links (user_id, patient_id)
   values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid);
 
+  insert into visits (id, clinic_id, patient_id, doctor_user_id, status, started_at, chief_complaint)
+  values (${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed'::visit_status, now(), 'Stage 4M patient portal report smoke');
+
+  insert into reports (id, clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text, signed_at)
+  values (${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', ${sqlLiteral(physicianOnlyText)}, ${sqlLiteral(patientReportText)}, now());
+
   execute $sql$${overviewSql}$sql$ into payload;
   if payload is null or position(${sqlLiteral(patientName)} in payload) = 0 then
     raise exception 'patient portal overview did not return the linked patient';
+  end if;
+
+  if position(${sqlLiteral(patientReportText)} in payload) = 0 or position(${sqlLiteral(physicianOnlyText)} in payload) > 0 then
+    raise exception 'patient portal overview did not return patient-safe report summary';
+  end if;
+
+  execute $sql$${reportSql}$sql$ into payload;
+  if payload is null
+    or payload::jsonb->0->>'patientSafeText' is distinct from ${sqlLiteral(patientReportText)}
+    or position(${sqlLiteral(physicianOnlyText)} in payload) > 0
+    or position('storagePath' in payload) > 0
+    or position('signedUrl' in payload) > 0
+    or position('accessToken' in payload) > 0 then
+    raise exception 'patient portal report detail did not return patient-safe report';
   end if;
 
   execute $sql$${bookingSql}$sql$ into payload;
@@ -192,7 +228,7 @@ export function renderStage4MPatientPortalDbSmokePlan(options = {}) {
     "",
     `- Project: ${config.projectName}`,
     `- Compose env file: ${config.composeEnvFile}`,
-    "- Scope: patient portal overview, booking request, and reminder preference SQL against PostgreSQL",
+    "- Scope: patient portal overview, patient-safe report detail, booking request, and reminder preference SQL against PostgreSQL",
     "- Safety: wrapped in one transaction and rolled back; no real patient rows, credentials, tokens, storage paths, or signed URLs are printed",
   ].join("\n");
 }

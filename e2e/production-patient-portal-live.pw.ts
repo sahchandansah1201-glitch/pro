@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import { expect, type Response, test } from "@playwright/test";
@@ -8,6 +8,7 @@ import {
   bannerText,
   expectMainTapTargets,
   expectNoHorizontalOverflow,
+  mainLink,
   mainText,
   pageHeaderText,
   sidebarLink,
@@ -83,12 +84,22 @@ function setupPatientPortalFixture({
   patientName,
   patientEmail,
   patientPassword,
+  doctorId,
+  visitId,
+  reportId,
+  reportText,
+  physicianOnlyText,
 }: {
   suffix: string;
   clinicName: string;
   patientName: string;
   patientEmail: string;
   patientPassword: string;
+  doctorId: string;
+  visitId: string;
+  reportId: string;
+  reportText: string;
+  physicianOnlyText: string;
 }) {
   const clinicSlug = safeSlug(`live-patient-${suffix}`);
   const patientCode = `LIVE-PATIENT-${suffix}`;
@@ -115,6 +126,15 @@ upserted_user as (
       updated_at = now()
   returning id, email, display_name
 ),
+upserted_doctor as (
+  insert into app_users (id, email, display_name, disabled_at)
+  values (${sqlLiteral(doctorId)}::uuid, ${sqlLiteral(`patient-report-doctor-${suffix}@skindoktor.ru`)}, ${sqlLiteral(`Врач заключения ${suffix}`)}, null)
+  on conflict (id) do update
+  set display_name = excluded.display_name,
+      disabled_at = null,
+      updated_at = now()
+  returning id
+),
 upserted_patient as (
   insert into patients (clinic_id, code, full_name, imaging_consent, created_by)
   select c.id, ${sqlLiteral(patientCode)}, ${sqlLiteral(patientName)}, false, null
@@ -133,6 +153,14 @@ linked_role as (
   on conflict (user_id, clinic_id, role) do nothing
   returning id
 ),
+doctor_role as (
+  insert into user_roles (user_id, clinic_id, role)
+  select d.id, c.id, 'doctor'::app_role
+  from upserted_doctor d
+  cross join upserted_clinic c
+  on conflict (user_id, clinic_id, role) do nothing
+  returning id
+),
 linked_patient as (
   insert into patient_user_links (user_id, patient_id)
   select u.id, p.id
@@ -140,6 +168,31 @@ linked_patient as (
   cross join upserted_patient p
   on conflict (user_id, patient_id) do nothing
   returning user_id
+),
+created_visit as (
+  insert into visits (id, clinic_id, patient_id, doctor_user_id, status, started_at, chief_complaint)
+  select ${sqlLiteral(visitId)}::uuid, c.id, p.id, d.id, 'signed'::visit_status, now(), ${sqlLiteral(`Контрольное заключение пациента ${suffix}`)}
+  from upserted_clinic c
+  cross join upserted_patient p
+  cross join upserted_doctor d
+  on conflict (id) do update
+  set chief_complaint = excluded.chief_complaint,
+      status = excluded.status,
+      started_at = excluded.started_at,
+      updated_at = now()
+  returning id, clinic_id, patient_id, doctor_user_id
+),
+created_report as (
+  insert into reports (id, clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text, signed_at)
+  select ${sqlLiteral(reportId)}::uuid, v.clinic_id, v.patient_id, v.id, v.doctor_user_id, 'signed', ${sqlLiteral(physicianOnlyText)}, ${sqlLiteral(reportText)}, now()
+  from created_visit v
+  on conflict (id) do update
+  set status = excluded.status,
+      physician_text = excluded.physician_text,
+      patient_safe_text = excluded.patient_safe_text,
+      signed_at = excluded.signed_at,
+      updated_at = now()
+  returning id
 ),
 preferences as (
   insert into patient_portal_reminder_preferences (
@@ -167,9 +220,10 @@ select
   'patient_portal',
   p.id,
   ${sqlLiteral(`stage4m-patient-live-${suffix}`)},
-  jsonb_build_object('source', 'live_e2e_fixture', 'role', 'patient')
+  jsonb_build_object('source', 'live_e2e_fixture', 'role', 'patient', 'reportId', r.id::text)
 from upserted_clinic c
 cross join upserted_user u
+cross join created_report r
 cross join upserted_patient p;
 
 commit;
@@ -219,6 +273,11 @@ test.describe("Live production patient portal journey", () => {
     const patientName = `Пациент Dermatolog Pro ${suffix}`;
     const patientEmail = `patient-live-${suffix}@skindoktor.ru`;
     const patientPassword = `Dp-${suffix}-Patient-2026!`;
+    const doctorId = randomUUID();
+    const visitId = randomUUID();
+    const reportId = randomUUID();
+    const patientReportText = `Пациентское заключение доступно в личном кабинете ${suffix}. Рекомендация: согласовать следующий контрольный осмотр с клиникой.`;
+    const physicianOnlyText = `Внутренняя врачебная версия ${suffix}: не показывать пациенту.`;
     const bookingReason = `Проверочная запись пациента ${suffix}`;
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
@@ -230,6 +289,11 @@ test.describe("Live production patient portal journey", () => {
       patientName,
       patientEmail,
       patientPassword,
+      doctorId,
+      visitId,
+      reportId,
+      reportText: patientReportText,
+      physicianOnlyText,
     });
 
     page.on("console", (msg) => {
@@ -242,7 +306,8 @@ test.describe("Live production patient portal journey", () => {
         if (
           url.pathname === "/api/v1/me/portal" ||
           url.pathname === "/api/v1/me/history" ||
-          url.pathname === "/api/v1/me/booking-requests"
+          url.pathname === "/api/v1/me/booking-requests" ||
+          url.pathname.startsWith("/api/v1/me/reports/")
         ) {
           patientResponses.push({
             method: response.request().method(),
@@ -327,6 +392,49 @@ test.describe("Live production patient portal journey", () => {
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-patient-history-desktop-1280.png"), fullPage: true });
 
+    const reportsPortalRefreshPromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/me\/portal$/),
+    );
+    await sidebarLink(page, "Отчёты").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Заключения" })).toBeVisible({ timeout: 15_000 });
+    const reportsPortalRefresh = await reportsPortalRefreshPromise;
+    expect(reportsPortalRefresh.status()).toBeGreaterThanOrEqual(200);
+    expect(reportsPortalRefresh.status()).toBeLessThan(300);
+    await expect(pageHeaderText(page, "Заключения", "Опубликованные клиникой заключения")).toBeVisible();
+    await expect(mainText(page, patientReportText)).toBeVisible();
+    await expect(appMain(page)).not.toContainText(physicianOnlyText);
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|демо|mock|system_admin|clinic_admin|doctor|private_doctor|operator|backend|self-hosted|PostgreSQL|diagnosis|prognosis|treatment|dynamicConclusion|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-patient-reports-desktop-1280.png"), fullPage: true });
+
+    const reportDetailResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", new RegExp(`^/api/v1/me/reports/${reportId}$`)),
+    );
+    await mainLink(page, "Открыть").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Заключение" })).toBeVisible({ timeout: 15_000 });
+    const reportDetailResponse = await reportDetailResponsePromise;
+    expect(reportDetailResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reportDetailResponse.status()).toBeLessThan(300);
+    await expect(pageHeaderText(page, "Заключение", "Опубликовано клиникой для пациента")).toBeVisible();
+    await expect(mainText(page, "Заключение для пациента")).toBeVisible();
+    await expect(mainText(page, patientReportText)).toBeVisible();
+    await expect(appMain(page)).not.toContainText(physicianOnlyText);
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|демо|mock|system_admin|clinic_admin|doctor|private_doctor|operator|backend|self-hosted|PostgreSQL|diagnosis|prognosis|treatment|dynamicConclusion|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-patient-report-detail-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Заключение" })).toBeVisible();
+    await expect(mainText(page, patientReportText)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-patient-report-detail-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
     const bookingPortalRefreshPromise = page.waitForResponse((response) =>
       isResponse(response, "GET", /^\/api\/v1\/me\/portal$/),
     );
@@ -373,6 +481,7 @@ test.describe("Live production patient portal journey", () => {
     for (const expected of [
       ["GET", "/api/v1/me/portal"],
       ["GET", "/api/v1/me/history"],
+      ["GET", `/api/v1/me/reports/${reportId}`],
       ["POST", "/api/v1/me/booking-requests"],
     ] as const) {
       expect(

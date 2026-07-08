@@ -249,6 +249,47 @@ test("Stage 4M guard rejects scoped direct live e2e link locators", () => {
   assert.match(errors.join("\n"), /production-doctor-workspace-live\.pw\.ts:2 uses direct getByRole\("link"\); use mainLink\(page, \.\.\.\) or sidebarLink/);
 });
 
+test("Stage 4M guard rejects semicolon-split SQL joins in live fixtures", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-sql-join-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-patient-portal-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, pageHeaderText, sidebarLink } from "./live-admin-test-helpers";',
+      "const sql = `",
+      "from upserted_clinic c",
+      "cross join created_report r;",
+      "cross join upserted_patient p;",
+      "`;",
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Личный кабинет";',
+      '"История очагов";',
+      '"Заключения";',
+      '"Заключение для пациента";',
+      '"Запись на приём";',
+      '"/api/v1/me/portal";',
+      '"/api/v1/me/history";',
+      '"/api/v1/me/reports/";',
+      '"/api/v1/me/booking-requests";',
+      '"Причина запроса на запись";',
+      '"Отправить запрос";',
+      '"live-patient-home-desktop-1280.png";',
+      '"live-patient-home-mobile-390.png";',
+      '"live-patient-history-desktop-1280.png";',
+      '"live-patient-reports-desktop-1280.png";',
+      '"live-patient-report-detail-desktop-1280.png";',
+      '"live-patient-report-detail-mobile-390.png";',
+      '"live-patient-booking-desktop-1280.png";',
+      '"live-patient-booking-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /contains a semicolon before a following cross join/);
+});
+
 test("Stage 4M guard rejects duplicate report public-analysis live fixtures", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-public-analysis-report-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
@@ -474,7 +515,7 @@ test("Stage 4M guard requires live patient portal coverage", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-patient-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
   const helperImport =
-    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, pageHeaderText, sidebarLink } from "./live-admin-test-helpers";';
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, pageHeaderText, sidebarLink } from "./live-admin-test-helpers";';
   writeFileSync(
     join(root, "e2e", "production-admin-management-live.pw.ts"),
     [
@@ -535,16 +576,23 @@ test("Stage 4M guard requires live patient portal coverage", () => {
       'await expect(appMain(page)).not.toContainText(/backend/);',
       '"Личный кабинет";',
       '"История очагов";',
+      '"Запись на приём";',
       '"/api/v1/me/portal";',
       '"/api/v1/me/history";',
+      '"/api/v1/me/booking-requests";',
+      '"Причина запроса на запись";',
+      '"Отправить запрос";',
       '"live-patient-home-desktop-1280.png";',
       '"live-patient-home-mobile-390.png";',
       '"live-patient-history-desktop-1280.png";',
+      '"live-patient-booking-desktop-1280.png";',
+      '"live-patient-booking-mobile-390.png";',
     ].join("\n"),
   );
 
   const errors = [];
   validateLiveE2EContract(errors, root);
 
-  assert.match(errors.join("\n"), /missing live coverage marker: Запись на приём/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Заключения/);
+  assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/reports\//);
 });

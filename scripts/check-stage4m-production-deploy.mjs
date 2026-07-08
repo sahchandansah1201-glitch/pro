@@ -294,9 +294,12 @@ const REQUIRED_TEXT = {
   "scripts/stage4m-patient-portal-db-smoke.mjs": [
     "stage4m_patient_portal_db_smoke_ok",
     "patient portal overview did not return the linked patient",
+    "patient portal overview did not return patient-safe report summary",
+    "patient portal report detail did not return patient-safe report",
     "patient portal booking request did not return requested booking",
     "patient portal reminder preferences did not return saved preferences",
     "buildPatientPortalOverviewSql",
+    "buildPatientPortalReportSql",
     "buildCreatePatientPortalBookingRequestSql",
     "buildUpdatePatientPortalReminderPreferencesSql",
     "rollback;",
@@ -839,19 +842,25 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-patient-portal-live.pw.ts",
-      requiredHelpers: defaultRequiredHelpers,
+      requiredHelpers: [...defaultRequiredHelpers, "mainLink"],
       markers: [
         "Личный кабинет",
         "История очагов",
+        "Заключения",
+        "Заключение для пациента",
         "Запись на приём",
         "/api/v1/me/portal",
         "/api/v1/me/history",
+        "/api/v1/me/reports/",
         "/api/v1/me/booking-requests",
         "Причина запроса на запись",
         "Отправить запрос",
         "live-patient-home-desktop-1280.png",
         "live-patient-home-mobile-390.png",
         "live-patient-history-desktop-1280.png",
+        "live-patient-reports-desktop-1280.png",
+        "live-patient-report-detail-desktop-1280.png",
+        "live-patient-report-detail-mobile-390.png",
         "live-patient-booking-desktop-1280.png",
         "live-patient-booking-mobile-390.png",
       ],
@@ -938,6 +947,9 @@ export function validateLiveE2EContract(errors, root) {
         );
       }
     });
+    if (/\bcross join [^;\n]+;\s*\bcross join\b/i.test(content)) {
+      errors.push(`${file} contains a semicolon before a following cross join; keep SQL fixture joins in one statement.`);
+    }
     for (const text of markers) {
       if (!content.includes(text)) errors.push(`${file} missing live coverage marker: ${text}`);
     }
