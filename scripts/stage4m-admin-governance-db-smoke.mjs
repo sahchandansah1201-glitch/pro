@@ -309,7 +309,7 @@ begin
     or (payload::jsonb->0->'summary'->>'releasesTotal')::int < 4
     or (payload::jsonb->0->'queue') is null
     or jsonb_array_length(payload::jsonb->0->'queue') < 4
-    or payload::jsonb::text ~* 'storagePath|signedUrl|accessToken|sessionId|credentialHash|credentialFingerprint' then
+    or payload::jsonb::text ~* '"(storagePath|signedUrl|accessToken|sessionId|credentialHash|credentialFingerprint|storage_path|signed_url|access_token|session_id|credential_hash|credential_fingerprint)"[[:space:]]*:' then
     raise exception 'admin governance read did not return aggregate metadata only';
   end if;
 
@@ -350,7 +350,7 @@ begin
     or payload::jsonb->0->>'operation' is distinct from 'issue_access_credential_hash'
     or (payload::jsonb->0->>'affectedCount')::int < 1
     or (payload::jsonb->0->'boundaries'->>'rawCredentialExposed') is distinct from 'false'
-    or payload::jsonb::text ~* 'credential_hash|credential_fingerprint|rawCredential' then
+    or payload::jsonb::text ~* '"(credential_hash|credential_fingerprint|rawCredential|credentialValue|credentialPlaintext)"[[:space:]]*:' then
     raise exception 'admin governance credential-hash operation was not metadata-only';
   end if;
 

@@ -55,7 +55,10 @@ test("Stage 4M admin governance DB smoke SQL exercises governance operations in 
   assert.match(sql, /patient_photo_protocol\.release_governance\.revoke_expired/);
   assert.match(sql, /admin governance read did not return aggregate metadata only/);
   assert.match(sql, /stage4m_admin_governance_db_smoke_ok/);
-  assert.doesNotMatch(sql, /signed_url|access_token|session_id|storage_path/i);
+  assert.match(sql, /"\(storagePath\|signedUrl\|accessToken\|sessionId\|credentialHash\|credentialFingerprint\|storage_path\|signed_url\|access_token\|session_id\|credential_hash\|credential_fingerprint\)"\[\[:space:\]\]\*:/);
+  assert.match(sql, /"\(credential_hash\|credential_fingerprint\|rawCredential\|credentialValue\|credentialPlaintext\)"\[\[:space:\]\]\*:/);
+  assert.doesNotMatch(sql, /storagePath\|signedUrl\|accessToken\|sessionId\|credentialHash\|credentialFingerprint' then/);
+  assert.doesNotMatch(sql, /credential_hash\|credential_fingerprint\|rawCredential' then/);
 });
 
 test("Stage 4M admin governance DB smoke runner executes psql through docker compose", () => {
