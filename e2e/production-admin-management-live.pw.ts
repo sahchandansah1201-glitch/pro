@@ -368,7 +368,8 @@ test.describe("Live production admin management journey", () => {
     await expect(appMain(page)).not.toContainText(/Учебный режим|Экспорт отключён|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
     await expect(page.getByRole("tab", { name: "Клиники" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Сотрудники" })).toBeVisible();
-    await expect(mainText(page, /Клиника создана|Сотрудник создан|Роль назначена/).first()).toBeVisible();
+    await page.getByLabel("Поиск аудита").fill(clinicName);
+    await expect(mainText(page, "Клиника создана").first()).toBeVisible();
 
     await page.getByLabel("Поиск аудита").fill(`нет совпадений ${suffix}`);
     await expect(mainText(page, "События не найдены. Измените фильтр или обновите журнал.")).toBeVisible();
@@ -400,9 +401,10 @@ test.describe("Live production admin management journey", () => {
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|RPC list_access_events_admin|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expect(page.getByLabel("Источник событий")).not.toContainText("Учебные данные");
+    await page.getByLabel("Поиск событий доступа").fill(clinicName);
     await expect(
       page
-        .locator("tbody tr", { hasText: /Клиника создана|Сотрудник создан|Роль назначена/ })
+        .locator("tbody tr", { hasText: "Клиника создана" })
         .first(),
     ).toBeVisible();
 

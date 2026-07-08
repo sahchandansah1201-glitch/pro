@@ -768,6 +768,8 @@ export function validateLiveE2EContract(errors, root) {
         "/api/v1/device-bridge-worker/production-readiness",
         "live-admin-devices-desktop-1280.png",
         "live-admin-devices-mobile-390.png",
+        'getByLabel("Поиск аудита").fill(clinicName)',
+        'getByLabel("Поиск событий доступа").fill(clinicName)',
       ],
     },
     {
@@ -945,6 +947,14 @@ export function validateLiveE2EContract(errors, root) {
     ) {
       errors.push(
         `${file} must use one signed report plus multiple public_analysis_links; duplicate reports for one visit violate reports_visit_id_unique_idx`,
+      );
+    }
+    if (
+      file === "e2e/production-admin-management-live.pw.ts" &&
+      content.includes("mainText(page, /Клиника создана|Сотрудник создан|Роль назначена/).first()")
+    ) {
+      errors.push(
+        `${file} must search audit by the current run clinic before asserting created events; first-page audit assertions are order-dependent`,
       );
     }
   }
