@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { isProductionAppMode } from "@/lib/app-mode";
 import { CLINICS } from "@/lib/mock-data";
 import type { Clinic } from "@/lib/domain";
 import { cn } from "@/lib/utils";
+import BotMiniAppBookingPageLive from "./BotMiniAppBookingPageLive";
 
 type Step = "clinic" | "slot" | "confirm" | "done";
 
@@ -47,7 +49,7 @@ function partnerLabel(tier: Clinic["partnerTier"]) {
   return "Внешняя клиника";
 }
 
-export default function BotMiniAppBookingPage() {
+function BotMiniAppBookingPageDemo() {
   const [step, setStep] = useState<Step>("clinic");
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [slotId, setSlotId] = useState<string | null>(null);
@@ -337,4 +339,8 @@ export default function BotMiniAppBookingPage() {
       </div>
     </div>
   );
+}
+
+export default function BotMiniAppBookingPage() {
+  return isProductionAppMode() ? <BotMiniAppBookingPageLive /> : <BotMiniAppBookingPageDemo />;
 }

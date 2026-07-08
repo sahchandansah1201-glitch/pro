@@ -430,6 +430,18 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
+    ["Verify bot mini app booking database journey", "node", [
+      "scripts/stage4m-bot-booking-db-smoke.mjs",
+      "verify",
+      "--project-name",
+      options.projectName,
+      "--compose-env-file",
+      options.envFile,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+    ]],
     ["Verify public analysis link database journey", "node", [
       "scripts/stage4m-public-analysis-db-smoke.mjs",
       "verify",

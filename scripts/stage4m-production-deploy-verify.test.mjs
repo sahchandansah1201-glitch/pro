@@ -85,6 +85,8 @@ test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () =
   assert.match(out, /stage4m-assistant-capture-db-smoke\.mjs verify/);
   assert.match(out, /Verify patient portal booking\/reminder database journey/);
   assert.match(out, /stage4m-patient-portal-db-smoke\.mjs verify/);
+  assert.match(out, /Verify bot mini app booking database journey/);
+  assert.match(out, /stage4m-bot-booking-db-smoke\.mjs verify/);
   assert.match(out, /npm ci --no-audit --no-fund/);
   assert.match(out, /npm run build/);
   assert.match(out, /builds into staging/);
