@@ -111,6 +111,35 @@ export interface AdminClinicServiceDTO {
   updatedAt: string | null;
 }
 
+export type AdminClinicIntegrationKind = "crm" | "erp" | "mis" | "messenger" | "telephony";
+export type AdminClinicIntegrationStatus = "draft" | "connected" | "disabled" | "error";
+
+export interface AdminClinicIntegrationDTO {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  provider: string;
+  kind: AdminClinicIntegrationKind;
+  status: AdminClinicIntegrationStatus;
+  safeSummaryEnabled: boolean;
+  protectedLinkEnabled: boolean;
+  fieldMap: Record<string, string>;
+  lastCheckedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface AdminClinicBotSettingsDTO {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  enabled: boolean;
+  intakeSteps: Record<string, boolean>;
+  templates: Record<string, string>;
+  lastDryRunAt: string | null;
+  updatedAt: string | null;
+}
+
 export type AdminServiceKeyStatus = "active" | "revoked";
 
 export interface AdminServiceKeyDTO {
@@ -293,6 +322,50 @@ function normalizeClinicService(input: unknown): AdminClinicServiceDTO {
     onlineBooking: item.onlineBooking === true,
     active: item.active !== false,
     createdAt: item.createdAt == null ? null : String(item.createdAt),
+    updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
+  };
+}
+
+function stringRecord(input: unknown): Record<string, string> {
+  const item = isRecord(input) ? input : {};
+  return Object.fromEntries(Object.entries(item).map(([key, value]) => [key, String(value ?? "")]));
+}
+
+function booleanRecord(input: unknown): Record<string, boolean> {
+  const item = isRecord(input) ? input : {};
+  return Object.fromEntries(Object.entries(item).map(([key, value]) => [key, value === true]));
+}
+
+function normalizeClinicIntegration(input: unknown): AdminClinicIntegrationDTO {
+  const item = isRecord(input) ? input : {};
+  const kind = String(item.kind ?? "crm");
+  const status = String(item.status ?? "draft");
+  return {
+    id: String(item.id ?? ""),
+    clinicId: String(item.clinicId ?? ""),
+    clinicName: String(item.clinicName ?? ""),
+    provider: String(item.provider ?? ""),
+    kind: (["crm", "erp", "mis", "messenger", "telephony"].includes(kind) ? kind : "crm") as AdminClinicIntegrationKind,
+    status: (["draft", "connected", "disabled", "error"].includes(status) ? status : "draft") as AdminClinicIntegrationStatus,
+    safeSummaryEnabled: item.safeSummaryEnabled !== false,
+    protectedLinkEnabled: item.protectedLinkEnabled !== false,
+    fieldMap: stringRecord(item.fieldMap),
+    lastCheckedAt: item.lastCheckedAt == null ? null : String(item.lastCheckedAt),
+    createdAt: item.createdAt == null ? null : String(item.createdAt),
+    updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
+  };
+}
+
+function normalizeClinicBotSettings(input: unknown): AdminClinicBotSettingsDTO {
+  const item = isRecord(input) ? input : {};
+  return {
+    id: String(item.id ?? ""),
+    clinicId: String(item.clinicId ?? ""),
+    clinicName: String(item.clinicName ?? ""),
+    enabled: item.enabled !== false,
+    intakeSteps: booleanRecord(item.intakeSteps),
+    templates: stringRecord(item.templates),
+    lastDryRunAt: item.lastDryRunAt == null ? null : String(item.lastDryRunAt),
     updatedAt: item.updatedAt == null ? null : String(item.updatedAt),
   };
 }
@@ -579,6 +652,121 @@ export async function updateAdminClinicService(
   if (!result.ok) return result as SelfHostedApiResult<AdminClinicServiceDTO>;
   const body = isRecord(result.value) ? result.value : {};
   return ok(normalizeClinicService(body.item));
+}
+
+export async function listAdminClinicIntegrations(
+  args: BaseArgs & { search?: string },
+): Promise<SelfHostedApiResult<AdminClinicIntegrationDTO[]>> {
+  const query = args.search ? `?search=${encodeURIComponent(args.search)}` : "";
+  return itemsFrom(await request(args, `/api/v1/admin/integrations${query}`), normalizeClinicIntegration);
+}
+
+export async function createAdminClinicIntegration(
+  args: BaseArgs & {
+    payload: {
+      clinicId: string;
+      provider: string;
+      kind: AdminClinicIntegrationKind;
+      status?: AdminClinicIntegrationStatus;
+      safeSummaryEnabled?: boolean;
+      protectedLinkEnabled?: boolean;
+      fieldMap?: Record<string, string>;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicIntegrationDTO>> {
+  const result = await request(args, "/api/v1/admin/integrations", {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicIntegrationDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicIntegration(body.item));
+}
+
+export async function getAdminClinicIntegration(
+  args: BaseArgs & { integrationId: string },
+): Promise<SelfHostedApiResult<AdminClinicIntegrationDTO>> {
+  const result = await request(args, `/api/v1/admin/integrations/${encodeURIComponent(args.integrationId)}`);
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicIntegrationDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicIntegration(body.item));
+}
+
+export async function updateAdminClinicIntegration(
+  args: BaseArgs & {
+    integrationId: string;
+    payload: {
+      clinicId: string;
+      provider?: string;
+      kind?: AdminClinicIntegrationKind;
+      status?: AdminClinicIntegrationStatus;
+      safeSummaryEnabled?: boolean;
+      protectedLinkEnabled?: boolean;
+      fieldMap?: Record<string, string>;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicIntegrationDTO>> {
+  const result = await request(args, `/api/v1/admin/integrations/${encodeURIComponent(args.integrationId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicIntegrationDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicIntegration(body.item));
+}
+
+export async function checkAdminClinicIntegration(
+  args: BaseArgs & { integrationId: string; payload: { clinicId: string } },
+): Promise<SelfHostedApiResult<AdminClinicIntegrationDTO>> {
+  const result = await request(args, `/api/v1/admin/integrations/${encodeURIComponent(args.integrationId)}/check`, {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicIntegrationDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicIntegration(body.item));
+}
+
+export async function listAdminClinicBotSettings(args: BaseArgs): Promise<SelfHostedApiResult<AdminClinicBotSettingsDTO[]>> {
+  return itemsFrom(await request(args, "/api/v1/admin/bot-settings"), normalizeClinicBotSettings);
+}
+
+export async function updateAdminClinicBotSettings(
+  args: BaseArgs & {
+    payload: {
+      clinicId: string;
+      enabled: boolean;
+      intakeSteps: Record<string, boolean>;
+      templates: Record<string, string>;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicBotSettingsDTO>> {
+  const result = await request(args, "/api/v1/admin/bot-settings", {
+    method: "PATCH",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicBotSettingsDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicBotSettings(body.item));
+}
+
+export async function dryRunAdminClinicBotSettings(
+  args: BaseArgs & {
+    payload: {
+      clinicId: string;
+      enabled: boolean;
+      intakeSteps: Record<string, boolean>;
+      templates: Record<string, string>;
+    };
+  },
+): Promise<SelfHostedApiResult<AdminClinicBotSettingsDTO>> {
+  const result = await request(args, "/api/v1/admin/bot-settings/dry-run", {
+    method: "POST",
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminClinicBotSettingsDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizeClinicBotSettings(body.item));
 }
 
 export async function listAdminAuditEvents(args: BaseArgs): Promise<SelfHostedApiResult<AdminAuditEventDTO[]>> {

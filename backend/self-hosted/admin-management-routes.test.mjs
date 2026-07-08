@@ -202,6 +202,134 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async listClinicIntegrations(params, authContext, meta) {
+        calls.push(["listClinicIntegrations", params, authContext.roles, meta.correlationId]);
+        return {
+          items: [
+            {
+              id: "10000000-0000-4000-8000-000000000601",
+              clinicId: "10000000-0000-4000-8000-000000000301",
+              clinicName: "Клиника тест",
+              provider: "CRM клиники",
+              kind: "crm",
+              status: "draft",
+              safeSummaryEnabled: true,
+              protectedLinkEnabled: true,
+              fieldMap: { source: "lead_source" },
+            },
+          ],
+          meta: { limit: 50, offset: 0, count: 1 },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async getClinicIntegration(integrationId, authContext, meta) {
+        calls.push(["getClinicIntegration", integrationId, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: integrationId,
+            clinicId: "10000000-0000-4000-8000-000000000301",
+            clinicName: "Клиника тест",
+            provider: "CRM клиники",
+            kind: "crm",
+            status: "draft",
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async createClinicIntegration(body, authContext, meta) {
+        calls.push(["createClinicIntegration", body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: "10000000-0000-4000-8000-000000000602",
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            provider: body.provider,
+            kind: body.kind,
+            status: body.status,
+            safeSummaryEnabled: body.safeSummaryEnabled,
+            protectedLinkEnabled: body.protectedLinkEnabled,
+            fieldMap: body.fieldMap,
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async updateClinicIntegration(integrationId, body, authContext, meta) {
+        calls.push(["updateClinicIntegration", integrationId, body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: integrationId,
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            provider: body.provider,
+            kind: body.kind,
+            status: body.status,
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async checkClinicIntegration(integrationId, body, authContext, meta) {
+        calls.push(["checkClinicIntegration", integrationId, body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: integrationId,
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            provider: "CRM клиники",
+            kind: "crm",
+            status: "connected",
+            lastCheckedAt: "2026-06-22T00:00:00.000Z",
+          },
+          check: { ok: true, message: "Проверка выполнена." },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async listClinicBotSettings(authContext, meta) {
+        calls.push(["listClinicBotSettings", authContext.roles, meta.correlationId]);
+        return {
+          items: [
+            {
+              id: "10000000-0000-4000-8000-000000000701",
+              clinicId: "10000000-0000-4000-8000-000000000301",
+              clinicName: "Клиника тест",
+              enabled: true,
+              intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+              templates: {},
+            },
+          ],
+          meta: { limit: 50, offset: 0, count: 1 },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async updateClinicBotSettings(body, authContext, meta) {
+        calls.push(["updateClinicBotSettings", body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            enabled: body.enabled,
+            intakeSteps: body.intakeSteps,
+            templates: body.templates,
+          },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
+      async dryRunClinicBotSettings(body, authContext, meta) {
+        calls.push(["dryRunClinicBotSettings", body, authContext.roles, meta.correlationId]);
+        return {
+          item: {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: body.clinicId,
+            clinicName: "Клиника тест",
+            enabled: body.enabled,
+            intakeSteps: body.intakeSteps,
+            templates: body.templates,
+            lastDryRunAt: "2026-06-22T00:00:00.000Z",
+          },
+          preview: { ok: true, message: "Пробный сценарий собран." },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
       async createServiceKey(body, authContext, meta) {
         calls.push(["createServiceKey", body, authContext.roles, meta.correlationId]);
         return {
@@ -462,6 +590,106 @@ test("admin management routes list, create, and update clinic services", async (
   ]);
 });
 
+test("admin management routes list, create, update, and check clinic integrations", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const list = await request("/api/v1/admin/integrations", { runtime });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.items[0].provider, "CRM клиники");
+
+  const created = await request("/api/v1/admin/integrations", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      provider: "CRM клиники",
+      kind: "crm",
+      status: "draft",
+      safeSummaryEnabled: true,
+      protectedLinkEnabled: true,
+      fieldMap: { source: "lead_source" },
+    }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.json.item.kind, "crm");
+
+  const read = await request("/api/v1/admin/integrations/10000000-0000-4000-8000-000000000602", { runtime });
+  assert.equal(read.status, 200);
+  assert.equal(read.json.item.id, "10000000-0000-4000-8000-000000000602");
+
+  const updated = await request("/api/v1/admin/integrations/10000000-0000-4000-8000-000000000602", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      provider: "CRM клиники обновлена",
+      kind: "crm",
+      status: "connected",
+    }),
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.item.status, "connected");
+
+  const checked = await request("/api/v1/admin/integrations/10000000-0000-4000-8000-000000000602/check", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({ clinicId: "10000000-0000-4000-8000-000000000301" }),
+  });
+  assert.equal(checked.status, 200);
+  assert.equal(checked.json.check.ok, true);
+  assert.equal(checked.body.includes("accessToken"), false);
+  assert.equal(checked.body.includes("storagePath"), false);
+  assert.deepEqual(calls.map((call) => call[0]).slice(-5), [
+    "listClinicIntegrations",
+    "createClinicIntegration",
+    "getClinicIntegration",
+    "updateClinicIntegration",
+    "checkClinicIntegration",
+  ]);
+});
+
+test("admin management routes list, update, and dry-run clinic bot settings", async () => {
+  const calls = [];
+  const runtime = createRuntime(calls);
+
+  const list = await request("/api/v1/admin/bot-settings", { runtime });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.items[0].clinicName, "Клиника тест");
+
+  const saved = await request("/api/v1/admin/bot-settings", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      enabled: true,
+      intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+      templates: { greeting: "Здравствуйте", bookingText: "Запись" },
+    }),
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.item.templates.greeting, "Здравствуйте");
+
+  const dryRun = await request("/api/v1/admin/bot-settings/dry-run", {
+    method: "POST",
+    runtime,
+    body: JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000301",
+      enabled: true,
+      intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+      templates: { greeting: "Здравствуйте" },
+    }),
+  });
+  assert.equal(dryRun.status, 200);
+  assert.equal(dryRun.json.preview.ok, true);
+  assert.equal(dryRun.body.includes("sessionId"), false);
+  assert.deepEqual(calls.map((call) => call[0]).slice(-3), [
+    "listClinicBotSettings",
+    "updateClinicBotSettings",
+    "dryRunClinicBotSettings",
+  ]);
+});
+
 test("admin management OpenAPI route is public and documents operation ids", async () => {
   const response = await request("/openapi.stage6-admin-management.json", { runtime: createRuntime() });
   assert.equal(response.status, 200);
@@ -474,6 +702,13 @@ test("admin management OpenAPI route is public and documents operation ids", asy
   assert.equal(response.json.paths["/api/v1/admin/services"].get.operationId, "listAdminClinicServices");
   assert.equal(response.json.paths["/api/v1/admin/services"].post.operationId, "createAdminClinicService");
   assert.equal(response.json.paths["/api/v1/admin/services/{serviceId}"].patch.operationId, "updateAdminClinicService");
+  assert.equal(response.json.paths["/api/v1/admin/integrations"].get.operationId, "listAdminClinicIntegrations");
+  assert.equal(response.json.paths["/api/v1/admin/integrations"].post.operationId, "createAdminClinicIntegration");
+  assert.equal(response.json.paths["/api/v1/admin/integrations/{integrationId}"].patch.operationId, "updateAdminClinicIntegration");
+  assert.equal(response.json.paths["/api/v1/admin/integrations/{integrationId}/check"].post.operationId, "checkAdminClinicIntegration");
+  assert.equal(response.json.paths["/api/v1/admin/bot-settings"].get.operationId, "listAdminClinicBotSettings");
+  assert.equal(response.json.paths["/api/v1/admin/bot-settings"].patch.operationId, "updateAdminClinicBotSettings");
+  assert.equal(response.json.paths["/api/v1/admin/bot-settings/dry-run"].post.operationId, "dryRunAdminClinicBotSettings");
   assert.equal(response.json.paths["/api/v1/admin/audit-events"].get.operationId, "listAdminAuditEvents");
   assert.equal(response.json.paths["/api/v1/admin/service-keys"].get.operationId, "listAdminServiceKeys");
   assert.equal(response.json.paths["/api/v1/admin/service-keys"].post.operationId, "createAdminServiceKey");

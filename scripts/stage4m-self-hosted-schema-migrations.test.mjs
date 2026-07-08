@@ -36,6 +36,10 @@ const COMPLETE_SCHEMA = {
   serviceApiKeysTable: true,
   clinicServicesTable: true,
   clinicServicesRequiredColumns: true,
+  clinicIntegrationsTable: true,
+  clinicIntegrationsRequiredColumns: true,
+  clinicBotSettingsTable: true,
+  clinicBotSettingsRequiredColumns: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
   deviceBridgeCommandsTable: true,
@@ -57,10 +61,13 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, and Stage 6 
   assert.match(out, /0088_stage6_admin_lifecycle\.sql/);
   assert.match(out, /0090_stage6_service_keys\.sql/);
   assert.match(out, /0091_stage6_clinic_services\.sql/);
+  assert.match(out, /0092_stage6_admin_integrations_bot\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
   assert.match(out, /service_api_keys table/);
   assert.match(out, /clinic_services catalog table/);
+  assert.match(out, /integrations table/);
+  assert.match(out, /bot settings table/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -105,6 +112,8 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[11].input.includes("add column if not exists disabled_at"));
   assert.ok(calls[12].input.includes("create table if not exists service_api_keys"));
   assert.ok(calls[13].input.includes("create table if not exists clinic_services"));
+  assert.ok(calls[14].input.includes("create table if not exists clinic_integrations"));
+  assert.ok(calls[14].input.includes("create table if not exists clinic_bot_settings"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });

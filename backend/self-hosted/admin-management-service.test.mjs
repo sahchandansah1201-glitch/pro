@@ -116,6 +116,56 @@ function createService({ calls = [] } = {}) {
         active: params.active,
       };
     },
+    async listClinicIntegrations(params) {
+      calls.push(["listClinicIntegrations", params]);
+      return [{ id: "10000000-0000-4000-8000-000000000601", clinicId: "10000000-0000-4000-8000-000000000001", provider: "CRM клиники" }];
+    },
+    async getClinicIntegration(params) {
+      calls.push(["getClinicIntegration", params]);
+      return { id: params.integrationId, clinicId: "10000000-0000-4000-8000-000000000001", provider: "CRM клиники" };
+    },
+    async createClinicIntegration(params) {
+      calls.push(["createClinicIntegration", params]);
+      return {
+        id: "10000000-0000-4000-8000-000000000601",
+        clinicId: params.clinicId,
+        provider: params.provider,
+        kind: params.kind,
+        status: params.status,
+        safeSummaryEnabled: params.safeSummaryEnabled,
+        protectedLinkEnabled: params.protectedLinkEnabled,
+        fieldMap: params.fieldMap,
+      };
+    },
+    async updateClinicIntegration(params) {
+      calls.push(["updateClinicIntegration", params]);
+      return {
+        id: params.integrationId,
+        clinicId: params.clinicId,
+        provider: params.provider || "CRM клиники",
+        kind: params.kind || "crm",
+        status: params.status || "connected",
+        safeSummaryEnabled: params.safeSummaryEnabled ?? true,
+        protectedLinkEnabled: params.protectedLinkEnabled ?? true,
+        fieldMap: params.fieldMap ?? {},
+        lastCheckedAt: params.markChecked ? "2026-06-22T00:00:00.000Z" : null,
+      };
+    },
+    async listClinicBotSettings(params) {
+      calls.push(["listClinicBotSettings", params]);
+      return [{ id: "10000000-0000-4000-8000-000000000701", clinicId: "10000000-0000-4000-8000-000000000001", enabled: true }];
+    },
+    async upsertClinicBotSettings(params) {
+      calls.push(["upsertClinicBotSettings", params]);
+      return {
+        id: "10000000-0000-4000-8000-000000000701",
+        clinicId: params.clinicId,
+        enabled: params.enabled,
+        intakeSteps: params.intakeSteps,
+        templates: params.templates,
+        lastDryRunAt: params.markDryRun ? "2026-06-22T00:00:00.000Z" : null,
+      };
+    },
     async setClinicStatus(params) {
       calls.push(["setClinicStatus", params]);
       return { id: params.clinicId, status: params.status, statusReason: params.reason };
@@ -399,6 +449,144 @@ test("clinic service validation blocks missing clinic, outside clinic, and inval
           priceMax: 2200,
           onlineBooking: true,
           active: true,
+        },
+        CLINIC_AUTH,
+        { correlationId: "test" },
+      ),
+    /outside/i,
+  );
+});
+
+test("clinic admin manages integrations and bot settings only inside own clinic scope", async () => {
+  const { service, calls, auditEvents } = createService();
+  const listed = await service.listClinicIntegrations({ limit: 10, offset: 0, search: "" }, CLINIC_AUTH, {
+    correlationId: "integrations-list",
+  });
+  const created = await service.createClinicIntegration(
+    {
+      provider: "CRM клиники",
+      kind: "crm",
+      status: "draft",
+      fieldMap: { source: "lead_source", service: "service_name", unknown: "ignored" },
+    },
+    CLINIC_AUTH,
+    { correlationId: "integrations-create" },
+  );
+  const read = await service.getClinicIntegration(
+    "10000000-0000-4000-8000-000000000601",
+    CLINIC_AUTH,
+    { correlationId: "integrations-read" },
+  );
+  const updated = await service.updateClinicIntegration(
+    "10000000-0000-4000-8000-000000000601",
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      provider: "CRM клиники обновлена",
+      kind: "crm",
+      status: "connected",
+      safeSummaryEnabled: true,
+      protectedLinkEnabled: true,
+      fieldMap: { source: "lead_source" },
+    },
+    CLINIC_AUTH,
+    { correlationId: "integrations-update" },
+  );
+  const checked = await service.checkClinicIntegration(
+    "10000000-0000-4000-8000-000000000601",
+    { clinicId: "10000000-0000-4000-8000-000000000001" },
+    CLINIC_AUTH,
+    { correlationId: "integrations-check" },
+  );
+  const botList = await service.listClinicBotSettings(CLINIC_AUTH, { correlationId: "bot-list" });
+  const botSaved = await service.updateClinicBotSettings(
+    {
+      enabled: true,
+      intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+      templates: { greeting: "Здравствуйте", bookingText: "Запись", unsafe: "ignored" },
+    },
+    CLINIC_AUTH,
+    { correlationId: "bot-save" },
+  );
+  const botDryRun = await service.dryRunClinicBotSettings(
+    {
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      enabled: true,
+      intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+      templates: { greeting: "Здравствуйте" },
+    },
+    CLINIC_AUTH,
+    { correlationId: "bot-dry-run" },
+  );
+
+  assert.equal(listed.items[0].provider, "CRM клиники");
+  assert.equal(created.item.clinicId, "10000000-0000-4000-8000-000000000001");
+  assert.deepEqual(created.item.fieldMap, { source: "lead_source", service: "service_name" });
+  assert.equal(read.item.id, "10000000-0000-4000-8000-000000000601");
+  assert.equal(updated.item.status, "connected");
+  assert.equal(checked.check.ok, true);
+  assert.equal(botList.items[0].enabled, true);
+  assert.deepEqual(botSaved.item.templates, { greeting: "Здравствуйте", bookingText: "Запись" });
+  assert.equal(botDryRun.preview.ok, true);
+  assert.deepEqual(calls.map((call) => call[0]).slice(-8), [
+    "listClinicIntegrations",
+    "createClinicIntegration",
+    "getClinicIntegration",
+    "updateClinicIntegration",
+    "updateClinicIntegration",
+    "listClinicBotSettings",
+    "upsertClinicBotSettings",
+    "upsertClinicBotSettings",
+  ]);
+  assert.equal(calls[1][1].clinicId, CLINIC_AUTH.clinicIds[0]);
+  assert.equal(calls[4][1].markChecked, true);
+  assert.equal(calls[7][1].markDryRun, true);
+  assert.deepEqual(auditEvents.map((event) => event.action).slice(-8), [
+    "admin.integrations.list",
+    "admin.integration.create",
+    "admin.integration.read",
+    "admin.integration.update",
+    "admin.integration.check",
+    "admin.bot_settings.list",
+    "admin.bot_settings.update",
+    "admin.bot_settings.dry_run",
+  ]);
+});
+
+test("clinic integration and bot validation block outside clinic scope", async () => {
+  const { service } = createService();
+  await assert.rejects(
+    () =>
+      service.createClinicIntegration(
+        {
+          clinicId: "10000000-0000-4000-8000-000000000099",
+          provider: "CRM клиники",
+          kind: "crm",
+          status: "draft",
+        },
+        CLINIC_AUTH,
+        { correlationId: "test" },
+      ),
+    /outside/i,
+  );
+  await assert.rejects(
+    () =>
+      service.createClinicIntegration(
+        {
+          provider: "CRM",
+          kind: "unsafe",
+          status: "draft",
+        },
+        CLINIC_AUTH,
+        { correlationId: "test" },
+      ),
+    /validation/i,
+  );
+  await assert.rejects(
+    () =>
+      service.updateClinicBotSettings(
+        {
+          clinicId: "10000000-0000-4000-8000-000000000099",
+          enabled: true,
         },
         CLINIC_AUTH,
         { correlationId: "test" },

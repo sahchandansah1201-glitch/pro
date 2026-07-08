@@ -33,6 +33,10 @@ function sqlTextArray(values = []) {
   return `array[${items.join(", ")}]::text[]`;
 }
 
+function sqlJsonb(value) {
+  return `${sqlLiteral(JSON.stringify(value && typeof value === "object" ? value : {}))}::jsonb`;
+}
+
 function sqlUuid(value) {
   return `${sqlLiteral(value)}::uuid`;
 }
@@ -60,6 +64,13 @@ function clinicScopeWhere({ alias = "c", clinicIds = [], allClinics = false } = 
 }
 
 function clinicServiceScopeWhere({ alias = "s", clinicIds = [], allClinics = false } = {}) {
+  const ids = safeUuidList(clinicIds);
+  if (allClinics) return "";
+  if (ids.length === 0) return "and false";
+  return `and ${alias}.clinic_id in (${sqlUuidList(ids)})`;
+}
+
+function clinicIntegrationScopeWhere({ alias = "i", clinicIds = [], allClinics = false } = {}) {
   const ids = safeUuidList(clinicIds);
   if (allClinics) return "";
   if (ids.length === 0) return "and false";
@@ -651,6 +662,254 @@ from (
 `.trim();
 }
 
+export function buildListClinicIntegrationsSql({
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  search = "",
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const safe = pagination({ limit, offset });
+  const safeSearch = normalizeSearch(search);
+  const searchWhere = safeSearch
+    ? `and (i.provider ilike '%' || ${sqlLiteral(safeSearch)} || '%' or c.name ilike '%' || ${sqlLiteral(safeSearch)} || '%')`
+    : "";
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    i.id::text as "id",
+    i.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    i.provider as "provider",
+    i.kind as "kind",
+    i.status as "status",
+    i.safe_summary_enabled as "safeSummaryEnabled",
+    i.protected_link_enabled as "protectedLinkEnabled",
+    i.field_map as "fieldMap",
+    i.last_checked_at as "lastCheckedAt",
+    i.created_at as "createdAt",
+    i.updated_at as "updatedAt"
+  from clinic_integrations i
+  join clinics c on c.id = i.clinic_id and c.deleted_at is null
+  where i.deleted_at is null
+    ${clinicIntegrationScopeWhere({ alias: "i", clinicIds, allClinics })}
+    ${searchWhere}
+  order by i.created_at desc, i.id desc
+  limit ${safe.limit}
+  offset ${safe.offset}
+) result;
+`.trim();
+}
+
+export function buildGetClinicIntegrationSql({ integrationId, clinicIds = [], allClinics = false } = {}) {
+  return `
+select row_to_json(result)::text
+from (
+  select
+    i.id::text as "id",
+    i.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    i.provider as "provider",
+    i.kind as "kind",
+    i.status as "status",
+    i.safe_summary_enabled as "safeSummaryEnabled",
+    i.protected_link_enabled as "protectedLinkEnabled",
+    i.field_map as "fieldMap",
+    i.last_checked_at as "lastCheckedAt",
+    i.created_at as "createdAt",
+    i.updated_at as "updatedAt"
+  from clinic_integrations i
+  join clinics c on c.id = i.clinic_id and c.deleted_at is null
+  where i.id = ${sqlUuid(integrationId)}
+    and i.deleted_at is null
+    ${clinicIntegrationScopeWhere({ alias: "i", clinicIds, allClinics })}
+) result;
+`.trim();
+}
+
+export function buildCreateClinicIntegrationSql({
+  clinicId,
+  provider,
+  kind,
+  status = "draft",
+  safeSummaryEnabled = true,
+  protectedLinkEnabled = true,
+  fieldMap = {},
+  actorUserId = null,
+} = {}) {
+  return `
+with inserted as (
+  insert into clinic_integrations (
+    clinic_id,
+    provider,
+    kind,
+    status,
+    safe_summary_enabled,
+    protected_link_enabled,
+    field_map,
+    created_by_user_id,
+    updated_by_user_id
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlLiteral(provider)},
+    ${sqlLiteral(kind)},
+    ${sqlLiteral(status)},
+    ${sqlBoolean(safeSummaryEnabled)},
+    ${sqlBoolean(protectedLinkEnabled)},
+    ${sqlJsonb(fieldMap)},
+    ${sqlNullableUuid(actorUserId)},
+    ${sqlNullableUuid(actorUserId)}
+  )
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    inserted.id::text as "id",
+    inserted.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    inserted.provider as "provider",
+    inserted.kind as "kind",
+    inserted.status as "status",
+    inserted.safe_summary_enabled as "safeSummaryEnabled",
+    inserted.protected_link_enabled as "protectedLinkEnabled",
+    inserted.field_map as "fieldMap",
+    inserted.last_checked_at as "lastCheckedAt",
+    inserted.created_at as "createdAt",
+    inserted.updated_at as "updatedAt"
+  from inserted
+  join clinics c on c.id = inserted.clinic_id
+) result;
+`.trim();
+}
+
+export function buildUpdateClinicIntegrationSql({
+  integrationId,
+  clinicId,
+  provider,
+  kind,
+  status,
+  safeSummaryEnabled,
+  protectedLinkEnabled,
+  fieldMap,
+  markChecked = false,
+  actorUserId = null,
+} = {}) {
+  const clauses = [];
+  if (provider != null) clauses.push(`provider = ${sqlLiteral(provider)}`);
+  if (kind != null) clauses.push(`kind = ${sqlLiteral(kind)}`);
+  if (status != null) clauses.push(`status = ${sqlLiteral(status)}`);
+  if (safeSummaryEnabled != null) clauses.push(`safe_summary_enabled = ${sqlBoolean(safeSummaryEnabled)}`);
+  if (protectedLinkEnabled != null) clauses.push(`protected_link_enabled = ${sqlBoolean(protectedLinkEnabled)}`);
+  if (fieldMap != null) clauses.push(`field_map = ${sqlJsonb(fieldMap)}`);
+  if (markChecked) clauses.push("last_checked_at = now()");
+  clauses.push(`updated_by_user_id = ${sqlNullableUuid(actorUserId)}`);
+  return `
+with updated as (
+  update clinic_integrations
+  set ${clauses.join(", ")}
+  where id = ${sqlUuid(integrationId)}
+    and clinic_id = ${sqlUuid(clinicId)}
+    and deleted_at is null
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    updated.id::text as "id",
+    updated.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    updated.provider as "provider",
+    updated.kind as "kind",
+    updated.status as "status",
+    updated.safe_summary_enabled as "safeSummaryEnabled",
+    updated.protected_link_enabled as "protectedLinkEnabled",
+    updated.field_map as "fieldMap",
+    updated.last_checked_at as "lastCheckedAt",
+    updated.created_at as "createdAt",
+    updated.updated_at as "updatedAt"
+  from updated
+  join clinics c on c.id = updated.clinic_id
+) result;
+`.trim();
+}
+
+export function buildListClinicBotSettingsSql({ clinicIds = [], allClinics = false } = {}) {
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    s.id::text as "id",
+    c.id::text as "clinicId",
+    c.name as "clinicName",
+    coalesce(s.enabled, true) as "enabled",
+    coalesce(s.intake_steps, '{"consent":true,"location":true,"timeline":true,"photo":true,"booking":true}'::jsonb) as "intakeSteps",
+    coalesce(s.templates, '{}'::jsonb) as "templates",
+    s.last_dry_run_at as "lastDryRunAt",
+    s.updated_at as "updatedAt"
+  from clinics c
+  left join clinic_bot_settings s on s.clinic_id = c.id
+  where c.deleted_at is null
+    ${clinicScopeWhere({ alias: "c", clinicIds, allClinics })}
+  order by c.created_at desc, c.id desc
+) result;
+`.trim();
+}
+
+export function buildUpsertClinicBotSettingsSql({
+  clinicId,
+  enabled = true,
+  intakeSteps = {},
+  templates = {},
+  markDryRun = false,
+  actorUserId = null,
+} = {}) {
+  return `
+with upserted as (
+  insert into clinic_bot_settings (
+    clinic_id,
+    enabled,
+    intake_steps,
+    templates,
+    last_dry_run_at,
+    updated_by_user_id
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlBoolean(enabled)},
+    ${sqlJsonb(intakeSteps)},
+    ${sqlJsonb(templates)},
+    ${markDryRun ? "now()" : "null"},
+    ${sqlNullableUuid(actorUserId)}
+  )
+  on conflict (clinic_id) do update
+    set enabled = excluded.enabled,
+        intake_steps = excluded.intake_steps,
+        templates = excluded.templates,
+        last_dry_run_at = ${markDryRun ? "now()" : "clinic_bot_settings.last_dry_run_at"},
+        updated_by_user_id = excluded.updated_by_user_id,
+        updated_at = now()
+  returning *
+)
+select row_to_json(result)::text
+from (
+  select
+    upserted.id::text as "id",
+    upserted.clinic_id::text as "clinicId",
+    c.name as "clinicName",
+    upserted.enabled as "enabled",
+    upserted.intake_steps as "intakeSteps",
+    upserted.templates as "templates",
+    upserted.last_dry_run_at as "lastDryRunAt",
+    upserted.updated_at as "updatedAt"
+  from upserted
+  join clinics c on c.id = upserted.clinic_id
+) result;
+`.trim();
+}
+
 export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false } = {}) {
   const clinicWhere = allClinics ? "" : `where c.id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const patientClinicWhere = allClinics ? "" : `and p.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
@@ -899,6 +1158,24 @@ export function createAdminManagementRepository(dbClient) {
     },
     async updateClinicService(params) {
       return dbClient.queryJson(buildUpdateClinicServiceSql(params));
+    },
+    async listClinicIntegrations(params) {
+      return dbClient.queryJson(buildListClinicIntegrationsSql(params));
+    },
+    async getClinicIntegration(params) {
+      return dbClient.queryJson(buildGetClinicIntegrationSql(params));
+    },
+    async createClinicIntegration(params) {
+      return dbClient.queryJson(buildCreateClinicIntegrationSql(params));
+    },
+    async updateClinicIntegration(params) {
+      return dbClient.queryJson(buildUpdateClinicIntegrationSql(params));
+    },
+    async listClinicBotSettings(params) {
+      return dbClient.queryJson(buildListClinicBotSettingsSql(params));
+    },
+    async upsertClinicBotSettings(params) {
+      return dbClient.queryJson(buildUpsertClinicBotSettingsSql(params));
     },
     async setClinicStatus(params) {
       return dbClient.queryJson(buildSetClinicStatusSql(params));

@@ -12,6 +12,11 @@ const CLINIC_CREATABLE_ROLES = ["doctor", "private_doctor", "assistant", "operat
 const CLINIC_LIFECYCLE_STATUSES = ["active", "suspended", "archived"];
 const ROLE_LIFECYCLE_STATUSES = ["active", "disabled"];
 const CLINIC_SERVICE_CATEGORIES = ["consult", "procedure", "imaging"];
+const CLINIC_INTEGRATION_KINDS = ["crm", "erp", "mis", "messenger", "telephony"];
+const CLINIC_INTEGRATION_STATUSES = ["draft", "connected", "disabled", "error"];
+const INTEGRATION_FIELD_MAP_KEYS = ["source", "service", "clinic", "channel", "visitType"];
+const BOT_STEP_KEYS = ["consent", "location", "timeline", "photo", "booking"];
+const BOT_TEMPLATE_KEYS = ["greeting", "photoInstruction", "operatorHandoff", "bookingText"];
 const SERVICE_KEY_SCOPES = [
   "device:write",
   "booking:write",
@@ -332,6 +337,76 @@ function normalizeClinicServicePayload(input = {}, scope, { partial = false } = 
   return payload;
 }
 
+function normalizeFieldMap(input) {
+  if (!isPlainObject(input)) return {};
+  return Object.fromEntries(
+    INTEGRATION_FIELD_MAP_KEYS
+      .filter((key) => input[key] != null)
+      .map((key) => [key, cleanString(input[key], 80)])
+      .filter(([, value]) => Boolean(value)),
+  );
+}
+
+function normalizeClinicIntegrationPayload(input = {}, scope, { partial = false } = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const payload = {
+    clinicId: resolveScopedClinicId(input.clinicId, scope),
+    provider: cleanString(input.provider, 180),
+    kind: cleanString(input.kind, 40),
+    status: input.status == null && partial ? null : cleanString(input.status, 40) || "draft",
+    safeSummaryEnabled: input.safeSummaryEnabled == null && partial ? null : toBoolean(input.safeSummaryEnabled, true),
+    protectedLinkEnabled: input.protectedLinkEnabled == null && partial ? null : toBoolean(input.protectedLinkEnabled, true),
+    fieldMap: input.fieldMap == null && partial ? null : normalizeFieldMap(input.fieldMap),
+  };
+  const details = [];
+  if (!partial || input.clinicId != null) {
+    if (!payload.clinicId) details.push({ field: "clinicId", message: "Выберите клинику." });
+  }
+  if (!partial || input.provider != null) {
+    if (!payload.provider || payload.provider.length < 3) details.push({ field: "provider", message: "Укажите название подключения." });
+  }
+  if (!partial || input.kind != null) {
+    if (!CLINIC_INTEGRATION_KINDS.includes(payload.kind)) details.push({ field: "kind", message: "Выберите тип подключения." });
+  }
+  if (!partial || input.status != null) {
+    if (!CLINIC_INTEGRATION_STATUSES.includes(payload.status)) details.push({ field: "status", message: "Выберите рабочий статус подключения." });
+  }
+  if (details.length > 0) throw new AdminManagementValidationError(details);
+  return payload;
+}
+
+function normalizeBotSteps(input) {
+  const source = isPlainObject(input) ? input : {};
+  return Object.fromEntries(BOT_STEP_KEYS.map((key) => [key, toBoolean(source[key], true)]));
+}
+
+function normalizeBotTemplates(input) {
+  const source = isPlainObject(input) ? input : {};
+  return Object.fromEntries(
+    BOT_TEMPLATE_KEYS
+      .map((key) => [key, cleanString(source[key], 500)])
+      .filter(([, value]) => Boolean(value)),
+  );
+}
+
+function normalizeClinicBotSettingsPayload(input = {}, scope) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const payload = {
+    clinicId: resolveScopedClinicId(input.clinicId, scope),
+    enabled: toBoolean(input.enabled, true),
+    intakeSteps: normalizeBotSteps(input.intakeSteps),
+    templates: normalizeBotTemplates(input.templates),
+  };
+  if (!payload.clinicId) {
+    throw new AdminManagementValidationError([{ field: "clinicId", message: "Выберите клинику." }]);
+  }
+  return payload;
+}
+
 function serviceKeyMaterial(expiresInDays = 90) {
   const secret = `dpk_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
@@ -643,6 +718,171 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         metadata: { fields: Object.keys(payload).filter((key) => payload[key] != null) },
       });
       return { item, scope };
+    },
+
+    async listClinicIntegrations(params, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const items = await adminManagementRepository.listClinicIntegrations({ ...params, ...scope });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.integrations.list",
+        entityType: "clinic_integration",
+        correlationId: meta.correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return { items, meta: listMeta(params, items), scope };
+    },
+
+    async getClinicIntegration(integrationId, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeIntegrationId = assertUuid(integrationId, "integrationId");
+      const item = await adminManagementRepository.getClinicIntegration({ integrationId: safeIntegrationId, ...scope });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: item?.clinicId || (scope.allClinics ? null : scope.clinicIds[0]),
+        actorUserId: authContext.userId,
+        action: "admin.integration.read",
+        entityType: "clinic_integration",
+        entityId: safeIntegrationId,
+        correlationId: meta.correlationId,
+        metadata: { found: Boolean(item) },
+      });
+      return { item, scope };
+    },
+
+    async createClinicIntegration(input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const payload = normalizeClinicIntegrationPayload(input, scope);
+      const item = await adminManagementRepository.createClinicIntegration({
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.integration.create",
+        entityType: "clinic_integration",
+        entityId: item?.id || null,
+        correlationId: meta.correlationId,
+        metadata: { kind: payload.kind, status: payload.status },
+      });
+      return { item, scope };
+    },
+
+    async updateClinicIntegration(integrationId, input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeIntegrationId = assertUuid(integrationId, "integrationId");
+      const payload = normalizeClinicIntegrationPayload(input, scope, { partial: true });
+      if (!payload.clinicId) {
+        throw new AdminManagementValidationError([{ field: "clinicId", message: "Выберите клинику." }]);
+      }
+      const item = await adminManagementRepository.updateClinicIntegration({
+        integrationId: safeIntegrationId,
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.integration.update",
+        entityType: "clinic_integration",
+        entityId: safeIntegrationId,
+        correlationId: meta.correlationId,
+        metadata: { fields: Object.keys(payload).filter((key) => payload[key] != null) },
+      });
+      return { item, scope };
+    },
+
+    async checkClinicIntegration(integrationId, input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeIntegrationId = assertUuid(integrationId, "integrationId");
+      const payload = normalizeClinicIntegrationPayload(input, scope, { partial: true });
+      if (!payload.clinicId) {
+        throw new AdminManagementValidationError([{ field: "clinicId", message: "Выберите клинику." }]);
+      }
+      const item = await adminManagementRepository.updateClinicIntegration({
+        integrationId: safeIntegrationId,
+        clinicId: payload.clinicId,
+        markChecked: true,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.integration.check",
+        entityType: "clinic_integration",
+        entityId: safeIntegrationId,
+        correlationId: meta.correlationId,
+        metadata: { dryRunOnly: true },
+      });
+      return {
+        item,
+        check: {
+          ok: true,
+          message: "Проверка выполнена: рабочие правила передачи данных сохранены.",
+        },
+        scope,
+      };
+    },
+
+    async listClinicBotSettings(authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const items = await adminManagementRepository.listClinicBotSettings(scope);
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.bot_settings.list",
+        entityType: "clinic_bot_settings",
+        correlationId: meta.correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return { items, meta: listMeta({ limit: 50, offset: 0 }, items), scope };
+    },
+
+    async updateClinicBotSettings(input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const payload = normalizeClinicBotSettingsPayload(input, scope);
+      const item = await adminManagementRepository.upsertClinicBotSettings({
+        ...payload,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.bot_settings.update",
+        entityType: "clinic_bot_settings",
+        entityId: item?.id || null,
+        correlationId: meta.correlationId,
+        metadata: { enabled: payload.enabled },
+      });
+      return { item, scope };
+    },
+
+    async dryRunClinicBotSettings(input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const payload = normalizeClinicBotSettingsPayload(input, scope);
+      const item = await adminManagementRepository.upsertClinicBotSettings({
+        ...payload,
+        markDryRun: true,
+        actorUserId: authContext.userId,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: payload.clinicId,
+        actorUserId: authContext.userId,
+        action: "admin.bot_settings.dry_run",
+        entityType: "clinic_bot_settings",
+        entityId: item?.id || null,
+        correlationId: meta.correlationId,
+        metadata: { enabled: payload.enabled },
+      });
+      return {
+        item,
+        preview: {
+          ok: true,
+          message: "Пробный сценарий собран без отправки сообщений пациентам.",
+        },
+        scope,
+      };
     },
 
     async getAnalytics(authContext, meta = {}) {

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 
 import { expect, type Response, test } from "@playwright/test";
 
-import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
+import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
 
 const BASE_URL = (process.env.STAGE4M_LIVE_ADMIN_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
 const CREDENTIALS_FILE = process.env.STAGE4M_ADMIN_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
@@ -50,6 +50,16 @@ function isAdminServiceResponse(response: Response, method: string, matcher: Reg
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isAdminIntegrationResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
+function isAdminBotResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 function isOpsResponse(response: Response, path: string) {
   const request = response.request();
   return request.method() === "GET" && new URL(response.url()).pathname === path;
@@ -79,6 +89,9 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminServiceName = `Дерматоскопия проверочная ${suffix}`;
     const clinicAdminUpdatedServiceName = `Дерматоскопия контрольная ${suffix}`;
     const clinicAdminServiceConsent = `Согласие на съёмку ${suffix}`;
+    const clinicAdminIntegrationName = `Клиентская база ${suffix}`;
+    const clinicAdminUpdatedIntegrationName = `Клиентская база проверена ${suffix}`;
+    const clinicAdminBotGreeting = `Здравствуйте, клиника ${suffix} поможет подготовить обращение.`;
     const serviceKeyLabel = `Проверочный ключ ${suffix}`;
     const serviceKeyOwner = `Автотест ${suffix}`;
     const consoleErrors: string[] = [];
@@ -98,6 +111,8 @@ test.describe("Live production admin management journey", () => {
           url.pathname.startsWith("/api/v1/admin/doctors") ||
           url.pathname.startsWith("/api/v1/admin/analytics") ||
           url.pathname.startsWith("/api/v1/admin/services") ||
+          url.pathname.startsWith("/api/v1/admin/integrations") ||
+          url.pathname.startsWith("/api/v1/admin/bot-settings") ||
           url.pathname.startsWith("/api/v1/admin/service-keys")
         ) {
           adminResponses.push({
@@ -676,6 +691,108 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-services-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    const clinicAdminIntegrationsListResponsePromise = page.waitForResponse((response) =>
+      isAdminIntegrationResponse(response, "GET", /^\/api\/v1\/admin\/integrations$/),
+    );
+    await sidebarLink(page, "Интеграции").click();
+    const clinicAdminIntegrationsListResponse = await clinicAdminIntegrationsListResponsePromise;
+    expect(clinicAdminIntegrationsListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminIntegrationsListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Интеграции" })).toBeVisible();
+    await expect(mainText(page, "Рабочий режим: подключения сохраняются в базе клиники. Передача фото, клинических решений и персональных данных закрыта правилами.")).toBeVisible();
+    await page.getByLabel("Название подключения").fill(clinicAdminIntegrationName);
+    await page.getByLabel("Клиника подключения").selectOption({ label: clinicAdminClinicName });
+    await page.getByLabel("Тип подключения").selectOption("crm");
+    const clinicAdminCreateIntegrationResponsePromise = page.waitForResponse((response) =>
+      isAdminIntegrationResponse(response, "POST", /^\/api\/v1\/admin\/integrations$/),
+    );
+    await page.getByRole("button", { name: "Создать подключение" }).click();
+    const clinicAdminCreateIntegrationResponse = await clinicAdminCreateIntegrationResponsePromise;
+    expect(clinicAdminCreateIntegrationResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminCreateIntegrationResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Подключение создано: ${clinicAdminIntegrationName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminIntegrationName).first()).toBeVisible();
+
+    const createdIntegrationRow = appMain(page).locator("tr", { hasText: clinicAdminIntegrationName }).first();
+    const integrationDetailResponsePromise = page.waitForResponse((response) =>
+      isAdminIntegrationResponse(response, "GET", /^\/api\/v1\/admin\/integrations\/[^/]+$/),
+    );
+    await mainLink(page, "Открыть").click();
+    const integrationDetailResponse = await integrationDetailResponsePromise;
+    expect(integrationDetailResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(integrationDetailResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: clinicAdminIntegrationName })).toBeVisible();
+    await page.getByLabel("Название подключения").fill(clinicAdminUpdatedIntegrationName);
+    await page.getByLabel("Статус подключения").selectOption("connected");
+    const updateIntegrationResponsePromise = page.waitForResponse((response) =>
+      isAdminIntegrationResponse(response, "PATCH", /^\/api\/v1\/admin\/integrations\/[^/]+$/),
+    );
+    await page.getByRole("button", { name: "Сохранить подключение" }).click();
+    const updateIntegrationResponse = await updateIntegrationResponsePromise;
+    expect(updateIntegrationResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(updateIntegrationResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Подключение сохранено: ${clinicAdminUpdatedIntegrationName}`)).toBeVisible();
+    const checkIntegrationResponsePromise = page.waitForResponse((response) =>
+      isAdminIntegrationResponse(response, "POST", /^\/api\/v1\/admin\/integrations\/[^/]+\/check$/),
+    );
+    await page.getByRole("button", { name: "Проверить подключение" }).click();
+    const checkIntegrationResponse = await checkIntegrationResponsePromise;
+    expect(checkIntegrationResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(checkIntegrationResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, "Проверка подключения выполнена.")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-integration-detail-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: clinicAdminUpdatedIntegrationName })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-integration-detail-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const clinicAdminBotListResponsePromise = page.waitForResponse((response) =>
+      isAdminBotResponse(response, "GET", /^\/api\/v1\/admin\/bot-settings$/),
+    );
+    await sidebarLink(page, "Бот").click();
+    const clinicAdminBotListResponse = await clinicAdminBotListResponsePromise;
+    expect(clinicAdminBotListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminBotListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Бот" })).toBeVisible();
+    await expect(mainText(page, "Рабочий режим: настройки сохраняются в базе клиники. Пробная проверка не отправляет сообщения пациентам.")).toBeVisible();
+    await page.getByLabel("Клиника бота").selectOption({ label: clinicAdminClinicName });
+    await page.getByLabel("Приветствие").fill(clinicAdminBotGreeting);
+    const clinicAdminBotUpdateResponsePromise = page.waitForResponse((response) =>
+      isAdminBotResponse(response, "PATCH", /^\/api\/v1\/admin\/bot-settings$/),
+    );
+    await page.getByRole("button", { name: "Сохранить настройки" }).click();
+    const clinicAdminBotUpdateResponse = await clinicAdminBotUpdateResponsePromise;
+    expect(clinicAdminBotUpdateResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminBotUpdateResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Настройки бота сохранены: ${clinicAdminClinicName}`)).toBeVisible();
+    const clinicAdminBotDryRunResponsePromise = page.waitForResponse((response) =>
+      isAdminBotResponse(response, "POST", /^\/api\/v1\/admin\/bot-settings\/dry-run$/),
+    );
+    await page.getByRole("button", { name: "Проверить сценарий" }).click();
+    const clinicAdminBotDryRunResponse = await clinicAdminBotDryRunResponsePromise;
+    expect(clinicAdminBotDryRunResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminBotDryRunResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Пробный сценарий проверен: ${clinicAdminClinicName}`)).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-bot-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Бот" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-bot-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
     const clinicAdminAnalyticsDeepResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "GET", /^\/api\/v1\/admin\/analytics$/),
     );
@@ -711,6 +828,11 @@ test.describe("Live production admin management journey", () => {
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/doctors" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/services" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/services\/[^/]+/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/integrations" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/integrations\/[^/]+/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && /\/api\/v1\/admin\/integrations\/[^/]+\/check/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && item.path === "/api/v1/admin/bot-settings" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/bot-settings/dry-run" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/service-keys" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/rotate/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/revoke/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);

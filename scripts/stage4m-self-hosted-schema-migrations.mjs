@@ -30,6 +30,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0088_stage6_admin_lifecycle.sql",
   "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
   "backend/self-hosted/db/migrations/0091_stage6_clinic_services.sql",
+  "backend/self-hosted/db/migrations/0092_stage6_admin_integrations_bot.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -102,6 +103,57 @@ select json_build_object(
         'created_at',
         'updated_at',
         'deleted_at'
+      )
+  ),
+  'clinicIntegrationsTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'clinic_integrations'
+  ),
+  'clinicIntegrationsRequiredColumns', (
+    select count(*) = 14
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinic_integrations'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'provider',
+        'kind',
+        'status',
+        'safe_summary_enabled',
+        'protected_link_enabled',
+        'field_map',
+        'last_checked_at',
+        'created_by_user_id',
+        'updated_by_user_id',
+        'created_at',
+        'updated_at',
+        'deleted_at'
+      )
+  ),
+  'clinicBotSettingsTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'clinic_bot_settings'
+  ),
+  'clinicBotSettingsRequiredColumns', (
+    select count(*) = 9
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinic_bot_settings'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'enabled',
+        'intake_steps',
+        'templates',
+        'last_dry_run_at',
+        'updated_by_user_id',
+        'created_at',
+        'updated_at'
       )
   ),
   'deviceBridgesTable', exists (
@@ -274,7 +326,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, and clinic_services catalog table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, and bot settings table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -327,6 +379,10 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.serviceApiKeysTable !== true) missing.push("service_api_keys table");
   if (verification.clinicServicesTable !== true) missing.push("clinic_services table");
   if (verification.clinicServicesRequiredColumns !== true) missing.push("clinic_services columns");
+  if (verification.clinicIntegrationsTable !== true) missing.push("clinic_integrations table");
+  if (verification.clinicIntegrationsRequiredColumns !== true) missing.push("clinic_integrations columns");
+  if (verification.clinicBotSettingsTable !== true) missing.push("clinic_bot_settings table");
+  if (verification.clinicBotSettingsRequiredColumns !== true) missing.push("clinic_bot_settings columns");
   if (verification.deviceBridgesTable !== true) missing.push("device_bridges table");
   if (verification.medicalDevicesTable !== true) missing.push("medical_devices table");
   if (verification.deviceBridgeCommandsTable !== true) missing.push("device_bridge_commands table");

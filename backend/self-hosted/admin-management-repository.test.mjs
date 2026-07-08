@@ -5,17 +5,22 @@ import {
   buildAssignAdminUserRoleSql,
   buildCreateAdminUserSql,
   buildCreateClinicSql,
+  buildCreateClinicIntegrationSql,
   buildCreateClinicServiceSql,
   buildCreatePrivatePracticeSql,
   buildDeleteEmptyClinicSql,
   buildDisableAdminUserSql,
+  buildListClinicBotSettingsSql,
+  buildListClinicIntegrationsSql,
   buildReactivateAdminUserSql,
   buildCreateServiceKeySql,
   buildListClinicServicesSql,
   buildSetAdminUserRoleStatusSql,
   buildSetClinicStatusSql,
+  buildUpdateClinicIntegrationSql,
   buildRotateServiceKeySql,
   buildRevokeServiceKeySql,
+  buildUpsertClinicBotSettingsSql,
   buildUpdateClinicServiceSql,
   buildUpdateClinicSql,
 } from "./admin-management-repository.mjs";
@@ -156,6 +161,41 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
   );
 
   assertMutationUsesWritableCte(
+    buildCreateClinicIntegrationSql({
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      provider: "CRM клиники",
+      kind: "crm",
+      status: "draft",
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "inserted",
+  );
+
+  assertMutationUsesWritableCte(
+    buildUpdateClinicIntegrationSql({
+      integrationId: "10000000-0000-4000-8000-000000000601",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      provider: "CRM клиники обновлена",
+      kind: "crm",
+      status: "connected",
+      markChecked: true,
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
+    buildUpsertClinicBotSettingsSql({
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      enabled: true,
+      intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+      templates: { greeting: "Здравствуйте" },
+      actorUserId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "upserted",
+  );
+
+  assertMutationUsesWritableCte(
     buildRotateServiceKeySql({
       keyId: "10000000-0000-4000-8000-000000000401",
       secretPrefix: "dpk_5678",
@@ -201,6 +241,57 @@ test("clinic service SQL is scoped and exposes only operational catalog fields",
   assert.match(createSql, /duration_min/);
   assert.match(createSql, /online_booking/);
   assert.doesNotMatch(`${listSql}\n${createSql}`, /patientName|diagnosis|storagePath|signedUrl|accessToken|sessionId/i);
+});
+
+test("clinic integration and bot SQL are scoped and operational only", () => {
+  const listIntegrationsSql = buildListClinicIntegrationsSql({
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+    search: "crm",
+  });
+  const createIntegrationSql = buildCreateClinicIntegrationSql({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    provider: "CRM клиники",
+    kind: "crm",
+    status: "draft",
+    safeSummaryEnabled: true,
+    protectedLinkEnabled: true,
+    fieldMap: { source: "lead_source", service: "service_name" },
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+  const updateIntegrationSql = buildUpdateClinicIntegrationSql({
+    integrationId: "10000000-0000-4000-8000-000000000601",
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    provider: "CRM клиники обновлена",
+    kind: "crm",
+    status: "connected",
+    markChecked: true,
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+  const listBotSql = buildListClinicBotSettingsSql({
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+  });
+  const saveBotSql = buildUpsertClinicBotSettingsSql({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    enabled: true,
+    intakeSteps: { consent: true, location: true, timeline: true, photo: true, booking: true },
+    templates: { greeting: "Здравствуйте", bookingText: "Запись" },
+    markDryRun: true,
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+  const combined = `${listIntegrationsSql}\n${createIntegrationSql}\n${updateIntegrationSql}\n${listBotSql}\n${saveBotSql}`;
+
+  assert.match(listIntegrationsSql, /from clinic_integrations i/i);
+  assert.match(listIntegrationsSql, /i\.clinic_id in/);
+  assert.match(listIntegrationsSql, /i\.deleted_at is null/);
+  assert.match(createIntegrationSql, /insert into clinic_integrations/i);
+  assert.match(updateIntegrationSql, /last_checked_at = now\(\)/i);
+  assert.match(listBotSql, /from clinics c/i);
+  assert.match(listBotSql, /left join clinic_bot_settings/i);
+  assert.match(saveBotSql, /insert into clinic_bot_settings/i);
+  assert.match(saveBotSql, /last_dry_run_at = now\(\)/i);
+  assert.doesNotMatch(combined, /diagnosis|prognosis|treatment|storagePath|signedUrl|accessToken|sessionId|credential|secret/i);
 });
 
 test("service key SQL stores hash and mask without raw key value", () => {

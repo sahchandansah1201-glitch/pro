@@ -103,6 +103,48 @@
         "summary": "Update a clinic service catalog row inside the administrator scope"
       }
     },
+    "/api/v1/admin/integrations": {
+      "get": {
+        "operationId": "listAdminClinicIntegrations",
+        "summary": "List clinic integration settings inside the administrator scope"
+      },
+      "post": {
+        "operationId": "createAdminClinicIntegration",
+        "summary": "Create a clinic integration settings row"
+      }
+    },
+    "/api/v1/admin/integrations/{integrationId}": {
+      "get": {
+        "operationId": "getAdminClinicIntegration",
+        "summary": "Read one clinic integration settings row inside the administrator scope"
+      },
+      "patch": {
+        "operationId": "updateAdminClinicIntegration",
+        "summary": "Update clinic integration settings inside the administrator scope"
+      }
+    },
+    "/api/v1/admin/integrations/{integrationId}/check": {
+      "post": {
+        "operationId": "checkAdminClinicIntegration",
+        "summary": "Record a safe clinic integration check without exposing credentials"
+      }
+    },
+    "/api/v1/admin/bot-settings": {
+      "get": {
+        "operationId": "listAdminClinicBotSettings",
+        "summary": "List clinic bot settings inside the administrator scope"
+      },
+      "patch": {
+        "operationId": "updateAdminClinicBotSettings",
+        "summary": "Save clinic bot scenario settings"
+      }
+    },
+    "/api/v1/admin/bot-settings/dry-run": {
+      "post": {
+        "operationId": "dryRunAdminClinicBotSettings",
+        "summary": "Record a clinic bot scenario dry run without sending patient messages"
+      }
+    },
     "/api/v1/admin/audit-events": {
       "get": {
         "operationId": "listAdminAuditEvents",

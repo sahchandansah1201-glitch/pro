@@ -29,6 +29,14 @@ function adminServicePath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/services\/([^/]+)$/);
 }
 
+function adminIntegrationPath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/integrations\/([^/]+)$/);
+}
+
+function adminIntegrationCheckPath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/integrations\/([^/]+)\/check$/);
+}
+
 function serviceKeyRotatePath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/service-keys\/([^/]+)\/rotate$/);
 }
@@ -327,6 +335,129 @@ export async function handleAdminManagementRequest({
         { correlationId },
       );
       return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/admin/integrations") {
+    if (method === "GET") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const params = parseAdminListParams(url.searchParams);
+        const result = await runtimeServices.adminManagementService.listClinicIntegrations(params, authContext, { correlationId });
+        return jsonResponse(
+          200,
+          { stage: "6A", source: "postgres", items: result.items, meta: result.meta, generatedAt: now(), correlationId },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+
+    if (method === "POST") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.adminManagementService.createClinicIntegration(
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+        return jsonResponse(201, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+  }
+
+  const adminIntegration = adminIntegrationPath(url.pathname);
+  if (adminIntegration && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.getClinicIntegration(
+        decodeURIComponent(adminIntegration[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (adminIntegration && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.updateClinicIntegration(
+        decodeURIComponent(adminIntegration[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  const adminIntegrationCheck = adminIntegrationCheckPath(url.pathname);
+  if (adminIntegrationCheck && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.checkClinicIntegration(
+        decodeURIComponent(adminIntegrationCheck[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, check: result.check, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/admin/bot-settings") {
+    if (method === "GET") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.adminManagementService.listClinicBotSettings(authContext, { correlationId });
+        return jsonResponse(
+          200,
+          { stage: "6A", source: "postgres", items: result.items, meta: result.meta, generatedAt: now(), correlationId },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+
+    if (method === "PATCH") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.adminManagementService.updateClinicBotSettings(
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+        return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+      } catch (error) {
+        return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+      }
+    }
+  }
+
+  if (url.pathname === "/api/v1/admin/bot-settings/dry-run" && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.dryRunClinicBotSettings(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, preview: result.preview, generatedAt: now(), correlationId }, config, requestOrigin);
     } catch (error) {
       return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
     }
