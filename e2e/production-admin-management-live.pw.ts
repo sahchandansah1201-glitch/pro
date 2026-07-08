@@ -66,6 +66,8 @@ function isOpsResponse(response: Response, path: string) {
 }
 
 test.describe("Live production admin management journey", () => {
+  test.setTimeout(90_000);
+
   test("system admin creates clinics, users, and verifies audit through the visible UI", async ({ page }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
 

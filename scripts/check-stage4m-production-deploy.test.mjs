@@ -73,6 +73,34 @@ test("Stage 4M guard requires clinic admin services live coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-services-desktop-1280\.png/);
 });
 
+test("Stage 4M guard requires explicit admin live e2e timeout", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-admin-timeout-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"Услуги";',
+      '"/api/v1/admin/services";',
+      '"Создать услугу";',
+      '"Редактирование услуги";',
+      '"Сохранить услугу";',
+      '"live-clinic-admin-services-desktop-1280.png";',
+      '"live-clinic-admin-services-mobile-390.png";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: test\.setTimeout\(90_000\)/);
+});
+
 test("Stage 4M guard rejects ambiguous live e2e sidebar link locators", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-sidebar-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });

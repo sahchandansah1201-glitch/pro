@@ -569,6 +569,7 @@ export function validateLiveE2EContract(errors, root) {
       file: "e2e/production-admin-management-live.pw.ts",
       markers: [
         "Справка",
+        "test.setTimeout(90_000)",
         "Поиск по разделам справки",
         "Услуги",
         "/api/v1/admin/services",
