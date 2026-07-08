@@ -129,19 +129,24 @@ Update sequence:
 2. create a pre-update backup;
 3. fetch and fast-forward `main`;
 4. apply production schema migrations;
-5. run the admin clinic database smoke in a rollback transaction;
+5. run production database smokes in rollback transactions;
 6. run `npm ci`;
 7. build frontend with the production auth gate into a staging directory;
 8. rebuild/restart Docker Compose;
 9. verify `/healthz`, `/readyz`, and frontend HTML;
 10. capture safe compose status.
 
-The admin clinic database smoke is deliberately not a mocked UI test. It runs
-against the self-hosted PostgreSQL container and exercises the same SQL surface
-used by `/api/v1/admin/clinics`: list clinics, create a clinic row, verify that
-the row is visible to the list query, edit address/timezone, and run admin
-analytics. The transaction is rolled back, so the deploy check leaves no test
-clinic behind. If this smoke fails, deployment must remain failed even when
+The database smokes are deliberately not mocked UI tests. They run against the
+self-hosted PostgreSQL container and exercise the same SQL surfaces used by the
+production browser paths. The admin clinic smoke covers `/api/v1/admin/clinics`:
+list clinics, create a clinic row, verify that the row is visible to the list
+query, edit address/timezone, and run admin analytics. The admin governance
+smoke covers `/api/v1/patient-photo-protocol-release/governance`: aggregate
+read, retention-gap blocking, missing-expiry blocking, temporary-code cleanup,
+access-artifact rotation preparation, credential-hash preparation, and expired
+window revocation. Transactions are rolled back, so deploy checks leave no test
+clinic, governance window, raw token, storage path, signed URL, session id, or
+credential behind. If any smoke fails, deployment must remain failed even when
 `/healthz` and `/readyz` are green.
 
 The frontend build is deliberately safe for an already running server:

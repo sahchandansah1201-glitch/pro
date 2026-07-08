@@ -60,6 +60,11 @@ function isAdminBotResponse(response: Response, method: string, matcher: RegExp)
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function isAdminGovernanceResponse(response: Response, method: string, matcher: RegExp) {
+  const request = response.request();
+  return request.method() === method && matcher.test(new URL(response.url()).pathname);
+}
+
 function isOpsResponse(response: Response, path: string) {
   const request = response.request();
   return request.method() === "GET" && new URL(response.url()).pathname === path;
@@ -99,6 +104,7 @@ test.describe("Live production admin management journey", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const adminResponses: { method: string; path: string; status: number }[] = [];
+    const governanceResponses: { method: string; path: string; status: number }[] = [];
 
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -118,6 +124,13 @@ test.describe("Live production admin management journey", () => {
           url.pathname.startsWith("/api/v1/admin/service-keys")
         ) {
           adminResponses.push({
+            method: response.request().method(),
+            path: url.pathname,
+            status: response.status(),
+          });
+        }
+        if (url.pathname.startsWith("/api/v1/patient-photo-protocol-release/governance")) {
+          governanceResponses.push({
             method: response.request().method(),
             path: url.pathname,
             status: response.status(),
@@ -795,6 +808,50 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-bot-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    const clinicAdminGovernanceListResponsePromise = page.waitForResponse((response) =>
+      isAdminGovernanceResponse(response, "GET", /^\/api\/v1\/patient-photo-protocol-release\/governance$/),
+    );
+    await sidebarLink(page, "Управление доступом").click();
+    const clinicAdminGovernanceListResponse = await clinicAdminGovernanceListResponsePromise;
+    expect(clinicAdminGovernanceListResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminGovernanceListResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Управление доступом" })).toBeVisible();
+    await expect(mainText(page, "Только агрегаты")).toBeVisible();
+    await expect(mainText(page, "Проверка хранения и сроков")).toBeVisible();
+    await expect(mainText(page, "Проверка файлов и сеансов")).toBeVisible();
+
+    for (const [buttonName, path] of [
+      ["Блокировать окна без правил", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unapproved-retention$/],
+      ["Закрыть окна без срока", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-missing-expiry$/],
+      ["Закрыть временные коды", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unsafe-session-artifacts$/],
+      ["Подготовить новую выдачу", /^\/api\/v1\/patient-photo-protocol-release\/governance\/prepare-access-artifact-rotation$/],
+      ["Подготовить ключ входа", /^\/api\/v1\/patient-photo-protocol-release\/governance\/issue-access-credential-hash$/],
+      ["Отозвать истёкшие окна", /^\/api\/v1\/patient-photo-protocol-release\/governance\/revoke-expired$/],
+    ] as const) {
+      const governanceOperationResponsePromise = page.waitForResponse((response) =>
+        isAdminGovernanceResponse(response, "POST", path),
+      );
+      await appMain(page).getByRole("button", { name: buttonName }).first().click();
+      const governanceOperationResponse = await governanceOperationResponsePromise;
+      expect(governanceOperationResponse.status()).toBeGreaterThanOrEqual(200);
+      expect(governanceOperationResponse.status()).toBeLessThan(300);
+    }
+
+    await expect(mainText(page, "Последнее действие системы")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-governance-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Управление доступом" })).toBeVisible();
+    await expect(mainText(page, "Только агрегаты")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-governance-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
     const clinicAdminAnalyticsDeepResponsePromise = page.waitForResponse((response) =>
       isAdminClinicResponse(response, "GET", /^\/api\/v1\/admin\/analytics$/),
     );
@@ -838,6 +895,17 @@ test.describe("Live production admin management journey", () => {
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/service-keys" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/rotate/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/service-keys\/[^/]+\/revoke/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(governanceResponses.some((item) => item.method === "GET" && item.path === "/api/v1/patient-photo-protocol-release/governance" && item.status >= 200 && item.status < 300)).toBe(true);
+    for (const path of [
+      "/api/v1/patient-photo-protocol-release/governance/block-unapproved-retention",
+      "/api/v1/patient-photo-protocol-release/governance/block-missing-expiry",
+      "/api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts",
+      "/api/v1/patient-photo-protocol-release/governance/prepare-access-artifact-rotation",
+      "/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash",
+      "/api/v1/patient-photo-protocol-release/governance/revoke-expired",
+    ]) {
+      expect(governanceResponses.some((item) => item.method === "POST" && item.path === path && item.status >= 200 && item.status < 300)).toBe(true);
+    }
     expect(adminResponses.some((item) => item.method === "PATCH" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "DELETE" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(consoleErrors).toEqual([]);

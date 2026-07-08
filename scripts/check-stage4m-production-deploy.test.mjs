@@ -9,7 +9,7 @@ import { collectStage4MChecks, validateLiveE2EContract } from "./check-stage4m-p
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 73);
+  assert.equal(result.checkedFiles, 75);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {
@@ -56,7 +56,7 @@ test("Stage 4M guard requires clinic admin services live coverage", () => {
   writeFileSync(
     join(root, "e2e", "production-admin-management-live.pw.ts"),
     [
-      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink } from "./live-admin-test-helpers";',
       'await expect(appMain(page)).not.toContainText(/backend/);',
       '"Справка";',
       '"Поиск по разделам справки";',
@@ -71,6 +71,37 @@ test("Stage 4M guard requires clinic admin services live coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/admin\/services/);
   assert.match(errors.join("\n"), /missing live coverage marker: Создать услугу/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-services-desktop-1280\.png/);
+});
+
+test("Stage 4M guard requires clinic admin governance live coverage", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-governance-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      "test.setTimeout(90_000);",
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"Услуги";',
+      '"/api/v1/admin/services";',
+      '"Создать услугу";',
+      '"Редактирование услуги";',
+      '"Сохранить услугу";',
+      '"live-clinic-admin-services-desktop-1280.png";',
+      '"live-clinic-admin-services-mobile-390.png";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: Управление доступом/);
+  assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/patient-photo-protocol-release\/governance/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-governance-desktop-1280\.png/);
 });
 
 test("Stage 4M guard requires explicit admin live e2e timeout", () => {
