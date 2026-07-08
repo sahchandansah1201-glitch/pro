@@ -53,6 +53,7 @@ test("Stage 4M public analysis DB smoke SQL exercises hashed public links in rol
   assert.match(sql, /public analysis expired link did not return expired status without summary/);
   assert.match(sql, /public analysis missing link did not return not_found status/);
   assert.match(sql, /stage4m_public_analysis_db_smoke_ok/);
+  assert.doesNotMatch(sql, /000000000716/);
   assert.doesNotMatch(sql, /stage4m-public-valid-test-001|stage4m-public-expired-test-001|stage4m-public-missing-test-001/);
   assert.doesNotMatch(sql, /storage_path|signed_url|access_token|session_id/i);
 });

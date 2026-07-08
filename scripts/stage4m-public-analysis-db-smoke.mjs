@@ -22,7 +22,6 @@ const DOCTOR_ID = "10000000-0000-4000-8000-000000000712";
 const PATIENT_ID = "10000000-0000-4000-8000-000000000713";
 const VISIT_ID = "10000000-0000-4000-8000-000000000714";
 const REPORT_ID = "10000000-0000-4000-8000-000000000715";
-const EXPIRED_REPORT_ID = "10000000-0000-4000-8000-000000000716";
 
 function redact(value) {
   return String(value || "")
@@ -168,14 +167,12 @@ begin
   values (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, 'overview_photo'::asset_kind, 'stage4m-public-analysis', ${sqlLiteral(`asset-${safeSuffix}.jpg`)}, 'image/jpeg', 128, now(), ${sqlLiteral(DOCTOR_ID)}::uuid);
 
   insert into reports (id, clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text, signed_at)
-  values
-    (${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', 'internal physician smoke text', ${sqlLiteral(safeSummary)}, ${sqlLiteral(nowIso)}::timestamptz),
-    (${sqlLiteral(EXPIRED_REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', 'expired internal physician smoke text', ${sqlLiteral(`${safeSummary} expired`)}, ${sqlLiteral(nowIso)}::timestamptz);
+  values (${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', 'internal physician smoke text', ${sqlLiteral(safeSummary)}, ${sqlLiteral(nowIso)}::timestamptz);
 
   insert into public_analysis_links (clinic_id, report_id, token_hash, status, expires_at, created_by_user_id)
   values
     (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(validHash)}, 'active', ${sqlLiteral("2026-07-09T10:00:00.000Z")}::timestamptz, ${sqlLiteral(DOCTOR_ID)}::uuid),
-    (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(EXPIRED_REPORT_ID)}::uuid, ${sqlLiteral(expiredHash)}, 'active', ${sqlLiteral("2026-07-07T10:00:00.000Z")}::timestamptz, ${sqlLiteral(DOCTOR_ID)}::uuid);
+    (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(expiredHash)}, 'active', ${sqlLiteral("2026-07-07T10:00:00.000Z")}::timestamptz, ${sqlLiteral(DOCTOR_ID)}::uuid);
 
   execute $sql$${validSql}$sql$ into payload;
   if payload is null
