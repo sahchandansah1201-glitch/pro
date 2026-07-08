@@ -9,7 +9,7 @@ import { collectStage4MChecks, validateLiveE2EContract } from "./check-stage4m-p
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 58);
+  assert.equal(result.checkedFiles, 73);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {

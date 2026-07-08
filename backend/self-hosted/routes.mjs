@@ -5,11 +5,7 @@ import { fileURLToPath } from "node:url";
 import { createAdminManagementRepository } from "./admin-management-repository.mjs";
 import { handleAdminManagementRequest } from "./admin-management-routes.mjs";
 import { createAdminManagementService } from "./admin-management-service.mjs";
-import {
-  corsHeaders,
-  errorResponse,
-  jsonResponse,
-} from "./api-response.mjs";
+import { corsHeaders, errorResponse, jsonResponse } from "./api-response.mjs";
 import { createAuthRepository } from "./auth-repository.mjs";
 import { createAuthService } from "./auth-service.mjs";
 import {
@@ -52,6 +48,7 @@ import {
 } from "./patient-write-service.mjs";
 import { createPatientPortalRepository } from "./patient-portal-repository.mjs";
 import { createPatientPortalService } from "./patient-portal-service.mjs";
+import { createPublicAnalysisRuntime, handlePublicAnalysisRequest } from "./public-analysis-routes.mjs";
 import { createPatientPhotoProtocolDeliveryRepository } from "./patient-photo-protocol-delivery-repository.mjs";
 import { createPatientPhotoProtocolDeliveryService } from "./patient-photo-protocol-delivery-service.mjs";
 import { createAssetWriteRepository } from "./asset-write-repository.mjs";
@@ -548,6 +545,7 @@ function getRuntime(config, runtime = {}) {
     patientRepository,
     patientPortalRepository,
     patientPortalService,
+    ...createPublicAnalysisRuntime({ dbClient, runtime }),
     patientPhotoProtocolDeliveryRepository,
     patientPhotoProtocolDeliveryService,
     patientPhotoProtocolReleaseRepository,
@@ -767,6 +765,8 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const publicAnalysisResponse = await handlePublicAnalysisRequest({ method, url, config, requestOrigin, runtimeServices, correlationId, now, publicErrorFor });
+  if (publicAnalysisResponse) return publicAnalysisResponse;
   const adminManagementResponse = await handleAdminManagementRequest({
     method, url, request, config, requestOrigin, runtimeServices, correlationId, now, parseJsonBody, publicErrorFor,
   });

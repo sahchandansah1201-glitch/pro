@@ -31,6 +31,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
   "backend/self-hosted/db/migrations/0091_stage6_clinic_services.sql",
   "backend/self-hosted/db/migrations/0092_stage6_admin_integrations_bot.sql",
+  "backend/self-hosted/db/migrations/0093_stage6_public_analysis_links.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -233,6 +234,31 @@ select json_build_object(
         'updated_at',
         'deleted_at'
       )
+  ),
+  'publicAnalysisLinksTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'public_analysis_links'
+  ),
+  'publicAnalysisLinksRequiredColumns', (
+    select count(*) = 11
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'public_analysis_links'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'report_id',
+        'token_hash',
+        'status',
+        'expires_at',
+        'created_by_user_id',
+        'revoked_at',
+        'metadata_json',
+        'created_at',
+        'updated_at'
+      )
   )
 )::text;
 `.trim();
@@ -326,7 +352,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, and bot settings table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -392,6 +418,8 @@ export function verifyStage6AdminSchema(config, io = {}) {
   }
   if (verification.leadsTable !== true) missing.push("leads table");
   if (verification.leadsRequiredColumns !== true) missing.push("leads write columns");
+  if (verification.publicAnalysisLinksTable !== true) missing.push("public_analysis_links table");
+  if (verification.publicAnalysisLinksRequiredColumns !== true) missing.push("public_analysis_links columns");
   if (missing.length) {
     throw new Error(`Self-hosted production schema is incomplete: ${missing.join(", ")}.`);
   }

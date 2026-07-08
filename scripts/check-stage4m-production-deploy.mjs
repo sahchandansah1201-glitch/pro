@@ -15,6 +15,13 @@ const REQUIRED_FILES = [
   "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
   "backend/self-hosted/db/migrations/0091_stage6_clinic_services.sql",
   "backend/self-hosted/db/migrations/0092_stage6_admin_integrations_bot.sql",
+  "backend/self-hosted/db/migrations/0093_stage6_public_analysis_links.sql",
+  "backend/self-hosted/public-analysis-repository.mjs",
+  "backend/self-hosted/public-analysis-repository.test.mjs",
+  "backend/self-hosted/public-analysis-routes.mjs",
+  "backend/self-hosted/public-analysis-routes.test.mjs",
+  "backend/self-hosted/public-analysis-service.mjs",
+  "backend/self-hosted/public-analysis-service.test.mjs",
   "scripts/stage4m-admin-management-db-smoke.mjs",
   "scripts/stage4m-admin-management-db-smoke.test.mjs",
   "scripts/stage4m-admin-services-db-smoke.mjs",
@@ -31,6 +38,8 @@ const REQUIRED_FILES = [
   "scripts/stage4m-assistant-capture-db-smoke.test.mjs",
   "scripts/stage4m-patient-portal-db-smoke.mjs",
   "scripts/stage4m-patient-portal-db-smoke.test.mjs",
+  "scripts/stage4m-public-analysis-db-smoke.mjs",
+  "scripts/stage4m-public-analysis-db-smoke.test.mjs",
   "scripts/stage4m-admin-management-api-smoke.mjs",
   "scripts/stage4m-admin-management-api-smoke.test.mjs",
   "scripts/run-production-admin-management-live-e2e.mjs",
@@ -43,12 +52,18 @@ const REQUIRED_FILES = [
   "scripts/run-production-operator-workspace-live-e2e.test.mjs",
   "scripts/run-production-patient-portal-live-e2e.mjs",
   "scripts/run-production-patient-portal-live-e2e.test.mjs",
+  "scripts/run-production-public-analysis-live-e2e.mjs",
+  "scripts/run-production-public-analysis-live-e2e.test.mjs",
   "e2e/live-admin-test-helpers.ts",
   "e2e/production-admin-management-live.pw.ts",
   "e2e/production-doctor-workspace-live.pw.ts",
   "e2e/production-assistant-workspace-live.pw.ts",
   "e2e/production-operator-workspace-live.pw.ts",
   "e2e/production-patient-portal-live.pw.ts",
+  "e2e/production-public-analysis-live.pw.ts",
+  "src/lib/self-hosted-public-analysis-api.ts",
+  "src/lib/self-hosted-public-analysis-api.test.ts",
+  "src/pages/public/AnalysisPublicPage.production.test.tsx",
   "src/pages/admin/AdminServicesPage.tsx",
   "src/pages/admin/AdminIntegrationsPage.tsx",
   "src/pages/admin/AdminIntegrationDetailPage.tsx",
@@ -101,6 +116,8 @@ const REQUIRED_TEXT = {
     "stage4m-assistant-capture-db-smoke.mjs",
     "Verify patient portal booking/reminder database journey",
     "stage4m-patient-portal-db-smoke.mjs",
+    "Verify public analysis link database journey",
+    "stage4m-public-analysis-db-smoke.mjs",
     "--retry-all-errors",
     "--retry-delay",
     "ROLLBACK_TO_SELF_HOSTED_BACKUP",
@@ -121,6 +138,7 @@ const REQUIRED_TEXT = {
     "0090_stage6_service_keys.sql",
     "0091_stage6_clinic_services.sql",
     "0092_stage6_admin_integrations_bot.sql",
+    "0093_stage6_public_analysis_links.sql",
     "private_doctor",
     "clinicAddressColumn",
     "clinics.address column",
@@ -144,6 +162,10 @@ const REQUIRED_TEXT = {
     "clinic_bot_settings table",
     "clinicBotSettingsRequiredColumns",
     "clinic_bot_settings columns",
+    "publicAnalysisLinksTable",
+    "public_analysis_links table",
+    "publicAnalysisLinksRequiredColumns",
+    "public_analysis_links columns",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ],
   "scripts/stage4m-admin-management-db-smoke.mjs": [
@@ -226,6 +248,15 @@ const REQUIRED_TEXT = {
     "buildUpdatePatientPortalReminderPreferencesSql",
     "rollback;",
   ],
+  "scripts/stage4m-public-analysis-db-smoke.mjs": [
+    "stage4m_public_analysis_db_smoke_ok",
+    "public analysis valid link did not return patient-safe summary",
+    "public analysis expired link did not return expired status without summary",
+    "public analysis missing link did not return not_found status",
+    "buildGetPublicAnalysisByTokenHashSql",
+    "hashPublicAnalysisToken",
+    "rollback;",
+  ],
   "scripts/stage4m-admin-management-api-smoke.mjs": [
     "I_CONFIRM_CREATE_TEST_CLINIC",
     "assertDeployReadyForStage4MMutation",
@@ -286,6 +317,14 @@ const REQUIRED_TEXT = {
     "STAGE4M_PATIENT_SETUP_CREDENTIALS_FILE",
     "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",
     "Credentials file not found",
+  ],
+  "scripts/run-production-public-analysis-live-e2e.mjs": [
+    "CREATE_TEST_CLINIC_CONFIRMATION",
+    "production-public-analysis-live.pw.ts",
+    "deployStatusBlocksLiveE2E",
+    "Local dependency @playwright/test is missing",
+    "STAGE4M_LIVE_PUBLIC_ANALYSIS_BASE_URL",
+    "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",
   ],
   "e2e/production-admin-management-live.pw.ts": [
     "/self-hosted/login",
@@ -466,6 +505,22 @@ const REQUIRED_TEXT = {
     "live-patient-booking-desktop-1280.png",
     "live-patient-booking-mobile-390.png",
   ],
+  "e2e/production-public-analysis-live.pw.ts": [
+    "/analysis/",
+    "/api/v1/public/analysis/",
+    "Предварительная сводка",
+    "Ссылка истекла",
+    "Ссылка не найдена",
+    "public_analysis_links",
+    "token_hash",
+    "validToken",
+    "expiredToken",
+    "missingToken",
+    "live-public-analysis-valid-desktop-1280.png",
+    "live-public-analysis-valid-mobile-390.png",
+    "live-public-analysis-expired-desktop-1280.png",
+    "live-public-analysis-missing-desktop-1280.png",
+  ],
   "e2e/live-admin-test-helpers.ts": [
     "export function appMain(page: Page)",
     'return page.locator("main").first();',
@@ -562,11 +617,23 @@ function scanRuntimeCoupling(errors, root) {
 }
 
 export function validateLiveE2EContract(errors, root) {
-  const helperImportPattern =
-    /import\s*\{(?=[^}]*\bappMain\b)(?=[^}]*\bbannerText\b)(?=[^}]*\bmainText\b)(?=[^}]*\bexpectMainTapTargets\b)(?=[^}]*\bexpectNoHorizontalOverflow\b)(?=[^}]*\bsidebarLink\b)[^}]*\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s;
+  const hasRequiredHelperImport = (content, requiredHelpers) => {
+    const match = content.match(/import\s*\{([^}]+)\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s);
+    if (!match) return false;
+    return requiredHelpers.every((helper) => new RegExp(`\\b${helper}\\b`).test(match[1]));
+  };
+  const defaultRequiredHelpers = [
+    "appMain",
+    "bannerText",
+    "mainText",
+    "expectMainTapTargets",
+    "expectNoHorizontalOverflow",
+    "sidebarLink",
+  ];
   const liveFiles = [
     {
       file: "e2e/production-admin-management-live.pw.ts",
+      requiredHelpers: [...defaultRequiredHelpers, "mainLink"],
       markers: [
         "Справка",
         "test.setTimeout(90_000)",
@@ -584,6 +651,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-doctor-workspace-live.pw.ts",
+      requiredHelpers: defaultRequiredHelpers,
       markers: [
         "Рабочий стол",
         "Центр частной практики",
@@ -614,6 +682,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-assistant-workspace-live.pw.ts",
+      requiredHelpers: defaultRequiredHelpers,
       markers: [
         "Ассистент",
         "Захват фото",
@@ -629,6 +698,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-operator-workspace-live.pw.ts",
+      requiredHelpers: defaultRequiredHelpers,
       markers: [
         "Консоль оператора",
         "Запросы на запись",
@@ -646,6 +716,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-patient-portal-live.pw.ts",
+      requiredHelpers: defaultRequiredHelpers,
       markers: [
         "Личный кабинет",
         "История очагов",
@@ -662,16 +733,41 @@ export function validateLiveE2EContract(errors, root) {
         "live-patient-booking-mobile-390.png",
       ],
     },
+    {
+      file: "e2e/production-public-analysis-live.pw.ts",
+      requiredHelpers: [
+        "appMain",
+        "mainText",
+        "expectMainTapTargets",
+        "expectNoHorizontalOverflow",
+      ],
+      markers: [
+        "/analysis/",
+        "/api/v1/public/analysis/",
+        "Предварительная сводка",
+        "Ссылка истекла",
+        "Ссылка не найдена",
+        "public_analysis_links",
+        "token_hash",
+        "validToken",
+        "expiredToken",
+        "missingToken",
+        "live-public-analysis-valid-desktop-1280.png",
+        "live-public-analysis-valid-mobile-390.png",
+        "live-public-analysis-expired-desktop-1280.png",
+        "live-public-analysis-missing-desktop-1280.png",
+      ],
+    },
   ];
 
-  for (const { file, markers } of liveFiles) {
+  for (const { file, markers, requiredHelpers } of liveFiles) {
     if (!existsSync(join(root, file))) {
       errors.push(`Missing required file: ${file}`);
       continue;
     }
 
     const content = read(root, file);
-    if (!helperImportPattern.test(content)) {
+    if (!hasRequiredHelperImport(content, requiredHelpers)) {
       errors.push(`${file} must import live admin helpers from ./live-admin-test-helpers`);
     }
     for (const helperName of ["appMain", "bannerText", "mainLink", "mainText", "pageHeaderText", "sidebarLink", "expectNoHorizontalOverflow", "expectMainTapTargets"]) {
@@ -722,6 +818,7 @@ function validatePackageScripts(errors, root) {
     '"e2e:assistant-workspace:live"',
     '"e2e:operator-workspace:live"',
     '"e2e:patient-portal:live"',
+    '"e2e:public-analysis:live"',
     '"deploy:self-hosted:update"',
     '"deploy:stage4m:rollback-drill:dry-run"',
   ]) {
