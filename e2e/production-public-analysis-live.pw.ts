@@ -162,7 +162,7 @@ inserted_asset as (
   from inserted_visit v
   returning id
 ),
-inserted_reports as (
+inserted_report as (
   insert into reports (
     clinic_id,
     patient_id,
@@ -183,31 +183,14 @@ inserted_reports as (
     ${sqlLiteral(safeSummary)},
     now()
   from inserted_visit v
-  union all
-  select
-    v.clinic_id,
-    v.patient_id,
-    v.id,
-    v.doctor_user_id,
-    'signed',
-    'expired internal physician live text',
-    ${sqlLiteral(`${safeSummary} expired`)},
-    now()
-  from inserted_visit v
-  returning id, clinic_id, created_at
-),
-numbered_reports as (
-  select id, clinic_id, row_number() over (order by created_at, id) as report_index
-  from inserted_reports
+  returning id, clinic_id
 )
 insert into public_analysis_links (clinic_id, report_id, token_hash, status, expires_at)
 select clinic_id, id, ${sqlLiteral(validTokenHash)}, 'active', now() + interval '2 days'
-from numbered_reports
-where report_index = 1
+from inserted_report
 union all
 select clinic_id, id, ${sqlLiteral(expiredTokenHash)}, 'active', now() - interval '1 day'
-from numbered_reports
-where report_index = 2;
+from inserted_report;
 
 commit;
 `.trim();

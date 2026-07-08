@@ -749,6 +749,7 @@ export function validateLiveE2EContract(errors, root) {
         "Ссылка не найдена",
         "public_analysis_links",
         "token_hash",
+        "inserted_report as",
         "validToken",
         "expiredToken",
         "missingToken",
@@ -796,6 +797,14 @@ export function validateLiveE2EContract(errors, root) {
     });
     for (const text of markers) {
       if (!content.includes(text)) errors.push(`${file} missing live coverage marker: ${text}`);
+    }
+    if (
+      file === "e2e/production-public-analysis-live.pw.ts" &&
+      (content.includes("inserted_reports as") || content.includes("numbered_reports as"))
+    ) {
+      errors.push(
+        `${file} must use one signed report plus multiple public_analysis_links; duplicate reports for one visit violate reports_visit_id_unique_idx`,
+      );
     }
   }
 }

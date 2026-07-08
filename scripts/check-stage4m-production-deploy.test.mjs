@@ -218,6 +218,42 @@ test("Stage 4M guard rejects scoped direct live e2e link locators", () => {
   assert.match(errors.join("\n"), /production-doctor-workspace-live\.pw\.ts:2 uses direct getByRole\("link"\); use mainLink\(page, \.\.\.\) or sidebarLink/);
 });
 
+test("Stage 4M guard rejects duplicate report public-analysis live fixtures", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-public-analysis-report-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-public-analysis-live.pw.ts"),
+    [
+      'import { appMain, expectMainTapTargets, expectNoHorizontalOverflow, mainText } from "./live-admin-test-helpers";',
+      'const sql = `',
+      'inserted_reports as (',
+      '  insert into reports (visit_id) select v.id from inserted_visit v union all select v.id from inserted_visit v',
+      '),',
+      'numbered_reports as (select id from inserted_reports)',
+      '`;',
+      '"/analysis/";',
+      '"/api/v1/public/analysis/";',
+      '"Предварительная сводка";',
+      '"Ссылка истекла";',
+      '"Ссылка не найдена";',
+      '"public_analysis_links";',
+      '"token_hash";',
+      '"validToken";',
+      '"expiredToken";',
+      '"missingToken";',
+      '"live-public-analysis-valid-desktop-1280.png";',
+      '"live-public-analysis-valid-mobile-390.png";',
+      '"live-public-analysis-expired-desktop-1280.png";',
+      '"live-public-analysis-missing-desktop-1280.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /duplicate reports for one visit violate reports_visit_id_unique_idx/);
+});
+
 test("Stage 4M guard rejects direct live e2e page text locators", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-role-text-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
