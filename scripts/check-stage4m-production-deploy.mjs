@@ -992,6 +992,8 @@ export function validateStage4MDbSmokeContract(errors, root) {
   const file = "scripts/stage4m-patient-portal-db-smoke.mjs";
   if (!existsSync(join(root, file))) return;
   const content = read(root, file);
+  const repositoryFile = "backend/self-hosted/clinical-followup-repository.mjs";
+  const repositoryContent = existsSync(join(root, repositoryFile)) ? read(root, repositoryFile) : "";
   for (const marker of [
     "fixture_patient_user_id uuid := gen_random_uuid();",
     "fixture_report_id uuid := gen_random_uuid();",
@@ -1004,8 +1006,16 @@ export function validateStage4MDbSmokeContract(errors, root) {
   if (/values\s*\(\s*['"]10000000-0000-4000-8000-000000000(?:111|181|211|311|411|511|611)['"]::uuid/i.test(content)) {
     errors.push(`${file} must not insert fixed Stage 4M fixture UUIDs; old production rows can collide with rollback smoke`);
   }
-  if (!/select\s+coalesce\(jsonb_agg\(row_to_json\(result\)\),\s*['"]\[\]['"]::jsonb\)::text\s+from\s+\(\s*\$\{followUpsRowsSql\}\s+\)\s+result/i.test(content)) {
-    errors.push(`${file} must wrap patient follow-up row SQL as a single JSON text payload before PL/pgSQL EXECUTE INTO`);
+  if (!/const\s+followUpsSql\s*=\s*withoutTrailingSemicolon\(buildListPatientFollowUpsSql\(\{[\s\S]*?userId:\s*PATIENT_USER_ID_PLACEHOLDER[\s\S]*?\}\)\);/.test(content)) {
+    errors.push(`${file} must execute the production patient follow-up JSON SQL directly`);
+  }
+  const patientListStart = repositoryContent.indexOf("export function buildListPatientFollowUpsSql");
+  const patientListEnd = repositoryContent.indexOf("export function buildCreatePatientFollowUpMessageSql", patientListStart);
+  const patientListContent = patientListStart >= 0
+    ? repositoryContent.slice(patientListStart, patientListEnd >= 0 ? patientListEnd : undefined)
+    : "";
+  if (!/select\s+coalesce\(jsonb_agg\(row_to_json\(result\)\),\s*['"]\[\]['"]::jsonb\)::text\s+from\s+\(/i.test(patientListContent)) {
+    errors.push(`${repositoryFile} patient follow-up list must return a JSON array for empty and populated results`);
   }
 }
 

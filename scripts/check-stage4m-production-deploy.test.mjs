@@ -352,7 +352,41 @@ test("Stage 4M guard rejects fixed patient portal DB smoke fixture UUID inserts"
 
   assert.match(errors.join("\n"), /must generate transaction-local fixture UUIDs/);
   assert.match(errors.join("\n"), /must not insert fixed Stage 4M fixture UUIDs/);
-  assert.match(errors.join("\n"), /must wrap patient follow-up row SQL as a single JSON text payload/);
+  assert.match(errors.join("\n"), /must execute the production patient follow-up JSON SQL directly/);
+  assert.match(errors.join("\n"), /patient follow-up list must return a JSON array/);
+});
+
+test("Stage 4M guard rejects patient follow-up SQL without the runtime JSON array contract", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-patient-follow-up-json-contract-"));
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  mkdirSync(join(root, "backend", "self-hosted"), { recursive: true });
+  writeFileSync(
+    join(root, "scripts", "stage4m-patient-portal-db-smoke.mjs"),
+    [
+      "fixture_patient_user_id uuid := gen_random_uuid();",
+      "fixture_report_id uuid := gen_random_uuid();",
+      "fixture_follow_up_id uuid := gen_random_uuid();",
+      "const followUpsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({",
+      "  userId: PATIENT_USER_ID_PLACEHOLDER,",
+      "}));",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(root, "backend", "self-hosted", "clinical-followup-repository.mjs"),
+    [
+      "export function buildListPatientFollowUpsSql() {",
+      "  return `select f.id from clinical_follow_up_tasks f`;",
+      "}",
+      "export function buildCreatePatientFollowUpMessageSql() {}",
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateStage4MDbSmokeContract(errors, root);
+
+  assert.deepEqual(errors, [
+    "backend/self-hosted/clinical-followup-repository.mjs patient follow-up list must return a JSON array for empty and populated results",
+  ]);
 });
 
 test("Stage 4M guard rejects direct live e2e page text locators", () => {

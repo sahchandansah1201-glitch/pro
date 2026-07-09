@@ -668,15 +668,18 @@ export function buildCreateClinicalFollowUpMessageSql({
 
 export function buildListPatientFollowUpsSql({ userId } = {}) {
   return `
-    select ${patientFollowUpSelect()}
-    from clinical_follow_up_tasks f
-    join patient_user_links pul on pul.patient_id = f.patient_id
-    join patients p on p.id = f.patient_id
-    left join visits v on v.id = f.visit_id
-    where pul.user_id = ${sqlUuid(userId)}
-      and f.status <> 'cancelled'
-    order by f.due_at asc, f.created_at desc
-    limit 100
+    select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+    from (
+      select ${patientFollowUpSelect()}
+      from clinical_follow_up_tasks f
+      join patient_user_links pul on pul.patient_id = f.patient_id
+      join patients p on p.id = f.patient_id
+      left join visits v on v.id = f.visit_id
+      where pul.user_id = ${sqlUuid(userId)}
+        and f.status <> 'cancelled'
+      order by f.due_at asc, f.created_at desc
+      limit 100
+    ) result
   `;
 }
 

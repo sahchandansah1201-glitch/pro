@@ -137,6 +137,8 @@ test("builds create, update, and staff message SQL without physical deletes", ()
 
 test("patient SQL hides internal notes and scopes through patient_user_links", () => {
   const listSql = buildListPatientFollowUpsSql({ userId: USER_ID });
+  assert.match(listSql, /select coalesce\(jsonb_agg\(row_to_json\(result\)\), '\[\]'::jsonb\)::text/);
+  assert.match(listSql, /from \(\s*select\s+f\.id/s);
   assert.match(listSql, /join patient_user_links pul/);
   assert.match(listSql, /m\.patient_visible is true/);
   assert.match(listSql, /null as "internalNote"/);
@@ -203,6 +205,20 @@ test("repository normalizes staff and patient follow-up DTOs", async () => {
   assert.equal(patient.items[0].patientSummary, "Портальный текст");
   assert.equal(message.direction, "clinic_to_patient");
   assert.equal(calls.length, 3);
+});
+
+test("repository returns an empty patient follow-up list without throwing", async () => {
+  const repository = createClinicalFollowUpRepository({
+    async queryJson(sql) {
+      assert.match(sql, /select coalesce\(jsonb_agg\(row_to_json\(result\)\), '\[\]'::jsonb\)::text/);
+      return [];
+    },
+  });
+
+  const result = await repository.listPatientFollowUps({ userId: USER_ID });
+
+  assert.deepEqual(result.items, []);
+  assert.equal(result.source, "postgres");
 });
 
 test("builds operations queue, summary, and update SQL with append-only events", () => {
