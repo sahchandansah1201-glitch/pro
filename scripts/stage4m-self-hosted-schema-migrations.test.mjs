@@ -49,14 +49,19 @@ const COMPLETE_SCHEMA = {
   deviceBridgeCommandLifecycleColumns: true,
   leadsTable: true,
   leadsRequiredColumns: true,
+  clinicalFollowUpTasksTable: true,
+  clinicalFollowUpTasksRequiredColumns: true,
+  clinicalFollowUpMessagesTable: true,
+  clinicalFollowUpMessagesRequiredColumns: true,
 };
 
-test("Stage 4M schema migration plan includes Device Bridge, leads, and Stage 6 admin migrations", () => {
+test("Stage 4M schema migration plan includes Device Bridge, leads, follow-ups, and Stage 6 admin migrations", () => {
   const out = renderStage4MSchemaMigrationPlan({ projectName: "prod" });
   assert.match(out, /0008_stage4q_device_registry\.sql/);
   assert.match(out, /0013_stage4x_device_bridge_audit_replay\.sql/);
   assert.match(out, /0015_stage5k_leads_appointments_contract\.sql/);
   assert.match(out, /0016_stage5l_leads_appointments_write_contract\.sql/);
+  assert.match(out, /0024_stage17_clinical_followup_communication\.sql/);
   assert.match(out, /0089_stage6_device_bridge_existing_volume_repair\.sql/);
   assert.match(out, /0086_stage6_admin_management\.sql/);
   assert.match(out, /0087_stage6_clinic_address\.sql/);
@@ -67,6 +72,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, and Stage 6 
   assert.match(out, /0093_stage6_public_analysis_links\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
+  assert.match(out, /clinical follow-up communication tables/);
   assert.match(out, /service_api_keys table/);
   assert.match(out, /clinic_services catalog table/);
   assert.match(out, /integrations table/);
@@ -107,19 +113,21 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[5].input.includes("add column if not exists replay_policy"));
   assert.ok(calls[6].input.includes("create table if not exists leads"));
   assert.ok(calls[7].input.includes("leads_created_by_created_idx"));
-  assert.ok(calls[8].input.includes("0089"));
-  assert.ok(calls[8].input.includes("add column if not exists completed_at"));
-  assert.ok(calls[8].input.includes("add column if not exists replay_requested_by"));
-  assert.ok(calls[9].input.includes("private_doctor"));
-  assert.ok(calls[10].input.includes("add column if not exists address"));
-  assert.ok(calls[11].input.includes("add column if not exists status"));
-  assert.ok(calls[11].input.includes("add column if not exists disabled_at"));
-  assert.ok(calls[12].input.includes("create table if not exists service_api_keys"));
-  assert.ok(calls[13].input.includes("create table if not exists clinic_services"));
-  assert.ok(calls[14].input.includes("create table if not exists clinic_integrations"));
-  assert.ok(calls[14].input.includes("create table if not exists clinic_bot_settings"));
-  assert.ok(calls[15].input.includes("create table if not exists public_analysis_links"));
-  assert.ok(calls[15].input.includes("token_hash"));
+  assert.ok(calls[8].input.includes("create table if not exists clinical_follow_up_tasks"));
+  assert.ok(calls[8].input.includes("create table if not exists clinical_follow_up_messages"));
+  assert.ok(calls[9].input.includes("0089"));
+  assert.ok(calls[9].input.includes("add column if not exists completed_at"));
+  assert.ok(calls[9].input.includes("add column if not exists replay_requested_by"));
+  assert.ok(calls[10].input.includes("private_doctor"));
+  assert.ok(calls[11].input.includes("add column if not exists address"));
+  assert.ok(calls[12].input.includes("add column if not exists status"));
+  assert.ok(calls[12].input.includes("add column if not exists disabled_at"));
+  assert.ok(calls[13].input.includes("create table if not exists service_api_keys"));
+  assert.ok(calls[14].input.includes("create table if not exists clinic_services"));
+  assert.ok(calls[15].input.includes("create table if not exists clinic_integrations"));
+  assert.ok(calls[15].input.includes("create table if not exists clinic_bot_settings"));
+  assert.ok(calls[16].input.includes("create table if not exists public_analysis_links"));
+  assert.ok(calls[16].input.includes("token_hash"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
@@ -253,5 +261,27 @@ test("Stage 4M schema migration runner fails when public analysis links table is
         },
       ),
     /public_analysis_links table/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when clinical follow-up communication tables are missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                clinicalFollowUpTasksTable: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /clinical_follow_up_tasks table/,
   );
 });

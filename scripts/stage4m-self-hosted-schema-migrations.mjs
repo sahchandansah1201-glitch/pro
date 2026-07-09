@@ -24,6 +24,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql",
   "backend/self-hosted/db/migrations/0015_stage5k_leads_appointments_contract.sql",
   "backend/self-hosted/db/migrations/0016_stage5l_leads_appointments_write_contract.sql",
+  "backend/self-hosted/db/migrations/0024_stage17_clinical_followup_communication.sql",
   "backend/self-hosted/db/migrations/0089_stage6_device_bridge_existing_volume_repair.sql",
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
   "backend/self-hosted/db/migrations/0087_stage6_clinic_address.sql",
@@ -259,6 +260,63 @@ select json_build_object(
         'created_at',
         'updated_at'
       )
+  ),
+  'clinicalFollowUpTasksTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'clinical_follow_up_tasks'
+  ),
+  'clinicalFollowUpTasksRequiredColumns', (
+    select count(*) = 17
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinical_follow_up_tasks'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'patient_id',
+        'visit_id',
+        'created_by_user_id',
+        'assigned_user_id',
+        'due_at',
+        'status',
+        'priority',
+        'reason',
+        'patient_summary',
+        'internal_note',
+        'last_message_at',
+        'completed_at',
+        'cancelled_at',
+        'created_at',
+        'updated_at'
+      )
+  ),
+  'clinicalFollowUpMessagesTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'clinical_follow_up_messages'
+  ),
+  'clinicalFollowUpMessagesRequiredColumns', (
+    select count(*) = 12
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clinical_follow_up_messages'
+      and column_name in (
+        'id',
+        'follow_up_id',
+        'clinic_id',
+        'patient_id',
+        'visit_id',
+        'sender_user_id',
+        'sender_role',
+        'direction',
+        'channel',
+        'delivery_state',
+        'patient_visible',
+        'body'
+      )
   )
 )::text;
 `.trim();
@@ -352,7 +410,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, clinical follow-up communication tables, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -420,6 +478,10 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.leadsRequiredColumns !== true) missing.push("leads write columns");
   if (verification.publicAnalysisLinksTable !== true) missing.push("public_analysis_links table");
   if (verification.publicAnalysisLinksRequiredColumns !== true) missing.push("public_analysis_links columns");
+  if (verification.clinicalFollowUpTasksTable !== true) missing.push("clinical_follow_up_tasks table");
+  if (verification.clinicalFollowUpTasksRequiredColumns !== true) missing.push("clinical_follow_up_tasks columns");
+  if (verification.clinicalFollowUpMessagesTable !== true) missing.push("clinical_follow_up_messages table");
+  if (verification.clinicalFollowUpMessagesRequiredColumns !== true) missing.push("clinical_follow_up_messages columns");
   if (missing.length) {
     throw new Error(`Self-hosted production schema is incomplete: ${missing.join(", ")}.`);
   }
