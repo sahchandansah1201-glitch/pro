@@ -132,7 +132,7 @@ export default function MeRemindersPageLive() {
             <Card className="p-4">
               <div className="text-[13px] font-semibold">Настройки напоминаний</div>
               <form className="mt-3 grid gap-3" onSubmit={submitReminderPreferences}>
-                <label className="flex items-center gap-2 text-[13px]">
+                <label className="flex min-h-[44px] items-center gap-2 text-[13px]">
                   <input
                     type="checkbox"
                     checked={appointmentRemindersEnabled}
@@ -140,7 +140,7 @@ export default function MeRemindersPageLive() {
                   />
                   Напоминать о ближайшем приёме
                 </label>
-                <label className="flex items-center gap-2 text-[13px]">
+                <label className="flex min-h-[44px] items-center gap-2 text-[13px]">
                   <input
                     type="checkbox"
                     checked={reportNotificationsEnabled}
@@ -152,7 +152,7 @@ export default function MeRemindersPageLive() {
                   Канал уведомлений
                   <select
                     aria-label="Канал уведомлений пациента"
-                    className="min-h-[40px] rounded-md border border-input bg-background px-3 text-[13px]"
+                    className="min-h-[44px] rounded-md border border-input bg-background px-3 text-[13px]"
                     value={preferredChannel}
                     onChange={(event) => setPreferredChannel(event.target.value as "email" | "phone" | "none")}
                   >
@@ -162,7 +162,7 @@ export default function MeRemindersPageLive() {
                   </select>
                 </label>
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button type="submit" disabled={saveStatus === "saving"}>
+                  <Button type="submit" className="min-h-[44px]" disabled={saveStatus === "saving"}>
                     {saveStatus === "saving" ? "Сохраняем…" : "Сохранить настройки"}
                   </Button>
                   <div

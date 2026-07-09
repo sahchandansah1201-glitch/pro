@@ -319,6 +319,8 @@ test.describe("Live production patient portal journey", () => {
           url.pathname === "/api/v1/me/portal" ||
           url.pathname === "/api/v1/me/history" ||
           url.pathname === "/api/v1/me/booking-requests" ||
+          url.pathname === "/api/v1/me/reminder-preferences" ||
+          url.pathname === "/api/v1/me/follow-ups" ||
           url.pathname.startsWith("/api/v1/me/reports/")
         ) {
           patientResponses.push({
@@ -485,6 +487,47 @@ test.describe("Live production patient portal journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-patient-booking-mobile-390.png"), fullPage: true });
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    const remindersPortalRefreshPromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/me\/portal$/),
+    );
+    const followUpsResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/me\/follow-ups$/),
+    );
+    await sidebarLink(page, "Напоминания").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Напоминания" })).toBeVisible({ timeout: 15_000 });
+    const [remindersPortalRefresh, followUpsResponse] = await Promise.all([
+      remindersPortalRefreshPromise,
+      followUpsResponsePromise,
+    ]);
+    expect(remindersPortalRefresh.status()).toBeGreaterThanOrEqual(200);
+    expect(remindersPortalRefresh.status()).toBeLessThan(300);
+    expect(followUpsResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(followUpsResponse.status()).toBeLessThan(300);
+    await expect(pageHeaderText(page, "Напоминания", "Настройки напоминаний и сообщения клиники")).toBeVisible();
+    await page.getByLabel("Напоминать о ближайшем приёме").uncheck();
+    await page.getByLabel("Канал уведомлений пациента").selectOption("phone");
+    const reminderPreferencesResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "PATCH", /^\/api\/v1\/me\/reminder-preferences$/),
+    );
+    await page.getByRole("button", { name: "Сохранить настройки" }).click();
+    const reminderPreferencesResponse = await reminderPreferencesResponsePromise;
+    expect(reminderPreferencesResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(reminderPreferencesResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, "Настройки напоминаний сохранены.")).toBeVisible();
+    await expect(appMain(page)).not.toContainText(
+      /Учебный режим|учебная роль|демо|mock|system_admin|clinic_admin|doctor|private_doctor|operator|backend|self-hosted|PostgreSQL|diagnosis|risk|prognosis|treatment|measurement|dynamicConclusion|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-patient-reminders-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: "Напоминания" })).toBeVisible();
+    await expect(mainText(page, "Настройки напоминаний сохранены.")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-patient-reminders-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
     for (const [route, heading] of [
       ["/admin/clinics", "Клиники и кабинеты"],
       ["/desk", "Рабочий стол"],
@@ -502,6 +545,8 @@ test.describe("Live production patient portal journey", () => {
       ["GET", "/api/v1/me/history"],
       ["GET", `/api/v1/me/reports/${reportId}`],
       ["POST", "/api/v1/me/booking-requests"],
+      ["GET", "/api/v1/me/follow-ups"],
+      ["PATCH", "/api/v1/me/reminder-preferences"],
     ] as const) {
       expect(
         patientResponses.some((response) =>

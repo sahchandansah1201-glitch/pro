@@ -267,12 +267,16 @@ test("Stage 4M guard rejects semicolon-split SQL joins in live fixtures", () => 
       '"Заключения";',
       '"Заключение для пациента";',
       '"Запись на приём";',
+      '"Напоминания";',
       '"/api/v1/me/portal";',
       '"/api/v1/me/history";',
       '"/api/v1/me/reports/";',
       '"/api/v1/me/booking-requests";',
+      '"/api/v1/me/reminder-preferences";',
+      '"/api/v1/me/follow-ups";',
       '"Причина запроса на запись";',
       '"Отправить запрос";',
+      '"Сохранить настройки";',
       '"live-patient-home-desktop-1280.png";',
       '"live-patient-home-mobile-390.png";',
       '"live-patient-history-desktop-1280.png";',
@@ -281,6 +285,8 @@ test("Stage 4M guard rejects semicolon-split SQL joins in live fixtures", () => 
       '"live-patient-report-detail-mobile-390.png";',
       '"live-patient-booking-desktop-1280.png";',
       '"live-patient-booking-mobile-390.png";',
+      '"live-patient-reminders-desktop-1280.png";',
+      '"live-patient-reminders-mobile-390.png";',
     ].join("\n"),
   );
 
@@ -595,4 +601,6 @@ test("Stage 4M guard requires live patient portal coverage", () => {
 
   assert.match(errors.join("\n"), /missing live coverage marker: Заключения/);
   assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/reports\//);
+  assert.match(errors.join("\n"), /missing live coverage marker: Напоминания/);
+  assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/reminder-preferences/);
 });
