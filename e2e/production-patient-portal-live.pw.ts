@@ -262,6 +262,17 @@ function isResponse(response: Response, method: string, matcher: RegExp) {
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
 }
 
+function filterExpectedOptionalPhotoProtocol404(errors: string[], expected404Count: number) {
+  let remaining = expected404Count;
+  return errors.filter((error) => {
+    if (remaining > 0 && /Failed to load resource: the server responded with a status of 404/.test(error)) {
+      remaining -= 1;
+      return false;
+    }
+    return true;
+  });
+}
+
 test.describe("Live production patient portal journey", () => {
   test("patient signs in, opens portal history, creates booking request, and cannot enter other roles", async ({
     page,
@@ -282,6 +293,7 @@ test.describe("Live production patient portal journey", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const patientResponses: { method: string; path: string; status: number }[] = [];
+    let optionalPhotoProtocol404Count = 0;
 
     setupPatientPortalFixture({
       suffix,
@@ -314,6 +326,13 @@ test.describe("Live production patient portal journey", () => {
             path: url.pathname,
             status: response.status(),
           });
+        }
+        if (
+          url.pathname === `/api/v1/me/photo-protocols/${visitId}` &&
+          response.request().method() === "GET" &&
+          response.status() === 404
+        ) {
+          optionalPhotoProtocol404Count += 1;
         }
       } catch {
         // Ignore non-URL response records.
@@ -494,7 +513,9 @@ test.describe("Live production patient portal journey", () => {
         `missing successful ${expected[0]} ${expected[1]}`,
       ).toBe(true);
     }
-    expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);
+    expect(optionalPhotoProtocol404Count).toBeLessThanOrEqual(1);
+    const unexpectedConsoleErrors = filterExpectedOptionalPhotoProtocol404(consoleErrors, optionalPhotoProtocol404Count);
+    expect(unexpectedConsoleErrors, unexpectedConsoleErrors.join("\n")).toEqual([]);
     expect(pageErrors, pageErrors.join("\n")).toEqual([]);
   });
 });
