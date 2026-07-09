@@ -20,13 +20,13 @@ const DEFAULT_COMPOSE_FILES = [
   "deploy/self-hosted/docker-compose.stage4a.yml",
   "deploy/self-hosted/docker-compose.production.example.yml",
 ];
-const CLINIC_ID = "10000000-0000-4000-8000-000000000111";
-const DOCTOR_ID = "10000000-0000-4000-8000-000000000181";
-const PATIENT_USER_ID = "10000000-0000-4000-8000-000000000211";
-const PATIENT_ID = "10000000-0000-4000-8000-000000000311";
-const VISIT_ID = "10000000-0000-4000-8000-000000000411";
-const REPORT_ID = "10000000-0000-4000-8000-000000000511";
-const FOLLOW_UP_ID = "10000000-0000-4000-8000-000000000611";
+const CLINIC_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000111";
+const DOCTOR_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000181";
+const PATIENT_USER_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000211";
+const PATIENT_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000311";
+const VISIT_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000411";
+const REPORT_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000511";
+const FOLLOW_UP_ID_PLACEHOLDER = "10000000-0000-4000-8000-000000000611";
 
 function redact(value) {
   return String(value || "")
@@ -134,20 +134,20 @@ export function buildStage4MPatientPortalDbSmokeSql({ suffix = safeSmokeSuffix()
   const physicianOnlyText = `Stage 4M physician-only report smoke ${safeSuffix}`;
   const followUpReason = `Stage 4M patient follow-up smoke ${safeSuffix}`;
   const followUpSummary = `Stage 4M patient-safe follow-up smoke ${safeSuffix}`;
-  const overviewSql = withoutTrailingSemicolon(buildPatientPortalOverviewSql({ userId: PATIENT_USER_ID }));
+  const overviewSql = withoutTrailingSemicolon(buildPatientPortalOverviewSql({ userId: PATIENT_USER_ID_PLACEHOLDER }));
   const reportSql = withoutTrailingSemicolon(buildPatientPortalReportSql({
-    userId: PATIENT_USER_ID,
-    reportId: REPORT_ID,
+    userId: PATIENT_USER_ID_PLACEHOLDER,
+    reportId: REPORT_ID_PLACEHOLDER,
   }));
-  const followUpsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({ userId: PATIENT_USER_ID }));
+  const followUpsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({ userId: PATIENT_USER_ID_PLACEHOLDER }));
   const bookingSql = withoutTrailingSemicolon(buildCreatePatientPortalBookingRequestSql({
-    userId: PATIENT_USER_ID,
+    userId: PATIENT_USER_ID_PLACEHOLDER,
     preferredFrom: "2026-07-15T10:00:00.000Z",
     preferredTo: "2026-07-15T11:00:00.000Z",
     reason: bookingReason,
   }));
   const reminderSql = withoutTrailingSemicolon(buildUpdatePatientPortalReminderPreferencesSql({
-    userId: PATIENT_USER_ID,
+    userId: PATIENT_USER_ID_PLACEHOLDER,
     appointmentRemindersEnabled: false,
     reportNotificationsEnabled: true,
     preferredChannel: "phone",
@@ -159,33 +159,40 @@ begin;
 do $stage4m_patient_portal_db_smoke$
 declare
   payload text;
+  fixture_clinic_id uuid := gen_random_uuid();
+  fixture_doctor_id uuid := gen_random_uuid();
+  fixture_patient_user_id uuid := gen_random_uuid();
+  fixture_patient_id uuid := gen_random_uuid();
+  fixture_visit_id uuid := gen_random_uuid();
+  fixture_report_id uuid := gen_random_uuid();
+  fixture_follow_up_id uuid := gen_random_uuid();
 begin
   insert into clinics (id, slug, name, timezone, address)
-  values (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(clinicSlug)}, 'Stage 4M patient portal smoke clinic', 'Europe/Moscow', 'Stage 4M patient portal smoke address');
+  values (fixture_clinic_id, ${sqlLiteral(clinicSlug)}, 'Stage 4M patient portal smoke clinic', 'Europe/Moscow', 'Stage 4M patient portal smoke address');
 
   insert into app_users (id, email, display_name)
-  values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(`stage4m-patient-${safeSuffix}@example.invalid`)}, 'Stage 4M patient portal smoke user');
+  values (fixture_patient_user_id, ${sqlLiteral(`stage4m-patient-${safeSuffix}@example.invalid`)}, 'Stage 4M patient portal smoke user');
 
   insert into app_users (id, email, display_name)
-  values (${sqlLiteral(DOCTOR_ID)}::uuid, ${sqlLiteral(`stage4m-patient-report-doctor-${safeSuffix}@example.invalid`)}, 'Stage 4M patient report smoke doctor');
+  values (fixture_doctor_id, ${sqlLiteral(`stage4m-patient-report-doctor-${safeSuffix}@example.invalid`)}, 'Stage 4M patient report smoke doctor');
 
   insert into user_roles (user_id, clinic_id, role)
-  values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, 'patient'::app_role);
+  values (fixture_patient_user_id, fixture_clinic_id, 'patient'::app_role);
 
   insert into user_roles (user_id, clinic_id, role)
-  values (${sqlLiteral(DOCTOR_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, 'doctor'::app_role);
+  values (fixture_doctor_id, fixture_clinic_id, 'doctor'::app_role);
 
   insert into patients (id, clinic_id, code, full_name, imaging_consent, created_by)
-  values (${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(`STAGE4M-PATIENT-${safeSuffix}`)}, ${sqlLiteral(patientName)}, false, null);
+  values (fixture_patient_id, fixture_clinic_id, ${sqlLiteral(`STAGE4M-PATIENT-${safeSuffix}`)}, ${sqlLiteral(patientName)}, false, null);
 
   insert into patient_user_links (user_id, patient_id)
-  values (${sqlLiteral(PATIENT_USER_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid);
+  values (fixture_patient_user_id, fixture_patient_id);
 
   insert into visits (id, clinic_id, patient_id, doctor_user_id, status, started_at, chief_complaint)
-  values (${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed'::visit_status, now(), 'Stage 4M patient portal report smoke');
+  values (fixture_visit_id, fixture_clinic_id, fixture_patient_id, fixture_doctor_id, 'signed'::visit_status, now(), 'Stage 4M patient portal report smoke');
 
   insert into reports (id, clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text, signed_at)
-  values (${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', ${sqlLiteral(physicianOnlyText)}, ${sqlLiteral(patientReportText)}, now());
+  values (fixture_report_id, fixture_clinic_id, fixture_patient_id, fixture_visit_id, fixture_doctor_id, 'signed', ${sqlLiteral(physicianOnlyText)}, ${sqlLiteral(patientReportText)}, now());
 
   insert into clinical_follow_up_tasks (
     id,
@@ -201,11 +208,11 @@ begin
     internal_note
   )
   values (
-    ${sqlLiteral(FOLLOW_UP_ID)}::uuid,
-    ${sqlLiteral(CLINIC_ID)}::uuid,
-    ${sqlLiteral(PATIENT_ID)}::uuid,
-    ${sqlLiteral(VISIT_ID)}::uuid,
-    ${sqlLiteral(DOCTOR_ID)}::uuid,
+    fixture_follow_up_id,
+    fixture_clinic_id,
+    fixture_patient_id,
+    fixture_visit_id,
+    fixture_doctor_id,
     now() + interval '7 days',
     'sent',
     'normal',
@@ -214,7 +221,7 @@ begin
     'Stage 4M doctor-only follow-up note'
   );
 
-  execute $sql$${overviewSql}$sql$ into payload;
+  execute replace($sql$${overviewSql}$sql$, ${sqlLiteral(PATIENT_USER_ID_PLACEHOLDER)}, fixture_patient_user_id::text) into payload;
   if payload is null or position(${sqlLiteral(patientName)} in payload) = 0 then
     raise exception 'patient portal overview did not return the linked patient';
   end if;
@@ -223,7 +230,11 @@ begin
     raise exception 'patient portal overview did not return patient-safe report summary';
   end if;
 
-  execute $sql$${reportSql}$sql$ into payload;
+  execute replace(
+    replace($sql$${reportSql}$sql$, ${sqlLiteral(PATIENT_USER_ID_PLACEHOLDER)}, fixture_patient_user_id::text),
+    ${sqlLiteral(REPORT_ID_PLACEHOLDER)},
+    fixture_report_id::text
+  ) into payload;
   if payload is null
     or payload::jsonb->0->>'patientSafeText' is distinct from ${sqlLiteral(patientReportText)}
     or position(${sqlLiteral(physicianOnlyText)} in payload) > 0
@@ -233,7 +244,7 @@ begin
     raise exception 'patient portal report detail did not return patient-safe report';
   end if;
 
-  execute $sql$${followUpsSql}$sql$ into payload;
+  execute replace($sql$${followUpsSql}$sql$, ${sqlLiteral(PATIENT_USER_ID_PLACEHOLDER)}, fixture_patient_user_id::text) into payload;
   if payload is null
     or position(${sqlLiteral(followUpSummary)} in payload) = 0
     or position('Stage 4M doctor-only follow-up note' in payload) > 0
@@ -244,12 +255,12 @@ begin
     raise exception 'patient portal follow-ups did not return patient-safe follow-up list';
   end if;
 
-  execute $sql$${bookingSql}$sql$ into payload;
+  execute replace($sql$${bookingSql}$sql$, ${sqlLiteral(PATIENT_USER_ID_PLACEHOLDER)}, fixture_patient_user_id::text) into payload;
   if payload is null or position(${sqlLiteral(bookingReason)} in payload) = 0 or position('"requested"' in payload) = 0 then
     raise exception 'patient portal booking request did not return requested booking';
   end if;
 
-  execute $sql$${reminderSql}$sql$ into payload;
+  execute replace($sql$${reminderSql}$sql$, ${sqlLiteral(PATIENT_USER_ID_PLACEHOLDER)}, fixture_patient_user_id::text) into payload;
   if payload is null
     or payload::jsonb->0->>'preferredChannel' <> 'phone'
     or payload::jsonb->0->>'appointmentRemindersEnabled' <> 'false' then

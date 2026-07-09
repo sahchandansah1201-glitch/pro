@@ -988,6 +988,24 @@ export function validateLiveE2EContract(errors, root) {
   }
 }
 
+export function validateStage4MDbSmokeContract(errors, root) {
+  const file = "scripts/stage4m-patient-portal-db-smoke.mjs";
+  if (!existsSync(join(root, file))) return;
+  const content = read(root, file);
+  for (const marker of [
+    "fixture_patient_user_id uuid := gen_random_uuid();",
+    "fixture_report_id uuid := gen_random_uuid();",
+    "fixture_follow_up_id uuid := gen_random_uuid();",
+  ]) {
+    if (!content.includes(marker)) {
+      errors.push(`${file} must generate transaction-local fixture UUIDs for patient portal smoke isolation`);
+    }
+  }
+  if (/values\s*\(\s*['"]10000000-0000-4000-8000-000000000(?:111|181|211|311|411|511|611)['"]::uuid/i.test(content)) {
+    errors.push(`${file} must not insert fixed Stage 4M fixture UUIDs; old production rows can collide with rollback smoke`);
+  }
+}
+
 function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of [
@@ -1031,6 +1049,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   }
   scanRuntimeCoupling(errors, root);
   validateLiveE2EContract(errors, root);
+  validateStage4MDbSmokeContract(errors, root);
   validatePackageScripts(errors, root);
   return { ok: errors.length === 0, errors, checkedFiles: REQUIRED_FILES.length };
 }

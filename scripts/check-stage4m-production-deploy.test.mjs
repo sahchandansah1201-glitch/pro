@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 
-import { collectStage4MChecks, validateLiveE2EContract } from "./check-stage4m-production-deploy.mjs";
+import {
+  collectStage4MChecks,
+  validateLiveE2EContract,
+  validateStage4MDbSmokeContract,
+} from "./check-stage4m-production-deploy.mjs";
 
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
@@ -330,6 +334,24 @@ test("Stage 4M guard rejects duplicate report public-analysis live fixtures", ()
   validateLiveE2EContract(errors, root);
 
   assert.match(errors.join("\n"), /duplicate reports for one visit violate reports_visit_id_unique_idx/);
+});
+
+test("Stage 4M guard rejects fixed patient portal DB smoke fixture UUID inserts", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-patient-db-smoke-contract-"));
+  mkdirSync(join(root, "scripts"), { recursive: true });
+  writeFileSync(
+    join(root, "scripts", "stage4m-patient-portal-db-smoke.mjs"),
+    [
+      "const PATIENT_USER_ID = '10000000-0000-4000-8000-000000000211';",
+      "insert into app_users (id) values ('10000000-0000-4000-8000-000000000211'::uuid);",
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateStage4MDbSmokeContract(errors, root);
+
+  assert.match(errors.join("\n"), /must generate transaction-local fixture UUIDs/);
+  assert.match(errors.join("\n"), /must not insert fixed Stage 4M fixture UUIDs/);
 });
 
 test("Stage 4M guard rejects direct live e2e page text locators", () => {

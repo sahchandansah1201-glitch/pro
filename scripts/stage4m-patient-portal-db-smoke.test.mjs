@@ -48,11 +48,17 @@ test("Stage 4M patient portal DB smoke SQL exercises overview and writes in roll
   assert.match(sql, /begin;/i);
   assert.match(sql, /rollback;/i);
   assert.match(sql, /patient_user_links/i);
+  assert.match(sql, /fixture_patient_user_id uuid := gen_random_uuid\(\);/i);
+  assert.match(sql, /fixture_report_id uuid := gen_random_uuid\(\);/i);
+  assert.match(sql, /values \(fixture_patient_user_id, fixture_patient_id\)/i);
+  assert.match(sql, /values \(fixture_report_id, fixture_clinic_id, fixture_patient_id, fixture_visit_id, fixture_doctor_id/i);
   assert.match(sql, /insert into visits/i);
   assert.match(sql, /insert into reports/i);
   assert.match(sql, /with portal_patient as \(/i);
   assert.match(sql, /where pul\.user_id = '10000000-0000-4000-8000-000000000211'::uuid/i);
   assert.match(sql, /and r\.id = '10000000-0000-4000-8000-000000000511'::uuid/i);
+  assert.match(sql, /replace\(\$sql\$[\s\S]*10000000-0000-4000-8000-000000000211[\s\S]*fixture_patient_user_id::text\)/i);
+  assert.match(sql, /fixture_report_id::text/);
   assert.match(sql, /inserted as \(\s*insert into patient_portal_booking_requests/i);
   assert.match(sql, /upserted as \(\s*insert into patient_portal_reminder_preferences/i);
   assert.match(sql, /patient portal overview did not return the linked patient/);
@@ -66,6 +72,7 @@ test("Stage 4M patient portal DB smoke SQL exercises overview and writes in roll
   assert.match(sql, /payload::jsonb->0->>'preferredChannel' <> 'phone'/);
   assert.match(sql, /payload::jsonb->0->>'appointmentRemindersEnabled' <> 'false'/);
   assert.match(sql, /stage4m_patient_portal_db_smoke_ok/);
+  assert.doesNotMatch(sql, /values \('10000000-0000-4000-8000-000000000(111|181|211|311|411|511|611)'::uuid/i);
   assert.doesNotMatch(sql, /from\s*\(\s*with\s+(inserted|upserted|portal_patient)\s+as\s*\(/i);
 });
 
