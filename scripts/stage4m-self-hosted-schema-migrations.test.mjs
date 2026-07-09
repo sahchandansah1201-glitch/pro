@@ -29,6 +29,7 @@ test("Stage 4M schema migration parser supports apply and custom compose files",
 
 const COMPLETE_SCHEMA = {
   privateDoctorRole: true,
+  patientRole: true,
   clinicAddressColumn: true,
   clinicStatusColumn: true,
   clinicDeletedAtColumn: true,
@@ -49,18 +50,26 @@ const COMPLETE_SCHEMA = {
   deviceBridgeCommandLifecycleColumns: true,
   leadsTable: true,
   leadsRequiredColumns: true,
+  patientUserLinksTable: true,
+  patientUserLinksRequiredColumns: true,
+  patientPortalBookingRequestsTable: true,
+  patientPortalBookingRequestsRequiredColumns: true,
+  patientPortalReminderPreferencesTable: true,
+  patientPortalReminderPreferencesRequiredColumns: true,
   clinicalFollowUpTasksTable: true,
   clinicalFollowUpTasksRequiredColumns: true,
   clinicalFollowUpMessagesTable: true,
   clinicalFollowUpMessagesRequiredColumns: true,
 };
 
-test("Stage 4M schema migration plan includes Device Bridge, leads, follow-ups, and Stage 6 admin migrations", () => {
+test("Stage 4M schema migration plan includes Device Bridge, leads, patient portal, follow-ups, and Stage 6 admin migrations", () => {
   const out = renderStage4MSchemaMigrationPlan({ projectName: "prod" });
   assert.match(out, /0008_stage4q_device_registry\.sql/);
   assert.match(out, /0013_stage4x_device_bridge_audit_replay\.sql/);
   assert.match(out, /0015_stage5k_leads_appointments_contract\.sql/);
   assert.match(out, /0016_stage5l_leads_appointments_write_contract\.sql/);
+  assert.match(out, /0017_stage5n_patient_portal_contracts\.sql/);
+  assert.match(out, /0018_stage5o_patient_portal_writes\.sql/);
   assert.match(out, /0024_stage17_clinical_followup_communication\.sql/);
   assert.match(out, /0089_stage6_device_bridge_existing_volume_repair\.sql/);
   assert.match(out, /0086_stage6_admin_management\.sql/);
@@ -72,6 +81,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, follow-ups, 
   assert.match(out, /0093_stage6_public_analysis_links\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
+  assert.match(out, /patient portal role\/ownership\/write tables/);
   assert.match(out, /clinical follow-up communication tables/);
   assert.match(out, /service_api_keys table/);
   assert.match(out, /clinic_services catalog table/);
@@ -113,21 +123,24 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[5].input.includes("add column if not exists replay_policy"));
   assert.ok(calls[6].input.includes("create table if not exists leads"));
   assert.ok(calls[7].input.includes("leads_created_by_created_idx"));
-  assert.ok(calls[8].input.includes("create table if not exists clinical_follow_up_tasks"));
-  assert.ok(calls[8].input.includes("create table if not exists clinical_follow_up_messages"));
-  assert.ok(calls[9].input.includes("0089"));
-  assert.ok(calls[9].input.includes("add column if not exists completed_at"));
-  assert.ok(calls[9].input.includes("add column if not exists replay_requested_by"));
-  assert.ok(calls[10].input.includes("private_doctor"));
-  assert.ok(calls[11].input.includes("add column if not exists address"));
-  assert.ok(calls[12].input.includes("add column if not exists status"));
-  assert.ok(calls[12].input.includes("add column if not exists disabled_at"));
-  assert.ok(calls[13].input.includes("create table if not exists service_api_keys"));
-  assert.ok(calls[14].input.includes("create table if not exists clinic_services"));
-  assert.ok(calls[15].input.includes("create table if not exists clinic_integrations"));
-  assert.ok(calls[15].input.includes("create table if not exists clinic_bot_settings"));
-  assert.ok(calls[16].input.includes("create table if not exists public_analysis_links"));
-  assert.ok(calls[16].input.includes("token_hash"));
+  assert.ok(calls[8].input.includes("create table if not exists patient_user_links"));
+  assert.ok(calls[9].input.includes("create table if not exists patient_portal_booking_requests"));
+  assert.ok(calls[9].input.includes("create table if not exists patient_portal_reminder_preferences"));
+  assert.ok(calls[10].input.includes("create table if not exists clinical_follow_up_tasks"));
+  assert.ok(calls[10].input.includes("create table if not exists clinical_follow_up_messages"));
+  assert.ok(calls[11].input.includes("0089"));
+  assert.ok(calls[11].input.includes("add column if not exists completed_at"));
+  assert.ok(calls[11].input.includes("add column if not exists replay_requested_by"));
+  assert.ok(calls[12].input.includes("private_doctor"));
+  assert.ok(calls[13].input.includes("add column if not exists address"));
+  assert.ok(calls[14].input.includes("add column if not exists status"));
+  assert.ok(calls[14].input.includes("add column if not exists disabled_at"));
+  assert.ok(calls[15].input.includes("create table if not exists service_api_keys"));
+  assert.ok(calls[16].input.includes("create table if not exists clinic_services"));
+  assert.ok(calls[17].input.includes("create table if not exists clinic_integrations"));
+  assert.ok(calls[17].input.includes("create table if not exists clinic_bot_settings"));
+  assert.ok(calls[18].input.includes("create table if not exists public_analysis_links"));
+  assert.ok(calls[18].input.includes("token_hash"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
@@ -239,6 +252,50 @@ test("Stage 4M schema migration runner fails when leads write schema is missing"
         },
       ),
     /leads write columns/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when patient portal write schema is missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                patientPortalReminderPreferencesTable: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /patient_portal_reminder_preferences table/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when patient portal role is missing", () => {
+  assert.throws(
+    () =>
+      runStage4MSelfHostedSchemaMigrations(
+        { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+        {
+          spawn() {
+            return {
+              status: 0,
+              stdout: JSON.stringify({
+                ...COMPLETE_SCHEMA,
+                patientRole: false,
+              }),
+              stderr: "",
+            };
+          },
+        },
+      ),
+    /patient role/,
   );
 });
 

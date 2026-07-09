@@ -24,6 +24,8 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql",
   "backend/self-hosted/db/migrations/0015_stage5k_leads_appointments_contract.sql",
   "backend/self-hosted/db/migrations/0016_stage5l_leads_appointments_write_contract.sql",
+  "backend/self-hosted/db/migrations/0017_stage5n_patient_portal_contracts.sql",
+  "backend/self-hosted/db/migrations/0018_stage5o_patient_portal_writes.sql",
   "backend/self-hosted/db/migrations/0024_stage17_clinical_followup_communication.sql",
   "backend/self-hosted/db/migrations/0089_stage6_device_bridge_existing_volume_repair.sql",
   "backend/self-hosted/db/migrations/0086_stage6_admin_management.sql",
@@ -43,6 +45,13 @@ select json_build_object(
     join pg_enum e on e.enumtypid = t.oid
     where t.typname = 'app_role'
       and e.enumlabel = 'private_doctor'
+  ),
+  'patientRole', exists (
+    select 1
+    from pg_type t
+    join pg_enum e on e.enumtypid = t.oid
+    where t.typname = 'app_role'
+      and e.enumlabel = 'patient'
   ),
   'clinicAddressColumn', exists (
     select 1
@@ -236,6 +245,67 @@ select json_build_object(
         'deleted_at'
       )
   ),
+  'patientUserLinksTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'patient_user_links'
+  ),
+  'patientUserLinksRequiredColumns', (
+    select count(*) = 3
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'patient_user_links'
+      and column_name in (
+        'user_id',
+        'patient_id',
+        'created_at'
+      )
+  ),
+  'patientPortalBookingRequestsTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'patient_portal_booking_requests'
+  ),
+  'patientPortalBookingRequestsRequiredColumns', (
+    select count(*) = 10
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'patient_portal_booking_requests'
+      and column_name in (
+        'id',
+        'clinic_id',
+        'patient_id',
+        'requested_by_user_id',
+        'preferred_from',
+        'preferred_to',
+        'reason',
+        'status',
+        'created_at',
+        'updated_at'
+      )
+  ),
+  'patientPortalReminderPreferencesTable', exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'patient_portal_reminder_preferences'
+  ),
+  'patientPortalReminderPreferencesRequiredColumns', (
+    select count(*) = 6
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'patient_portal_reminder_preferences'
+      and column_name in (
+        'user_id',
+        'patient_id',
+        'appointment_reminders_enabled',
+        'report_notifications_enabled',
+        'preferred_channel',
+        'updated_at'
+      )
+  ),
   'publicAnalysisLinksTable', exists (
     select 1
     from information_schema.tables
@@ -410,7 +480,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, clinical follow-up communication tables, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, patient portal role/ownership/write tables, clinical follow-up communication tables, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -456,6 +526,7 @@ export function verifyStage6AdminSchema(config, io = {}) {
   const verification = parseJsonLine(result.stdout, "Stage 6 admin schema verification");
   const missing = [];
   if (verification.privateDoctorRole !== true) missing.push("private_doctor role");
+  if (verification.patientRole !== true) missing.push("patient role");
   if (verification.clinicAddressColumn !== true) missing.push("clinics.address column");
   if (verification.clinicStatusColumn !== true) missing.push("clinics.status column");
   if (verification.clinicDeletedAtColumn !== true) missing.push("clinics.deleted_at column");
@@ -476,6 +547,18 @@ export function verifyStage6AdminSchema(config, io = {}) {
   }
   if (verification.leadsTable !== true) missing.push("leads table");
   if (verification.leadsRequiredColumns !== true) missing.push("leads write columns");
+  if (verification.patientUserLinksTable !== true) missing.push("patient_user_links table");
+  if (verification.patientUserLinksRequiredColumns !== true) missing.push("patient_user_links columns");
+  if (verification.patientPortalBookingRequestsTable !== true) missing.push("patient_portal_booking_requests table");
+  if (verification.patientPortalBookingRequestsRequiredColumns !== true) {
+    missing.push("patient_portal_booking_requests columns");
+  }
+  if (verification.patientPortalReminderPreferencesTable !== true) {
+    missing.push("patient_portal_reminder_preferences table");
+  }
+  if (verification.patientPortalReminderPreferencesRequiredColumns !== true) {
+    missing.push("patient_portal_reminder_preferences columns");
+  }
   if (verification.publicAnalysisLinksTable !== true) missing.push("public_analysis_links table");
   if (verification.publicAnalysisLinksRequiredColumns !== true) missing.push("public_analysis_links columns");
   if (verification.clinicalFollowUpTasksTable !== true) missing.push("clinical_follow_up_tasks table");
