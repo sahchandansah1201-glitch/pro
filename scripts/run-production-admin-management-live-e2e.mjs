@@ -83,10 +83,14 @@ export function parseLiveAdminE2EArgs(argv = [], env = process.env) {
 export function deployStatusBlocksLiveE2E({
   deployStatusFile = DEFAULT_DEPLOY_STATUS_FILE,
   ignoreDeployStatus = false,
+  expectedHead = "",
   exists = existsSync,
   readFile = readFileSync,
 } = {}) {
-  if (ignoreDeployStatus || !deployStatusFile || !exists(deployStatusFile)) return null;
+  if (ignoreDeployStatus) return null;
+  if (!deployStatusFile || !exists(deployStatusFile)) {
+    return `Stage 4M status file is missing: ${deployStatusFile || "not configured"}. Run the production deploy first or use --ignore-deploy-status only for an intentional non-production check.`;
+  }
   let status;
   try {
     status = JSON.parse(readFile(deployStatusFile, "utf8"));
@@ -98,6 +102,19 @@ export function deployStatusBlocksLiveE2E({
   }
   if (status?.status === "fail") {
     return `Stage 4M deployment failed (${status.runId || "unknown run"}). Fix the deployment before live browser smoke.`;
+  }
+  if (status?.status !== "ok") {
+    return `Stage 4M deployment status is not ok (${status?.runId || "unknown run"}: ${status?.status || "unknown"}). Complete the deployment before live browser smoke.`;
+  }
+  if (expectedHead) {
+    const deployedHead = String(status?.git?.after?.head || "").trim();
+    const currentHead = String(expectedHead).trim();
+    if (!deployedHead) {
+      return `Stage 4M receipt ${status.runId || "unknown run"} does not contain the deployed HEAD. Run the hardened production deploy before live browser smoke.`;
+    }
+    if (!deployedHead.startsWith(currentHead) && !currentHead.startsWith(deployedHead)) {
+      return `Stage 4M deployed HEAD ${deployedHead} does not match current HEAD ${currentHead}. Deploy the current HEAD before live browser smoke.`;
+    }
   }
   return null;
 }

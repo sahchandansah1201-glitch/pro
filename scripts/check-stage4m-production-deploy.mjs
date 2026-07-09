@@ -50,6 +50,8 @@ const REQUIRED_FILES = [
   "scripts/stage4m-admin-management-api-smoke.test.mjs",
   "scripts/run-production-admin-management-live-e2e.mjs",
   "scripts/run-production-admin-management-live-e2e.test.mjs",
+  "scripts/run-production-auth-session-live-e2e.mjs",
+  "scripts/run-production-auth-session-live-e2e.test.mjs",
   "scripts/run-production-doctor-workspace-live-e2e.mjs",
   "scripts/run-production-doctor-workspace-live-e2e.test.mjs",
   "scripts/run-production-assistant-workspace-live-e2e.mjs",
@@ -63,6 +65,7 @@ const REQUIRED_FILES = [
   "scripts/run-production-public-analysis-live-e2e.mjs",
   "scripts/run-production-public-analysis-live-e2e.test.mjs",
   "e2e/live-admin-test-helpers.ts",
+  "e2e/production-auth-session-live.pw.ts",
   "e2e/production-admin-management-live.pw.ts",
   "e2e/production-doctor-workspace-live.pw.ts",
   "e2e/production-assistant-workspace-live.pw.ts",
@@ -341,6 +344,15 @@ const REQUIRED_TEXT = {
     "STAGE4M_LIVE_ADMIN_BASE_URL",
     "STAGE4M_ADMIN_CREDENTIALS_FILE",
     "STAGE4M_CONFIRM_CREATE_TEST_CLINIC",
+    "Credentials file not found",
+  ],
+  "scripts/run-production-auth-session-live-e2e.mjs": [
+    "production-auth-session-live.pw.ts",
+    "deployStatusBlocksLiveE2E",
+    "expectedHead: head",
+    "Current Git HEAD is unavailable",
+    "STAGE4M_LIVE_AUTH_BASE_URL",
+    "STAGE4M_AUTH_CREDENTIALS_FILE",
     "Credentials file not found",
   ],
   "scripts/run-production-doctor-workspace-live-e2e.mjs": [
@@ -746,6 +758,30 @@ export function validateLiveE2EContract(errors, root) {
   ];
   const liveFiles = [
     {
+      file: "e2e/production-auth-session-live.pw.ts",
+      requiredHelpers: [
+        "appMain",
+        "bannerText",
+        "mainText",
+        "expectMainTapTargets",
+        "expectNoHorizontalOverflow",
+      ],
+      markers: [
+        "Дерматолог Про — рабочий вход",
+        "/api/v1/auth/login",
+        "Неверная эл. почта или пароль.",
+        "Выйти из рабочей системы",
+        "expired-live-test-token",
+        "Сессия истекла",
+        "Войти заново",
+        "live-auth-invalid-desktop-1280.png",
+        "live-auth-active-desktop-1280.png",
+        "live-auth-expired-desktop-1280.png",
+        "live-auth-expired-mobile-390.png",
+        "live-auth-login-mobile-390.png",
+      ],
+    },
+    {
       file: "e2e/production-admin-management-live.pw.ts",
       requiredHelpers: [...defaultRequiredHelpers, "mainLink"],
       markers: [
@@ -1034,6 +1070,7 @@ function validatePackageScripts(errors, root) {
     '"smoke:stage4m:admin-governance-db"',
     '"smoke:stage4m:admin-api"',
     '"e2e:admin-management:live"',
+    '"e2e:auth-session:live"',
     '"e2e:doctor-workspace:live"',
     '"e2e:assistant-workspace:live"',
     '"e2e:operator-workspace:live"',

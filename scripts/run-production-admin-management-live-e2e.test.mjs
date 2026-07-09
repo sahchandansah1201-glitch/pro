@@ -59,3 +59,31 @@ test("live admin e2e blocks when Stage 4M deployment is still running", () => {
 
   assert.match(blocker, /deployment is still running.*run-002/);
 });
+
+test("live e2e deploy guard rejects missing, failed, and stale receipts", () => {
+  assert.match(
+    deployStatusBlocksLiveE2E({ deployStatusFile: "/tmp/missing", exists: () => false }),
+    /status file is missing/i,
+  );
+  assert.match(
+    deployStatusBlocksLiveE2E({
+      deployStatusFile: "/tmp/status.json",
+      exists: () => true,
+      readFile: () => JSON.stringify({ status: "fail", runId: "run-fail" }),
+    }),
+    /deployment failed.*run-fail/i,
+  );
+  assert.match(
+    deployStatusBlocksLiveE2E({
+      deployStatusFile: "/tmp/status.json",
+      expectedHead: "bbbbbbb",
+      exists: () => true,
+      readFile: () => JSON.stringify({
+        status: "ok",
+        runId: "run-old",
+        git: { after: { head: "aaaaaaa" } },
+      }),
+    }),
+    /deployed HEAD.*aaaaaaa.*current HEAD.*bbbbbbb/i,
+  );
+});
