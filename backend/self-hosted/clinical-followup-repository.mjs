@@ -440,6 +440,52 @@ function followUpSelect({ patientSafe = false } = {}) {
   `;
 }
 
+function patientFollowUpSelect() {
+  return `
+    f.id,
+    f.clinic_id as "clinicId",
+    f.patient_id as "patientId",
+    f.visit_id as "visitId",
+    f.due_at as "dueAt",
+    f.status,
+    f.priority,
+    f.reason,
+    f.patient_summary as "patientSummary",
+    null as "internalNote",
+    f.last_message_at as "lastMessageAt",
+    f.created_at as "createdAt",
+    f.updated_at as "updatedAt",
+    p.code as "patientCode",
+    p.full_name as "patientFullName",
+    v.started_at as "visitStartedAt",
+    v.status as "visitStatus",
+    (
+      select count(*)::int
+      from clinical_follow_up_messages m
+      where m.follow_up_id = f.id
+        and m.patient_visible is true
+    ) as "messageCount",
+    (
+      select jsonb_build_object(
+        'id', m.id,
+        'followUpId', m.follow_up_id,
+        'senderRole', m.sender_role,
+        'direction', m.direction,
+        'channel', m.channel,
+        'deliveryState', m.delivery_state,
+        'patientVisible', m.patient_visible,
+        'body', m.body,
+        'createdAt', m.created_at
+      )
+      from clinical_follow_up_messages m
+      where m.follow_up_id = f.id
+        and m.patient_visible is true
+      order by m.created_at desc
+      limit 1
+    ) as "latestMessage"
+  `;
+}
+
 export function buildListClinicalFollowUpsSql({
   limit = 50,
   offset = 0,
@@ -622,7 +668,7 @@ export function buildCreateClinicalFollowUpMessageSql({
 
 export function buildListPatientFollowUpsSql({ userId } = {}) {
   return `
-    select ${followUpSelect({ patientSafe: true })}
+    select ${patientFollowUpSelect()}
     from clinical_follow_up_tasks f
     join patient_user_links pul on pul.patient_id = f.patient_id
     join patients p on p.id = f.patient_id

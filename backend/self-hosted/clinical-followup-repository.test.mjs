@@ -141,6 +141,7 @@ test("patient SQL hides internal notes and scopes through patient_user_links", (
   assert.match(listSql, /m\.patient_visible is true/);
   assert.match(listSql, /null as "internalNote"/);
   assert.doesNotMatch(listSql, /f\.internal_note as "internalNote"/);
+  assert.doesNotMatch(listSql, /f\.triage_state|f\.sop_|f\.stage[0-9]+_|f\.resolution_outcome|f\.quality_review_state|f\.delivery_state/);
 
   const replySql = buildCreatePatientFollowUpMessageSql({
     userId: USER_ID,

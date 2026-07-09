@@ -12,6 +12,7 @@ import {
   buildPatientPortalReportSql,
   buildUpdatePatientPortalReminderPreferencesSql,
 } from "../backend/self-hosted/patient-portal-repository.mjs";
+import { buildListPatientFollowUpsSql } from "../backend/self-hosted/clinical-followup-repository.mjs";
 
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
 const DEFAULT_COMPOSE_ENV_FILE = "deploy/self-hosted/.env.production";
@@ -25,6 +26,7 @@ const PATIENT_USER_ID = "10000000-0000-4000-8000-000000000211";
 const PATIENT_ID = "10000000-0000-4000-8000-000000000311";
 const VISIT_ID = "10000000-0000-4000-8000-000000000411";
 const REPORT_ID = "10000000-0000-4000-8000-000000000511";
+const FOLLOW_UP_ID = "10000000-0000-4000-8000-000000000611";
 
 function redact(value) {
   return String(value || "")
@@ -130,11 +132,14 @@ export function buildStage4MPatientPortalDbSmokeSql({ suffix = safeSmokeSuffix()
   const bookingReason = `Stage 4M patient booking smoke ${safeSuffix}`;
   const patientReportText = `Stage 4M patient-safe report smoke ${safeSuffix}`;
   const physicianOnlyText = `Stage 4M physician-only report smoke ${safeSuffix}`;
+  const followUpReason = `Stage 4M patient follow-up smoke ${safeSuffix}`;
+  const followUpSummary = `Stage 4M patient-safe follow-up smoke ${safeSuffix}`;
   const overviewSql = withoutTrailingSemicolon(buildPatientPortalOverviewSql({ userId: PATIENT_USER_ID }));
   const reportSql = withoutTrailingSemicolon(buildPatientPortalReportSql({
     userId: PATIENT_USER_ID,
     reportId: REPORT_ID,
   }));
+  const followUpsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({ userId: PATIENT_USER_ID }));
   const bookingSql = withoutTrailingSemicolon(buildCreatePatientPortalBookingRequestSql({
     userId: PATIENT_USER_ID,
     preferredFrom: "2026-07-15T10:00:00.000Z",
@@ -182,6 +187,33 @@ begin
   insert into reports (id, clinic_id, patient_id, visit_id, doctor_user_id, status, physician_text, patient_safe_text, signed_at)
   values (${sqlLiteral(REPORT_ID)}::uuid, ${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(PATIENT_ID)}::uuid, ${sqlLiteral(VISIT_ID)}::uuid, ${sqlLiteral(DOCTOR_ID)}::uuid, 'signed', ${sqlLiteral(physicianOnlyText)}, ${sqlLiteral(patientReportText)}, now());
 
+  insert into clinical_follow_up_tasks (
+    id,
+    clinic_id,
+    patient_id,
+    visit_id,
+    created_by_user_id,
+    due_at,
+    status,
+    priority,
+    reason,
+    patient_summary,
+    internal_note
+  )
+  values (
+    ${sqlLiteral(FOLLOW_UP_ID)}::uuid,
+    ${sqlLiteral(CLINIC_ID)}::uuid,
+    ${sqlLiteral(PATIENT_ID)}::uuid,
+    ${sqlLiteral(VISIT_ID)}::uuid,
+    ${sqlLiteral(DOCTOR_ID)}::uuid,
+    now() + interval '7 days',
+    'sent',
+    'normal',
+    ${sqlLiteral(followUpReason)},
+    ${sqlLiteral(followUpSummary)},
+    'Stage 4M doctor-only follow-up note'
+  );
+
   execute $sql$${overviewSql}$sql$ into payload;
   if payload is null or position(${sqlLiteral(patientName)} in payload) = 0 then
     raise exception 'patient portal overview did not return the linked patient';
@@ -199,6 +231,17 @@ begin
     or position('signedUrl' in payload) > 0
     or position('accessToken' in payload) > 0 then
     raise exception 'patient portal report detail did not return patient-safe report';
+  end if;
+
+  execute $sql$${followUpsSql}$sql$ into payload;
+  if payload is null
+    or position(${sqlLiteral(followUpSummary)} in payload) = 0
+    or position('Stage 4M doctor-only follow-up note' in payload) > 0
+    or position('sopPolicy' in payload) > 0
+    or position('storagePath' in payload) > 0
+    or position('signedUrl' in payload) > 0
+    or position('accessToken' in payload) > 0 then
+    raise exception 'patient portal follow-ups did not return patient-safe follow-up list';
   end if;
 
   execute $sql$${bookingSql}$sql$ into payload;
@@ -228,7 +271,7 @@ export function renderStage4MPatientPortalDbSmokePlan(options = {}) {
     "",
     `- Project: ${config.projectName}`,
     `- Compose env file: ${config.composeEnvFile}`,
-    "- Scope: patient portal overview, patient-safe report detail, booking request, and reminder preference SQL against PostgreSQL",
+    "- Scope: patient portal overview, patient-safe report detail, follow-up list, booking request, and reminder preference SQL against PostgreSQL",
     "- Safety: wrapped in one transaction and rolled back; no real patient rows, credentials, tokens, storage paths, or signed URLs are printed",
   ].join("\n");
 }

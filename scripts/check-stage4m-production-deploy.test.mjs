@@ -602,5 +602,6 @@ test("Stage 4M guard requires live patient portal coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Заключения/);
   assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/reports\//);
   assert.match(errors.join("\n"), /missing live coverage marker: Напоминания/);
+  assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/follow-ups/);
   assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/me\/reminder-preferences/);
 });
