@@ -139,7 +139,13 @@ export function buildStage4MPatientPortalDbSmokeSql({ suffix = safeSmokeSuffix()
     userId: PATIENT_USER_ID_PLACEHOLDER,
     reportId: REPORT_ID_PLACEHOLDER,
   }));
-  const followUpsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({ userId: PATIENT_USER_ID_PLACEHOLDER }));
+  const followUpsRowsSql = withoutTrailingSemicolon(buildListPatientFollowUpsSql({ userId: PATIENT_USER_ID_PLACEHOLDER }));
+  const followUpsSql = `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  ${followUpsRowsSql}
+) result
+`.trim();
   const bookingSql = withoutTrailingSemicolon(buildCreatePatientPortalBookingRequestSql({
     userId: PATIENT_USER_ID_PLACEHOLDER,
     preferredFrom: "2026-07-15T10:00:00.000Z",

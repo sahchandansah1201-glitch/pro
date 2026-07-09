@@ -1004,6 +1004,9 @@ export function validateStage4MDbSmokeContract(errors, root) {
   if (/values\s*\(\s*['"]10000000-0000-4000-8000-000000000(?:111|181|211|311|411|511|611)['"]::uuid/i.test(content)) {
     errors.push(`${file} must not insert fixed Stage 4M fixture UUIDs; old production rows can collide with rollback smoke`);
   }
+  if (!/select\s+coalesce\(jsonb_agg\(row_to_json\(result\)\),\s*['"]\[\]['"]::jsonb\)::text\s+from\s+\(\s*\$\{followUpsRowsSql\}\s+\)\s+result/i.test(content)) {
+    errors.push(`${file} must wrap patient follow-up row SQL as a single JSON text payload before PL/pgSQL EXECUTE INTO`);
+  }
 }
 
 function validatePackageScripts(errors, root) {

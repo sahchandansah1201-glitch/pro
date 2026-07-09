@@ -61,6 +61,7 @@ test("Stage 4M patient portal DB smoke SQL exercises overview and writes in roll
   assert.match(sql, /fixture_report_id::text/);
   assert.match(sql, /inserted as \(\s*insert into patient_portal_booking_requests/i);
   assert.match(sql, /upserted as \(\s*insert into patient_portal_reminder_preferences/i);
+  assert.match(sql, /select coalesce\(jsonb_agg\(row_to_json\(result\)\), '.*'::jsonb\)::text\s+from \(\s*select\s+f\.id/i);
   assert.match(sql, /patient portal overview did not return the linked patient/);
   assert.match(sql, /patient portal overview did not return patient-safe report summary/);
   assert.match(sql, /patient portal report detail did not return patient-safe report/);

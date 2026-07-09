@@ -352,6 +352,7 @@ test("Stage 4M guard rejects fixed patient portal DB smoke fixture UUID inserts"
 
   assert.match(errors.join("\n"), /must generate transaction-local fixture UUIDs/);
   assert.match(errors.join("\n"), /must not insert fixed Stage 4M fixture UUIDs/);
+  assert.match(errors.join("\n"), /must wrap patient follow-up row SQL as a single JSON text payload/);
 });
 
 test("Stage 4M guard rejects direct live e2e page text locators", () => {
