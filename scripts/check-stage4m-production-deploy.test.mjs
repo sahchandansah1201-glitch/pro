@@ -13,7 +13,7 @@ import {
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 85);
+  assert.equal(result.checkedFiles, 87);
 });
 
 test("Stage 4M guard requires the production auth/session live journey", () => {
@@ -588,6 +588,8 @@ test("Stage 4M guard requires live operator workspace coverage", () => {
   validateLiveE2EContract(errors, root);
 
   assert.match(errors.join("\n"), /missing live coverage marker: Запросы на запись/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Карточка обращения/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-operator-dialog-desktop-1280\.png/);
 });
 
 test("Stage 4M guard requires live patient portal coverage", () => {

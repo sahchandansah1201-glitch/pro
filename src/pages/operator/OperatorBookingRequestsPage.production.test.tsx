@@ -159,6 +159,10 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
     expect(screen.getByText(/Доктор Иванова · Система клиники/i)).toBeInTheDocument();
     expect(screen.getByText("Иван Пациент · номер скрыт")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Открыть карточку обращения: Иван Пациент" })).toHaveAttribute(
+      "href",
+      "/operator/dialogs/request-live-1",
+    );
     expect(document.body).not.toHaveTextContent("DP-LIVE-BOOK");
     expect(screen.getByText("Данные загружены из системы клиники.")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");

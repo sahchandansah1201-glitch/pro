@@ -507,6 +507,14 @@ export default function OperatorBookingRequestsPageLive() {
                       </div>
                     </button>
                     <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+                      <Button asChild size="sm" variant="outline" className="min-h-11 text-[12px]">
+                        <Link
+                          to={`/operator/dialogs/${request.id}`}
+                          aria-label={`Открыть карточку обращения: ${request.patient.fullName || "пациент"}`}
+                        >
+                          Карточка
+                        </Link>
+                      </Button>
                       <Button
                         type="button"
                         size="sm"

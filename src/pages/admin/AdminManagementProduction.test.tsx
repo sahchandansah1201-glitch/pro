@@ -752,6 +752,14 @@ describe("Production admin management UI", () => {
               clinicName: null,
               createdAt: "2026-06-27T08:05:00.000Z",
             },
+            {
+              id: "audit-3",
+              action: "clinic_booking_request.update",
+              entityType: "patient_portal_booking_request",
+              actorName: "Ольга Оператор",
+              clinicName: "Яблоко ООО",
+              createdAt: "2026-06-27T08:10:00.000Z",
+            },
           ],
         });
       }
@@ -776,6 +784,8 @@ describe("Production admin management UI", () => {
     expect(screen.getByRole("tab", { name: "Сотрудники" })).toBeInTheDocument();
     expect(screen.getAllByText("Клиника создана").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Роль назначена").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Заметка обращения сохранена").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("обращения на запись").length).toBeGreaterThan(0);
     expect(screen.queryByText("hidden")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Поиск аудита"), { target: { value: "нет совпадений" } });
@@ -783,7 +793,7 @@ describe("Production admin management UI", () => {
 
     fireEvent.change(screen.getByLabelText("Поиск аудита"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Проверить целостность" }));
-    expect(await screen.findByText(/Целостность: записей 2/)).toBeInTheDocument();
+    expect(await screen.findByText(/Целостность: записей 3/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Скачать журнал" }));
     expect(clickSpy).toHaveBeenCalled();

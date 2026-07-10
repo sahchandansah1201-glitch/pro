@@ -186,6 +186,10 @@ const PRODUCTION_ACTION_LABEL: Record<string, string> = {
   "admin.doctors.list": "Просмотр врачей",
   "admin.analytics.read": "Просмотр аналитики",
   "admin.audit.list": "Просмотр журнала аудита",
+  "clinic_booking_request.list": "Просмотр обращений на запись",
+  "clinic_booking_request.read": "Карточка обращения открыта",
+  "clinic_booking_request.update": "Заметка обращения сохранена",
+  "clinic_booking_request.book_from_slot": "Обращение записано на приём",
   "auth.login": "Вход в систему",
 };
 
@@ -198,6 +202,7 @@ const PRODUCTION_ENTITY_LABEL: Record<string, string> = {
   patient: "пациенты",
   visit: "визиты",
   report: "отчёты",
+  patient_portal_booking_request: "обращения на запись",
 };
 
 function productionActionLabel(action: string): string {
