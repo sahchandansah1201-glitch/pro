@@ -775,6 +775,7 @@ export function validateLiveE2EContract(errors, root) {
         "Сессия истекла",
         "Войти заново",
         "live-auth-invalid-desktop-1280.png",
+        "live-auth-invalid-mobile-390.png",
         "live-auth-active-desktop-1280.png",
         "live-auth-expired-desktop-1280.png",
         "live-auth-expired-mobile-390.png",

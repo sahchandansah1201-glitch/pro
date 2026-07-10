@@ -29,6 +29,7 @@ test("Stage 4M guard requires the production auth/session live journey", () => {
 
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: \/api\/v1\/auth\/login/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Сессия истекла/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: live-auth-invalid-mobile-390\.png/);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {

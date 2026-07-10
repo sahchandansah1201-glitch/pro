@@ -87,6 +87,14 @@ test.describe("Live production auth and session journey", () => {
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-auth-invalid-desktop-1280.png"), fullPage: true });
 
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("alert")).toContainText("Неверная эл. почта или пароль.");
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-auth-invalid-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+
     await passwordInput.fill(password);
     const validLoginResponsePromise = page.waitForResponse(isAuthLoginResponse);
     await loginButton.click();
