@@ -459,6 +459,14 @@ describe("Admin clinic core pages — render & safety", () => {
     );
   });
 
+  it("AdminIntegrationsPage keeps short mobile filter targets at least 44px wide", () => {
+    renderRouted(<AdminIntegrationsPage />);
+
+    const allFilterButtons = screen.getAllByRole("button", { name: "Все" });
+    expect(allFilterButtons).toHaveLength(2);
+    for (const button of allFilterButtons) expect(button).toHaveClass("min-w-11");
+  });
+
   it("UX Batch 17: admin home and integrations use native Russian visible copy", () => {
     const forbiddenVisible =
       /MVP|DryRun|JSON|MIS|МИС|Demo MIS|demo|Demo|демо|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|raw ID|safeSummary|protectedLink|Telegram Bot API|AI\/XAI|PHI|лиды|лидов|лидам|DRM-\d|device bridge|planned \+ confirmed|CRM,|ERP/i;

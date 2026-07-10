@@ -446,7 +446,9 @@ describe("SysAccessEventsPage", () => {
     expect(preview).toHaveTextContent(/Выберите хотя бы одну колонку для экспорта/i);
     expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать все колонки экспорта" }));
+    const selectAllColumnsButton = screen.getByRole("button", { name: "Выбрать все колонки экспорта" });
+    expect(selectAllColumnsButton).toHaveClass("min-w-11");
+    fireEvent.click(selectAllColumnsButton);
     expect(preview).toHaveTextContent(`Колонки: ${ACCESS_EVENT_EXPORT_COLUMNS.length}`);
   });
 

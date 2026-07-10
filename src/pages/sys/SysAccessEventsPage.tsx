@@ -1737,7 +1737,7 @@ export default function SysAccessEventsPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
+                    className="min-h-11 min-w-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
                     onClick={handleSelectAllColumns}
                     aria-label="Выбрать все колонки экспорта"
                   >

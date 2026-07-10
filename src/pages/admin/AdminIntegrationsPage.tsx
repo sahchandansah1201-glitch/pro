@@ -485,7 +485,7 @@ function FilterBtn({
   return (
     <button
       onClick={onClick}
-      className={`min-h-11 rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
+      className={`min-h-11 min-w-11 rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
         active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:bg-muted"
       }`}
     >
