@@ -44,7 +44,9 @@ test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {
   validateLiveE2EContract(errors, root);
 
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: Дерматоскопия · Прибор/);
-  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-import-mobile-390\.png/);
+  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: Рабочее место · Ассистент/);
+  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-assistant-mobile-390\.png/);
+  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-doctor-mobile-390\.png/);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {

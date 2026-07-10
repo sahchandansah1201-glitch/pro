@@ -14,6 +14,10 @@ const REQUIRED_FILES = [
   "backend/self-hosted/openapi.stage4i.json",
   "src/lib/self-hosted-asset-api.ts",
   "src/lib/self-hosted-asset-api.test.ts",
+  "src/lib/self-hosted-visit-api.ts",
+  "src/lib/self-hosted-visit-api.test.ts",
+  "src/pages/doctor/CapturePageLive.tsx",
+  "src/pages/doctor/CapturePageLive.test.tsx",
   "docs/backend/stage-4i-self-hosted-assets.md",
   "docs/backend/rds3-folder-importer-windows.md",
   "scripts/rds3-folder-importer.mjs",
@@ -60,6 +64,21 @@ const REQUIRED_TEXT = {
     "getSelfHostedAssetDownloadUrl",
     "/api/v1/visits/",
     "/api/v1/assets/",
+  ],
+  "src/lib/self-hosted-visit-api.ts": [
+    "captureSource",
+    "input.captureSource",
+  ],
+  "src/pages/doctor/CapturePageLive.tsx": [
+    "assetSourceLabel",
+    "device_bridge",
+    "Дерматоскопия",
+    "Прибор",
+  ],
+  "src/pages/doctor/CapturePageLive.test.tsx": [
+    "shows an RDS-3 imported asset as a device capture in the assistant queue",
+    "Дерматоскопия · Прибор",
+    "device_bridge|storagePath|signedUrl|checksumSha256",
   ],
   "src/pages/doctor/VisitImagingTab.tsx": [
     "listSelfHostedVisitAssets",
@@ -153,6 +172,9 @@ function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of ['"test:stage4i"', '"check:stage4i"', '"preflight:stage4i"']) {
     if (!packageJson.includes(script)) errors.push(`package.json missing ${script}`);
+  }
+  for (const testFile of ["src/lib/self-hosted-visit-api.test.ts", "src/pages/doctor/CapturePageLive.test.tsx"]) {
+    if (!packageJson.includes(testFile)) errors.push(`package.json Stage 4I tests missing ${testFile}`);
   }
   const preflightAll = read(root, "scripts/preflight-all.mjs");
   if (!preflightAll.includes("Stage 4I self-hosted assets preflight")) {

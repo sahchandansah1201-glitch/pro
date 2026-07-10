@@ -28,12 +28,15 @@ function receipt() {
 test("live RDS-3 parser requires read-only acceptance inputs", () => {
   const parsed = parseLiveRds3E2EArgs([
     "--base-url", "https://pro.example.test",
-    "--credentials-file", "/tmp/doctor.txt",
+    "--doctor-credentials-file", "/tmp/doctor.txt",
+    "--assistant-credentials-file", "/tmp/assistant.txt",
     "--receipt-file", "/tmp/receipt.json",
     "--visit-id", VISIT_ID,
   ], {});
   assert.deepEqual(parsed.errors, []);
   assert.equal(parsed.visitId, VISIT_ID);
+  assert.equal(parsed.doctorCredentialsFile, "/tmp/doctor.txt");
+  assert.equal(parsed.assistantCredentialsFile, "/tmp/assistant.txt");
 });
 
 test("live RDS-3 receipt rejects protected fields", () => {
@@ -47,14 +50,17 @@ test("live RDS-3 receipt rejects protected fields", () => {
 test("live RDS-3 runner spawns the read-only Playwright journey", () => {
   const dir = mkdtempSync(join(tmpdir(), "rds3-live-runner-"));
   try {
-    const credentialsFile = join(dir, "credentials.txt");
+    const doctorCredentialsFile = join(dir, "doctor-credentials.txt");
+    const assistantCredentialsFile = join(dir, "assistant-credentials.txt");
     const receiptFile = join(dir, "receipt.json");
-    writeFileSync(credentialsFile, "Email: doctor@example.test\nPassword: local-test-password\n");
+    writeFileSync(doctorCredentialsFile, "Email: doctor@example.test\nPassword: local-test-password\n");
+    writeFileSync(assistantCredentialsFile, "Email: assistant@example.test\nPassword: local-test-password\n");
     writeFileSync(receiptFile, JSON.stringify(receipt()));
     const calls = [];
     const code = runLiveRds3E2E([
       "--base-url", "https://pro.example.test",
-      "--credentials-file", credentialsFile,
+      "--doctor-credentials-file", doctorCredentialsFile,
+      "--assistant-credentials-file", assistantCredentialsFile,
       "--receipt-file", receiptFile,
       "--visit-id", VISIT_ID,
       "--ignore-deploy-status",
@@ -70,6 +76,8 @@ test("live RDS-3 runner spawns the read-only Playwright journey", () => {
     assert.ok(calls[0].args.includes("e2e/production-rds3-import-live.pw.ts"));
     assert.equal(calls[0].env.STAGE4M_RDS3_VISIT_ID, VISIT_ID);
     assert.equal(calls[0].env.STAGE4M_RDS3_RECEIPT_FILE, receiptFile);
+    assert.equal(calls[0].env.STAGE4M_RDS3_DOCTOR_CREDENTIALS_FILE, doctorCredentialsFile);
+    assert.equal(calls[0].env.STAGE4M_RDS3_ASSISTANT_CREDENTIALS_FILE, assistantCredentialsFile);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

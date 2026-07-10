@@ -48,7 +48,8 @@ export function validateRds3Receipt(value) {
 export function parseLiveRds3E2EArgs(argv = [], env = process.env) {
   const parsed = {
     baseUrl: env.STAGE4M_LIVE_RDS3_BASE_URL || DEFAULT_BASE_URL,
-    credentialsFile: env.STAGE4M_RDS3_DOCTOR_CREDENTIALS_FILE || "",
+    doctorCredentialsFile: env.STAGE4M_RDS3_DOCTOR_CREDENTIALS_FILE || "",
+    assistantCredentialsFile: env.STAGE4M_RDS3_ASSISTANT_CREDENTIALS_FILE || "",
     receiptFile: env.STAGE4M_RDS3_RECEIPT_FILE || "",
     visitId: env.STAGE4M_RDS3_VISIT_ID || "",
     deployStatusFile: env.STAGE4M_DEPLOY_STATUS_FILE || DEFAULT_DEPLOY_STATUS_FILE,
@@ -61,12 +62,13 @@ export function parseLiveRds3E2EArgs(argv = [], env = process.env) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
-    if (["--base-url", "--credentials-file", "--receipt-file", "--visit-id", "--deploy-status-json"].includes(arg)) {
+    if (["--base-url", "--doctor-credentials-file", "--assistant-credentials-file", "--receipt-file", "--visit-id", "--deploy-status-json"].includes(arg)) {
       if (!next) parsed.errors.push(`${arg} requires a value`);
       else {
         const key = {
           "--base-url": "baseUrl",
-          "--credentials-file": "credentialsFile",
+          "--doctor-credentials-file": "doctorCredentialsFile",
+          "--assistant-credentials-file": "assistantCredentialsFile",
           "--receipt-file": "receiptFile",
           "--visit-id": "visitId",
           "--deploy-status-json": "deployStatusFile",
@@ -82,7 +84,8 @@ export function parseLiveRds3E2EArgs(argv = [], env = process.env) {
 
   if (!parsed.help) {
     if (!/^https?:\/\//i.test(parsed.baseUrl)) parsed.errors.push("--base-url must start with http:// or https://");
-    if (!parsed.credentialsFile) parsed.errors.push("--credentials-file is required");
+    if (!parsed.doctorCredentialsFile) parsed.errors.push("--doctor-credentials-file is required");
+    if (!parsed.assistantCredentialsFile) parsed.errors.push("--assistant-credentials-file is required");
     if (!parsed.receiptFile) parsed.errors.push("--receipt-file is required");
     if (!UUID_PATTERN.test(parsed.visitId)) parsed.errors.push("--visit-id must be a UUID");
   }
@@ -94,11 +97,12 @@ export function usage() {
     "Usage:",
     "  npm run e2e:rds3-import:live -- \\",
     "    --base-url https://pro.skindoktor.ru \\",
-    "    --credentials-file /root/dermatolog-pro-rds3-doctor-credentials.txt \\",
+    "    --doctor-credentials-file /root/dermatolog-pro-rds3-doctor-credentials.txt \\",
+    "    --assistant-credentials-file /root/dermatolog-pro-rds3-assistant-credentials.txt \\",
     "    --receipt-file /root/dermatolog-pro-rds3-last-receipt.json \\",
     "    --visit-id <test-visit-uuid>",
     "",
-    "The test is read-only. It verifies a photo already imported by the Windows RDS-3 bridge.",
+    "The test is read-only. It verifies the imported photo in the assistant and doctor workspaces.",
   ].join("\n");
 }
 
@@ -113,8 +117,8 @@ export function runLiveRds3E2E(argv = process.argv.slice(2), { spawn = spawnSync
     console.error(`\n${usage()}`);
     return 2;
   }
-  if (!existsSync(parsed.credentialsFile) || !existsSync(parsed.receiptFile)) {
-    console.error("RDS-3 doctor credentials or receipt file was not found.");
+  if (!existsSync(parsed.doctorCredentialsFile) || !existsSync(parsed.assistantCredentialsFile) || !existsSync(parsed.receiptFile)) {
+    console.error("RDS-3 doctor credentials, assistant credentials, or receipt file was not found.");
     return 2;
   }
   try {
@@ -143,7 +147,8 @@ export function runLiveRds3E2E(argv = process.argv.slice(2), { spawn = spawnSync
     env: {
       ...process.env,
       STAGE4M_LIVE_RDS3_BASE_URL: parsed.baseUrl.replace(/\/+$/, ""),
-      STAGE4M_RDS3_DOCTOR_CREDENTIALS_FILE: parsed.credentialsFile,
+      STAGE4M_RDS3_DOCTOR_CREDENTIALS_FILE: parsed.doctorCredentialsFile,
+      STAGE4M_RDS3_ASSISTANT_CREDENTIALS_FILE: parsed.assistantCredentialsFile,
       STAGE4M_RDS3_RECEIPT_FILE: parsed.receiptFile,
       STAGE4M_RDS3_VISIT_ID: parsed.visitId,
     },

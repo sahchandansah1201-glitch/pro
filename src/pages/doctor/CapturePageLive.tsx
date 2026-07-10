@@ -62,6 +62,14 @@ function assetKindLabel(kind: string): string {
   return "Обзорное фото";
 }
 
+function assetSourceLabel(source: string): string {
+  if (source === "device_bridge") return "Прибор";
+  if (source === "phone") return "Телефон";
+  if (source === "camera") return "Камера";
+  if (source === "local_transfer") return "Локальный перенос";
+  return "Файл";
+}
+
 function visitTitle(visit: SelfHostedVisitScheduleItemDTO): string {
   const patient = visit.patient.fullName || "Пациент";
   const time = visit.startedAt ? formatDateTime(visit.startedAt) : "время не указано";
@@ -435,7 +443,9 @@ export default function CapturePageLive() {
             <div className="divide-y divide-border">
               {assets.map((asset) => (
                 <article key={asset.id} className="grid grid-cols-1 gap-2 px-4 py-3 text-[13px] md:grid-cols-[1fr_1fr_140px] md:items-center">
-                  <div className="font-medium text-foreground">{assetKindLabel(asset.kind)}</div>
+                  <div className="font-medium text-foreground">
+                    {assetKindLabel(asset.kind)} · {assetSourceLabel(asset.captureSource)}
+                  </div>
                   <div className="text-muted-foreground">
                     {asset.capturedAt ? formatDateTime(asset.capturedAt) : "время съёмки не указано"}
                   </div>

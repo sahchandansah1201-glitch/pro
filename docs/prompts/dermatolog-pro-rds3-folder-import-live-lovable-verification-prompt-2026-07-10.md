@@ -1,14 +1,14 @@
 # Dermatolog Pro · RDS-3 Folder Import · Lovable Verification Prompt
 
-Проверь синхронизацию и отображение source batch `Harden production RDS-3 folder import`.
+Проверь синхронизацию и отображение source chain `Harden production RDS-3 folder import` → `Cover assistant RDS-3 asset visibility`.
 
 Работай в режиме **read-only verification**. Не меняй код, Git history, API, installer, migrations или тесты. Не имитируй физический RDS-3 и не называй browser upload доказательством Windows folder import.
 
 ## 1. Sync gate
 
 1. Connected repository: `sahchandansah1201-glitch/pro`, branch `main`.
-2. В history должен присутствовать source commit `Harden production RDS-3 folder import` либо точный sync commit поверх него.
-3. Верни Lovable HEAD, source SHA и `git diff --stat <source-sha> HEAD`.
+2. В history должны присутствовать source commits `Harden production RDS-3 folder import` и `Cover assistant RDS-3 asset visibility` либо точный sync commit поверх второго.
+3. Верни Lovable HEAD, последний source SHA и `git diff --stat <latest-source-sha> HEAD`.
 4. При непустом tree diff останови visual acceptance как `sync mismatch`.
 
 ## 2. Source contract
@@ -24,23 +24,26 @@
 7. `GET /api/v1/visits/:visitId/assets` возвращает только разрешённый `captureSource`.
 8. Self-hosted frontend отображает `captureSource=device_bridge` как `Прибор`.
 9. Stage 4M содержит шаг `Verify assistant capture and RDS-3 import database journey` с rollback.
-10. `e2e:rds3-import:live` является read-only и требует receipt + doctor credentials + test visit id.
+10. Очередь ассистента `Съёмка` отображает `captureSource=device_bridge` как `Дерматоскопия · Прибор`.
+11. `e2e:rds3-import:live` является read-only и требует receipt + отдельных doctor/assistant credentials + test visit id.
 
 ## 3. Functional visibility
 
-Проверь рабочий путь роли `doctor` на заранее подготовленной test fixture:
+Проверь два рабочих пути на одной заранее подготовленной test fixture:
 
-1. `Визиты` → нужный тестовый визит → вкладка `Снимки`.
-2. Импортированный asset виден строкой `Дерматоскопия · Прибор`.
-3. Действие `Открыть` имеет touch target не меньше 44px.
-4. В UI не видны `device_bridge`, `metadata_pending`, checksum, internal UUID, local path, object key, signed URL, token или patient code.
-5. Никакие диагноз, риск, прогноз, лечение или измерение из факта импорта не выводятся.
+1. `assistant`: `Захват фото` → `Съёмка` → выбрать тестовый визит → `Обновить`.
+2. `doctor`: `Визиты` → нужный тестовый визит → вкладка `Снимки`.
+3. В обеих ролях один и тот же receipt asset виден строкой `Дерматоскопия · Прибор`.
+4. Интерактивные действия имеют touch target не меньше 44px.
+5. В UI не видны `device_bridge`, `metadata_pending`, checksum, internal UUID, local path, object key, signed URL, token или patient code.
+6. Никакие диагноз, риск, прогноз, лечение или измерение из факта импорта не выводятся.
 
 ## 4. Обязательная visual matrix
 
 | Route / state | 1280x900 | 390x844 | Overflow | Overlap | Clipped text | Tap targets <44px |
 |---|---|---|---:|---:|---:|---:|
-| test visit → `Снимки`, строка `Дерматоскопия · Прибор` | PASS/FAIL | PASS/FAIL | count | count | count | count |
+| assistant → `Съёмка`, строка `Дерматоскопия · Прибор` | PASS/FAIL | PASS/FAIL | count | count | count | count |
+| doctor → test visit → `Снимки`, строка `Дерматоскопия · Прибор` | PASS/FAIL | PASS/FAIL | count | count | count | count |
 
 Для обеих ширин укажи screenshot/artifact identifier. Если реальная fixture с RDS-3 receipt недоступна, напиши `artifact unavailable` и верни `VISUAL PASS WITH BLOCKERS`; не подменяй её моками.
 
@@ -56,13 +59,13 @@
 ```text
 Sync: PASS/FAIL
 Lovable HEAD: <sha>
-Source commit: <sha> Harden production RDS-3 folder import
+Source commits: <sha-1> Harden production RDS-3 folder import; <sha-2> Cover assistant RDS-3 asset visibility
 Tree parity: PASS/FAIL
-Source contract: 10/10 или список gaps
+Source contract: 11/11 или список gaps
 Functional visibility: PASS/FAIL/BLOCKED
 Native Russian: PASS/FAIL
 Safety/hygiene: PASS/FAIL
-Visual matrix: <строка с 1280 и 390 evidence>
+Visual matrix: <две строки assistant/doctor с 1280 и 390 evidence>
 Покрытие мозгового штурма: <SD-MF statuses>
 Physical RDS-3 evidence: PRESENT/MISSING
 Verdict: VISUAL PASS / VISUAL PASS WITH BLOCKERS / VISUAL FAIL

@@ -83,6 +83,7 @@ export interface SelfHostedVisitAssetDTO {
   kind: "overview_photo" | "dermoscopy" | "report_attachment" | string;
   contentType: string | null;
   byteSize: number | null;
+  captureSource: "phone" | "device_bridge" | "file_import" | "camera" | "local_transfer" | "unknown" | string;
   capturedAt: string | null;
   uploadedBy: string | null;
   createdAt: string | null;
@@ -277,6 +278,7 @@ function toAsset(input: Record<string, unknown>): SelfHostedVisitAssetDTO {
     kind: String(input.kind ?? "overview_photo"),
     contentType: input.contentType == null ? null : String(input.contentType),
     byteSize,
+    captureSource: String(input.captureSource ?? "file_import"),
     capturedAt: input.capturedAt == null ? null : String(input.capturedAt),
     uploadedBy: input.uploadedBy == null ? null : String(input.uploadedBy),
     createdAt: input.createdAt == null ? null : String(input.createdAt),

@@ -166,6 +166,7 @@ describe("self-hosted visit api client", () => {
             contentType: "image/jpeg",
             byteSize: 2048,
             capturedAt: "2026-05-12T09:00:00.000Z",
+            captureSource: "device_bridge",
           },
         ],
       }),
@@ -177,6 +178,7 @@ describe("self-hosted visit api client", () => {
     });
     expect(ok.ok).toBe(true);
     expect(ok.value?.[0]?.byteSize).toBe(2048);
+    expect(ok.value?.[0]?.captureSource).toBe("device_bridge");
 
     fetchSpy.mockResolvedValueOnce(
       jsonResponse(422, {

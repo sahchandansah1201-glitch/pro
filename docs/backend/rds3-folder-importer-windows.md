@@ -153,7 +153,8 @@ session identifiers, credentials, patient text, or clinical text.
   patient text.
 - Capture metadata remains technical only and does not create diagnosis, risk,
   prognosis, treatment, medical measurement, or dynamic clinical conclusion.
-- The doctor can see the imported image in the visit imaging workflow after refresh.
+- The assistant can see the imported image in the capture queue after refresh.
+- The doctor can see the same imported image in the visit imaging workflow after refresh.
 - The visit asset row is labelled `Дерматоскопия · Прибор` rather than as a file upload.
 
 ## Verification commands
@@ -169,15 +170,17 @@ receipt to the application server and run the read-only browser acceptance:
 ```bash
 npm run e2e:rds3-import:live -- \
   --base-url https://pro.skindoktor.ru \
-  --credentials-file /root/dermatolog-pro-rds3-doctor-credentials.txt \
+  --doctor-credentials-file /root/dermatolog-pro-rds3-doctor-credentials.txt \
+  --assistant-credentials-file /root/dermatolog-pro-rds3-assistant-credentials.txt \
   --receipt-file /root/dermatolog-pro-rds3-last-receipt.json \
   --visit-id '<test-visit-uuid>'
 ```
 
-The doctor credentials must be scoped to the clinic that owns the test visit.
+The doctor and assistant credentials must be scoped to the clinic that owns the
+test visit, and both roles must be able to see that visit.
 The browser test is read-only: it verifies the existing receipt asset in the
-safe visit API, checks the visible `Прибор` label at 1280 and 390 widths, and
-does not upload or alter a photo.
+assistant capture queue and the doctor visit images, checks the visible `Прибор`
+label at 1280 and 390 widths for both roles, and does not upload or alter a photo.
 
 For live workstation acceptance, use a test visit and a non-production RDS-3
 capture first. Keep the official RDS-3 app and Dermatolog Pro backend logs for

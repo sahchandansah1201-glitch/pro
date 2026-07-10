@@ -154,4 +154,40 @@ describe("CapturePageLive · assistant production capture", () => {
 
     expect(document.body).not.toHaveTextContent(/Учебный режим|демо|mock|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
   });
+
+  it("shows an RDS-3 imported asset as a device capture in the assistant queue", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/visits?limit=25")) {
+        return json({ items: [visit], count: 1, limit: 25, offset: 0, filters: { status: "all" } });
+      }
+      if (href.endsWith("/api/v1/visits/visit-1") && !href.endsWith("/assets") && !href.endsWith("/lesions")) {
+        return json({ item: visit });
+      }
+      if (href.endsWith("/api/v1/visits/visit-1/lesions")) return json({ items: [lesion] });
+      if (href.endsWith("/api/v1/visits/visit-1/assets")) {
+        return json({ items: [{
+          id: "asset-rds3",
+          clinicId: "clinic-1",
+          patientId: "patient-1",
+          visitId: "visit-1",
+          lesionId: "lesion-1",
+          kind: "dermoscopy",
+          contentType: "image/jpeg",
+          byteSize: 2048,
+          captureSource: "device_bridge",
+          capturedAt: "2026-07-10T10:00:00.000Z",
+          uploadedBy: "assistant-1",
+          createdAt: "2026-07-10T10:00:01.000Z",
+        }] });
+      }
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderCapture();
+
+    expect(await screen.findByText("Дерматоскопия · Прибор")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/device_bridge|storagePath|signedUrl|checksumSha256/);
+  });
 });
