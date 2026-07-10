@@ -35,6 +35,7 @@ describe("self-hosted-asset-api", () => {
               byteSize: 1024,
               capturedAt: "2026-05-12T09:00:00.000Z",
               createdAt: "2026-05-12T09:00:01.000Z",
+              captureSource: "device_bridge",
             },
           ],
         }),
@@ -52,7 +53,7 @@ describe("self-hosted-asset-api", () => {
     expect(result.value?.[0]).toMatchObject({
       id: ASSET_ID,
       kind: "dermoscopy",
-      source: "file",
+      source: "device_bridge",
       qualityScore: 1,
     });
     expect(fetch).toHaveBeenCalledWith(

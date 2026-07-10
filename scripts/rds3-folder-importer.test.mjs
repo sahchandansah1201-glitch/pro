@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, truncateSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -36,6 +36,7 @@ function baseConfig(dir) {
     visitId: UUID_VISIT,
     lesionId: UUID_LESION,
     ledgerPath: join(dir, "ledger.json"),
+    receiptPath: join(dir, "receipt.json"),
     stableMs: 1,
     pollMs: 1,
     mode: "scan",
@@ -135,9 +136,73 @@ test("RDS-3 importer uploads a new RDS image and records only local safe ledger 
   assert.equal(result.assetId, "asset-1");
   const ledger = readLedger(join(dir, "ledger.json"));
   const [entry] = Object.values(ledger.imported);
-  assert.deepEqual(Object.keys(entry).sort(), ["assetId", "byteSize", "contentType", "fileName", "importedAt"].sort());
+  assert.deepEqual(
+    Object.keys(entry).sort(),
+    ["assetId", "byteSize", "contentType", "correlationId", "fileName", "importedAt", "status"].sort(),
+  );
   assert.equal(entry.fileName, "rds3 sample.jpg");
+  assert.equal(entry.status, "imported");
+  assert.equal(entry.correlationId, "corr-1");
+  const receipt = JSON.parse(readFileSync(join(dir, "receipt.json"), "utf8"));
+  assert.deepEqual(Object.keys(receipt).sort(), [
+    "assetId",
+    "captureSource",
+    "checksumSha256",
+    "correlationId",
+    "importedAt",
+    "schemaVersion",
+    "status",
+  ].sort());
+  assert.equal(receipt.status, "imported");
+  assert.equal(receipt.captureSource, "device_bridge");
+  assert.equal("fileName" in receipt, false);
+  assert.doesNotMatch(
+    JSON.stringify(receipt),
+    /rds3-importer-|watchDir|ledgerPath|receiptPath|apiToken|visitId|lesionId|storagePath|signedUrl|patient/i,
+  );
+  assert.equal(existsSync(join(dir, "ledger.json.tmp")), false);
+  assert.equal(existsSync(join(dir, "receipt.json.tmp")), false);
   assertCalls();
+}));
+
+test("RDS-3 importer resumes capture metadata after a partial failure without uploading the asset twice", () => withTempDir(async (dir) => {
+  const filePath = join(dir, "rds3 sample.jpg");
+  writeFileSync(filePath, Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01]));
+  const calls = [];
+  let metadataAttempts = 0;
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith(`/api/v1/visits/${UUID_VISIT}/assets`)) {
+      return Response.json({ item: { id: "asset-1" }, correlationId: "corr-1" }, { status: 201 });
+    }
+    if (String(url).endsWith(`/api/v1/visits/${UUID_VISIT}/assets/asset-1/capture-metadata`)) {
+      metadataAttempts += 1;
+      if (metadataAttempts === 1) {
+        return Response.json({ error: { message: "temporary metadata failure" } }, { status: 503 });
+      }
+      return Response.json({ item: { id: "metadata-1" } }, { status: 200 });
+    }
+    return Response.json({ error: { message: "unexpected request" } }, { status: 404 });
+  };
+
+  const config = baseConfig(dir);
+  const ledger = { imported: {} };
+  await assert.rejects(
+    importImageFile({ config, filePath, ledger }),
+    /temporary metadata failure/,
+  );
+  const pendingLedger = readLedger(config.ledgerPath);
+  const [pendingEntry] = Object.values(pendingLedger.imported);
+  assert.equal(pendingEntry.status, "metadata_pending");
+  assert.equal(pendingEntry.assetId, "asset-1");
+
+  const resumed = await importImageFile({ config, filePath, ledger: pendingLedger });
+  assert.equal(resumed.status, "imported");
+  assert.equal(resumed.resumed, true);
+  assert.equal(calls.filter((call) => call.url.endsWith(`/api/v1/visits/${UUID_VISIT}/assets`)).length, 1);
+  assert.equal(calls.filter((call) => call.url.endsWith("/capture-metadata")).length, 2);
+  const completedLedger = readLedger(config.ledgerPath);
+  assert.equal(Object.values(completedLedger.imported)[0].status, "imported");
 }));
 
 test("RDS-3 importer skips already imported checksum", () => withTempDir(async (dir) => {
@@ -145,13 +210,25 @@ test("RDS-3 importer skips already imported checksum", () => withTempDir(async (
   const bytes = Buffer.from([0xff, 0xd8, 0xff]);
   writeFileSync(filePath, bytes);
   const checksum = sha256Hex(bytes);
-  const ledger = { imported: { [checksum]: { assetId: "asset-1" } } };
+  const ledger = { imported: { [checksum]: { assetId: "asset-1", status: "imported" } } };
   globalThis.fetch = async () => {
     throw new Error("fetch must not be called for duplicate files");
   };
   const result = await importImageFile({ config: baseConfig(dir), filePath, ledger });
   assert.equal(result.status, "skipped");
   assert.equal(result.reason, "already_imported");
+}));
+
+test("RDS-3 importer stops on a corrupted existing ledger instead of re-uploading files", () => withTempDir(async (dir) => {
+  const config = baseConfig(dir);
+  writeFileSync(config.ledgerPath, "{not-json");
+  writeFileSync(join(dir, "rds3 sample.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
+  globalThis.fetch = async () => {
+    throw new Error("fetch must not be called when the ledger is corrupted");
+  };
+
+  assert.throws(() => readLedger(config.ledgerPath), /ledger is invalid/i);
+  await assert.rejects(scanOnce(config), /ledger is invalid/i);
 }));
 
 test("RDS-3 importer scan ignores unsupported files and imports supported images", () => withTempDir(async (dir) => {

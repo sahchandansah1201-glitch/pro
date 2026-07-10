@@ -93,6 +93,17 @@ The ledger stores only local import bookkeeping:
 - content type;
 - import timestamp.
 
+The worker also writes the latest completed import receipt under its protected
+application folder:
+
+```text
+%LOCALAPPDATA%\DermatologPro\RdsBridge\last-receipt.json
+```
+
+The receipt contains the asset id, sha256, correlation id,
+`captureSource=device_bridge`, and completion time. It does not contain the
+watch folder, visit or lesion id, token, patient text, or object-storage data.
+
 It does not store source folder paths, object storage paths, signed links, raw
 session identifiers, credentials, patient text, or clinical text.
 
@@ -100,7 +111,7 @@ session identifiers, credentials, patient text, or clinical text.
 
 1. The RDS-3 developer application saves a JPEG/PNG/WebP/HEIC file locally.
 2. The importer waits until the file stops changing.
-3. The importer computes sha256 and skips duplicates already present in the local ledger.
+3. The importer computes sha256 and skips completed imports already present in the local ledger.
 4. The importer calls:
 
    ```text
@@ -112,7 +123,10 @@ session identifiers, credentials, patient text, or clinical text.
 
 5. The backend stores the bytes through backend-owned object storage and returns
    a safe asset DTO.
-6. The importer calls:
+6. Before the metadata request, the importer atomically records
+   `status=metadata_pending`. If the workstation or network fails after upload,
+   the next scan resumes from the returned asset id and does not repeat the POST.
+7. The importer calls:
 
    ```text
    PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata
@@ -125,6 +139,9 @@ session identifiers, credentials, patient text, or clinical text.
    - `captureProtocolVersion=imported_standard`;
    - `lensProfile=dermoscope_contact`;
    - unknown lighting/focus/calibration values until direct SDK capture is implemented.
+8. After the metadata request succeeds, the worker atomically records
+   `status=imported` and updates the safe receipt. A corrupted existing ledger
+   stops the worker instead of resetting duplicate protection.
 
 ## Acceptance criteria
 
@@ -137,6 +154,7 @@ session identifiers, credentials, patient text, or clinical text.
 - Capture metadata remains technical only and does not create diagnosis, risk,
   prognosis, treatment, medical measurement, or dynamic clinical conclusion.
 - The doctor can see the imported image in the visit imaging workflow after refresh.
+- The visit asset row is labelled `Дерматоскопия · Прибор` rather than as a file upload.
 
 ## Verification commands
 
@@ -144,6 +162,22 @@ session identifiers, credentials, patient text, or clinical text.
 npm run test:rds3:import-folder
 npm run test:stage4i
 ```
+
+After a non-production RDS-3 photo has been imported on Windows, copy the safe
+receipt to the application server and run the read-only browser acceptance:
+
+```bash
+npm run e2e:rds3-import:live -- \
+  --base-url https://pro.skindoktor.ru \
+  --credentials-file /root/dermatolog-pro-rds3-doctor-credentials.txt \
+  --receipt-file /root/dermatolog-pro-rds3-last-receipt.json \
+  --visit-id '<test-visit-uuid>'
+```
+
+The doctor credentials must be scoped to the clinic that owns the test visit.
+The browser test is read-only: it verifies the existing receipt asset in the
+safe visit API, checks the visible `Прибор` label at 1280 and 390 widths, and
+does not upload or alter a photo.
 
 For live workstation acceptance, use a test visit and a non-production RDS-3
 capture first. Keep the official RDS-3 app and Dermatolog Pro backend logs for

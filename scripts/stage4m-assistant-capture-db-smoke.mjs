@@ -143,6 +143,8 @@ begin;
 do $stage4m_assistant_capture_db_smoke$
 declare
   payload text;
+  imported_asset_id uuid;
+  rds_capture_source text;
 begin
   insert into clinics (id, slug, name, timezone, address)
   values (${sqlLiteral(CLINIC_ID)}::uuid, ${sqlLiteral(clinicSlug)}, 'Stage 4M assistant capture smoke clinic', 'Europe/Moscow', 'Stage 4M assistant capture smoke address');
@@ -175,6 +177,35 @@ begin
   end if;
   if payload::jsonb::text like '%objectKey%' or payload::jsonb::text like '%objectBucket%' then
     raise exception 'assistant capture asset safe DTO exposed object storage details';
+  end if;
+
+  imported_asset_id := (payload::jsonb->0->>'id')::uuid;
+  insert into clinical_asset_capture_metadata (
+    clinic_id,
+    patient_id,
+    visit_id,
+    lesion_id,
+    asset_id,
+    captured_by_user_id,
+    capture_source,
+    metadata_json
+  ) values (
+    ${sqlLiteral(CLINIC_ID)}::uuid,
+    ${sqlLiteral(PATIENT_ID)}::uuid,
+    ${sqlLiteral(VISIT_ID)}::uuid,
+    ${sqlLiteral(LESION_ID)}::uuid,
+    imported_asset_id,
+    ${sqlLiteral(ASSISTANT_ID)}::uuid,
+    'device_bridge',
+    '{"bridge":"rds3_folder_import","protectedFieldsExposed":false}'::jsonb
+  );
+
+  select capture_source
+  into rds_capture_source
+  from clinical_asset_capture_metadata
+  where clinical_asset_capture_metadata.asset_id = imported_asset_id;
+  if rds_capture_source <> 'device_bridge' then
+    raise exception 'RDS-3 capture metadata did not preserve device bridge source';
   end if;
 end
 $stage4m_assistant_capture_db_smoke$;
@@ -241,7 +272,7 @@ export function runStage4MAssistantCaptureDbSmoke(options = {}, io = {}) {
   if (!String(result.stdout || "").includes("stage4m_assistant_capture_db_smoke_ok")) {
     throw new Error("Assistant capture database smoke did not return its OK marker.");
   }
-  console.log("[stage4m-assistant-capture-db-smoke] verified assistant capture asset journey against PostgreSQL");
+  console.log("[stage4m-assistant-capture-db-smoke] verified assistant capture and RDS-3 metadata journey against PostgreSQL");
   return { ok: true, dryRun: false };
 }
 

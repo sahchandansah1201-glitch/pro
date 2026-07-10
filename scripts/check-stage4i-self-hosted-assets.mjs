@@ -38,7 +38,7 @@ const REQUIRED_TEXT = {
     "normalizeCreateAssetPayload",
     "asset.create",
     "asset.download_url",
-    "visitWriteScope",
+    "assetWriteScope",
     "visitReadScope",
   ],
   "backend/self-hosted/routes.mjs": [

@@ -21,6 +21,7 @@ export const SUPPORTED_RDS3_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".web
 const DEFAULT_POLL_MS = 1000;
 const DEFAULT_STABLE_MS = 1200;
 const DEFAULT_LEDGER_NAME = ".dermatolog-pro-rds3-import-ledger.json";
+const DEFAULT_RECEIPT_NAME = ".dermatolog-pro-rds3-last-receipt.json";
 const SENSITIVE_KEY_PATTERN =
   /(token|secret|password|cookie|signed|signature|object[_-]?key|storage[_-]?path|patient[_-]?name|email|credential|session|qr)/i;
 
@@ -66,6 +67,7 @@ function parseArgs(argv = process.argv.slice(2), env = process.env) {
     visitId: env.RDS3_VISIT_ID || "",
     lesionId: env.RDS3_LESION_ID || "",
     ledgerPath: env.RDS3_LEDGER_PATH || "",
+    receiptPath: env.RDS3_RECEIPT_PATH || "",
     moveImportedDir: env.RDS3_MOVE_IMPORTED_DIR || "",
   };
 
@@ -80,6 +82,7 @@ function parseArgs(argv = process.argv.slice(2), env = process.env) {
     else if (arg === "--lesion-id") args.lesionId = next, index += 1;
     else if (arg === "--mode") args.mode = next, index += 1;
     else if (arg === "--ledger") args.ledgerPath = next, index += 1;
+    else if (arg === "--receipt") args.receiptPath = next, index += 1;
     else if (arg === "--move-imported-dir") args.moveImportedDir = next, index += 1;
     else if (arg === "--poll-ms") args.pollMs = Number(next), index += 1;
     else if (arg === "--stable-ms") args.stableMs = Number(next), index += 1;
@@ -95,6 +98,7 @@ function parseArgs(argv = process.argv.slice(2), env = process.env) {
     visitId: cleanString(args.visitId),
     lesionId: cleanString(args.lesionId),
     ledgerPath: resolve(args.ledgerPath || join(watchDir, DEFAULT_LEDGER_NAME)),
+    receiptPath: resolve(args.receiptPath || join(watchDir, DEFAULT_RECEIPT_NAME)),
     moveImportedDir: args.moveImportedDir ? resolve(expandWindowsEnvPath(args.moveImportedDir, env)) : "",
     mode: args.mode === "watch" ? "watch" : "scan",
     pollMs: Number.isFinite(args.pollMs) && args.pollMs > 0 ? Math.min(args.pollMs, 60000) : DEFAULT_POLL_MS,
@@ -133,17 +137,31 @@ function sha256Hex(bytes) {
 }
 
 function readLedger(ledgerPath) {
+  if (!existsSync(ledgerPath)) return { imported: {} };
   try {
     const parsed = JSON.parse(readFileSync(ledgerPath, "utf8"));
-    return parsed && typeof parsed === "object" && parsed.imported ? parsed : { imported: {} };
+    if (!parsed || typeof parsed !== "object" || !parsed.imported || typeof parsed.imported !== "object") {
+      throw new Error("invalid ledger shape");
+    }
+    return parsed;
   } catch {
-    return { imported: {} };
+    throw new Error("RDS-3 import ledger is invalid. Restore or remove it only after verifying imported assets.");
   }
 }
 
+function writeJsonAtomic(filePath, value) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.tmp`;
+  writeFileSync(temporaryPath, JSON.stringify(value, null, 2));
+  renameSync(temporaryPath, filePath);
+}
+
 function writeLedger(ledgerPath, ledger) {
-  mkdirSync(dirname(ledgerPath), { recursive: true });
-  writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
+  writeJsonAtomic(ledgerPath, ledger);
+}
+
+function writeReceipt(receiptPath, receipt) {
+  writeJsonAtomic(receiptPath, receipt);
 }
 
 function safeFileName(filePath) {
@@ -231,6 +249,10 @@ async function registerAsset({ config, filePath, bytes, checksumSha256, contentT
   );
   const assetId = assetResponse?.item?.id;
   if (!assetId) throw new Error("Backend did not return imported asset id.");
+  return { assetId, correlationId: assetResponse?.correlationId || null };
+}
+
+async function completeCaptureMetadata({ config, assetId }) {
   await requestJson(
     joinApiUrl(
       config.apiBaseUrl,
@@ -238,7 +260,6 @@ async function registerAsset({ config, filePath, bytes, checksumSha256, contentT
     ),
     { apiToken: config.apiToken, method: "PATCH", body: buildCaptureMetadataPayload() },
   );
-  return { assetId, correlationId: assetResponse?.correlationId || null };
 }
 
 async function importImageFile({ config, filePath, ledger }) {
@@ -254,30 +275,61 @@ async function importImageFile({ config, filePath, ledger }) {
   if (!contentType) return { status: "skipped", reason: "unsupported_content_type" };
   const bytes = readFileSync(filePath);
   const checksumSha256 = sha256Hex(bytes);
-  if (ledger.imported[checksumSha256]) {
+  const existing = ledger.imported[checksumSha256];
+  if (existing && existing.status !== "metadata_pending") {
     return { status: "skipped", reason: "already_imported", checksumSha256 };
   }
-  const imported = await registerAsset({
-    config,
-    filePath,
-    bytes,
-    checksumSha256,
-    contentType,
-    capturedAt: stat.mtime.toISOString(),
-  });
+  const resumed = existing?.status === "metadata_pending";
+  let imported = existing;
+  if (resumed) {
+    if (!cleanString(existing.assetId)) {
+      throw new Error("Pending import is missing its asset id.");
+    }
+  } else {
+    imported = await registerAsset({
+      config,
+      filePath,
+      bytes,
+      checksumSha256,
+      contentType,
+      capturedAt: stat.mtime.toISOString(),
+    });
+    ledger.imported[checksumSha256] = {
+      fileName: safeFileName(filePath),
+      assetId: imported.assetId,
+      correlationId: imported.correlationId,
+      byteSize: stat.size,
+      contentType,
+      status: "metadata_pending",
+    };
+    writeLedger(config.ledgerPath, ledger);
+  }
+  await completeCaptureMetadata({ config, assetId: imported.assetId });
+  const importedAt = new Date().toISOString();
   ledger.imported[checksumSha256] = {
     fileName: safeFileName(filePath),
     assetId: imported.assetId,
-    importedAt: new Date().toISOString(),
+    correlationId: imported.correlationId || null,
+    importedAt,
     byteSize: stat.size,
     contentType,
+    status: "imported",
   };
   writeLedger(config.ledgerPath, ledger);
+  writeReceipt(config.receiptPath || join(dirname(config.ledgerPath), DEFAULT_RECEIPT_NAME), {
+    schemaVersion: 1,
+    status: "imported",
+    assetId: imported.assetId,
+    checksumSha256,
+    correlationId: imported.correlationId || null,
+    captureSource: "device_bridge",
+    importedAt,
+  });
   if (config.moveImportedDir) {
     mkdirSync(config.moveImportedDir, { recursive: true });
     renameSync(filePath, join(config.moveImportedDir, safeFileName(filePath)));
   }
-  return { status: "imported", assetId: imported.assetId, checksumSha256 };
+  return { status: "imported", assetId: imported.assetId, checksumSha256, resumed };
 }
 
 async function scanOnce(config) {
@@ -295,10 +347,9 @@ async function scanOnce(config) {
   const results = [];
   for (const filePath of files.sort()) {
     try {
-      results.push({ fileName: safeFileName(filePath), ...(await importImageFile({ config, filePath, ledger })) });
+      results.push(await importImageFile({ config, filePath, ledger }));
     } catch (error) {
       results.push({
-        fileName: safeFileName(filePath),
         status: "failed",
         reason: error instanceof Error ? error.message : "unknown_error",
       });

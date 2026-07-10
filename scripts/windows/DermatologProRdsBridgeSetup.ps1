@@ -63,18 +63,30 @@ function Read-Ledger {
   }
   try {
     $ledger = Get-Content -LiteralPath $LedgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    if (-not $ledger.imported) {
-      $ledger | Add-Member -NotePropertyName imported -NotePropertyValue ([pscustomobject]@{}) -Force
+    if ($null -eq $ledger.imported) {
+      throw "missing imported ledger section"
     }
     return $ledger
   } catch {
-    return [pscustomobject]@{ imported = [pscustomobject]@{} }
+    throw "Журнал импорта повреждён. Восстановите его или удалите только после проверки уже импортированных снимков."
   }
 }
 
 function Save-Ledger {
   param([string]$LedgerPath, [object]$Ledger)
-  $Ledger | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $LedgerPath -Encoding UTF8
+  Save-JsonAtomic -FilePath $LedgerPath -Value $Ledger
+}
+
+function Save-JsonAtomic {
+  param([string]$FilePath, [object]$Value)
+  $temporaryPath = "$FilePath.tmp"
+  $Value | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporaryPath -Encoding UTF8
+  Move-Item -LiteralPath $temporaryPath -Destination $FilePath -Force
+}
+
+function Save-Receipt {
+  param([string]$ReceiptPath, [object]$Receipt)
+  Save-JsonAtomic -FilePath $ReceiptPath -Value $Receipt
 }
 
 function Get-ContentType {
@@ -146,17 +158,19 @@ function Import-RdsImage {
 
   $file = Get-Item -LiteralPath $FilePath
   if ($file.Length -gt [int64]$Config.maxBytes) {
-    Write-BridgeLog "Файл пропущен: слишком большой снимок $($file.Name)."
+    Write-BridgeLog "Снимок пропущен: размер превышает 25 МБ."
     return
   }
 
   if (-not (Test-StableFile -FilePath $FilePath -StableMilliseconds ([int]$Config.stableMilliseconds))) {
-    Write-BridgeLog "Файл ещё сохраняется, повторю позже: $($file.Name)."
+    Write-BridgeLog "Снимок ещё сохраняется, повторю позже."
     return
   }
 
   $sha = Get-FileSha256 -FilePath $FilePath
-  if ($Ledger.imported.PSObject.Properties.Name -contains $sha) {
+  $existingProperty = $Ledger.imported.PSObject.Properties[$sha]
+  $existing = if ($existingProperty) { $existingProperty.Value } else { $null }
+  if ($existing -and ([string]$existing.status -ne "metadata_pending")) {
     return
   }
 
@@ -176,10 +190,31 @@ function Import-RdsImage {
     capturedAt = (Get-Date).ToUniversalTime().ToString("o")
   }
 
-  $assetResponse = Invoke-BridgeJson -Uri "$base/api/v1/visits/$visit/assets" -Method "Post" -Body $assetBody -PlainToken $PlainToken
-  $assetId = $assetResponse.item.id
-  if (-not $assetId) {
-    throw "Система не вернула номер импортированного снимка."
+  $assetId = $null
+  $correlationId = $null
+  if ($existing -and ([string]$existing.status -eq "metadata_pending")) {
+    $assetId = [string]$existing.assetId
+    $correlationId = [string]$existing.correlationId
+    if (-not $assetId) {
+      throw "Незавершённый импорт не содержит номер снимка."
+    }
+  } else {
+    $assetResponse = Invoke-BridgeJson -Uri "$base/api/v1/visits/$visit/assets" -Method "Post" -Body $assetBody -PlainToken $PlainToken
+    $assetId = $assetResponse.item.id
+    $correlationId = [string]$assetResponse.correlationId
+    if (-not $assetId) {
+      throw "Система не вернула номер импортированного снимка."
+    }
+    $pendingEntry = [ordered]@{
+      fileName = $safeName
+      assetId = [string]$assetId
+      correlationId = $correlationId
+      byteSize = $bytes.Length
+      contentType = $contentType
+      status = "metadata_pending"
+    }
+    $Ledger.imported | Add-Member -NotePropertyName $sha -NotePropertyValue $pendingEntry -Force
+    Save-Ledger -LedgerPath $Config.ledgerPath -Ledger $Ledger
   }
 
   $encodedAsset = [Uri]::EscapeDataString([string]$assetId)
@@ -201,16 +236,29 @@ function Import-RdsImage {
 
   Invoke-BridgeJson -Uri "$base/api/v1/visits/$visit/assets/$encodedAsset/capture-metadata" -Method "Patch" -Body $metadataBody -PlainToken $PlainToken | Out-Null
 
+  $importedAt = (Get-Date).ToUniversalTime().ToString("o")
   $entry = [ordered]@{
     fileName = $safeName
     assetId = [string]$assetId
-    importedAt = (Get-Date).ToUniversalTime().ToString("o")
+    correlationId = $correlationId
+    importedAt = $importedAt
     byteSize = $bytes.Length
     contentType = $contentType
+    status = "imported"
   }
   $Ledger.imported | Add-Member -NotePropertyName $sha -NotePropertyValue $entry -Force
   Save-Ledger -LedgerPath $Config.ledgerPath -Ledger $Ledger
-  Write-BridgeLog "Снимок импортирован: $safeName."
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    status = "imported"
+    assetId = [string]$assetId
+    checksumSha256 = $sha
+    correlationId = $correlationId
+    captureSource = "device_bridge"
+    importedAt = $importedAt
+  }
+  Save-Receipt -ReceiptPath $Config.receiptPath -Receipt $receipt
+  Write-BridgeLog "Снимок импортирован."
 }
 
 function Scan-RdsFolder {
@@ -223,7 +271,7 @@ function Scan-RdsFolder {
       Import-RdsImage -FilePath $_.FullName -Config $Config -Ledger $Ledger -PlainToken $PlainToken
     } catch {
       $message = Hide-SensitiveText -Text $_.Exception.Message -Config $Config -PlainToken $PlainToken
-      Write-BridgeLog "Ошибка импорта $($_.Name): $message"
+      Write-BridgeLog "Ошибка импорта снимка: $message"
     }
   }
 }
@@ -234,7 +282,7 @@ if (-not (Test-Path -LiteralPath $config.watchDir)) {
   New-Item -ItemType Directory -Path $config.watchDir -Force | Out-Null
 }
 $ledger = Read-Ledger -LedgerPath $config.ledgerPath
-Write-BridgeLog "Bridge запущен. Папка снимков: $($config.watchDir)"
+Write-BridgeLog "Bridge запущен. Папка снимков подключена."
 
 while ($true) {
   Scan-RdsFolder -Config $config -Ledger $ledger -PlainToken $plainToken
@@ -319,6 +367,7 @@ $config = [ordered]@{
   visitId = $visitId
   lesionId = $lesionId
   ledgerPath = (Join-Path $watchDir ".dermatolog-pro-rds3-import-ledger.json")
+  receiptPath = (Join-Path $InstallRoot "last-receipt.json")
   pollSeconds = 2
   stableMilliseconds = 1200
   maxBytes = 26214400

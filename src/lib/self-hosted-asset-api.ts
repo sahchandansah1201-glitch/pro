@@ -142,6 +142,13 @@ function backendKind(kind: SafeAssetDTO["kind"]): string {
   return "overview_photo";
 }
 
+function frontendSource(source: unknown): SafeAssetDTO["source"] {
+  if (source === "phone" || source === "camera" || source === "device_bridge" || source === "local_transfer") {
+    return source;
+  }
+  return "file";
+}
+
 function toSafeAssetDTO(input: Record<string, unknown>): SafeAssetDTO {
   return {
     id: String(input.id ?? ""),
@@ -149,7 +156,7 @@ function toSafeAssetDTO(input: Record<string, unknown>): SafeAssetDTO {
     visitId: String(input.visitId ?? ""),
     lesionId: input.lesionId == null ? null : String(input.lesionId),
     kind: frontendKind(input.kind),
-    source: "file",
+    source: frontendSource(input.captureSource),
     capturedAt: String(input.capturedAt ?? input.createdAt ?? ""),
     deviceId: null,
     qualityScore: 1,

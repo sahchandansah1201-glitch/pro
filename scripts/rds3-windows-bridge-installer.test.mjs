@@ -31,6 +31,12 @@ test("RDS-3 Windows bridge worker uses existing safe asset contracts", () => {
   assert.match(text, /\/capture-metadata/);
   assert.match(text, /kind = "dermoscopy"/);
   assert.match(text, /captureSource = "device_bridge"/);
+  assert.match(text, /metadata_pending/);
+  assert.match(text, /last-receipt\.json/);
+  assert.match(text, /Save-Ledger[\s\S]+capture-metadata/);
+  assert.match(text, /schemaVersion = 1/);
+  assert.match(text, /Журнал импорта повреждён/);
+  assert.match(text, /\$null -eq \$ledger\.imported/);
   assert.match(text, /millimetersAvailable = \$false/);
 });
 
@@ -43,4 +49,5 @@ test("RDS-3 Windows bridge ledger avoids source paths and protected output", () 
     text,
     /storagePath|signedUrl|doctorVersionText|patientSafeText|diagnosis|risk|prognosis|treatment|dynamicConclusion/,
   );
+  assert.doesNotMatch(text, /Снимок импортирован: \$safeName|Ошибка импорта \$\(_\.Name\)/);
 });

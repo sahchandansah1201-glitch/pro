@@ -124,6 +124,31 @@ describe("VisitImagingTab · API panel · with token", () => {
     expect((init as RequestInit).method).toBe("GET");
     expect(screen.getByText(/Подключено: система клиники/i)).toBeInTheDocument();
   });
+
+  it("shows an RDS-3 imported asset as a device capture", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        items: [{
+          id: "asset-rds3",
+          clinicId: "clinic-1",
+          visitId: visit.id,
+          lesionId: null,
+          kind: "dermoscopy",
+          captureSource: "device_bridge",
+          capturedAt: "2026-07-10T10:00:00.000Z",
+          createdAt: "2026-07-10T10:00:01.000Z",
+        }],
+      }), { status: 200 }),
+    );
+
+    renderTab();
+
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    expect(await within(region).findByText("Дерматоскопия · Прибор")).toBeInTheDocument();
+    expect(region).not.toHaveTextContent(/device_bridge|storagePath|signedUrl|checksumSha256/);
+  });
 });
 
 // Stage 1I-A · Asset row rendering + signed download flow.

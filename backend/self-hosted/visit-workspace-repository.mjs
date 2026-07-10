@@ -135,8 +135,10 @@ from (
     a.byte_size as "byteSize",
     a.captured_at as "capturedAt",
     a.uploaded_by::text as "uploadedBy",
-    a.created_at as "createdAt"
+    a.created_at as "createdAt",
+    coalesce(m.capture_source, 'file_import') as "captureSource"
   from clinical_assets a
+  left join clinical_asset_capture_metadata m on m.asset_id = a.id
   where a.visit_id = ${sqlUuid(visitId)}
     ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
   order by a.captured_at asc nulls last
@@ -205,6 +207,7 @@ function normalizeAsset(row) {
     capturedAt: row.capturedAt ?? null,
     uploadedBy: row.uploadedBy ? String(row.uploadedBy) : null,
     createdAt: row.createdAt ?? null,
+    captureSource: String(row.captureSource ?? "file_import"),
   };
 }
 

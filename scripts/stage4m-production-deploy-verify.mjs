@@ -418,7 +418,7 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
-    ["Verify assistant capture asset database journey", "node", [
+    ["Verify assistant capture and RDS-3 import database journey", "node", [
       "scripts/stage4m-assistant-capture-db-smoke.mjs",
       "verify",
       "--project-name",

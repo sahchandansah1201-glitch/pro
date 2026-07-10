@@ -50,6 +50,9 @@ test("Stage 4M assistant capture DB smoke SQL exercises asset create in rollback
   assert.match(sql, /insert into visits/i);
   assert.match(sql, /insert into lesions/i);
   assert.match(sql, /insert into clinical_assets/i);
+  assert.match(sql, /insert into clinical_asset_capture_metadata/i);
+  assert.match(sql, /'device_bridge'/i);
+  assert.match(sql, /RDS-3 capture metadata did not preserve device bridge source/);
   assert.match(sql, /assistant capture asset create did not return dermoscopy asset/);
   assert.match(sql, /assistant capture asset create did not preserve assistant uploader/);
   assert.match(sql, /stage4m_assistant_capture_db_smoke_ok/);

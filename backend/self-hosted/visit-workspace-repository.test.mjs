@@ -56,6 +56,8 @@ test("buildListVisitAssetsSql exposes only metadata, never object paths", () => 
     clinicIds: [CLINIC_ID],
   });
   assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /clinical_asset_capture_metadata m/);
+  assert.match(sql, /coalesce\(m\.capture_source, 'file_import'\) as "captureSource"/);
   assert.doesNotMatch(sql, /object_bucket|object_key|checksum/);
   assert.match(sql, /a\.kind/);
   assert.match(sql, /a\.captured_at/);
@@ -134,6 +136,7 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
             capturedAt: "2026-05-12T09:00:00.000Z",
             uploadedBy: "10000000-0000-4000-8000-000000000101",
             createdAt: "2026-05-12T09:00:00.000Z",
+            captureSource: "device_bridge",
           },
         ];
       }
@@ -155,6 +158,7 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
   const assets = await repo.listVisitAssets({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.equal(assets[0].kind, "dermoscopy");
   assert.equal(assets[0].byteSize, 1024);
+  assert.equal(assets[0].captureSource, "device_bridge");
 
   assert.equal(calls.length, 4);
 });

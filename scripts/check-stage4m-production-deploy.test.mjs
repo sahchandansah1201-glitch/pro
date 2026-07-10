@@ -13,7 +13,7 @@ import {
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 87);
+  assert.equal(result.checkedFiles, 90);
 });
 
 test("Stage 4M guard requires the production auth/session live journey", () => {
@@ -30,6 +30,21 @@ test("Stage 4M guard requires the production auth/session live journey", () => {
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: \/api\/v1\/auth\/login/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Сессия истекла/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: live-auth-invalid-mobile-390\.png/);
+});
+
+test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-rds3-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-rds3-import-live.pw.ts"),
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, sidebarLink } from "./live-admin-test-helpers";',
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: Дерматоскопия · Прибор/);
+  assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-import-mobile-390\.png/);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {
