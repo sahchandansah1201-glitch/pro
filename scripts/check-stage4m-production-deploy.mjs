@@ -1120,6 +1120,14 @@ export function validateLiveE2EContract(errors, root) {
         `${file} must search audit by the current run clinic before asserting created events; first-page audit assertions are order-dependent`,
       );
     }
+    if (
+      file === "e2e/production-admin-management-live.pw.ts" &&
+      content.includes("auditEvents7d).toBe(clinicAdminRecentAuditEvents.length)")
+    ) {
+      errors.push(
+        `${file} must not compare the analytics audit count with a separately queried recent-event list; concurrent audit writes make equality timing-dependent`,
+      );
+    }
   }
 }
 

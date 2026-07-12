@@ -493,6 +493,35 @@ test("Stage 4M guard rejects order-dependent admin audit first-page assertions",
   assert.match(errors.join("\n"), /must search audit by the current run clinic before asserting created events/);
 });
 
+test("Stage 4M guard rejects timing-dependent clinic analytics audit equality", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-audit-snapshot-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'await expect(appMain(page)).not.toContainText(/backend/);',
+      'expect(clinicAdminAnalyticsPayload?.item?.auditEvents7d).toBe(clinicAdminRecentAuditEvents.length);',
+      '"Справка";',
+      '"Поиск по разделам справки";',
+      '"live-admin-help-desktop-1280.png";',
+      '"live-admin-help-mobile-390.png";',
+      '"Устройства";',
+      '"/api/v1/device-bridges";',
+      '"/api/v1/devices";',
+      '"/api/v1/device-bridge-worker/status";',
+      '"/api/v1/device-bridge-worker/production-readiness";',
+      '"live-admin-devices-desktop-1280.png";',
+      '"live-admin-devices-mobile-390.png";',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /must not compare the analytics audit count with a separately queried recent-event list/);
+});
+
 test("Stage 4M guard requires live private doctor practice coverage", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-private-doctor-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });

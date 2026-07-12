@@ -644,7 +644,10 @@ test.describe("Live production admin management journey", () => {
         (event: { clinicName?: string | null }) => event.clinicName === clinicAdminClinicName,
       ),
     ).toBe(true);
-    expect(clinicAdminAnalyticsPayload?.item?.auditEvents7d).toBe(clinicAdminRecentAuditEvents.length);
+    const clinicAdminAuditEvents7d = Number(clinicAdminAnalyticsPayload?.item?.auditEvents7d);
+    expect(Number.isInteger(clinicAdminAuditEvents7d)).toBe(true);
+    expect(clinicAdminAuditEvents7d).toBeGreaterThan(0);
+    expect(clinicAdminAuditEvents7d).toBeLessThanOrEqual(clinicAdminRecentAuditEvents.length);
     await expect(page.getByRole("heading", { level: 1, name: "Операционный центр клиники" })).toBeVisible();
     await expect(mainText(page, "Рабочий режим: показатели читаются из рабочей базы сервиса. Персональные строки, фото и медицинские выводы не выводятся.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
