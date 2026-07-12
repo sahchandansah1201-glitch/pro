@@ -772,6 +772,76 @@ describe("Production admin management UI", () => {
     );
   });
 
+  it("lets a clinic admin add an assistant to the assigned clinic", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    let assistants: typeof owner[] = [];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users") && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body));
+        const assistant = {
+          ...owner,
+          id: "assistant-1",
+          email: payload.email,
+          displayName: payload.displayName,
+          roles: [
+            {
+              role: "assistant",
+              clinicId: clinic.id,
+              clinicName: clinic.name,
+              clinicSlug: clinic.slug,
+              active: true,
+              disabledAt: null,
+            },
+          ],
+        };
+        assistants = [assistant];
+        return json({ item: assistant }, 201);
+      }
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: assistants });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    expect(await screen.findByRole("button", { name: "Добавить ассистента" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ФИО ассистента"), { target: { value: "Орлова Анна Сергеевна" } });
+    fireEvent.change(screen.getByLabelText("Эл. почта ассистента"), { target: { value: "assistant@example.test" } });
+    fireEvent.change(screen.getByLabelText("Временный пароль ассистента"), { target: { value: "123456789" } });
+    fireEvent.change(screen.getByLabelText("Клиника ассистента"), { target: { value: clinic.id } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Временный пароль должен быть не короче 10 символов.");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Временный пароль ассистента"), { target: { value: "Assistant-password-2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://clinic.local/api/v1/admin/users",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            displayName: "Орлова Анна Сергеевна",
+            email: "assistant@example.test",
+            password: "Assistant-password-2026!",
+            role: "assistant",
+            clinicId: clinic.id,
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Ассистент добавлен: Орлова Анна Сергеевна")).toBeInTheDocument();
+    expect(screen.getByText("assistant@example.test")).toBeInTheDocument();
+  });
+
   it("renders production audit from the server, supports search, integrity check, and export", async () => {
     const createObjectUrl = vi.fn(() => "blob:admin-audit");
     const revokeObjectUrl = vi.fn();

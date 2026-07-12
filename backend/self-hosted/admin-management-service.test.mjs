@@ -310,6 +310,35 @@ test("clinic admin cannot assign system roles or outside clinic roles", async ()
   );
 });
 
+test("clinic admin creates an assistant inside the assigned clinic", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.createUser(
+    {
+      email: "assistant@example.test",
+      displayName: "Ассистент клиники",
+      password: "long-password-1",
+      role: "assistant",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+    },
+    CLINIC_AUTH,
+    { correlationId: "test" },
+  );
+
+  assert.equal(result.item.displayName, "Ассистент клиники");
+  assert.deepEqual(calls[0], [
+    "createUser",
+    {
+      email: "assistant@example.test",
+      displayName: "Ассистент клиники",
+      password: "long-password-1",
+      role: "assistant",
+      clinicId: "10000000-0000-4000-8000-000000000001",
+      passwordHash: "[hash]",
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.user.create");
+});
+
 test("system admin creates private practice with one owner carrying clinic admin and private doctor roles", async () => {
   const { service, calls, auditEvents } = createService();
   const result = await service.createPrivatePractice(

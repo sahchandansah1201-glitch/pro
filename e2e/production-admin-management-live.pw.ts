@@ -98,6 +98,9 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminDoctorName = `Врач клиники ${suffix}`;
     const clinicAdminDoctorEmail = `clinic-doctor-${suffix}@skindoktor.ru`;
     const clinicAdminDoctorPassword = `Dp-${suffix}-Doctor-2026!`;
+    const clinicAdminAssistantName = `Ассистент клиники ${suffix}`;
+    const clinicAdminAssistantEmail = `clinic-assistant-${suffix}@skindoktor.ru`;
+    const clinicAdminAssistantPassword = `Dp-${suffix}-Assistant-2026!`;
     const clinicAdminServiceName = `Дерматоскопия проверочная ${suffix}`;
     const clinicAdminUpdatedServiceName = `Дерматоскопия контрольная ${suffix}`;
     const clinicAdminServiceConsent = `Согласие на съёмку ${suffix}`;
@@ -752,6 +755,26 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminCreateDoctorResponse.status()).toBeLessThan(300);
     await expect(mainText(page, `Врач добавлен: ${clinicAdminDoctorName}`)).toBeVisible();
     await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
+
+    await page.getByLabel("ФИО ассистента").fill(clinicAdminAssistantName);
+    await page.getByLabel("Эл. почта ассистента").fill(clinicAdminAssistantEmail);
+    await page.getByLabel("Временный пароль ассистента").fill("123456789");
+    await page.getByLabel("Клиника ассистента").selectOption({ label: clinicAdminClinicName });
+    const assistantCreateRequestsBeforeValidation = adminUserCreateRequestCount;
+    await page.getByRole("button", { name: "Добавить ассистента" }).click();
+    await expect(mainText(page, "Временный пароль должен быть не короче 10 символов.")).toBeVisible();
+    expect(adminUserCreateRequestCount).toBe(assistantCreateRequestsBeforeValidation);
+
+    await page.getByLabel("Временный пароль ассистента").fill(clinicAdminAssistantPassword);
+    const clinicAdminCreateAssistantResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),
+    );
+    await page.getByRole("button", { name: "Добавить ассистента" }).click();
+    const clinicAdminCreateAssistantResponse = await clinicAdminCreateAssistantResponsePromise;
+    expect(clinicAdminCreateAssistantResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(clinicAdminCreateAssistantResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Ассистент добавлен: ${clinicAdminAssistantName}`)).toBeVisible();
+    await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
@@ -760,6 +783,7 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("heading", { level: 1, name: "Врачи" })).toBeVisible();
+    await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-mobile-390.png"), fullPage: true });

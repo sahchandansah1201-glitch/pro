@@ -15,9 +15,11 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   adminApiErrorText,
   createAdminDoctor,
+  createAdminUser,
   disableAdminUser,
   listAdminClinics,
   listAdminDoctors,
+  listAdminUsers,
   reactivateAdminUser,
   setAdminUserRoleStatus,
   type AdminClinicDTO,
@@ -156,6 +158,7 @@ function primaryDoctorRole(user: AdminUserDTO): AdminRoleBindingDTO | null {
 function AdminDoctorsPageLive() {
   const session = useSelfHostedApiSession();
   const [doctors, setDoctors] = useState<AdminUserDTO[]>([]);
+  const [assistants, setAssistants] = useState<AdminUserDTO[]>([]);
   const [clinics, setClinics] = useState<AdminClinicDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -167,20 +170,34 @@ function AdminDoctorsPageLive() {
     role: "doctor" as "doctor" | "private_doctor",
     clinicId: "",
   });
+  const [assistantNote, setAssistantNote] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [assistantForm, setAssistantForm] = useState({
+    displayName: "",
+    email: "",
+    password: "",
+    clinicId: "",
+  });
 
   async function load() {
     setLoading(true);
-    const [doctorsResult, clinicsResult] = await Promise.all([
+    const [doctorsResult, usersResult, clinicsResult] = await Promise.all([
       listAdminDoctors({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
+      listAdminUsers({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
       listAdminClinics({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken }),
     ]);
     setLoading(false);
     if (doctorsResult.ok) setDoctors(doctorsResult.value ?? []);
     else setNote(adminApiErrorText(doctorsResult.error));
+    if (usersResult.ok) {
+      setAssistants((usersResult.value ?? []).filter((user) => user.roles.some((role) => role.role === "assistant")));
+    } else {
+      setAssistantNote({ kind: "error", text: adminApiErrorText(usersResult.error) });
+    }
     if (clinicsResult.ok) {
       const nextClinics = clinicsResult.value ?? [];
       setClinics(nextClinics);
       setForm((current) => ({ ...current, clinicId: current.clinicId || nextClinics[0]?.id || "" }));
+      setAssistantForm((current) => ({ ...current, clinicId: current.clinicId || nextClinics[0]?.id || "" }));
     } else {
       setNote(adminApiErrorText(clinicsResult.error));
     }
@@ -234,6 +251,44 @@ function AdminDoctorsPageLive() {
     await load();
   }
 
+  async function submitAssistant() {
+    const displayName = assistantForm.displayName.trim();
+    const email = assistantForm.email.trim();
+    const password = assistantForm.password.trim();
+    const clinicId = assistantForm.clinicId;
+    if (!displayName || !email || !password) {
+      setAssistantNote({ kind: "error", text: "Укажите ФИО, почту и временный пароль ассистента." });
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setAssistantNote({ kind: "error", text: "Укажите рабочую почту ассистента." });
+      return;
+    }
+    if (password.length < 10) {
+      setAssistantNote({ kind: "error", text: "Временный пароль должен быть не короче 10 символов." });
+      return;
+    }
+    if (!clinicId) {
+      setAssistantNote({ kind: "error", text: "Выберите клинику для ассистента." });
+      return;
+    }
+    setBusy(true);
+    setAssistantNote(null);
+    const result = await createAdminUser({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { displayName, email, password, role: "assistant", clinicId },
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setAssistantNote({ kind: "error", text: adminApiErrorText(result.error) });
+      return;
+    }
+    setAssistantNote({ kind: "success", text: `Ассистент добавлен: ${result.value?.displayName ?? displayName}` });
+    setAssistantForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    await load();
+  }
+
   async function changeDoctorAccess(doctor: AdminUserDTO, active: boolean) {
     setBusy(true);
     const result = active
@@ -279,19 +334,23 @@ function AdminDoctorsPageLive() {
   }
 
   const activeDoctors = doctors.filter((doctor) => doctor.active).length;
+  const activeAssistants = assistants.filter((assistant) => assistant.active).length;
   const privateDoctors = doctors.filter((doctor) => doctor.roles.some((role) => role.role === "private_doctor")).length;
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Врачи" subtitle="Рабочее добавление врачей и частных дерматологов." />
+      <PageHeader title="Врачи" subtitle="Рабочее добавление врачей и ассистентов клиники." />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочий режим: врач получает учётную запись, роль и привязку к выбранной клинике. Действие пишется в аудит.
+          Рабочий режим: врач или ассистент получает учётную запись, роль и привязку к выбранной клинике. Действие пишется в аудит.
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <AdminOpsCard title="Врачи" hint="активный доступ">
             <AdminMetric label="Активны" value={activeDoctors} tone="success" />
+          </AdminOpsCard>
+          <AdminOpsCard title="Ассистенты" hint="доступ к съёмке">
+            <AdminMetric label="Активны" value={activeAssistants} tone="success" />
           </AdminOpsCard>
           <AdminOpsCard title="Частные врачи" hint="отдельная роль">
             <AdminMetric label="В списке" value={privateDoctors} tone="info" />
@@ -351,6 +410,90 @@ function AdminDoctorsPageLive() {
           <Button type="button" className="mt-3 min-h-11" onClick={submitDoctor} disabled={busy || clinics.length === 0}>
             Добавить врача
           </Button>
+        </Card>
+
+        <Card className="p-3" aria-labelledby="add-assistant-heading">
+          <div id="add-assistant-heading" className="text-[13px] font-semibold">Добавить ассистента</div>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Ассистент сможет работать со съёмкой и загружать снимки только в выбранной клинике.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-4">
+            <Input
+              value={assistantForm.displayName}
+              onChange={(event) => {
+                setAssistantForm((current) => ({ ...current, displayName: event.target.value }));
+                setAssistantNote(null);
+              }}
+              placeholder="ФИО ассистента"
+              aria-label="ФИО ассистента"
+              className="min-h-11"
+            />
+            <Input
+              value={assistantForm.email}
+              onChange={(event) => {
+                setAssistantForm((current) => ({ ...current, email: event.target.value }));
+                setAssistantNote(null);
+              }}
+              placeholder="Эл. почта ассистента"
+              aria-label="Эл. почта ассистента"
+              className="min-h-11"
+            />
+            <Input
+              value={assistantForm.password}
+              onChange={(event) => {
+                setAssistantForm((current) => ({ ...current, password: event.target.value }));
+                setAssistantNote(null);
+              }}
+              placeholder="Временный пароль ассистента"
+              aria-label="Временный пароль ассистента"
+              type="password"
+              className="min-h-11"
+            />
+            <select
+              value={assistantForm.clinicId}
+              onChange={(event) => {
+                setAssistantForm((current) => ({ ...current, clinicId: event.target.value }));
+                setAssistantNote(null);
+              }}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+              aria-label="Клиника ассистента"
+            >
+              {clinics.map((clinic) => (
+                <option key={clinic.id} value={clinic.id}>{clinic.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" className="mt-3 min-h-11" onClick={submitAssistant} disabled={busy || clinics.length === 0}>
+            Добавить ассистента
+          </Button>
+          {assistantNote && (
+            <div
+              role={assistantNote.kind === "error" ? "alert" : "status"}
+              aria-live="polite"
+              className="mt-3 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+            >
+              {assistantNote.text}
+            </div>
+          )}
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="text-[12px] font-medium">{loading ? "Загрузка ассистентов" : `Ассистенты: ${assistants.length}`}</div>
+            {assistants.length === 0 ? (
+              <div className="mt-2 text-[12px] text-muted-foreground">Ассистенты ещё не добавлены.</div>
+            ) : (
+              <div className="mt-2 grid grid-cols-1 divide-y divide-border">
+                {assistants.map((assistant) => (
+                  <div key={assistant.id} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-[1.2fr_1fr_0.8fr]">
+                    <div>
+                      <div className="text-[13px] font-semibold">{assistant.displayName}</div>
+                      <div className="text-[11px] text-muted-foreground">{assistant.email}</div>
+                    </div>
+                    <div className="text-[12px] text-muted-foreground">{doctorClinicName(assistant)}</div>
+                    <div className="text-[12px]">{assistant.active ? "Доступ включён" : "Доступ отключён"}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Card>
 
         {note && (
