@@ -8,6 +8,11 @@ function installerText() {
   return readFileSync(INSTALLER_PATH, "utf8");
 }
 
+test("RDS-3 Windows bridge installer uses a UTF-8 BOM for Windows PowerShell 5.1", () => {
+  const bytes = readFileSync(INSTALLER_PATH);
+  assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+});
+
 test("RDS-3 Windows bridge installer is a human-friendly setup file", () => {
   const text = installerText();
   assert.match(text, /FolderBrowserDialog/);

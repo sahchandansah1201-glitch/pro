@@ -1,4 +1,4 @@
-# Dermatolog Pro RDS Bridge setup for Windows 11.
+﻿# Dermatolog Pro RDS Bridge setup for Windows 11.
 # Run in Windows PowerShell: powershell -ExecutionPolicy Bypass -File .\DermatologProRdsBridgeSetup.ps1
 
 $ErrorActionPreference = "Stop"
