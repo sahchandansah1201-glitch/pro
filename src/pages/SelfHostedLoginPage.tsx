@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle2, CircleAlert, CircleHelp, LogIn, RefreshCw, ServerCog, ShieldAlert } from "lucide-react";
+import { CheckCircle2, CircleAlert, CircleHelp, Eye, EyeOff, LogIn, RefreshCw, ServerCog, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,9 @@ export default function SelfHostedLoginPage() {
   const [apiBaseUrl, setApiBaseUrl] = useState(session.apiBaseUrl || DEFAULT_BASE_URL);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [credentialsInvalid, setCredentialsInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bootstrapChecking, setBootstrapChecking] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function SelfHostedLoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setCredentialsInvalid(false);
     setSubmitting(true);
     const result = await loginToSelfHostedBackend({
       apiBaseUrl: apiBaseUrl,
@@ -63,6 +66,7 @@ export default function SelfHostedLoginPage() {
     setSubmitting(false);
     if (!result.ok || !result.value) {
       setError(result.error?.message ?? "Не удалось выполнить вход.");
+      setCredentialsInvalid(result.error?.code === "invalid_credentials" || result.error?.status === 401);
       return;
     }
     writeSelfHostedApiSession({
@@ -77,6 +81,8 @@ export default function SelfHostedLoginPage() {
     clearSelfHostedApiSession();
     setEmail("");
     setPassword("");
+    setPasswordVisible(false);
+    setCredentialsInvalid(false);
   }
 
   async function handleBootstrapCheck() {
@@ -204,8 +210,14 @@ export default function SelfHostedLoginPage() {
               type="email"
               autoComplete="username"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setError(null);
+                setCredentialsInvalid(false);
+              }}
               className="h-11 text-[13px]"
+              aria-invalid={credentialsInvalid}
+              aria-errormessage={credentialsInvalid ? "self-hosted-login-error" : undefined}
               required
             />
           </div>
@@ -214,19 +226,40 @@ export default function SelfHostedLoginPage() {
             <Label htmlFor="self-hosted-password" className="text-[12px]">
               Пароль
             </Label>
-            <Input
-              id="self-hosted-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="h-11 text-[13px]"
-              required
-            />
+            <div className="relative">
+              <Input
+                id="self-hosted-password"
+                type={passwordVisible ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError(null);
+                  setCredentialsInvalid(false);
+                }}
+                className="h-11 pr-12 text-[13px]"
+                aria-invalid={credentialsInvalid}
+                aria-errormessage={credentialsInvalid ? "self-hosted-login-error" : undefined}
+                required
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-11 w-11 rounded-l-none"
+                aria-label={passwordVisible ? "Скрыть введённые символы" : "Показать введённые символы"}
+                aria-pressed={passwordVisible}
+                title={passwordVisible ? "Скрыть пароль" : "Показать пароль"}
+                onClick={() => setPasswordVisible((visible) => !visible)}
+              >
+                {passwordVisible ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+              </Button>
+            </div>
           </div>
 
           {error ? (
             <div
+              id="self-hosted-login-error"
               role="alert"
               aria-live="polite"
               className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"

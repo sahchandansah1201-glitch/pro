@@ -52,6 +52,22 @@ describe("SelfHostedLoginPage", () => {
     expect(document.body.textContent).not.toMatch(/production|self-hosted|backend|readiness|bootstrap/i);
   });
 
+  it("lets the user show and hide the password without changing it", async () => {
+    renderPage();
+
+    const passwordInput = screen.getByLabelText("Пароль");
+    await userEvent.type(passwordInput, "test-password");
+
+    expect(passwordInput).toHaveAttribute("type", "password");
+    await userEvent.click(screen.getByRole("button", { name: "Показать введённые символы" }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(passwordInput).toHaveValue("test-password");
+
+    await userEvent.click(screen.getByRole("button", { name: "Скрыть введённые символы" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(passwordInput).toHaveValue("test-password");
+  });
+
   it("logs into the self-hosted backend, stores the session and redirects to /patients", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({
@@ -181,7 +197,16 @@ describe("SelfHostedLoginPage", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Неверная эл. почта или пароль.");
+    expect(alert).toHaveAttribute("id", "self-hosted-login-error");
+    expect(screen.getByLabelText("Эл. почта")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Пароль")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Пароль")).toHaveAttribute("aria-errormessage", "self-hosted-login-error");
     expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull();
+
+    await userEvent.type(screen.getByLabelText("Пароль"), "-corrected");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Эл. почта")).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Пароль")).not.toHaveAttribute("aria-invalid", "true");
   });
 
   it("shows active session and lets the user sign out of the self-hosted backend", async () => {

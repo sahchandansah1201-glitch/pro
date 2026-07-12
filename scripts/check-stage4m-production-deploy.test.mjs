@@ -30,6 +30,8 @@ test("Stage 4M guard requires the production auth/session live journey", () => {
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: \/api\/v1\/auth\/login/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Сессия истекла/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: live-auth-invalid-mobile-390\.png/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Показать введённые символы/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: missing-auth-/);
 });
 
 test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {

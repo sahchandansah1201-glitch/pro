@@ -66,6 +66,7 @@ test.describe("Live production auth and session journey", () => {
     const baseUrlInput = page.getByLabel("Адрес системы клиники");
     const emailInput = page.getByLabel("Эл. почта");
     const passwordInput = page.getByLabel("Пароль");
+    const showPasswordButton = page.getByRole("button", { name: "Показать введённые символы" });
     await baseUrlInput.fill(BASE_URL);
 
     await loginButton.click();
@@ -74,16 +75,34 @@ test.describe("Live production auth and session journey", () => {
 
     await emailInput.fill("неверная-почта");
     await passwordInput.fill("wrong-password");
+    await expect(passwordInput).toHaveAttribute("type", "password");
+    await showPasswordButton.click();
+    await expect(passwordInput).toHaveAttribute("type", "text");
+    await expect(passwordInput).toHaveValue("wrong-password");
+    await page.getByRole("button", { name: "Скрыть введённые символы" }).click();
+    await expect(passwordInput).toHaveAttribute("type", "password");
     await loginButton.click();
     expect(await emailInput.evaluate((input: HTMLInputElement) => input.validity.typeMismatch)).toBe(true);
     expect(authResponses).toHaveLength(0);
 
+    await emailInput.fill(`missing-auth-${Date.now()}@example.invalid`);
+    const unknownEmailResponsePromise = page.waitForResponse(isAuthLoginResponse);
+    await loginButton.click();
+    const unknownEmailResponse = await unknownEmailResponsePromise;
+    expect(unknownEmailResponse.status()).toBe(401);
+    await expect(page.getByRole("alert")).toContainText("Неверная эл. почта или пароль.");
+    await expect(emailInput).toHaveAttribute("aria-invalid", "true");
+    await expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+
     await emailInput.fill(email);
+    await expect(page.getByRole("alert")).toHaveCount(0);
     const invalidLoginResponsePromise = page.waitForResponse(isAuthLoginResponse);
     await loginButton.click();
     const invalidLoginResponse = await invalidLoginResponsePromise;
     expect(invalidLoginResponse.status()).toBe(401);
     await expect(page.getByRole("alert")).toContainText("Неверная эл. почта или пароль.");
+    await expect(emailInput).toHaveAttribute("aria-invalid", "true");
+    await expect(passwordInput).toHaveAttribute("aria-invalid", "true");
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-auth-invalid-desktop-1280.png"), fullPage: true });
 
@@ -149,7 +168,7 @@ test.describe("Live production auth and session journey", () => {
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-auth-login-mobile-390.png"), fullPage: true });
 
-    expect(authResponses.filter((response) => response.status === 401)).toHaveLength(1);
+    expect(authResponses.filter((response) => response.status === 401)).toHaveLength(2);
     expect(authResponses.filter((response) => response.status >= 200 && response.status < 300)).toHaveLength(2);
     expect(filterExpected401ConsoleErrors(consoleErrors, expected401Count), consoleErrors.join("\n")).toEqual([]);
     expect(pageErrors, pageErrors.join("\n")).toEqual([]);
