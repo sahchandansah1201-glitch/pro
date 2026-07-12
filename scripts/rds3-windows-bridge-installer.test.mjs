@@ -20,6 +20,16 @@ test("RDS-3 Windows bridge installer is a human-friendly setup file", () => {
   assert.match(text, /Dermatolog Pro RDS Bridge\.lnk/);
   assert.match(text, /Startup/);
   assert.match(text, /Настроить Dermatolog Pro RDS Bridge/);
+  assert.match(text, /DefaultValue "https:\/\/pro\.skindoktor\.ru"/);
+});
+
+test("RDS-3 Windows bridge installer validates the visit UUID without a raw stack trace", () => {
+  const text = installerText();
+  assert.match(text, /Ask-RequiredUuid/);
+  assert.match(text, /\[guid\]::TryParse/);
+  assert.match(text, /Повторить ввод/);
+  assert.match(text, /Установка отменена пользователем/);
+  assert.doesNotMatch(text, /throw "Поле '\$FieldName' обязательно/);
 });
 
 test("RDS-3 Windows bridge installer stores access key through Windows user encryption", () => {
