@@ -827,11 +827,13 @@ export function validateLiveE2EContract(errors, root) {
         "mainText",
         "expectMainTapTargets",
         "expectNoHorizontalOverflow",
+        "filterExpectedHttpStatusConsoleErrors",
       ],
       markers: [
         "Дерматолог Про — рабочий вход",
         "/api/v1/auth/login",
         "Неверная эл. почта или пароль.",
+        "filterExpectedHttpStatusConsoleErrors",
         "Показать введённые символы",
         "Скрыть введённые символы",
         "missing-auth-",
@@ -849,7 +851,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-admin-management-live.pw.ts",
-      requiredHelpers: [...defaultRequiredHelpers, "mainLink"],
+      requiredHelpers: [...defaultRequiredHelpers, "filterExpectedHttpStatusConsoleErrors", "mainLink"],
       markers: [
         "Справка",
         "test.setTimeout(90_000)",
@@ -869,6 +871,8 @@ export function validateLiveE2EContract(errors, root) {
     "Показать временный пароль ассистента",
     "Скрыть временный пароль ассистента",
     "clinicAdminDuplicateDoctorResponse",
+    "duplicateDoctorConsoleErrorsStart",
+    "filterExpectedHttpStatusConsoleErrors(duplicateDoctorConsoleErrors, 409, 1)",
     "Учётная запись с такой почтой уже существует.",
         "clinicAdminRecentAuditEvents",
         "Поиск по разделам справки",
@@ -1004,7 +1008,7 @@ export function validateLiveE2EContract(errors, root) {
     },
     {
       file: "e2e/production-patient-portal-live.pw.ts",
-      requiredHelpers: [...defaultRequiredHelpers, "mainLink"],
+      requiredHelpers: [...defaultRequiredHelpers, "filterExpectedHttpStatusConsoleErrors", "mainLink"],
       markers: [
         "Личный кабинет",
         "История очагов",
@@ -1012,7 +1016,7 @@ export function validateLiveE2EContract(errors, root) {
         "Заключение для пациента",
         "Запись на приём",
         "Напоминания",
-        "filterExpectedOptionalPhotoProtocol404",
+        "filterExpectedHttpStatusConsoleErrors",
         "/api/v1/me/portal",
         "/api/v1/me/history",
         "/api/v1/me/reports/",

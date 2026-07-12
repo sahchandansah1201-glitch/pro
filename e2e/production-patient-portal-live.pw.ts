@@ -8,6 +8,7 @@ import {
   bannerText,
   expectMainTapTargets,
   expectNoHorizontalOverflow,
+  filterExpectedHttpStatusConsoleErrors,
   mainLink,
   mainText,
   pageHeaderText,
@@ -260,17 +261,6 @@ commit;
 function isResponse(response: Response, method: string, matcher: RegExp) {
   const request = response.request();
   return request.method() === method && matcher.test(new URL(response.url()).pathname);
-}
-
-function filterExpectedOptionalPhotoProtocol404(errors: string[], expected404Count: number) {
-  let remaining = expected404Count;
-  return errors.filter((error) => {
-    if (remaining > 0 && /Failed to load resource: the server responded with a status of 404/.test(error)) {
-      remaining -= 1;
-      return false;
-    }
-    return true;
-  });
 }
 
 test.describe("Live production patient portal journey", () => {
@@ -559,7 +549,11 @@ test.describe("Live production patient portal journey", () => {
       ).toBe(true);
     }
     expect(optionalPhotoProtocol404Count).toBeLessThanOrEqual(1);
-    const unexpectedConsoleErrors = filterExpectedOptionalPhotoProtocol404(consoleErrors, optionalPhotoProtocol404Count);
+    const unexpectedConsoleErrors = filterExpectedHttpStatusConsoleErrors(
+      consoleErrors,
+      404,
+      optionalPhotoProtocol404Count,
+    );
     expect(unexpectedConsoleErrors, unexpectedConsoleErrors.join("\n")).toEqual([]);
     expect(pageErrors, pageErrors.join("\n")).toEqual([]);
   });

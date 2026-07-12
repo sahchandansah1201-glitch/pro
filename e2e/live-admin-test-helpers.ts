@@ -1,5 +1,22 @@
 import { expect, type Page } from "@playwright/test";
 
+export function filterExpectedHttpStatusConsoleErrors(
+  errors: string[],
+  status: number,
+  expectedCount: number,
+) {
+  let remaining = expectedCount;
+  const statusPattern = new RegExp(`Failed to load resource:.*status of ${status}`, "i");
+
+  return errors.filter((error) => {
+    if (remaining > 0 && statusPattern.test(error)) {
+      remaining -= 1;
+      return false;
+    }
+    return true;
+  });
+}
+
 export function appMain(page: Page) {
   return page.locator("main").first();
 }

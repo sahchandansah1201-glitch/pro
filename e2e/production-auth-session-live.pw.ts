@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 
 import { expect, type Response, test } from "@playwright/test";
 
-import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText } from "./live-admin-test-helpers";
+import {
+  appMain,
+  bannerText,
+  expectMainTapTargets,
+  expectNoHorizontalOverflow,
+  filterExpectedHttpStatusConsoleErrors,
+  mainText,
+} from "./live-admin-test-helpers";
 
 const BASE_URL = (process.env.STAGE4M_LIVE_AUTH_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
 const CREDENTIALS_FILE = process.env.STAGE4M_AUTH_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
@@ -19,17 +26,6 @@ function parseCredentials(text: string) {
 
 function isAuthLoginResponse(response: Response) {
   return response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/auth/login";
-}
-
-function filterExpected401ConsoleErrors(errors: string[], expected401Count: number) {
-  let remaining = expected401Count;
-  return errors.filter((error) => {
-    if (remaining > 0 && /Failed to load resource:.*status of 401/i.test(error)) {
-      remaining -= 1;
-      return false;
-    }
-    return true;
-  });
 }
 
 test.describe("Live production auth and session journey", () => {
@@ -170,7 +166,10 @@ test.describe("Live production auth and session journey", () => {
 
     expect(authResponses.filter((response) => response.status === 401)).toHaveLength(2);
     expect(authResponses.filter((response) => response.status >= 200 && response.status < 300)).toHaveLength(2);
-    expect(filterExpected401ConsoleErrors(consoleErrors, expected401Count), consoleErrors.join("\n")).toEqual([]);
+    expect(
+      filterExpectedHttpStatusConsoleErrors(consoleErrors, 401, expected401Count),
+      consoleErrors.join("\n"),
+    ).toEqual([]);
     expect(pageErrors, pageErrors.join("\n")).toEqual([]);
     await expect(page.locator("body")).not.toContainText(/storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
   });

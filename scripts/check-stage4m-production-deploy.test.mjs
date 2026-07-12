@@ -32,6 +32,7 @@ test("Stage 4M guard requires the production auth/session live journey", () => {
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: live-auth-invalid-mobile-390\.png/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Показать введённые символы/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: missing-auth-/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: filterExpectedHttpStatusConsoleErrors/);
 });
 
 test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {
@@ -125,6 +126,8 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Показать временный пароль врача/);
   assert.match(errors.join("\n"), /missing live coverage marker: Показать временный пароль ассистента/);
   assert.match(errors.join("\n"), /missing live coverage marker: clinicAdminDuplicateDoctorResponse/);
+  assert.match(errors.join("\n"), /missing live coverage marker: duplicateDoctorConsoleErrorsStart/);
+  assert.match(errors.join("\n"), /missing live coverage marker: filterExpectedHttpStatusConsoleErrors/);
   assert.match(errors.join("\n"), /missing live coverage marker: Учётная запись с такой почтой уже существует\./);
 });
 

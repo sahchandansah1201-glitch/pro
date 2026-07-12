@@ -3,7 +3,17 @@ import { randomBytes } from "node:crypto";
 
 import { expect, type Response, test } from "@playwright/test";
 
-import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";
+import {
+  appMain,
+  bannerText,
+  expectMainTapTargets,
+  expectNoHorizontalOverflow,
+  filterExpectedHttpStatusConsoleErrors,
+  mainLink,
+  mainText,
+  sidebarLink,
+  sidebarLinks,
+} from "./live-admin-test-helpers";
 
 const BASE_URL = (process.env.STAGE4M_LIVE_ADMIN_BASE_URL || "https://pro.skindoktor.ru").replace(/\/+$/, "");
 const CREDENTIALS_FILE = process.env.STAGE4M_ADMIN_CREDENTIALS_FILE || "/root/dermatolog-pro-admin-credentials.txt";
@@ -768,6 +778,7 @@ test.describe("Live production admin management journey", () => {
     await doctorPasswordInput.fill(`${clinicAdminDoctorPassword}-repeat`);
     await page.getByLabel("Тип врача").selectOption("doctor");
     await page.getByLabel("Клиника", { exact: true }).selectOption({ label: clinicAdminClinicName });
+    const duplicateDoctorConsoleErrorsStart = consoleErrors.length;
     const clinicAdminDuplicateDoctorResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
     );
@@ -776,6 +787,11 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminDuplicateDoctorResponse.status()).toBe(409);
     await expect(mainText(page, "Учётная запись с такой почтой уже существует.")).toBeVisible();
     await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
+    const duplicateDoctorConsoleErrors = consoleErrors.splice(duplicateDoctorConsoleErrorsStart);
+    expect(
+      filterExpectedHttpStatusConsoleErrors(duplicateDoctorConsoleErrors, 409, 1),
+      duplicateDoctorConsoleErrors.join("\n"),
+    ).toEqual([]);
 
     await page.getByLabel("ФИО ассистента").fill(clinicAdminAssistantName);
     await page.getByLabel("Эл. почта ассистента").fill(clinicAdminAssistantEmail);
