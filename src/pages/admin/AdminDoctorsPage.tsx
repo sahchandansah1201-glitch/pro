@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, Search } from "lucide-react";
+import { Eye, EyeOff, ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -155,6 +155,29 @@ function primaryDoctorRole(user: AdminUserDTO): AdminRoleBindingDTO | null {
   return user.roles.find((role) => role.role === "private_doctor") ?? user.roles.find((role) => role.role === "doctor") ?? null;
 }
 
+function PasswordVisibilityButton({
+  visible,
+  onToggle,
+  subject,
+}: {
+  visible: boolean;
+  onToggle: () => void;
+  subject: "врача" | "ассистента";
+}) {
+  const label = `${visible ? "Скрыть" : "Показать"} временный пароль ${subject}`;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      {visible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+    </button>
+  );
+}
+
 function AdminDoctorsPageLive() {
   const session = useSelfHostedApiSession();
   const [doctors, setDoctors] = useState<AdminUserDTO[]>([]);
@@ -163,6 +186,9 @@ function AdminDoctorsPageLive() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [doctorNote, setDoctorNote] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [doctorPasswordVisible, setDoctorPasswordVisible] = useState(false);
+  const [assistantPasswordVisible, setAssistantPasswordVisible] = useState(false);
   const [form, setForm] = useState({
     displayName: "",
     email: "",
@@ -214,22 +240,23 @@ function AdminDoctorsPageLive() {
     const password = form.password.trim();
     const clinicId = form.clinicId;
     if (!displayName || !email || !password) {
-      setNote("Укажите ФИО, почту и временный пароль врача.");
+      setDoctorNote({ kind: "error", text: "Укажите ФИО, почту и временный пароль врача." });
       return;
     }
     if (!EMAIL_PATTERN.test(email)) {
-      setNote("Укажите рабочую почту врача.");
+      setDoctorNote({ kind: "error", text: "Укажите рабочую почту врача." });
       return;
     }
     if (password.length < 10) {
-      setNote("Временный пароль должен быть не короче 10 символов.");
+      setDoctorNote({ kind: "error", text: "Временный пароль должен быть не короче 10 символов." });
       return;
     }
     if (!clinicId) {
-      setNote("Выберите клинику для врача.");
+      setDoctorNote({ kind: "error", text: "Выберите клинику для врача." });
       return;
     }
     setBusy(true);
+    setDoctorNote(null);
     const result = await createAdminDoctor({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -243,11 +270,12 @@ function AdminDoctorsPageLive() {
     });
     setBusy(false);
     if (!result.ok) {
-      setNote(adminApiErrorText(result.error));
+      setDoctorNote({ kind: "error", text: adminApiErrorText(result.error) });
       return;
     }
-    setNote(`Врач добавлен: ${result.value?.displayName ?? form.displayName}`);
+    setDoctorNote({ kind: "success", text: `Врач добавлен: ${result.value?.displayName ?? form.displayName}` });
     setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    setDoctorPasswordVisible(false);
     await load();
   }
 
@@ -286,6 +314,7 @@ function AdminDoctorsPageLive() {
     }
     setAssistantNote({ kind: "success", text: `Ассистент добавлен: ${result.value?.displayName ?? displayName}` });
     setAssistantForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
+    setAssistantPasswordVisible(false);
     await load();
   }
 
@@ -339,7 +368,7 @@ function AdminDoctorsPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Врачи" subtitle="Рабочее добавление врачей и ассистентов клиники." />
+      <PageHeader title="Врачи и ассистенты" subtitle="Новые учётные записи и доступ к выбранной клинике." />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           Рабочий режим: врач или ассистент получает учётную запись, роль и привязку к выбранной клинике. Действие пишется в аудит.
@@ -360,34 +389,56 @@ function AdminDoctorsPageLive() {
           </AdminOpsCard>
         </div>
 
-        <Card className="p-3">
-          <div className="mb-3 text-[13px] font-semibold">Добавить врача</div>
+        <Card className="p-3" role="region" aria-labelledby="add-doctor-heading">
+          <div id="add-doctor-heading" className="mb-3 text-[13px] font-semibold">Добавить врача</div>
+          <p className="mb-3 text-[12px] text-muted-foreground">
+            Создаётся новая учётная запись. Для действующего сотрудника используйте другую рабочую почту или обратитесь к системному администратору для добавления роли.
+          </p>
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-5">
             <Input
               value={form.displayName}
-              onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
+              onChange={(event) => {
+                setForm((current) => ({ ...current, displayName: event.target.value }));
+                setDoctorNote(null);
+              }}
               placeholder="ФИО врача"
               aria-label="ФИО врача"
               className="min-h-11"
             />
             <Input
               value={form.email}
-              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              onChange={(event) => {
+                setForm((current) => ({ ...current, email: event.target.value }));
+                setDoctorNote(null);
+              }}
               placeholder="Эл. почта"
               aria-label="Эл. почта"
               className="min-h-11"
             />
-            <Input
-              value={form.password}
-              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-              placeholder="Временный пароль"
-              aria-label="Временный пароль"
-              type="password"
-              className="min-h-11"
-            />
+            <div className="relative">
+              <Input
+                value={form.password}
+                onChange={(event) => {
+                  setForm((current) => ({ ...current, password: event.target.value }));
+                  setDoctorNote(null);
+                }}
+                placeholder="Временный пароль"
+                aria-label="Временный пароль"
+                type={doctorPasswordVisible ? "text" : "password"}
+                className="min-h-11 pr-12"
+              />
+              <PasswordVisibilityButton
+                visible={doctorPasswordVisible}
+                onToggle={() => setDoctorPasswordVisible((current) => !current)}
+                subject="врача"
+              />
+            </div>
             <select
               value={form.role}
-              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as "doctor" | "private_doctor" }))}
+              onChange={(event) => {
+                setForm((current) => ({ ...current, role: event.target.value as "doctor" | "private_doctor" }));
+                setDoctorNote(null);
+              }}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Тип врача"
             >
@@ -396,7 +447,10 @@ function AdminDoctorsPageLive() {
             </select>
             <select
               value={form.clinicId}
-              onChange={(event) => setForm((current) => ({ ...current, clinicId: event.target.value }))}
+              onChange={(event) => {
+                setForm((current) => ({ ...current, clinicId: event.target.value }));
+                setDoctorNote(null);
+              }}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Клиника"
             >
@@ -410,12 +464,21 @@ function AdminDoctorsPageLive() {
           <Button type="button" className="mt-3 min-h-11" onClick={submitDoctor} disabled={busy || clinics.length === 0}>
             Добавить врача
           </Button>
+          {doctorNote && (
+            <div
+              role={doctorNote.kind === "error" ? "alert" : "status"}
+              aria-live="polite"
+              className="mt-3 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+            >
+              {doctorNote.text}
+            </div>
+          )}
         </Card>
 
-        <Card className="p-3" aria-labelledby="add-assistant-heading">
+        <Card className="p-3" role="region" aria-labelledby="add-assistant-heading">
           <div id="add-assistant-heading" className="text-[13px] font-semibold">Добавить ассистента</div>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            Ассистент сможет работать со съёмкой и загружать снимки только в выбранной клинике.
+            Создаётся новая учётная запись. Ассистент сможет работать со съёмкой и загружать снимки только в выбранной клинике.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-4">
             <Input
@@ -438,17 +501,24 @@ function AdminDoctorsPageLive() {
               aria-label="Эл. почта ассистента"
               className="min-h-11"
             />
-            <Input
-              value={assistantForm.password}
-              onChange={(event) => {
-                setAssistantForm((current) => ({ ...current, password: event.target.value }));
-                setAssistantNote(null);
-              }}
-              placeholder="Временный пароль ассистента"
-              aria-label="Временный пароль ассистента"
-              type="password"
-              className="min-h-11"
-            />
+            <div className="relative">
+              <Input
+                value={assistantForm.password}
+                onChange={(event) => {
+                  setAssistantForm((current) => ({ ...current, password: event.target.value }));
+                  setAssistantNote(null);
+                }}
+                placeholder="Временный пароль ассистента"
+                aria-label="Временный пароль ассистента"
+                type={assistantPasswordVisible ? "text" : "password"}
+                className="min-h-11 pr-12"
+              />
+              <PasswordVisibilityButton
+                visible={assistantPasswordVisible}
+                onToggle={() => setAssistantPasswordVisible((current) => !current)}
+                subject="ассистента"
+              />
+            </div>
             <select
               value={assistantForm.clinicId}
               onChange={(event) => {
@@ -623,7 +693,7 @@ function AdminDoctorsPageDemo() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Врачи" subtitle="Состав, специализации, расписание, лицензии." />
+      <PageHeader title="Врачи и ассистенты" subtitle="Состав, специализации, расписание и доступ к съёмке." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div

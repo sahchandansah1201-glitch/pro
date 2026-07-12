@@ -517,7 +517,7 @@ function AdminHomePageLive() {
 
         <SectionCard title="Быстрый переход" hint="рабочие разделы">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <QuickLink to="/admin/doctors" label="Врачи" hint="доступ и клиника" Icon={Stethoscope} />
+          <QuickLink to="/admin/doctors" label="Врачи и ассистенты" hint="учётные записи и доступ" Icon={Stethoscope} />
             <QuickLink to="/admin/services" label="Услуги" hint="цены и длительность" Icon={FileText} />
             <QuickLink to="/admin/clinics" label="Клиники и кабинеты" hint="статус и адрес" Icon={Building2} />
             <QuickLink to="/admin/integrations" label="Интеграции" hint="подключения клиники" Icon={Plug} />
@@ -809,7 +809,7 @@ function AdminHomePageDemo() {
 
           <SectionCard title="Быстрый переход" hint="админ-разделы">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <QuickLink to="/admin/doctors" label="Врачи" hint="состав и лицензии" Icon={Stethoscope} />
+              <QuickLink to="/admin/doctors" label="Врачи и ассистенты" hint="состав и доступ" Icon={Stethoscope} />
               <QuickLink to="/admin/services" label="Услуги" hint="цены и длительность" Icon={FileText} />
               <QuickLink to="/admin/clinics" label="Клиники и кабинеты" hint="маршрутизация заявок" Icon={Building2} />
               <QuickLink to="/admin/integrations" label="Интеграции" hint="клиентская база, учёт, бот" Icon={Plug} />

@@ -30,7 +30,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/operator": "Очередь оператора",
   "/operator/dialogs/:id": "Диалог с пользователем",
   "/admin": "Операционный центр",
-  "/admin/doctors": "Врачи",
+  "/admin/doctors": "Врачи и ассистенты",
   "/admin/services": "Услуги",
   "/admin/clinics": "Клиники и кабинеты",
   "/admin/integrations": "Интеграции",

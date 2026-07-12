@@ -368,7 +368,7 @@ test.describe("Live production patient portal journey", () => {
     for (const name of [
       "Клиники и кабинеты",
       "Сотрудники и доступ",
-      "Врачи",
+      "Врачи и ассистенты",
       "Аналитика",
       "Устройства",
       "Аудит",

@@ -13,6 +13,29 @@ const VIEWPORTS = [
   { name: "mobile-390", width: 390, height: 844 },
 ] as const;
 
+interface MockAdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  active: boolean;
+  disabledAt: string | null;
+  createdAt: string;
+  roles: Array<{
+    role: string;
+    clinicId: string | null;
+    clinicName: string | null;
+    clinicSlug: string | null;
+  }>;
+}
+
+interface MockAuditEvent {
+  id: string;
+  action: string;
+  actorName: string;
+  clinicName: string;
+  createdAt: string;
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => ({
     docScroll: document.documentElement.scrollWidth,
@@ -52,7 +75,7 @@ async function expectMainTapTargets(page: Page) {
 }
 
 async function setApiUser(page: Page, roles: string[]) {
-  await page.goto("/login");
+  if (page.url() === "about:blank") await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.evaluate(
     ({ roles, tokenKey, userKey, baseUrlKey }) => {
       window.localStorage.setItem(tokenKey, "test-token");
@@ -65,20 +88,38 @@ async function setApiUser(page: Page, roles: string[]) {
           roles,
         }),
       );
+      window.dispatchEvent(new Event("derma-pro:self-hosted-api-session"));
     },
     { roles, tokenKey: TOKEN_KEY, userKey: USER_KEY, baseUrlKey: BASE_URL_KEY },
   );
 }
 
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate((nextPath) => {
+    window.history.pushState({}, "", nextPath);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
+}
+
 test.describe("Production admin management journey", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   for (const viewport of VIEWPORTS) {
     test(`system admin creates clinic, clinic admin, doctor, and analytics @ ${viewport.name}`, async ({ page }, testInfo) => {
       const consoleErrors: string[] = [];
       const pageErrors: string[] = [];
+      const requestFailures: string[] = [];
       page.on("console", (msg) => {
         if (msg.type() === "error") consoleErrors.push(msg.text());
       });
       page.on("pageerror", (error) => pageErrors.push(error.message));
+      page.on("requestfailed", (request) => {
+        requestFailures.push(`${request.failure()?.errorText ?? "request failed"} ${request.url()}`);
+      });
+
+      await page.route("https://fonts.googleapis.com/**", async (route) => {
+        await route.fulfill({ status: 200, contentType: "text/css", body: "" });
+      });
 
       const clinics = [
         {
@@ -93,7 +134,7 @@ test.describe("Production admin management journey", () => {
           createdAt: "2026-06-22T00:00:00.000Z",
         },
       ];
-      const users: any[] = [
+      const users: MockAdminUser[] = [
         {
           id: "10000000-0000-4000-8000-000000000101",
           email: "admin@skindoktor.ru",
@@ -104,8 +145,8 @@ test.describe("Production admin management journey", () => {
           roles: [{ role: "system_admin", clinicId: null, clinicName: null, clinicSlug: null }],
         },
       ];
-      const doctors: any[] = [];
-      const auditEvents: any[] = [];
+      const doctors: MockAdminUser[] = [];
+      const auditEvents: MockAuditEvent[] = [];
 
       await page.route("**/api/v1/admin/clinics", async (route) => {
         if (route.request().method() === "POST") {
@@ -172,8 +213,9 @@ test.describe("Production admin management journey", () => {
         if (route.request().method() === "POST") {
           const body = route.request().postDataJSON() as { displayName: string; email: string; role: string; clinicId?: string };
           const clinic = clinics.find((item) => item.id === body.clinicId) ?? clinics[0];
+          const userSequence = 400 + users.length;
           const item = {
-            id: "10000000-0000-4000-8000-000000000401",
+            id: `10000000-0000-4000-8000-${String(userSequence).padStart(12, "0")}`,
             email: body.email,
             displayName: body.displayName,
             active: true,
@@ -182,7 +224,7 @@ test.describe("Production admin management journey", () => {
             roles: [{ role: body.role, clinicId: clinic.id, clinicName: clinic.name, clinicSlug: clinic.slug }],
           };
           users.unshift(item);
-          auditEvents.unshift({ id: "audit-user", action: "admin.user.create", actorName: "Системный администратор", clinicName: clinic.name, createdAt: item.createdAt });
+          auditEvents.unshift({ id: `audit-user-${userSequence}`, action: "admin.user.create", actorName: "Системный администратор", clinicName: clinic.name, createdAt: item.createdAt });
           await route.fulfill({ json: { item, source: "postgres" }, status: 201 });
           return;
         }
@@ -232,7 +274,7 @@ test.describe("Production admin management journey", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await setApiUser(page, ["system_admin"]);
 
-      await page.goto("/admin/clinics", { waitUntil: "networkidle" });
+      await navigateInApp(page, "/admin/clinics");
       await expect(page.getByRole("heading", { name: "Клиники и кабинеты" })).toBeVisible();
       await expect(page.getByText(/сначала создайте клинику или частный кабинет/i)).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
@@ -248,7 +290,7 @@ test.describe("Production admin management journey", () => {
       await expect(page.getByText("адрес: Краснодар, ул. Северная, 11")).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`admin-clinics-${viewport.name}.png`), fullPage: true });
 
-      await page.goto("/sys/users", { waitUntil: "networkidle" });
+      await navigateInApp(page, "/sys/users");
       await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
       await page.getByLabel("ФИО сотрудника").fill("Администратор Тестовой Клиники");
@@ -266,19 +308,41 @@ test.describe("Production admin management journey", () => {
       await page.screenshot({ path: testInfo.outputPath(`sys-users-${viewport.name}.png`), fullPage: true });
 
       await setApiUser(page, ["clinic_admin"]);
-      await page.goto("/admin/doctors", { waitUntil: "networkidle" });
-      await expect(page.locator("h1", { hasText: "Врачи" })).toBeVisible();
+      await navigateInApp(page, "/admin/doctors");
+      await expect(page.locator("h1", { hasText: "Врачи и ассистенты" })).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
       await page.getByLabel("ФИО врача").fill("Дерматолог Тестовый");
-      await page.getByLabel("Эл. почта").fill("doctor@example.test");
-      await page.getByLabel("Временный пароль").fill("long-password-1");
+      await page.getByLabel("Эл. почта", { exact: true }).fill("doctor@example.test");
+      const doctorPasswordInput = page.getByLabel("Временный пароль", { exact: true });
+      await doctorPasswordInput.fill("long-password-1");
+      await page.getByRole("button", { name: "Показать временный пароль врача" }).click();
+      await expect(doctorPasswordInput).toHaveAttribute("type", "text");
+      await expect(doctorPasswordInput).toHaveValue("long-password-1");
+      await page.getByRole("button", { name: "Скрыть временный пароль врача" }).click();
+      await expect(doctorPasswordInput).toHaveAttribute("type", "password");
       await page.getByLabel("Тип врача").selectOption("private_doctor");
       await page.getByLabel("Клиника", { exact: true }).selectOption("10000000-0000-4000-8000-000000000301");
       await page.getByRole("button", { name: "Добавить врача" }).click();
       await expect(page.getByText("Врач добавлен: Дерматолог Тестовый")).toBeVisible();
+
+      await page.getByLabel("ФИО ассистента").fill("Ассистент Тестовый");
+      await page.getByLabel("Эл. почта ассистента").fill("assistant@example.test");
+      const assistantPasswordInput = page.getByLabel("Временный пароль ассистента", { exact: true });
+      await assistantPasswordInput.fill("assistant-password-1");
+      await page.getByRole("button", { name: "Показать временный пароль ассистента" }).click();
+      await expect(assistantPasswordInput).toHaveAttribute("type", "text");
+      await expect(assistantPasswordInput).toHaveValue("assistant-password-1");
+      await page.getByRole("button", { name: "Скрыть временный пароль ассистента" }).click();
+      await expect(assistantPasswordInput).toHaveAttribute("type", "password");
+      await page.getByLabel("Клиника ассистента").selectOption("10000000-0000-4000-8000-000000000301");
+      await page.getByRole("button", { name: "Добавить ассистента" }).click();
+      await expect(page.getByText("Ассистент добавлен: Ассистент Тестовый")).toBeVisible();
+      await expect(page.getByText("assistant@example.test")).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
       await page.screenshot({ path: testInfo.outputPath(`admin-doctors-${viewport.name}.png`), fullPage: true });
 
-      await page.goto("/admin/analytics", { waitUntil: "networkidle" });
+      await navigateInApp(page, "/admin/analytics");
       await expect(page.getByRole("heading", { name: "Аналитика" })).toBeVisible();
       await expect(page.getByText("Рабочие агрегаты из базы")).toBeVisible();
       await expect(page.getByText("Создан пользователь").first()).toBeVisible();
@@ -289,7 +353,8 @@ test.describe("Production admin management journey", () => {
 
       await expectNoHorizontalOverflow(page);
       if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
-      expect(consoleErrors).toEqual([]);
+      expect(consoleErrors, [...consoleErrors, ...requestFailures].join("\n")).toEqual([]);
+      expect(requestFailures).toEqual([]);
       expect(pageErrors).toEqual([]);
     });
   }

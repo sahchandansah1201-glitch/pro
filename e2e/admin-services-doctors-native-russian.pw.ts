@@ -120,7 +120,7 @@ test.describe("Admin services and doctors — native Russian UI", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await openAdminRoute(page, "/admin/doctors");
 
-      await expect(page.getByRole("heading", { name: "Врачи" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Врачи и ассистенты" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Готовность врачей" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Расписание приёма" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Права и роли" })).toBeVisible();

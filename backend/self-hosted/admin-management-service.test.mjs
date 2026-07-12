@@ -15,7 +15,7 @@ const CLINIC_AUTH = {
   clinicIds: ["10000000-0000-4000-8000-000000000001"],
 };
 
-function createService({ calls = [] } = {}) {
+function createService({ calls = [], createUserResult } = {}) {
   const repository = {
     async listUsers(params) {
       calls.push(["listUsers", params]);
@@ -23,7 +23,9 @@ function createService({ calls = [] } = {}) {
     },
     async createUser(params) {
       calls.push(["createUser", { ...params, passwordHash: params.passwordHash ? "[hash]" : "" }]);
-      return { id: "10000000-0000-4000-8000-000000000201", displayName: params.displayName, email: params.email };
+      return createUserResult === undefined
+        ? { id: "10000000-0000-4000-8000-000000000201", displayName: params.displayName, email: params.email }
+        : createUserResult;
     },
     async assignUserRole(params) {
       calls.push(["assignUserRole", params]);
@@ -337,6 +339,26 @@ test("clinic admin creates an assistant inside the assigned clinic", async () =>
     },
   ]);
   assert.equal(auditEvents[0].action, "admin.user.create");
+});
+
+test("user creation rejects an existing email without recording create audit", async () => {
+  const { service, auditEvents } = createService({ createUserResult: null });
+
+  await assert.rejects(
+    () => service.createUser(
+      {
+        email: "existing@example.test",
+        displayName: "Действующий сотрудник",
+        password: "new-password-1",
+        role: "doctor",
+        clinicId: "10000000-0000-4000-8000-000000000001",
+      },
+      CLINIC_AUTH,
+      { correlationId: "test" },
+    ),
+    (error) => error?.publicStatus === 409 && /уже существует/i.test(error.message),
+  );
+  assert.equal(auditEvents.length, 0);
 });
 
 test("system admin creates private practice with one owner carrying clinic admin and private doctor roles", async () => {

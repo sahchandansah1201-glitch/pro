@@ -122,6 +122,10 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Добавить ассистента/);
   assert.match(errors.join("\n"), /missing live coverage marker: Ассистент добавлен/);
   assert.match(errors.join("\n"), /missing live coverage marker: assistantCreateRequestsBeforeValidation/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Показать временный пароль врача/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Показать временный пароль ассистента/);
+  assert.match(errors.join("\n"), /missing live coverage marker: clinicAdminDuplicateDoctorResponse/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Учётная запись с такой почтой уже существует\./);
 });
 
 test("Stage 4M guard requires clinic admin services live coverage", () => {

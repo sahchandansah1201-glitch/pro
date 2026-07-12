@@ -7,7 +7,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL: "http://127.0.0.1:8080",
     headless: true,
     viewport: { width: 1366, height: 768 },
   },

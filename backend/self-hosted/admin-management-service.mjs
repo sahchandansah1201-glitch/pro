@@ -452,6 +452,12 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         ...payload,
         passwordHash: hashPassword(payload.password),
       });
+      if (!user) {
+        throw new AdminManagementConflictError(
+          "Учётная запись с такой почтой уже существует. Используйте другую почту или обратитесь к системному администратору для добавления роли.",
+          [{ field: "email", message: "Учётная запись с такой почтой уже существует." }],
+        );
+      }
       await recordAuditBestEffort(auditRepository, {
         clinicId: payload.clinicId || null,
         actorUserId: authContext.userId,

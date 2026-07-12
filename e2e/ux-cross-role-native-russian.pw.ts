@@ -212,7 +212,7 @@ const ROUTES: RouteSpec[] = [
   {
     path: "/admin/doctors",
     role: "clinic_admin",
-    heading: "Врачи",
+    heading: "Врачи и ассистенты",
     screenshot: "admin-doctors",
   },
   {

@@ -163,11 +163,7 @@ export function buildCreateAdminUserSql({
 with user_row as (
   insert into app_users (email, display_name, password_hash)
   values (${sqlLiteral(email)}, ${sqlLiteral(displayName)}, ${sqlLiteral(passwordHash)})
-  on conflict (email) do update
-    set display_name = excluded.display_name,
-        password_hash = excluded.password_hash,
-        disabled_at = null,
-        updated_at = now()
+  on conflict (email) do nothing
   returning *
 ),
 role_row as (

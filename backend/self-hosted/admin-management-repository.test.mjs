@@ -216,6 +216,20 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
   );
 });
 
+test("admin user creation never overwrites an existing account password", () => {
+  const sql = buildCreateAdminUserSql({
+    email: "existing@example.test",
+    displayName: "Действующий сотрудник",
+    passwordHash: "new-hash",
+    role: "doctor",
+    clinicId: "10000000-0000-4000-8000-000000000001",
+  });
+
+  assert.match(sql, /on conflict \(email\) do nothing/i);
+  assert.doesNotMatch(sql, /password_hash\s*=\s*excluded\.password_hash/i);
+  assert.doesNotMatch(sql, /display_name\s*=\s*excluded\.display_name/i);
+});
+
 test("clinic admin analytics and audit exclude global system events", () => {
   const clinicId = "10000000-0000-4000-8000-000000000001";
   const analyticsSql = buildAdminAnalyticsSql({ clinicIds: [clinicId], allClinics: false });

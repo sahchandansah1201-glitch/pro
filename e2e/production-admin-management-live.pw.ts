@@ -316,7 +316,7 @@ test.describe("Live production admin management journey", () => {
     for (const name of [
       "Клиники и кабинеты",
       "Сотрудники и доступ",
-      "Врачи",
+      "Врачи и ассистенты",
       "Аналитика",
       "Устройства",
       "Аудит",
@@ -669,7 +669,7 @@ test.describe("Live production admin management journey", () => {
     for (const name of [
       "Операционный центр",
       "Клиники и кабинеты",
-      "Врачи",
+      "Врачи и ассистенты",
       "Услуги",
       "Интеграции",
       "Бот",
@@ -736,16 +736,23 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminDoctorsListResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "GET", /^\/api\/v1\/admin\/doctors$/),
     );
-    await sidebarLink(page, "Врачи").click();
+    await sidebarLink(page, "Врачи и ассистенты").click();
     const clinicAdminDoctorsListResponse = await clinicAdminDoctorsListResponsePromise;
     expect(clinicAdminDoctorsListResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminDoctorsListResponse.status()).toBeLessThan(300);
-    await expect(page.getByRole("heading", { level: 1, name: "Врачи" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
     await page.getByLabel("ФИО врача").fill(clinicAdminDoctorName);
-    await page.getByLabel("Эл. почта").fill(clinicAdminDoctorEmail);
-    await page.getByLabel("Временный пароль").fill(clinicAdminDoctorPassword);
+    await page.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
+    const doctorPasswordInput = page.getByLabel("Временный пароль", { exact: true });
+    await doctorPasswordInput.fill(clinicAdminDoctorPassword);
+    await expect(doctorPasswordInput).toHaveAttribute("type", "password");
+    await page.getByRole("button", { name: "Показать временный пароль врача" }).click();
+    await expect(doctorPasswordInput).toHaveAttribute("type", "text");
+    await expect(doctorPasswordInput).toHaveValue(clinicAdminDoctorPassword);
+    await page.getByRole("button", { name: "Скрыть временный пароль врача" }).click();
+    await expect(doctorPasswordInput).toHaveAttribute("type", "password");
     await page.getByLabel("Тип врача").selectOption("doctor");
-    await page.getByLabel("Клиника").selectOption({ label: clinicAdminClinicName });
+    await page.getByLabel("Клиника", { exact: true }).selectOption({ label: clinicAdminClinicName });
     const clinicAdminCreateDoctorResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
     );
@@ -756,16 +763,37 @@ test.describe("Live production admin management journey", () => {
     await expect(mainText(page, `Врач добавлен: ${clinicAdminDoctorName}`)).toBeVisible();
     await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
 
+    await page.getByLabel("ФИО врача").fill(`${clinicAdminDoctorName} повтор`);
+    await page.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
+    await doctorPasswordInput.fill(`${clinicAdminDoctorPassword}-repeat`);
+    await page.getByLabel("Тип врача").selectOption("doctor");
+    await page.getByLabel("Клиника", { exact: true }).selectOption({ label: clinicAdminClinicName });
+    const clinicAdminDuplicateDoctorResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
+    );
+    await page.getByRole("button", { name: "Добавить врача" }).click();
+    const clinicAdminDuplicateDoctorResponse = await clinicAdminDuplicateDoctorResponsePromise;
+    expect(clinicAdminDuplicateDoctorResponse.status()).toBe(409);
+    await expect(mainText(page, "Учётная запись с такой почтой уже существует.")).toBeVisible();
+    await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
+
     await page.getByLabel("ФИО ассистента").fill(clinicAdminAssistantName);
     await page.getByLabel("Эл. почта ассистента").fill(clinicAdminAssistantEmail);
-    await page.getByLabel("Временный пароль ассистента").fill("123456789");
+    const assistantPasswordInput = page.getByLabel("Временный пароль ассистента", { exact: true });
+    await assistantPasswordInput.fill("123456789");
+    await expect(assistantPasswordInput).toHaveAttribute("type", "password");
+    await page.getByRole("button", { name: "Показать временный пароль ассистента" }).click();
+    await expect(assistantPasswordInput).toHaveAttribute("type", "text");
+    await expect(assistantPasswordInput).toHaveValue("123456789");
+    await page.getByRole("button", { name: "Скрыть временный пароль ассистента" }).click();
+    await expect(assistantPasswordInput).toHaveAttribute("type", "password");
     await page.getByLabel("Клиника ассистента").selectOption({ label: clinicAdminClinicName });
     const assistantCreateRequestsBeforeValidation = adminUserCreateRequestCount;
     await page.getByRole("button", { name: "Добавить ассистента" }).click();
     await expect(mainText(page, "Временный пароль должен быть не короче 10 символов.")).toBeVisible();
     expect(adminUserCreateRequestCount).toBe(assistantCreateRequestsBeforeValidation);
 
-    await page.getByLabel("Временный пароль ассистента").fill(clinicAdminAssistantPassword);
+    await assistantPasswordInput.fill(clinicAdminAssistantPassword);
     const clinicAdminCreateAssistantResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),
     );
@@ -782,7 +810,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png"), fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByRole("heading", { level: 1, name: "Врачи" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
     await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);

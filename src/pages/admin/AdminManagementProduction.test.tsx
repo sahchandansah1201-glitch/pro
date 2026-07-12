@@ -759,7 +759,7 @@ describe("Production admin management UI", () => {
 
     renderRouted(<AdminDoctorsPage />);
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Врачи" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("ФИО врача"), { target: { value: "Врач" } });
     fireEvent.change(screen.getByLabelText("Эл. почта"), { target: { value: "wrong-email" } });
     fireEvent.change(screen.getByLabelText("Временный пароль"), { target: { value: "Doctor-password-2026!" } });
@@ -770,6 +770,40 @@ describe("Production admin management UI", () => {
       "https://clinic.local/api/v1/admin/doctors",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("shows a duplicate doctor email conflict inside the doctor form", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors") && init?.method === "POST") {
+        return json({
+          error: {
+            code: "conflict",
+            message: "Учётная запись с такой почтой уже существует.",
+            details: [{ field: "email", message: "Учётная запись с такой почтой уже существует." }],
+          },
+        }, 409);
+      }
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    const doctorRegion = await screen.findByRole("region", { name: "Добавить врача" });
+    fireEvent.change(within(doctorRegion).getByLabelText("ФИО врача"), { target: { value: "Максименко Мария" } });
+    fireEvent.change(within(doctorRegion).getByLabelText("Эл. почта"), { target: { value: "marysik100@yandex.ru" } });
+    fireEvent.change(within(doctorRegion).getByLabelText("Временный пароль"), { target: { value: "Temporary-2026!" } });
+    fireEvent.click(within(doctorRegion).getByRole("button", { name: "Добавить врача" }));
+
+    expect(await within(doctorRegion).findByRole("alert")).toHaveTextContent(
+      "Учётная запись с такой почтой уже существует.",
+    );
+    fireEvent.change(within(doctorRegion).getByLabelText("Эл. почта"), { target: { value: "doctor@yandex.ru" } });
+    expect(within(doctorRegion).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("lets a clinic admin add an assistant to the assigned clinic", async () => {
@@ -808,9 +842,25 @@ describe("Production admin management UI", () => {
     renderRouted(<AdminDoctorsPage />);
 
     expect(await screen.findByRole("button", { name: "Добавить ассистента" })).toBeInTheDocument();
+    const doctorPasswordInput = screen.getByLabelText("Временный пароль") as HTMLInputElement;
+    fireEvent.change(doctorPasswordInput, { target: { value: "Doctor-password-2026!" } });
+    expect(doctorPasswordInput).toHaveAttribute("type", "password");
+    fireEvent.click(screen.getByRole("button", { name: "Показать временный пароль врача" }));
+    expect(doctorPasswordInput).toHaveAttribute("type", "text");
+    expect(doctorPasswordInput).toHaveValue("Doctor-password-2026!");
+    fireEvent.click(screen.getByRole("button", { name: "Скрыть временный пароль врача" }));
+    expect(doctorPasswordInput).toHaveAttribute("type", "password");
+
     fireEvent.change(screen.getByLabelText("ФИО ассистента"), { target: { value: "Орлова Анна Сергеевна" } });
     fireEvent.change(screen.getByLabelText("Эл. почта ассистента"), { target: { value: "assistant@example.test" } });
-    fireEvent.change(screen.getByLabelText("Временный пароль ассистента"), { target: { value: "123456789" } });
+    const assistantPasswordInput = screen.getByLabelText("Временный пароль ассистента") as HTMLInputElement;
+    fireEvent.change(assistantPasswordInput, { target: { value: "123456789" } });
+    expect(assistantPasswordInput).toHaveAttribute("type", "password");
+    fireEvent.click(screen.getByRole("button", { name: "Показать временный пароль ассистента" }));
+    expect(assistantPasswordInput).toHaveAttribute("type", "text");
+    expect(assistantPasswordInput).toHaveValue("123456789");
+    fireEvent.click(screen.getByRole("button", { name: "Скрыть временный пароль ассистента" }));
+    expect(assistantPasswordInput).toHaveAttribute("type", "password");
     fireEvent.change(screen.getByLabelText("Клиника ассистента"), { target: { value: clinic.id } });
     fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
 

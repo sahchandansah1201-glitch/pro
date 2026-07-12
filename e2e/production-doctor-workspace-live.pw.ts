@@ -287,8 +287,8 @@ test.describe("Live production doctor workspace journey", () => {
     expect(createClinicResponse.status()).toBeLessThan(300);
     await expect(mainText(page, `Клиника сохранена и добавлена в список: ${clinicName}`)).toBeVisible();
 
-    await sidebarLink(page, "Врачи").click();
-    await expect(page.getByRole("heading", { level: 1, name: "Врачи" })).toBeVisible();
+    await sidebarLink(page, "Врачи и ассистенты").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
     await page.getByLabel("ФИО врача").fill(doctorDisplayName);
     await page.getByLabel("Эл. почта").fill(doctorEmail);
     await page.getByLabel("Временный пароль").fill(doctorPassword);
@@ -576,7 +576,7 @@ test.describe("Live production doctor workspace journey", () => {
       "Съёмка",
       "Операционный центр",
       "Клиники и кабинеты",
-      "Врачи",
+      "Врачи и ассистенты",
       "Услуги",
       "Интеграции",
       "Бот",
