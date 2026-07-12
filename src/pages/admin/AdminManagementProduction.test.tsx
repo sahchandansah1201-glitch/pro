@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
@@ -646,6 +646,67 @@ describe("Production admin management UI", () => {
       "https://clinic.local/api/v1/admin/users",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("shows a short-password error inside the create form and focuses the password field", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/api/v1/admin/users")) return json({ items: [] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    const createRegion = screen.getByRole("region", { name: "Создание сотрудника" });
+    fireEvent.change(within(createRegion).getByLabelText("ФИО сотрудника"), { target: { value: "Максименко Мария" } });
+    fireEvent.change(within(createRegion).getByLabelText("Эл. почта"), { target: { value: "marysik100@yandex.ru" } });
+    fireEvent.change(within(createRegion).getByLabelText("Временный пароль"), { target: { value: "123456789" } });
+    fireEvent.click(within(createRegion).getByRole("button", { name: "Создать сотрудника" }));
+
+    expect(await within(createRegion).findByRole("alert")).toHaveTextContent(
+      "Временный пароль должен быть не короче 10 символов.",
+    );
+    expect(within(createRegion).getByLabelText("Временный пароль")).toHaveAttribute("aria-invalid", "true");
+    expect(within(createRegion).getByLabelText("Временный пароль")).toHaveFocus();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("shows an API creation error inside the create form", async () => {
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/users") && init?.method === "POST") {
+        return json({ error: { code: "duplicate_email", message: "Сотрудник с этой почтой уже существует." } }, 409);
+      }
+      if (href.includes("/api/v1/admin/users")) return json({ items: [] });
+      if (href.includes("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<SysUsersPage />);
+
+    expect(await screen.findByRole("heading", { name: "Сотрудники и доступ" })).toBeInTheDocument();
+    const createRegion = screen.getByRole("region", { name: "Создание сотрудника" });
+    fireEvent.change(within(createRegion).getByLabelText("ФИО сотрудника"), { target: { value: "Максименко Мария" } });
+    fireEvent.change(within(createRegion).getByLabelText("Эл. почта"), { target: { value: "marysik100@yandex.ru" } });
+    fireEvent.change(within(createRegion).getByLabelText("Временный пароль"), {
+      target: { value: "Temporary-2026!" },
+    });
+    fireEvent.click(within(createRegion).getByRole("button", { name: "Создать сотрудника" }));
+
+    expect(await within(createRegion).findByRole("alert")).toHaveTextContent(
+      "Сотрудник с этой почтой уже существует.",
+    );
+    fireEvent.change(within(createRegion).getByLabelText("Эл. почта"), {
+      target: { value: "another@yandex.ru" },
+    });
+    expect(within(createRegion).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("requires a clinic before assigning a non-global role", async () => {

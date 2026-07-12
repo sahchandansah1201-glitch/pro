@@ -109,6 +109,7 @@ test.describe("Live production admin management journey", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const adminResponses: { method: string; path: string; status: number }[] = [];
+    let adminUserCreateRequestCount = 0;
     const deviceResponses: { method: string; path: string; status: number }[] = [];
     const governanceResponses: { method: string; path: string; status: number }[] = [];
 
@@ -116,6 +117,12 @@ test.describe("Live production admin management journey", () => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() === "POST" && url.pathname === "/api/v1/admin/users") {
+        adminUserCreateRequestCount += 1;
+      }
+    });
     page.on("response", (response) => {
       try {
         const url = new URL(response.url());
@@ -253,11 +260,32 @@ test.describe("Live production admin management journey", () => {
     await sidebarLink(page, "Сотрудники и доступ").click();
     await expect(page.getByRole("heading", { name: "Сотрудники и доступ" })).toBeVisible();
     await expect(mainText(page, /Учебный режим/i)).toHaveCount(0);
+    const createUserRegion = page.getByRole("region", { name: "Создание сотрудника" });
     await page.getByLabel("ФИО сотрудника").fill(adminDisplayName);
     await page.getByLabel("Эл. почта").fill(adminEmail);
-    await page.getByLabel("Временный пароль").fill(adminPassword);
+    await page.getByLabel("Временный пароль").fill("123456789");
     await page.getByLabel("Роль", { exact: true }).selectOption("system_admin");
     await expect(page.getByLabel("Клиника", { exact: true })).toBeDisabled();
+
+    const createRequestsBeforeValidation = adminUserCreateRequestCount;
+    await page.getByRole("button", { name: "Создать сотрудника" }).click();
+    await expect(createUserRegion.getByRole("alert")).toContainText(
+      "Временный пароль должен быть не короче 10 символов.",
+    );
+    await expect(page.getByLabel("Временный пароль")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByLabel("Временный пароль")).toBeFocused();
+    expect(adminUserCreateRequestCount).toBe(createRequestsBeforeValidation);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-users-validation-desktop-1280.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(createUserRegion.getByRole("alert")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-admin-users-validation-mobile-390.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    await page.getByLabel("Временный пароль").fill(adminPassword);
+    await expect(createUserRegion.getByRole("alert")).toHaveCount(0);
 
     const createUserResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),

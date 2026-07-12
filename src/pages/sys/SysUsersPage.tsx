@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -103,6 +103,8 @@ const ROLE_LABEL: Record<string, string> = {
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+type CreateUserField = "displayName" | "email" | "password" | "clinicId";
+
 function roleLabel(role: string): string {
   return ROLE_LABEL[role] ?? role;
 }
@@ -128,7 +130,14 @@ function SysUsersPageLive() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createStatus, setCreateStatus] = useState<string | null>(null);
+  const [invalidCreateField, setInvalidCreateField] = useState<CreateUserField | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const displayNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const clinicRef = useRef<HTMLSelectElement>(null);
   const [form, setForm] = useState({
     displayName: "",
     email: "",
@@ -150,6 +159,29 @@ function SysUsersPageLive() {
   function goToLogin() {
     clearSelfHostedApiSession();
     window.location.assign("/self-hosted/login");
+  }
+
+  function updateCreateField(field: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setCreateStatus(null);
+    if (
+      invalidCreateField === null ||
+      invalidCreateField === field ||
+      (field === "role" && value === "system_admin" && invalidCreateField === "clinicId")
+    ) {
+      setInvalidCreateField(null);
+      setCreateError(null);
+    }
+  }
+
+  function showCreateError(message: string, field: CreateUserField | null = null) {
+    setCreateError(message);
+    setCreateStatus(null);
+    setInvalidCreateField(field);
+    if (field === "displayName") displayNameRef.current?.focus();
+    if (field === "email") emailRef.current?.focus();
+    if (field === "password") passwordRef.current?.focus();
+    if (field === "clinicId") clinicRef.current?.focus();
   }
 
   async function load() {
@@ -194,23 +226,27 @@ function SysUsersPageLive() {
     const email = form.email.trim();
     const password = form.password;
     if (!displayName || !email || !password) {
-      setNote("Укажите ФИО, почту и временный пароль.");
+      const field = !displayName ? "displayName" : !email ? "email" : "password";
+      showCreateError("Укажите ФИО, почту и временный пароль.", field);
       return;
     }
     if (!EMAIL_PATTERN.test(email)) {
-      setNote("Укажите рабочую почту сотрудника.");
+      showCreateError("Укажите рабочую почту сотрудника.", "email");
       return;
     }
     if (password.length < 10) {
-      setNote("Временный пароль должен быть не короче 10 символов.");
+      showCreateError("Временный пароль должен быть не короче 10 символов.", "password");
       return;
     }
     if (form.role !== "system_admin" && !form.clinicId) {
-      setNote("Выберите клинику для этой роли.");
+      showCreateError("Выберите клинику для этой роли.", "clinicId");
       return;
     }
     setBusy(true);
-    setNote(`Создаём сотрудника: ${displayName}`);
+    setNote(null);
+    setCreateError(null);
+    setInvalidCreateField(null);
+    setCreateStatus(`Создаём сотрудника: ${displayName}`);
     const result = await createAdminUser({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -224,10 +260,11 @@ function SysUsersPageLive() {
     });
     setBusy(false);
     if (!result.ok) {
-      handleAdminError(result.error);
+      if (isAdminSessionExpiredError(result.error)) setSessionExpired(true);
+      showCreateError(adminApiErrorText(result.error));
       return;
     }
-    setNote(`Учётная запись создана: ${result.value?.displayName ?? displayName}`);
+    setCreateStatus(`Учётная запись создана: ${result.value?.displayName ?? displayName}`);
     setForm((current) => ({ ...current, displayName: "", email: "", password: "" }));
     await load();
   }
@@ -343,43 +380,54 @@ function SysUsersPageLive() {
           </Card>
         )}
 
-        <Card className="p-3">
+        <Card role="region" aria-label="Создание сотрудника" className="p-3">
           <div className="mb-1 text-[13px] font-semibold">Создать сотрудника</div>
           <p className="mb-3 text-[12px] text-muted-foreground">
             Укажите первую роль. Дополнительные роли добавляются ниже без создания второй учётной записи.
           </p>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-5">
             <Input
+              ref={displayNameRef}
               value={form.displayName}
-              onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
+              onChange={(event) => updateCreateField("displayName", event.target.value)}
               placeholder="ФИО сотрудника"
               aria-label="ФИО сотрудника"
+              aria-invalid={invalidCreateField === "displayName" || undefined}
+              aria-errormessage={invalidCreateField === "displayName" ? "create-user-feedback" : undefined}
               className="min-h-11"
-              disabled={sessionExpired}
+              disabled={busy || sessionExpired}
             />
             <Input
+              ref={emailRef}
               value={form.email}
-              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              onChange={(event) => updateCreateField("email", event.target.value)}
               placeholder="Эл. почта"
               aria-label="Эл. почта"
+              aria-invalid={invalidCreateField === "email" || undefined}
+              aria-errormessage={invalidCreateField === "email" ? "create-user-feedback" : undefined}
               className="min-h-11"
-              disabled={sessionExpired}
+              disabled={busy || sessionExpired}
             />
             <Input
+              ref={passwordRef}
               value={form.password}
-              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              onChange={(event) => updateCreateField("password", event.target.value)}
               placeholder="Временный пароль"
               aria-label="Временный пароль"
+              aria-describedby="create-user-password-help"
+              aria-invalid={invalidCreateField === "password" || undefined}
+              aria-errormessage={invalidCreateField === "password" ? "create-user-feedback" : undefined}
               type="password"
+              minLength={10}
               className="min-h-11"
-              disabled={sessionExpired}
+              disabled={busy || sessionExpired}
             />
             <select
               value={form.role}
-              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
+              onChange={(event) => updateCreateField("role", event.target.value)}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Роль"
-              disabled={sessionExpired}
+              disabled={busy || sessionExpired}
             >
               <option value="clinic_admin">Администратор клиники</option>
               <option value="doctor">Дерматолог</option>
@@ -389,11 +437,14 @@ function SysUsersPageLive() {
               <option value="system_admin">Системный администратор</option>
             </select>
             <select
+              ref={clinicRef}
               value={form.clinicId}
-              onChange={(event) => setForm((current) => ({ ...current, clinicId: event.target.value }))}
+              onChange={(event) => updateCreateField("clinicId", event.target.value)}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
               aria-label="Клиника"
-              disabled={sessionExpired || form.role === "system_admin"}
+              aria-invalid={invalidCreateField === "clinicId" || undefined}
+              aria-errormessage={invalidCreateField === "clinicId" ? "create-user-feedback" : undefined}
+              disabled={busy || sessionExpired || form.role === "system_admin"}
             >
               {clinics.map((clinic) => (
                 <option key={clinic.id} value={clinic.id}>
@@ -402,9 +453,30 @@ function SysUsersPageLive() {
               ))}
             </select>
           </div>
+          <p id="create-user-password-help" className="mt-2 text-[12px] text-muted-foreground">
+            Временный пароль: не менее 10 символов.
+          </p>
           <Button type="button" className="mt-3 min-h-11" onClick={submitUser} disabled={busy || sessionExpired}>
             {busy ? "Создаём сотрудника..." : "Создать сотрудника"}
           </Button>
+          {createError && (
+            <div
+              id="create-user-feedback"
+              role="alert"
+              className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive"
+            >
+              {createError}
+            </div>
+          )}
+          {createStatus && !createError && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+            >
+              {createStatus}
+            </div>
+          )}
         </Card>
 
         <Card className="p-3">

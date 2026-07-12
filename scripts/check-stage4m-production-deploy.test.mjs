@@ -87,6 +87,23 @@ test("Stage 4M guard requires live help section coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Справка/);
 });
 
+test("Stage 4M guard requires invalid employee password coverage before account creation", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-user-validation-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink } from "./live-admin-test-helpers";',
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: Создание сотрудника/);
+  assert.match(errors.join("\n"), /missing live coverage marker: 123456789/);
+  assert.match(errors.join("\n"), /missing live coverage marker: adminUserCreateRequestCount/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-admin-users-validation-mobile-390\.png/);
+});
+
 test("Stage 4M guard requires clinic admin services live coverage", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-services-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
