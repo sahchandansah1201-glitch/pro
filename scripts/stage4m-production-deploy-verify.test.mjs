@@ -67,7 +67,7 @@ test("Stage 4M update plan backs up, pulls, installs, builds and restarts", () =
   assert.match(out, /git pull --ff-only origin main/);
   assert.match(out, /Apply production schema migrations/);
   assert.match(out, /stage4m-self-hosted-schema-migrations\.mjs apply/);
-  assert.match(out, /Verify admin clinic create\/edit database journey/);
+  assert.match(out, /Verify admin clinic create\/edit and audit isolation database journey/);
   assert.match(out, /stage4m-admin-management-db-smoke\.mjs verify/);
   assert.match(out, /Verify admin service catalog database journey/);
   assert.match(out, /stage4m-admin-services-db-smoke\.mjs verify/);

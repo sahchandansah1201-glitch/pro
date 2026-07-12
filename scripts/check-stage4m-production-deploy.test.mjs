@@ -125,6 +125,7 @@ test("Stage 4M guard requires clinic admin services live coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: \/api\/v1\/admin\/services/);
   assert.match(errors.join("\n"), /missing live coverage marker: Создать услугу/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-services-desktop-1280\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: clinicAdminRecentAuditEvents/);
 });
 
 test("Stage 4M guard requires clinic admin governance live coverage", () => {

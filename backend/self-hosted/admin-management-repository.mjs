@@ -915,7 +915,7 @@ export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false } = 
   const patientClinicWhere = allClinics ? "" : `and p.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const visitClinicWhere = allClinics ? "" : `and v.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const assetClinicWhere = allClinics ? "" : `and a.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
-  const auditClinicWhere = allClinics ? "" : `and (al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"}) or al.clinic_id is null)`;
+  const auditClinicWhere = allClinics ? "" : `and al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   return `
 select jsonb_build_object(
   'clinics', (select count(*)::int from clinics c ${clinicWhere}${clinicWhere ? " and" : " where"} c.deleted_at is null),
@@ -945,7 +945,7 @@ select jsonb_build_object(
 
 export function buildListAuditEventsSql({ limit = 30, clinicIds = [], allClinics = false } = {}) {
   const safeLimit = clampInteger(limit, { fallback: 30, min: 1, max: 100 });
-  const clinicWhere = allClinics ? "" : `and (al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"}) or al.clinic_id is null)`;
+  const clinicWhere = allClinics ? "" : `and al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   return `
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (

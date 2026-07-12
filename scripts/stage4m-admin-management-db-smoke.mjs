@@ -10,6 +10,7 @@ import {
   buildAdminAnalyticsSql,
   buildCreateClinicSql,
   buildDeleteEmptyClinicSql,
+  buildListAuditEventsSql,
   buildListClinicsSql,
   buildSetClinicStatusSql,
 } from "../backend/self-hosted/admin-management-repository.mjs";
@@ -137,13 +138,25 @@ export function buildStage4MAdminDbSmokeSql({ suffix = safeSmokeSuffix() } = {})
     limit: 5,
   }));
   const analyticsSql = withoutTrailingSemicolon(buildAdminAnalyticsSql({ allClinics: true }));
+  const placeholderClinicId = "00000000-0000-4000-8000-000000000000";
+  const scopedAnalyticsSql = withoutTrailingSemicolon(buildAdminAnalyticsSql({
+    clinicIds: [placeholderClinicId],
+    allClinics: false,
+  }));
+  const scopedAuditSql = withoutTrailingSemicolon(buildListAuditEventsSql({
+    clinicIds: [placeholderClinicId],
+    allClinics: false,
+    limit: 100,
+  }));
+  const clinicAuditAction = `stage4m.clinic.audit.${safeSuffix}`;
+  const globalAuditAction = `stage4m.global.audit.${safeSuffix}`;
   const statusSql = withoutTrailingSemicolon(buildSetClinicStatusSql({
-    clinicId: "00000000-0000-4000-8000-000000000000",
+    clinicId: placeholderClinicId,
     status: "archived",
     reason: "stage4m_smoke_archive",
   }));
   const deleteSql = withoutTrailingSemicolon(buildDeleteEmptyClinicSql({
-    clinicId: "00000000-0000-4000-8000-000000000000",
+    clinicId: placeholderClinicId,
   }));
 
   return `
@@ -196,6 +209,37 @@ begin
     raise exception 'admin analytics query did not return aggregate payload';
   end if;
 
+  insert into audit_log (clinic_id, action, entity_type, correlation_id)
+  values
+    (null, ${sqlLiteral(globalAuditAction)}, 'stage4m_smoke', ${sqlLiteral(`global-${safeSuffix}`)}),
+    ((select id from clinics where slug = ${sqlLiteral(clinicSlug)}), ${sqlLiteral(clinicAuditAction)}, 'stage4m_smoke', ${sqlLiteral(`clinic-${safeSuffix}`)});
+
+  execute replace(
+    $sql$${scopedAnalyticsSql}$sql$,
+    ${sqlLiteral(placeholderClinicId)},
+    (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})
+  ) into payload;
+  if (payload::jsonb ->> 'auditEvents7d')::int <> (
+    select count(*)::int
+    from audit_log
+    where clinic_id = (select id from clinics where slug = ${sqlLiteral(clinicSlug)})
+      and created_at >= now() - interval '7 days'
+  ) then
+    raise exception 'global audit event leaked into clinic analytics';
+  end if;
+
+  execute replace(
+    $sql$${scopedAuditSql}$sql$,
+    ${sqlLiteral(placeholderClinicId)},
+    (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})
+  ) into payload;
+  if position(${sqlLiteral(clinicAuditAction)} in payload) = 0 then
+    raise exception 'clinic audit event missing from clinic list';
+  end if;
+  if position(${sqlLiteral(globalAuditAction)} in payload) > 0 then
+    raise exception 'global audit event leaked into clinic list';
+  end if;
+
   execute replace($sql$${statusSql}$sql$, '00000000-0000-4000-8000-000000000000', (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})) into payload;
   if payload is null or position('"archived"' in payload) = 0 then
     raise exception 'admin clinic archive did not return archived status';
@@ -225,7 +269,7 @@ export function renderStage4MAdminDbSmokePlan(options = {}) {
     "",
     `- Project: ${config.projectName}`,
     `- Compose env file: ${config.composeEnvFile}`,
-    "- Scope: admin clinic list, clinic create, created row visibility, clinic edit, clinic empty delete, analytics aggregate query",
+    "- Scope: admin clinic list, clinic create, created row visibility, clinic edit, clinic empty delete, analytics aggregate query, clinic-scoped audit isolation",
     "- Safety: wrapped in one transaction and rolled back; no patient rows, credentials, tokens, storage paths, or signed URLs are printed",
   ].join("\n");
 }
@@ -274,7 +318,7 @@ export function runStage4MAdminManagementDbSmoke(options = {}, io = {}) {
   if (!String(result.stdout || "").includes("stage4m_admin_management_db_smoke_ok")) {
     throw new Error("Admin management database smoke did not return its OK marker.");
   }
-  console.log("[stage4m-admin-db-smoke] verified admin clinic create/list/edit journey against PostgreSQL");
+  console.log("[stage4m-admin-db-smoke] verified admin clinic create/list/edit and audit isolation journey against PostgreSQL");
   return { ok: true, dryRun: false };
 }
 

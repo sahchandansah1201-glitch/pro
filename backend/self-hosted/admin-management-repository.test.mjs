@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildAssignAdminUserRoleSql,
+  buildAdminAnalyticsSql,
   buildCreateAdminUserSql,
   buildCreateClinicSql,
   buildCreateClinicIntegrationSql,
@@ -12,6 +13,7 @@ import {
   buildDisableAdminUserSql,
   buildListClinicBotSettingsSql,
   buildListClinicIntegrationsSql,
+  buildListAuditEventsSql,
   buildReactivateAdminUserSql,
   buildCreateServiceKeySql,
   buildListClinicServicesSql,
@@ -212,6 +214,21 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     }),
     "updated",
   );
+});
+
+test("clinic admin analytics and audit exclude global system events", () => {
+  const clinicId = "10000000-0000-4000-8000-000000000001";
+  const analyticsSql = buildAdminAnalyticsSql({ clinicIds: [clinicId], allClinics: false });
+  const auditSql = buildListAuditEventsSql({ clinicIds: [clinicId], allClinics: false });
+  const systemAnalyticsSql = buildAdminAnalyticsSql({ allClinics: true });
+  const systemAuditSql = buildListAuditEventsSql({ allClinics: true });
+
+  assert.match(analyticsSql, /al\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/i);
+  assert.match(auditSql, /al\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/i);
+  assert.doesNotMatch(analyticsSql, /or al\.clinic_id is null/i);
+  assert.doesNotMatch(auditSql, /or al\.clinic_id is null/i);
+  assert.doesNotMatch(systemAnalyticsSql, /al\.clinic_id in/i);
+  assert.doesNotMatch(systemAuditSql, /al\.clinic_id in/i);
 });
 
 test("clinic service SQL is scoped and exposes only operational catalog fields", () => {

@@ -322,7 +322,7 @@ function updateSteps(options) {
       "--compose-file",
       PROD_COMPOSE,
     ]],
-    ["Verify admin clinic create/edit database journey", "node", [
+    ["Verify admin clinic create/edit and audit isolation database journey", "node", [
       "scripts/stage4m-admin-management-db-smoke.mjs",
       "verify",
       "--project-name",
