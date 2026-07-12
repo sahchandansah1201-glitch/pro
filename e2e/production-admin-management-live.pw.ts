@@ -751,9 +751,13 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminDoctorsListResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminDoctorsListResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
-    await page.getByLabel("ФИО врача").fill(clinicAdminDoctorName);
-    await page.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
-    const doctorPasswordInput = page.getByLabel("Временный пароль", { exact: true });
+    await expect(page.getByRole("tablist", { name: "Разделы сотрудников" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Врачи" })).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("button", { name: "Добавить врача" }).click();
+    const doctorRegion = page.getByRole("region", { name: "Добавить врача" });
+    await doctorRegion.getByLabel("ФИО врача").fill(clinicAdminDoctorName);
+    await doctorRegion.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
+    const doctorPasswordInput = doctorRegion.getByLabel("Временный пароль", { exact: true });
     await doctorPasswordInput.fill(clinicAdminDoctorPassword);
     await expect(doctorPasswordInput).toHaveAttribute("type", "password");
     await page.getByRole("button", { name: "Показать временный пароль врача" }).click();
@@ -761,28 +765,28 @@ test.describe("Live production admin management journey", () => {
     await expect(doctorPasswordInput).toHaveValue(clinicAdminDoctorPassword);
     await page.getByRole("button", { name: "Скрыть временный пароль врача" }).click();
     await expect(doctorPasswordInput).toHaveAttribute("type", "password");
-    await page.getByLabel("Тип врача").selectOption("doctor");
-    await page.getByLabel("Клиника", { exact: true }).selectOption({ label: clinicAdminClinicName });
+    await doctorRegion.getByRole("combobox", { name: "Тип врача" }).selectOption("doctor");
+    await doctorRegion.getByRole("combobox", { name: "Клиника" }).selectOption({ label: clinicAdminClinicName });
     const clinicAdminCreateDoctorResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
     );
-    await page.getByRole("button", { name: "Добавить врача" }).click();
+    await doctorRegion.getByRole("button", { name: "Добавить врача" }).click();
     const clinicAdminCreateDoctorResponse = await clinicAdminCreateDoctorResponsePromise;
     expect(clinicAdminCreateDoctorResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminCreateDoctorResponse.status()).toBeLessThan(300);
     await expect(mainText(page, `Врач добавлен: ${clinicAdminDoctorName}`)).toBeVisible();
     await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
 
-    await page.getByLabel("ФИО врача").fill(`${clinicAdminDoctorName} повтор`);
-    await page.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
+    await doctorRegion.getByLabel("ФИО врача").fill(`${clinicAdminDoctorName} повтор`);
+    await doctorRegion.getByLabel("Эл. почта", { exact: true }).fill(clinicAdminDoctorEmail);
     await doctorPasswordInput.fill(`${clinicAdminDoctorPassword}-repeat`);
-    await page.getByLabel("Тип врача").selectOption("doctor");
-    await page.getByLabel("Клиника", { exact: true }).selectOption({ label: clinicAdminClinicName });
+    await doctorRegion.getByRole("combobox", { name: "Тип врача" }).selectOption("doctor");
+    await doctorRegion.getByRole("combobox", { name: "Клиника" }).selectOption({ label: clinicAdminClinicName });
     const duplicateDoctorConsoleErrorsStart = consoleErrors.length;
     const clinicAdminDuplicateDoctorResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
     );
-    await page.getByRole("button", { name: "Добавить врача" }).click();
+    await doctorRegion.getByRole("button", { name: "Добавить врача" }).click();
     const clinicAdminDuplicateDoctorResponse = await clinicAdminDuplicateDoctorResponsePromise;
     expect(clinicAdminDuplicateDoctorResponse.status()).toBe(409);
     await expect(mainText(page, "Учётная запись с такой почтой уже существует.")).toBeVisible();
@@ -793,9 +797,13 @@ test.describe("Live production admin management journey", () => {
       duplicateDoctorConsoleErrors.join("\n"),
     ).toEqual([]);
 
-    await page.getByLabel("ФИО ассистента").fill(clinicAdminAssistantName);
-    await page.getByLabel("Эл. почта ассистента").fill(clinicAdminAssistantEmail);
-    const assistantPasswordInput = page.getByLabel("Временный пароль ассистента", { exact: true });
+    await page.getByRole("tab", { name: "Ассистенты" }).click();
+    await expect(page.getByRole("heading", { name: "Ассистенты клиники" })).toBeVisible();
+    await page.getByRole("button", { name: "Добавить ассистента" }).click();
+    const assistantRegion = page.getByRole("region", { name: "Добавить ассистента" });
+    await assistantRegion.getByLabel("ФИО ассистента").fill(clinicAdminAssistantName);
+    await assistantRegion.getByLabel("Эл. почта ассистента").fill(clinicAdminAssistantEmail);
+    const assistantPasswordInput = assistantRegion.getByLabel("Временный пароль ассистента", { exact: true });
     await assistantPasswordInput.fill("123456789");
     await expect(assistantPasswordInput).toHaveAttribute("type", "password");
     await page.getByRole("button", { name: "Показать временный пароль ассистента" }).click();
@@ -803,9 +811,9 @@ test.describe("Live production admin management journey", () => {
     await expect(assistantPasswordInput).toHaveValue("123456789");
     await page.getByRole("button", { name: "Скрыть временный пароль ассистента" }).click();
     await expect(assistantPasswordInput).toHaveAttribute("type", "password");
-    await page.getByLabel("Клиника ассистента").selectOption({ label: clinicAdminClinicName });
+    await assistantRegion.getByRole("combobox", { name: "Клиника ассистента" }).selectOption({ label: clinicAdminClinicName });
     const assistantCreateRequestsBeforeValidation = adminUserCreateRequestCount;
-    await page.getByRole("button", { name: "Добавить ассистента" }).click();
+    await assistantRegion.getByRole("button", { name: "Добавить ассистента" }).click();
     await expect(mainText(page, "Временный пароль должен быть не короче 10 символов.")).toBeVisible();
     expect(adminUserCreateRequestCount).toBe(assistantCreateRequestsBeforeValidation);
 
@@ -813,7 +821,7 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminCreateAssistantResponsePromise = page.waitForResponse((response) =>
       isAdminUserResponse(response, "POST", /^\/api\/v1\/admin\/users$/),
     );
-    await page.getByRole("button", { name: "Добавить ассистента" }).click();
+    await assistantRegion.getByRole("button", { name: "Добавить ассистента" }).click();
     const clinicAdminCreateAssistantResponse = await clinicAdminCreateAssistantResponsePromise;
     expect(clinicAdminCreateAssistantResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminCreateAssistantResponse.status()).toBeLessThan(300);
@@ -823,14 +831,46 @@ test.describe("Live production admin management journey", () => {
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
     await expectNoHorizontalOverflow(page);
-    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png"), fullPage: true });
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png") });
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
     await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
-    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-mobile-390.png"), fullPage: true });
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-mobile-390.png") });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const accessTab = page.getByRole("tab", { name: "Доступ" });
+    await accessTab.click();
+    await expect(accessTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Ассистенты" })).toHaveAttribute("aria-selected", "false");
+    await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+    await expect(mainText(page, "Учётная запись и роль — разные уровни доступа.")).toBeVisible();
+    await page.getByLabel("Поиск сотрудников").fill(clinicAdminDoctorEmail);
+    await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
+    await expect(mainText(page, clinicAdminAssistantEmail)).toHaveCount(0);
+    await page.getByLabel("Поиск сотрудников").fill("");
+    await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("active");
+    await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Приостановить роль врача" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Отключить доступ" }).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-desktop-1280.png") });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-mobile-390.png") });
 
     await page.setViewportSize({ width: 1280, height: 900 });
     const clinicAdminServicesListResponsePromise = page.waitForResponse((response) =>

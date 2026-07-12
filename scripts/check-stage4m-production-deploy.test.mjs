@@ -129,6 +129,12 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: duplicateDoctorConsoleErrorsStart/);
   assert.match(errors.join("\n"), /missing live coverage marker: filterExpectedHttpStatusConsoleErrors/);
   assert.match(errors.join("\n"), /missing live coverage marker: Учётная запись с такой почтой уже существует\./);
+  assert.match(errors.join("\n"), /missing live coverage marker: Разделы сотрудников/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Учётная запись и роль — разные уровни доступа\./);
+  assert.match(errors.join("\n"), /missing live coverage marker: Поиск сотрудников/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Фильтр доступа/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Приостановить роль врача/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-access-mobile-390\.png/);
 });
 
 test("Stage 4M guard requires clinic admin services live coverage", () => {

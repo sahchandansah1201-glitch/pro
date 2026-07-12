@@ -47,6 +47,11 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.bodyScroll).toBeLessThanOrEqual(overflow.bodyClient + 1);
 }
 
+async function scrollMainToTop(page: Page) {
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+  await page.locator("main").first().evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+}
+
 async function expectMainTapTargets(page: Page) {
   const offenders = await page.evaluate(() => {
     const root = document.querySelector("main") ?? document.body;
@@ -311,36 +316,65 @@ test.describe("Production admin management journey", () => {
       await navigateInApp(page, "/admin/doctors");
       await expect(page.locator("h1", { hasText: "Врачи и ассистенты" })).toBeVisible();
       await expect(page.getByText(/Учебный режим/i)).toHaveCount(0);
-      await page.getByLabel("ФИО врача").fill("Дерматолог Тестовый");
-      await page.getByLabel("Эл. почта", { exact: true }).fill("doctor@example.test");
-      const doctorPasswordInput = page.getByLabel("Временный пароль", { exact: true });
+      await expect(page.getByRole("tablist", { name: "Разделы сотрудников" })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Врачи" })).toHaveAttribute("aria-selected", "true");
+      await page.getByRole("button", { name: "Добавить врача" }).click();
+      const doctorRegion = page.getByRole("region", { name: "Добавить врача" });
+      await doctorRegion.getByLabel("ФИО врача").fill("Дерматолог Тестовый");
+      await doctorRegion.getByLabel("Эл. почта", { exact: true }).fill("doctor@example.test");
+      const doctorPasswordInput = doctorRegion.getByLabel("Временный пароль", { exact: true });
       await doctorPasswordInput.fill("long-password-1");
       await page.getByRole("button", { name: "Показать временный пароль врача" }).click();
       await expect(doctorPasswordInput).toHaveAttribute("type", "text");
       await expect(doctorPasswordInput).toHaveValue("long-password-1");
       await page.getByRole("button", { name: "Скрыть временный пароль врача" }).click();
       await expect(doctorPasswordInput).toHaveAttribute("type", "password");
-      await page.getByLabel("Тип врача").selectOption("private_doctor");
-      await page.getByLabel("Клиника", { exact: true }).selectOption("10000000-0000-4000-8000-000000000301");
-      await page.getByRole("button", { name: "Добавить врача" }).click();
+      await doctorRegion.getByRole("combobox", { name: "Тип врача" }).selectOption("private_doctor");
+      await doctorRegion.getByRole("combobox", { name: "Клиника" }).selectOption("10000000-0000-4000-8000-000000000301");
+      await doctorRegion.getByRole("button", { name: "Добавить врача" }).click();
       await expect(page.getByText("Врач добавлен: Дерматолог Тестовый")).toBeVisible();
+      await scrollMainToTop(page);
+      await page.screenshot({ path: testInfo.outputPath(`admin-doctors-doctors-${viewport.name}.png`) });
 
-      await page.getByLabel("ФИО ассистента").fill("Ассистент Тестовый");
-      await page.getByLabel("Эл. почта ассистента").fill("assistant@example.test");
-      const assistantPasswordInput = page.getByLabel("Временный пароль ассистента", { exact: true });
+      await page.getByRole("tab", { name: "Ассистенты" }).click();
+      await expect(page.getByRole("heading", { name: "Ассистенты клиники" })).toBeVisible();
+      await page.getByRole("button", { name: "Добавить ассистента" }).click();
+      const assistantRegion = page.getByRole("region", { name: "Добавить ассистента" });
+      await assistantRegion.getByLabel("ФИО ассистента").fill("Ассистент Тестовый");
+      await assistantRegion.getByLabel("Эл. почта ассистента").fill("assistant@example.test");
+      const assistantPasswordInput = assistantRegion.getByLabel("Временный пароль ассистента", { exact: true });
       await assistantPasswordInput.fill("assistant-password-1");
       await page.getByRole("button", { name: "Показать временный пароль ассистента" }).click();
       await expect(assistantPasswordInput).toHaveAttribute("type", "text");
       await expect(assistantPasswordInput).toHaveValue("assistant-password-1");
       await page.getByRole("button", { name: "Скрыть временный пароль ассистента" }).click();
       await expect(assistantPasswordInput).toHaveAttribute("type", "password");
-      await page.getByLabel("Клиника ассистента").selectOption("10000000-0000-4000-8000-000000000301");
-      await page.getByRole("button", { name: "Добавить ассистента" }).click();
+      await assistantRegion.getByRole("combobox", { name: "Клиника ассистента" }).selectOption("10000000-0000-4000-8000-000000000301");
+      await assistantRegion.getByRole("button", { name: "Добавить ассистента" }).click();
       await expect(page.getByText("Ассистент добавлен: Ассистент Тестовый")).toBeVisible();
       await expect(page.getByText("assistant@example.test")).toBeVisible();
       await expectNoHorizontalOverflow(page);
       if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
-      await page.screenshot({ path: testInfo.outputPath(`admin-doctors-${viewport.name}.png`), fullPage: true });
+      await scrollMainToTop(page);
+      await page.screenshot({ path: testInfo.outputPath(`admin-doctors-assistants-${viewport.name}.png`) });
+
+      const accessTab = page.getByRole("tab", { name: "Доступ" });
+      await accessTab.click();
+      await expect(accessTab).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByRole("tab", { name: "Ассистенты" })).toHaveAttribute("aria-selected", "false");
+      await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+      await expect(page.getByText("Учётная запись и роль — разные уровни доступа.")).toBeVisible();
+      await page.getByLabel("Поиск сотрудников").fill("doctor@example.test");
+      await expect(page.getByText("doctor@example.test")).toBeVisible();
+      await expect(page.getByText("assistant@example.test")).toHaveCount(0);
+      await page.getByLabel("Поиск сотрудников").fill("");
+      await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("active");
+      await expect(page.getByText("assistant@example.test")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Приостановить роль врача" })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
+      await scrollMainToTop(page);
+      await page.screenshot({ path: testInfo.outputPath(`admin-doctors-access-${viewport.name}.png`) });
 
       await navigateInApp(page, "/admin/analytics");
       await expect(page.getByRole("heading", { name: "Аналитика" })).toBeVisible();

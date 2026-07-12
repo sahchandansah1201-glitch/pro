@@ -748,6 +748,129 @@ describe("Production admin management UI", () => {
     expect(screen.getByRole("button", { name: "Создать сотрудника" })).toBeDisabled();
   });
 
+  it("organizes clinic staff into doctors, assistants, and access workspaces", async () => {
+    const assistant = {
+      ...owner,
+      id: "assistant-1",
+      email: "assistant@example.test",
+      displayName: "Орлова Анна Сергеевна",
+      roles: [
+        {
+          role: "assistant",
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          clinicSlug: clinic.slug,
+          active: true,
+          disabledAt: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [owner] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [assistant] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    const doctorsTab = await screen.findByRole("tab", { name: "Врачи" });
+    expect(doctorsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Врачи клиники" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Добавить врача" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Добавить врача" }));
+    expect(await screen.findByRole("region", { name: "Добавить врача" })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Ассистенты" }), { button: 0, ctrlKey: false });
+    expect(screen.getByRole("heading", { name: "Ассистенты клиники" })).toBeInTheDocument();
+    expect(screen.getByText("assistant@example.test")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Добавить врача" })).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    expect(screen.getByRole("heading", { name: "Управление доступом" })).toBeInTheDocument();
+    expect(screen.getByText("Учётная запись и роль — разные уровни доступа.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Поиск сотрудников")).toBeInTheDocument();
+    expect(screen.getByText("owner@example.test")).toBeInTheDocument();
+    expect(screen.getByText("assistant@example.test")).toBeInTheDocument();
+  });
+
+  it("filters staff by role, query, and account access without mixing role actions", async () => {
+    const disabledAssistant = {
+      ...owner,
+      id: "assistant-disabled",
+      email: "assistant-disabled@example.test",
+      displayName: "Орлова Анна Сергеевна",
+      active: false,
+      disabledAt: "2026-07-12T10:00:00.000Z",
+      roles: [
+        {
+          role: "assistant",
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          clinicSlug: clinic.slug,
+          active: true,
+          disabledAt: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [owner] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [disabledAssistant] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    const assistantsTab = await screen.findByRole("tab", { name: "Ассистенты" });
+    fireEvent.mouseDown(assistantsTab, { button: 0, ctrlKey: false });
+    expect(screen.getByText("assistant-disabled@example.test")).toBeInTheDocument();
+    expect(screen.queryByText("owner@example.test")).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    fireEvent.change(screen.getByLabelText("Поиск сотрудников"), { target: { value: "owner@example.test" } });
+    expect(screen.getByText("owner@example.test")).toBeInTheDocument();
+    expect(screen.queryByText("assistant-disabled@example.test")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Поиск сотрудников"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Фильтр доступа"), { target: { value: "disabled" } });
+    expect(screen.getByText("assistant-disabled@example.test")).toBeInTheDocument();
+    expect(screen.queryByText("owner@example.test")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Вернуть доступ" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /роль врача/ })).not.toBeInTheDocument();
+  });
+
+  it("shows account access separately from a suspended doctor role", async () => {
+    const suspendedDoctor = {
+      ...owner,
+      roles: owner.roles.map((role) =>
+        role.role === "private_doctor"
+          ? { ...role, active: false, disabledAt: "2026-07-12T10:00:00.000Z" }
+          : role,
+      ),
+    };
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [suspendedDoctor] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    const accessDirectory = screen.getByRole("region", { name: "Управление доступом" });
+    expect(within(accessDirectory).getByText("Доступ включён")).toBeInTheDocument();
+    expect(within(accessDirectory).getByText("Роль приостановлена")).toBeInTheDocument();
+    expect(within(accessDirectory).getByRole("button", { name: "Вернуть роль врача" })).toBeInTheDocument();
+  });
+
   it("validates doctor email before creating a doctor account", async () => {
     const fetchMock = vi.fn((url: string | URL | Request) => {
       const href = String(url);
@@ -760,10 +883,12 @@ describe("Production admin management UI", () => {
     renderRouted(<AdminDoctorsPage />);
 
     expect(await screen.findByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("ФИО врача"), { target: { value: "Врач" } });
-    fireEvent.change(screen.getByLabelText("Эл. почта"), { target: { value: "wrong-email" } });
-    fireEvent.change(screen.getByLabelText("Временный пароль"), { target: { value: "Doctor-password-2026!" } });
     fireEvent.click(screen.getByRole("button", { name: "Добавить врача" }));
+    const doctorRegion = await screen.findByRole("region", { name: "Добавить врача" });
+    fireEvent.change(within(doctorRegion).getByLabelText("ФИО врача"), { target: { value: "Врач" } });
+    fireEvent.change(within(doctorRegion).getByLabelText("Эл. почта"), { target: { value: "wrong-email" } });
+    fireEvent.change(within(doctorRegion).getByLabelText("Временный пароль"), { target: { value: "Doctor-password-2026!" } });
+    fireEvent.click(within(doctorRegion).getByRole("button", { name: "Добавить врача" }));
 
     expect(await screen.findByText("Укажите рабочую почту врача.")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalledWith(
@@ -793,6 +918,7 @@ describe("Production admin management UI", () => {
 
     renderRouted(<AdminDoctorsPage />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Добавить врача" }));
     const doctorRegion = await screen.findByRole("region", { name: "Добавить врача" });
     fireEvent.change(within(doctorRegion).getByLabelText("ФИО врача"), { target: { value: "Максименко Мария" } });
     fireEvent.change(within(doctorRegion).getByLabelText("Эл. почта"), { target: { value: "marysik100@yandex.ru" } });
@@ -841,28 +967,32 @@ describe("Production admin management UI", () => {
 
     renderRouted(<AdminDoctorsPage />);
 
-    expect(await screen.findByRole("button", { name: "Добавить ассистента" })).toBeInTheDocument();
-    const doctorPasswordInput = screen.getByLabelText("Временный пароль") as HTMLInputElement;
+    fireEvent.click(await screen.findByRole("button", { name: "Добавить врача" }));
+    const doctorRegion = await screen.findByRole("region", { name: "Добавить врача" });
+    const doctorPasswordInput = within(doctorRegion).getByLabelText("Временный пароль") as HTMLInputElement;
     fireEvent.change(doctorPasswordInput, { target: { value: "Doctor-password-2026!" } });
     expect(doctorPasswordInput).toHaveAttribute("type", "password");
-    fireEvent.click(screen.getByRole("button", { name: "Показать временный пароль врача" }));
+    fireEvent.click(within(doctorRegion).getByRole("button", { name: "Показать временный пароль врача" }));
     expect(doctorPasswordInput).toHaveAttribute("type", "text");
     expect(doctorPasswordInput).toHaveValue("Doctor-password-2026!");
-    fireEvent.click(screen.getByRole("button", { name: "Скрыть временный пароль врача" }));
+    fireEvent.click(within(doctorRegion).getByRole("button", { name: "Скрыть временный пароль врача" }));
     expect(doctorPasswordInput).toHaveAttribute("type", "password");
 
-    fireEvent.change(screen.getByLabelText("ФИО ассистента"), { target: { value: "Орлова Анна Сергеевна" } });
-    fireEvent.change(screen.getByLabelText("Эл. почта ассистента"), { target: { value: "assistant@example.test" } });
-    const assistantPasswordInput = screen.getByLabelText("Временный пароль ассистента") as HTMLInputElement;
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Ассистенты" }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
+    const assistantRegion = await screen.findByRole("region", { name: "Добавить ассистента" });
+    fireEvent.change(within(assistantRegion).getByLabelText("ФИО ассистента"), { target: { value: "Орлова Анна Сергеевна" } });
+    fireEvent.change(within(assistantRegion).getByLabelText("Эл. почта ассистента"), { target: { value: "assistant@example.test" } });
+    const assistantPasswordInput = within(assistantRegion).getByLabelText("Временный пароль ассистента") as HTMLInputElement;
     fireEvent.change(assistantPasswordInput, { target: { value: "123456789" } });
     expect(assistantPasswordInput).toHaveAttribute("type", "password");
-    fireEvent.click(screen.getByRole("button", { name: "Показать временный пароль ассистента" }));
+    fireEvent.click(within(assistantRegion).getByRole("button", { name: "Показать временный пароль ассистента" }));
     expect(assistantPasswordInput).toHaveAttribute("type", "text");
     expect(assistantPasswordInput).toHaveValue("123456789");
-    fireEvent.click(screen.getByRole("button", { name: "Скрыть временный пароль ассистента" }));
+    fireEvent.click(within(assistantRegion).getByRole("button", { name: "Скрыть временный пароль ассистента" }));
     expect(assistantPasswordInput).toHaveAttribute("type", "password");
-    fireEvent.change(screen.getByLabelText("Клиника ассистента"), { target: { value: clinic.id } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
+    fireEvent.change(within(assistantRegion).getByLabelText("Клиника ассистента"), { target: { value: clinic.id } });
+    fireEvent.click(within(assistantRegion).getByRole("button", { name: "Добавить ассистента" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Временный пароль должен быть не короче 10 символов.");
     expect(fetchMock).not.toHaveBeenCalledWith(
@@ -870,8 +1000,8 @@ describe("Production admin management UI", () => {
       expect.objectContaining({ method: "POST" }),
     );
 
-    fireEvent.change(screen.getByLabelText("Временный пароль ассистента"), { target: { value: "Assistant-password-2026!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить ассистента" }));
+    fireEvent.change(within(assistantRegion).getByLabelText("Временный пароль ассистента"), { target: { value: "Assistant-password-2026!" } });
+    fireEvent.click(within(assistantRegion).getByRole("button", { name: "Добавить ассистента" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
