@@ -39,6 +39,12 @@
         "summary": "Disable or reactivate one role binding without deleting the user"
       }
     },
+    "/api/v1/admin/users/{userId}/password": {
+      "patch": {
+        "operationId": "resetAdminUserPassword",
+        "summary": "Set a new temporary password inside the administrator scope"
+      }
+    },
     "/api/v1/admin/clinics": {
       "get": {
         "operationId": "listAdminClinics",

@@ -70,6 +70,13 @@ function createRuntime(calls = []) {
           scope: { allClinics: true, clinicIds: [] },
         };
       },
+      async resetUserPassword(userId, body, authContext, meta) {
+        calls.push(["resetUserPassword", userId, body.password.length, authContext.roles, meta.correlationId]);
+        return {
+          item: { userId, displayName: "Сотрудник", passwordChangedAt: "2026-07-13T12:00:00.000Z" },
+          scope: { allClinics: true, clinicIds: [] },
+        };
+      },
       async setUserRoleStatus(userId, body, authContext, meta) {
         calls.push(["setUserRoleStatus", userId, body.status, body.role, authContext.roles, meta.correlationId]);
         return {
@@ -474,6 +481,15 @@ test("admin management routes expose lifecycle actions for clinics, users, and r
   assert.equal(reactivated.status, 200);
   assert.equal(reactivated.json.item.active, true);
 
+  const passwordReset = await request("/api/v1/admin/users/10000000-0000-4000-8000-000000000201/password", {
+    method: "PATCH",
+    runtime,
+    body: JSON.stringify({ password: "New-password-2026!" }),
+  });
+  assert.equal(passwordReset.status, 200);
+  assert.equal(passwordReset.json.item.displayName, "Сотрудник");
+  assert.equal(passwordReset.body.includes("New-password-2026!"), false);
+
   const roleStatus = await request("/api/v1/admin/users/10000000-0000-4000-8000-000000000201/role-status", {
     method: "PATCH",
     runtime,
@@ -491,6 +507,7 @@ test("admin management routes expose lifecycle actions for clinics, users, and r
     "setClinicStatus",
     "deleteEmptyClinic",
     "reactivateUser",
+    "resetUserPassword",
     "setUserRoleStatus",
   ]);
 });

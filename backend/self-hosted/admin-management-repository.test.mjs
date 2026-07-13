@@ -15,6 +15,7 @@ import {
   buildListClinicIntegrationsSql,
   buildListAuditEventsSql,
   buildReactivateAdminUserSql,
+  buildResetAdminUserPasswordSql,
   buildCreateServiceKeySql,
   buildListClinicServicesSql,
   buildSetAdminUserRoleStatusSql,
@@ -89,6 +90,16 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
   assertMutationUsesWritableCte(
     buildReactivateAdminUserSql({
       userId: "10000000-0000-4000-8000-000000000101",
+    }),
+    "updated",
+  );
+
+  assertMutationUsesWritableCte(
+    buildResetAdminUserPasswordSql({
+      userId: "10000000-0000-4000-8000-000000000101",
+      passwordHash: "safe-hash",
+      clinicIds: ["10000000-0000-4000-8000-000000000001"],
+      allClinics: false,
     }),
     "updated",
   );
@@ -228,6 +239,23 @@ test("admin user creation never overwrites an existing account password", () => 
   assert.match(sql, /on conflict \(email\) do nothing/i);
   assert.doesNotMatch(sql, /password_hash\s*=\s*excluded\.password_hash/i);
   assert.doesNotMatch(sql, /display_name\s*=\s*excluded\.display_name/i);
+});
+
+test("password reset updates only a user inside clinic scope and never returns password material", () => {
+  const sql = buildResetAdminUserPasswordSql({
+    userId: "10000000-0000-4000-8000-000000000101",
+    passwordHash: "$scrypt$safe-hash",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+  });
+
+  assert.match(sql, /update app_users/i);
+  assert.match(sql, /password_hash = '\$scrypt\$safe-hash'/i);
+  assert.match(sql, /from user_roles ur/i);
+  assert.match(sql, /ur\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/i);
+  assert.match(sql, /ur\.role in \('doctor', 'private_doctor', 'assistant', 'operator'\)/i);
+  assert.match(sql, /protected_role\.role = 'system_admin'/i);
+  assert.doesNotMatch(sql, /returning[^;]*(password_hash|credential_version)/is);
 });
 
 test("clinic admin analytics and audit exclude global system events", () => {

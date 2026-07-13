@@ -37,6 +37,7 @@ test("Stage 4M admin DB smoke plan states the real create and edit checks", () =
   assert.match(out, /admin clinic list/);
   assert.match(out, /clinic create/);
   assert.match(out, /duplicate-email account safety/);
+  assert.match(out, /scoped password reset/);
   assert.match(out, /created row visibility/);
   assert.match(out, /clinic edit/);
   assert.match(out, /clinic empty delete/);
@@ -56,6 +57,9 @@ test("Stage 4M admin DB smoke SQL exercises list, create, edit and analytics in 
   assert.match(sql, /admin user duplicate email did not return conflict sentinel/);
   assert.match(sql, /admin user duplicate email changed existing credentials/);
   assert.match(sql, /admin user duplicate email added a role to existing account/);
+  assert.match(sql, /admin password reset did not return the scoped employee/);
+  assert.match(sql, /admin password reset did not persist the new hash/);
+  assert.match(sql, /admin password reset exposed password hash/);
   assert.match(sql, /update clinics/i);
   assert.match(sql, /admin clinic empty delete did not return deleted true/);
   assert.match(sql, /admin clinic empty delete did not hide the clinic row/);

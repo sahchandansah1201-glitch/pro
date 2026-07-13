@@ -22,6 +22,7 @@ import {
   listAdminDoctors,
   listAdminUsers,
   reactivateAdminUser,
+  resetAdminUserPassword,
   setAdminUserRoleStatus,
   type AdminClinicDTO,
   type AdminRoleBindingDTO,
@@ -160,12 +161,14 @@ function PasswordVisibilityButton({
   visible,
   onToggle,
   subject,
+  passwordLabel = "временный пароль",
 }: {
   visible: boolean;
   onToggle: () => void;
-  subject: "врача" | "ассистента";
+  subject: string;
+  passwordLabel?: string;
 }) {
-  const label = `${visible ? "Скрыть" : "Показать"} временный пароль ${subject}`;
+  const label = `${visible ? "Скрыть" : "Показать"} ${passwordLabel} ${subject}`;
   return (
     <button
       type="button"
@@ -246,16 +249,20 @@ function StaffDirectory({
   loading,
   busy,
   showRoleAction,
+  showPasswordAction = false,
   onToggleAccess,
   onToggleRole,
+  onResetPassword,
 }: {
   title: string;
   users: AdminUserDTO[];
   loading: boolean;
   busy: boolean;
   showRoleAction: boolean;
+  showPasswordAction?: boolean;
   onToggleAccess: (user: AdminUserDTO) => void;
   onToggleRole: (user: AdminUserDTO, role: AdminRoleBindingDTO) => void;
+  onResetPassword?: (user: AdminUserDTO) => void;
 }) {
   return (
     <Card className="overflow-hidden p-0" role="region" aria-label={title}>
@@ -282,6 +289,11 @@ function StaffDirectory({
                 <div className="grid grid-cols-[88px_1fr] text-[12px] lg:block"><span className="font-medium text-muted-foreground lg:hidden">Клиника</span><span>{doctorClinicName(user)}</span></div>
                 <div className="grid grid-cols-[88px_1fr] items-center text-[12px] lg:block"><span className="font-medium text-muted-foreground lg:hidden">Доступ</span><StaffAccessStatus user={user} /></div>
                 <div className="flex flex-wrap gap-2 lg:justify-end">
+                  {showPasswordAction && (
+                    <Button type="button" variant="outline" className="min-h-11" onClick={() => onResetPassword?.(user)} disabled={busy}>
+                      <KeyRound className="mr-2 h-4 w-4" aria-hidden />Задать новый пароль
+                    </Button>
+                  )}
                   <Button type="button" variant="outline" className="min-h-11" onClick={() => onToggleAccess(user)} disabled={busy}>
                     {user.active ? "Отключить доступ" : "Вернуть доступ"}
                   </Button>
@@ -315,6 +327,10 @@ function AdminDoctorsPageLive() {
   const [createFormOpen, setCreateFormOpen] = useState(false);
   const [staffQuery, setStaffQuery] = useState("");
   const [accessFilter, setAccessFilter] = useState<AccessFilter>("all");
+  const [passwordUser, setPasswordUser] = useState<AdminUserDTO | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
+  const [passwordNote, setPasswordNote] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [form, setForm] = useState({
     displayName: "",
     email: "",
@@ -488,6 +504,37 @@ function AdminDoctorsPageLive() {
     await load();
   }
 
+  function startPasswordReset(user: AdminUserDTO) {
+    setPasswordUser(user);
+    setNewPassword("");
+    setNewPasswordVisible(false);
+    setPasswordNote(null);
+  }
+
+  async function submitPasswordReset() {
+    if (!passwordUser) return;
+    if (newPassword.length < 10) {
+      setPasswordNote({ kind: "error", text: "Новый пароль должен быть не короче 10 символов." });
+      return;
+    }
+    setBusy(true);
+    setPasswordNote(null);
+    const result = await resetAdminUserPassword({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      userId: passwordUser.id,
+      password: newPassword,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setPasswordNote({ kind: "error", text: adminApiErrorText(result.error) });
+      return;
+    }
+    setNewPassword("");
+    setNewPasswordVisible(false);
+    setPasswordNote({ kind: "success", text: `Новый пароль сохранён: ${passwordUser.displayName}` });
+  }
+
   const normalizedQuery = staffQuery.trim().toLowerCase();
   const matchesQuery = (user: AdminUserDTO) =>
     !normalizedQuery || `${user.displayName} ${user.email} ${doctorClinicName(user)}`.toLowerCase().includes(normalizedQuery);
@@ -560,7 +607,29 @@ function AdminDoctorsPageLive() {
           <TabsContent value="assistants" className="space-y-3">{assistantCreatePanel}<StaffDirectory title="Ассистенты клиники" users={visibleAssistants} loading={loading} busy={busy} showRoleAction={false} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={() => {}} /></TabsContent>
           <TabsContent value="access" className="space-y-3">
             <div className="flex flex-col gap-1 rounded-md border-l-4 border-warning bg-warning/5 px-3 py-2 text-[12px]"><strong>Учётная запись и роль — разные уровни доступа.</strong><span className="text-muted-foreground">Отключение доступа блокирует вход полностью. Приостановка роли убирает только рабочее место врача.</span></div>
-            <StaffDirectory title="Управление доступом" users={visibleAccessStaff} loading={loading} busy={busy} showRoleAction onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} />
+            {passwordUser && (
+              <Card className="p-3" role="region" aria-label={`Новый пароль для ${passwordUser.displayName}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold">Новый пароль для {passwordUser.displayName}</div>
+                    <p className="mt-1 text-[12px] text-muted-foreground">Текущий пароль посмотреть нельзя. Введите новый пароль и передайте его сотруднику безопасным способом.</p>
+                  </div>
+                  <div className="min-w-0 space-y-1 text-[11px] font-medium lg:w-80">
+                    <label htmlFor="staff-new-password">Новый пароль</label>
+                    <div className="relative">
+                      <Input id="staff-new-password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordNote(null); }} type={newPasswordVisible ? "text" : "password"} className="min-h-11 pr-12" />
+                      <PasswordVisibilityButton visible={newPasswordVisible} onToggle={() => setNewPasswordVisible((current) => !current)} subject="сотрудника" passwordLabel="новый пароль" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" className="min-h-11" onClick={() => void submitPasswordReset()} disabled={busy}>Сохранить пароль</Button>
+                    <Button type="button" variant="outline" className="min-h-11" onClick={() => { setPasswordUser(null); setPasswordNote(null); setNewPassword(""); }} disabled={busy}>Отмена</Button>
+                  </div>
+                </div>
+                {passwordNote && <div role={passwordNote.kind === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-md border px-3 py-2 text-[12px] ${passwordNote.kind === "error" ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-success/30 bg-success/5 text-success"}`}>{passwordNote.text}</div>}
+              </Card>
+            )}
+            <StaffDirectory title="Управление доступом" users={visibleAccessStaff} loading={loading} busy={busy} showRoleAction showPasswordAction onResetPassword={startPasswordReset} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} />
           </TabsContent>
         </Tabs>
       </div>

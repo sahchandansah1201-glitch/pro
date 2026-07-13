@@ -11,6 +11,7 @@ import {
   listAdminAuditEvents,
   listAdminServiceKeys,
   reactivateAdminUser,
+  resetAdminUserPassword,
   revokeAdminServiceKey,
   rotateAdminServiceKey,
   setAdminClinicStatus,
@@ -219,6 +220,40 @@ describe("self-hosted-admin-api · private practice", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({ role: "private_doctor", clinicId: "clinic-1", status: "disabled", reason: "Пауза кабинета" }),
+      }),
+    );
+  });
+
+  it("sets a new employee password without returning password material", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          item: {
+            userId: "user-1",
+            displayName: "Владелец",
+            passwordChangedAt: "2026-07-13T12:00:00.000Z",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resetAdminUserPassword({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-admin",
+      userId: "user-1",
+      password: "New-password-2026!",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.displayName).toBe("Владелец");
+    expect(result.value).not.toHaveProperty("password");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/password",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ password: "New-password-2026!" }),
       }),
     );
   });

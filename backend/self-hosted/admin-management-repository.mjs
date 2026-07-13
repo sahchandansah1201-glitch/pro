@@ -243,6 +243,48 @@ from (
 `.trim();
 }
 
+export function buildResetAdminUserPasswordSql({
+  userId,
+  passwordHash,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const scopedClinicIds = safeUuidList(clinicIds);
+  const scopedUserWhere = allClinics
+    ? ""
+    : scopedClinicIds.length === 0
+      ? "and false"
+      : `and exists (
+      select 1
+      from user_roles ur
+      where ur.user_id = app_users.id
+        and ur.clinic_id in (${sqlUuidList(scopedClinicIds)})
+        and ur.role in ('doctor', 'private_doctor', 'assistant', 'operator')
+    )
+    and not exists (
+      select 1
+      from user_roles protected_role
+      where protected_role.user_id = app_users.id
+        and protected_role.role = 'system_admin'
+    )`;
+  return `
+with updated as (
+  update app_users
+  set password_hash = ${sqlLiteral(passwordHash)},
+      updated_at = now()
+  where id = ${sqlUuid(userId)}
+    ${scopedUserWhere}
+  returning id::text as "userId",
+            display_name as "displayName",
+            updated_at as "passwordChangedAt"
+)
+select row_to_json(result)::text
+from (
+  select * from updated
+) result;
+`.trim();
+}
+
 export function buildSetAdminUserRoleStatusSql({
   userId,
   role,
@@ -1130,6 +1172,9 @@ export function createAdminManagementRepository(dbClient) {
     },
     async reactivateUser(params) {
       return dbClient.queryJson(buildReactivateAdminUserSql(params));
+    },
+    async resetUserPassword(params) {
+      return dbClient.queryJson(buildResetAdminUserPasswordSql(params));
     },
     async setUserRoleStatus(params) {
       return dbClient.queryJson(buildSetAdminUserRoleStatusSql(params));

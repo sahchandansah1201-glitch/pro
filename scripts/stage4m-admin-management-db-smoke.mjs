@@ -13,6 +13,7 @@ import {
   buildDeleteEmptyClinicSql,
   buildListAuditEventsSql,
   buildListClinicsSql,
+  buildResetAdminUserPasswordSql,
   buildSetClinicStatusSql,
 } from "../backend/self-hosted/admin-management-repository.mjs";
 
@@ -140,9 +141,11 @@ export function buildStage4MAdminDbSmokeSql({ suffix = safeSmokeSuffix() } = {})
   }));
   const analyticsSql = withoutTrailingSemicolon(buildAdminAnalyticsSql({ allClinics: true }));
   const placeholderClinicId = "00000000-0000-4000-8000-000000000000";
+  const placeholderUserId = "00000000-0000-4000-8000-000000000001";
   const existingUserEmail = `stage4m-existing-${safeSuffix}@example.invalid`;
   const existingUserName = `Stage 4M existing user ${safeSuffix}`;
   const existingPasswordHash = `stage4m-existing-password-${safeSuffix}`;
+  const resetPasswordHash = `stage4m-reset-password-${safeSuffix}`;
   const conflictingUserSql = withoutTrailingSemicolon(buildCreateAdminUserSql({
     email: existingUserEmail,
     displayName: `Stage 4M overwritten user ${safeSuffix}`,
@@ -158,6 +161,12 @@ export function buildStage4MAdminDbSmokeSql({ suffix = safeSmokeSuffix() } = {})
     clinicIds: [placeholderClinicId],
     allClinics: false,
     limit: 100,
+  }));
+  const resetPasswordSql = withoutTrailingSemicolon(buildResetAdminUserPasswordSql({
+    userId: placeholderUserId,
+    passwordHash: resetPasswordHash,
+    clinicIds: [placeholderClinicId],
+    allClinics: false,
   }));
   const clinicAuditAction = `stage4m.clinic.audit.${safeSuffix}`;
   const globalAuditAction = `stage4m.global.audit.${safeSuffix}`;
@@ -223,6 +232,32 @@ begin
   ) then
     raise exception 'admin user duplicate email added a role to existing account';
   end if;
+
+  insert into user_roles (user_id, clinic_id, role)
+  values (existing_user_id, (select id from clinics where slug = ${sqlLiteral(clinicSlug)}), 'assistant'::app_role);
+
+  execute replace(
+    replace(
+      $sql$${resetPasswordSql}$sql$,
+      ${sqlLiteral(placeholderUserId)},
+      existing_user_id::text
+    ),
+    ${sqlLiteral(placeholderClinicId)},
+    (select id::text from clinics where slug = ${sqlLiteral(clinicSlug)})
+  ) into payload;
+  if payload is null or position(${sqlLiteral(existingUserName)} in payload) = 0 then
+    raise exception 'admin password reset did not return the scoped employee';
+  end if;
+  if not exists (
+    select 1 from app_users where id = existing_user_id and password_hash = ${sqlLiteral(resetPasswordHash)}
+  ) then
+    raise exception 'admin password reset did not persist the new hash';
+  end if;
+  if position(${sqlLiteral(resetPasswordHash)} in payload) > 0 then
+    raise exception 'admin password reset exposed password hash';
+  end if;
+
+  delete from user_roles where user_id = existing_user_id;
 
   execute $sql$${searchSql}$sql$ into payload;
   if payload is null or position(${sqlLiteral(clinicSlug)} in payload) = 0 then
@@ -312,7 +347,7 @@ export function renderStage4MAdminDbSmokePlan(options = {}) {
     "",
     `- Project: ${config.projectName}`,
     `- Compose env file: ${config.composeEnvFile}`,
-    "- Scope: admin clinic list, clinic create, duplicate-email account safety, created row visibility, clinic edit, clinic empty delete, analytics aggregate query, clinic-scoped audit isolation",
+    "- Scope: admin clinic list, clinic create, duplicate-email account safety, scoped password reset, created row visibility, clinic edit, clinic empty delete, analytics aggregate query, clinic-scoped audit isolation",
     "- Safety: wrapped in one transaction and rolled back; no patient rows, credentials, tokens, storage paths, or signed URLs are printed",
   ].join("\n");
 }
@@ -361,7 +396,7 @@ export function runStage4MAdminManagementDbSmoke(options = {}, io = {}) {
   if (!String(result.stdout || "").includes("stage4m_admin_management_db_smoke_ok")) {
     throw new Error("Admin management database smoke did not return its OK marker.");
   }
-  console.log("[stage4m-admin-db-smoke] verified admin clinic create/list/edit, duplicate-email account safety and audit isolation journey against PostgreSQL");
+  console.log("[stage4m-admin-db-smoke] verified admin clinic create/list/edit, duplicate-email account safety, scoped password reset and audit isolation journey against PostgreSQL");
   return { ok: true, dryRun: false };
 }
 

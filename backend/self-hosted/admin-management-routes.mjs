@@ -13,6 +13,10 @@ function adminUserReactivatePath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/reactivate$/);
 }
 
+function adminUserPasswordPath(pathname) {
+  return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/password$/);
+}
+
 function adminUserRoleStatusPath(pathname) {
   return pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/role-status$/);
 }
@@ -156,6 +160,22 @@ export async function handleAdminManagementRequest({
       const authContext = await runtimeServices.authService.authenticate(request.headers);
       const result = await runtimeServices.adminManagementService.setUserRoleStatus(
         decodeURIComponent(userRoleStatus[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(200, { stage: "6A", source: "postgres", item: result.item, generatedAt: now(), correlationId }, config, requestOrigin);
+    } catch (error) {
+      return safeErrorResponse({ error, publicErrorFor, correlationId, config, requestOrigin });
+    }
+  }
+
+  const userPassword = adminUserPasswordPath(url.pathname);
+  if (userPassword && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.adminManagementService.resetUserPassword(
+        decodeURIComponent(userPassword[1]),
         parseJsonBody(request.body),
         authContext,
         { correlationId },

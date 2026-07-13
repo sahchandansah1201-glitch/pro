@@ -44,6 +44,15 @@ export class AdminManagementConflictError extends Error {
   }
 }
 
+export class AdminManagementNotFoundError extends Error {
+  constructor(message = "Resource was not found in the allowed clinic scope.") {
+    super(message);
+    this.name = "AdminManagementNotFoundError";
+    this.publicCode = "not_found";
+    this.publicStatus = 404;
+  }
+}
+
 function cleanString(value, max = 240) {
   if (value == null) return null;
   const cleaned = String(value).trim().replace(/\s+/g, " ").slice(0, max);
@@ -120,6 +129,18 @@ function normalizeRolePayload(input = {}, scope) {
   }
   if (details.length > 0) throw new AdminManagementValidationError(details);
   return payload;
+}
+
+function normalizePasswordResetPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new AdminManagementValidationError([{ field: "body", message: "Нужен JSON-объект." }]);
+  }
+  const password = String(input.password ?? "");
+  const details = [];
+  if (password.length < 10) details.push({ field: "password", message: "Новый пароль должен быть не короче 10 символов." });
+  if (password.length > 256) details.push({ field: "password", message: "Новый пароль слишком длинный." });
+  if (details.length > 0) throw new AdminManagementValidationError(details);
+  return { password };
 }
 
 function normalizeClinicStatusPayload(input = {}) {
@@ -515,6 +536,28 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         entityId: safeUserId,
         correlationId: meta.correlationId,
         metadata: { allClinics: scope.allClinics },
+      });
+      return { item: user, scope };
+    },
+
+    async resetUserPassword(userId, input, authContext, meta = {}) {
+      const scope = adminScope(authContext);
+      const safeUserId = assertUuid(userId, "userId");
+      const payload = normalizePasswordResetPayload(input);
+      const user = await adminManagementRepository.resetUserPassword({
+        userId: safeUserId,
+        passwordHash: hashPassword(payload.password),
+        ...scope,
+      });
+      if (!user) throw new AdminManagementNotFoundError();
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "admin.user.password.reset",
+        entityType: "admin_user",
+        entityId: safeUserId,
+        correlationId: meta.correlationId,
+        metadata: { passwordStoredAsHash: true },
       });
       return { item: user, scope };
     },

@@ -111,6 +111,7 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminAssistantName = `Ассистент клиники ${suffix}`;
     const clinicAdminAssistantEmail = `clinic-assistant-${suffix}@skindoktor.ru`;
     const clinicAdminAssistantPassword = `Dp-${suffix}-Assistant-2026!`;
+    const clinicAdminAssistantNewPassword = `Dp-${suffix}-Assistant-New-2026!`;
     const clinicAdminServiceName = `Дерматоскопия проверочная ${suffix}`;
     const clinicAdminUpdatedServiceName = `Дерматоскопия контрольная ${suffix}`;
     const clinicAdminServiceConsent = `Согласие на съёмку ${suffix}`;
@@ -883,6 +884,32 @@ test.describe("Live production admin management journey", () => {
     await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Приостановить роль врача" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Отключить доступ" }).first()).toBeVisible();
+    await page.getByLabel("Поиск сотрудников").fill(clinicAdminAssistantEmail);
+    await page.getByRole("button", { name: "Задать новый пароль" }).click();
+    const passwordRegion = page.getByRole("region", { name: `Новый пароль для ${clinicAdminAssistantName}` });
+    await expect(passwordRegion.getByText("Текущий пароль посмотреть нельзя. Введите новый пароль и передайте его сотруднику безопасным способом.")).toBeVisible();
+    const newPasswordInput = passwordRegion.getByLabel("Новый пароль", { exact: true });
+    await newPasswordInput.fill("123456789");
+    await passwordRegion.getByRole("button", { name: "Сохранить пароль" }).click();
+    await expect(passwordRegion.getByRole("alert")).toContainText("Новый пароль должен быть не короче 10 символов.");
+    await newPasswordInput.fill(clinicAdminAssistantNewPassword);
+    await passwordRegion.getByRole("button", { name: "Показать новый пароль сотрудника" }).click();
+    await expect(newPasswordInput).toHaveAttribute("type", "text");
+    const passwordResetResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "PATCH", /^\/api\/v1\/admin\/users\/[^/]+\/password$/),
+    );
+    await passwordRegion.getByRole("button", { name: "Сохранить пароль" }).click();
+    const passwordResetResponse = await passwordResetResponsePromise;
+    expect(passwordResetResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(passwordResetResponse.status()).toBeLessThan(300);
+    await expect(passwordRegion.getByRole("status")).toContainText(`Новый пароль сохранён: ${clinicAdminAssistantName}`);
+    await expect(newPasswordInput).toHaveValue("");
+    await expect(newPasswordInput).toHaveAttribute("type", "password");
+    await expectNoHorizontalOverflow(page);
+    await passwordRegion.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-password-desktop-1280.png") });
+    await passwordRegion.getByRole("button", { name: "Отмена" }).click();
+    await page.getByLabel("Поиск сотрудников").fill("");
     await expectNoHorizontalOverflow(page);
     await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
     await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
@@ -890,8 +917,16 @@ test.describe("Live production admin management journey", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+    await page.getByLabel("Поиск сотрудников").fill(clinicAdminAssistantEmail);
+    await page.getByRole("button", { name: "Задать новый пароль" }).click();
+    const mobilePasswordRegion = page.getByRole("region", { name: `Новый пароль для ${clinicAdminAssistantName}` });
+    await expect(mobilePasswordRegion).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
+    await mobilePasswordRegion.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-password-mobile-390.png") });
+    await mobilePasswordRegion.getByRole("button", { name: "Отмена" }).click();
+    await page.getByLabel("Поиск сотрудников").fill("");
     await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
     await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-mobile-390.png") });
@@ -1136,6 +1171,7 @@ test.describe("Live production admin management journey", () => {
     expect(adminResponses.some((item) => item.method === "GET" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/clinics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/users" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(adminResponses.some((item) => item.method === "PATCH" && /\/api\/v1\/admin\/users\/[^/]+\/password/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "GET" && item.path === "/api/v1/admin/analytics" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/doctors" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(adminResponses.some((item) => item.method === "POST" && item.path === "/api/v1/admin/services" && item.status >= 200 && item.status < 300)).toBe(true);

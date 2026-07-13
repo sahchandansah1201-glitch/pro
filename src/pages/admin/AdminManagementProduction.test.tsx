@@ -796,6 +796,54 @@ describe("Production admin management UI", () => {
     expect(screen.getByText("assistant@example.test")).toBeInTheDocument();
   });
 
+  it("lets a clinic admin set a new employee password without exposing the current password", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [owner] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [] });
+      if (href.endsWith("/api/v1/admin/users/user-1/password") && init?.method === "PATCH") {
+        return json({ item: { userId: owner.id, displayName: owner.displayName, passwordChangedAt: "2026-07-13T12:00:00.000Z" } });
+      }
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole("button", { name: "Задать новый пароль" }));
+    const passwordRegion = screen.getByRole("region", { name: `Новый пароль для ${owner.displayName}` });
+    expect(within(passwordRegion).getByText("Текущий пароль посмотреть нельзя. Введите новый пароль и передайте его сотруднику безопасным способом.")).toBeInTheDocument();
+    const passwordInput = within(passwordRegion).getByLabelText("Новый пароль") as HTMLInputElement;
+    fireEvent.change(passwordInput, { target: { value: "short" } });
+    fireEvent.click(within(passwordRegion).getByRole("button", { name: "Сохранить пароль" }));
+    expect(await within(passwordRegion).findByRole("alert")).toHaveTextContent("Новый пароль должен быть не короче 10 символов.");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/password",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    fireEvent.change(passwordInput, { target: { value: "New-password-2026!" } });
+    fireEvent.click(within(passwordRegion).getByRole("button", { name: "Показать новый пароль сотрудника" }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+    fireEvent.click(within(passwordRegion).getByRole("button", { name: "Сохранить пароль" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://clinic.local/api/v1/admin/users/user-1/password",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ password: "New-password-2026!" }),
+        }),
+      );
+    });
+    expect(await within(passwordRegion).findByRole("status")).toHaveTextContent(`Новый пароль сохранён: ${owner.displayName}`);
+    expect(passwordInput).toHaveValue("");
+    expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
   it("filters staff by role, query, and account access without mixing role actions", async () => {
     const disabledAssistant = {
       ...owner,

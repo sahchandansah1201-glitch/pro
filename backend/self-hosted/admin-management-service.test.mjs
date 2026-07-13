@@ -15,7 +15,7 @@ const CLINIC_AUTH = {
   clinicIds: ["10000000-0000-4000-8000-000000000001"],
 };
 
-function createService({ calls = [], createUserResult } = {}) {
+function createService({ calls = [], createUserResult, resetUserResult } = {}) {
   const repository = {
     async listUsers(params) {
       calls.push(["listUsers", params]);
@@ -38,6 +38,16 @@ function createService({ calls = [], createUserResult } = {}) {
     async reactivateUser(params) {
       calls.push(["reactivateUser", params]);
       return { id: params.userId, disabledAt: null, active: true };
+    },
+    async resetUserPassword(params) {
+      calls.push(["resetUserPassword", { ...params, passwordHash: params.passwordHash ? "[hash]" : "" }]);
+      return resetUserResult === undefined
+        ? {
+            userId: params.userId,
+            displayName: "Сотрудник клиники",
+            passwordChangedAt: "2026-07-13T12:00:00.000Z",
+          }
+        : resetUserResult;
     },
     async setUserRoleStatus(params) {
       calls.push(["setUserRoleStatus", params]);
@@ -809,6 +819,58 @@ test("system admin reactivates account and can disable one role without deleting
   assert.deepEqual(calls.map((call) => call[0]), ["reactivateUser", "setUserRoleStatus"]);
   assert.equal(auditEvents[0].action, "admin.user.reactivate");
   assert.equal(auditEvents[1].action, "admin.user.role.status.update");
+});
+
+test("clinic admin resets a scoped employee password as a hash and records safe audit", async () => {
+  const { service, calls, auditEvents } = createService();
+  const result = await service.resetUserPassword(
+    "10000000-0000-4000-8000-000000000201",
+    { password: "New-password-2026!" },
+    CLINIC_AUTH,
+    { correlationId: "password-reset" },
+  );
+
+  assert.equal(result.item.displayName, "Сотрудник клиники");
+  assert.deepEqual(calls[0], [
+    "resetUserPassword",
+    {
+      userId: "10000000-0000-4000-8000-000000000201",
+      passwordHash: "[hash]",
+      allClinics: false,
+      clinicIds: ["10000000-0000-4000-8000-000000000001"],
+      roles: ["clinic_admin"],
+    },
+  ]);
+  assert.equal(auditEvents[0].action, "admin.user.password.reset");
+  assert.equal(auditEvents[0].metadata.passwordStoredAsHash, true);
+  assert.doesNotMatch(JSON.stringify(result), /New-password-2026|passwordHash/i);
+});
+
+test("password reset rejects short values before repository access", async () => {
+  const { service, calls } = createService();
+  await assert.rejects(
+    () => service.resetUserPassword(
+      "10000000-0000-4000-8000-000000000201",
+      { password: "short" },
+      CLINIC_AUTH,
+    ),
+    /validation/i,
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("clinic admin cannot reset a password outside the scoped staff directory", async () => {
+  const { service, calls, auditEvents } = createService({ resetUserResult: null });
+  await assert.rejects(
+    () => service.resetUserPassword(
+      "10000000-0000-4000-8000-000000000201",
+      { password: "New-password-2026!" },
+      CLINIC_AUTH,
+    ),
+    (error) => error?.publicStatus === 404 && error?.publicCode === "not_found",
+  );
+  assert.equal(calls[0][0], "resetUserPassword");
+  assert.deepEqual(auditEvents, []);
 });
 
 test("analytics returns aggregate counters and audit events only", async () => {

@@ -60,6 +60,12 @@ export interface AdminRoleStatusDTO {
   disabledAt: string | null;
 }
 
+export interface AdminUserPasswordResetDTO {
+  userId: string;
+  displayName: string;
+  passwordChangedAt: string | null;
+}
+
 export interface AdminAnalyticsDTO {
   clinics: number;
   activeUsers: number;
@@ -306,6 +312,15 @@ function normalizeRoleStatus(input: unknown): AdminRoleStatusDTO {
   };
 }
 
+function normalizePasswordReset(input: unknown): AdminUserPasswordResetDTO {
+  const item = isRecord(input) ? input : {};
+  return {
+    userId: String(item.userId ?? ""),
+    displayName: String(item.displayName ?? ""),
+    passwordChangedAt: item.passwordChangedAt == null ? null : String(item.passwordChangedAt),
+  };
+}
+
 function normalizeClinicService(input: unknown): AdminClinicServiceDTO {
   const item = isRecord(input) ? input : {};
   const category = String(item.category ?? "consult");
@@ -458,6 +473,18 @@ export async function reactivateAdminUser(args: BaseArgs & { userId: string }): 
   if (!result.ok) return result as SelfHostedApiResult<AdminUserDTO>;
   const body = isRecord(result.value) ? result.value : {};
   return ok(normalizeUser(body.item));
+}
+
+export async function resetAdminUserPassword(
+  args: BaseArgs & { userId: string; password: string },
+): Promise<SelfHostedApiResult<AdminUserPasswordResetDTO>> {
+  const result = await request(args, `/api/v1/admin/users/${encodeURIComponent(args.userId)}/password`, {
+    method: "PATCH",
+    body: JSON.stringify({ password: args.password }),
+  });
+  if (!result.ok) return result as SelfHostedApiResult<AdminUserPasswordResetDTO>;
+  const body = isRecord(result.value) ? result.value : {};
+  return ok(normalizePasswordReset(body.item));
 }
 
 export async function setAdminUserRoleStatus(

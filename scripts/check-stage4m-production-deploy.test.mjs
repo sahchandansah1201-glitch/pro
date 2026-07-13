@@ -140,6 +140,8 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-assistants-mobile-390\.png/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-access-desktop-1280\.png/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-access-mobile-390\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-password-desktop-1280\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-password-mobile-390\.png/);
 });
 
 test("Stage 4M guard rejects clinic staff screenshots captured under the wrong tab", () => {

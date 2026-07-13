@@ -199,6 +199,14 @@ test.describe("Production admin management journey", () => {
       });
 
       await page.route("**/api/v1/admin/users**", async (route) => {
+        if (route.request().url().endsWith("/password") && route.request().method() === "PATCH") {
+          const userId = route.request().url().match(/\/admin\/users\/([^/]+)\/password/)?.[1];
+          const user = users.find((item) => item.id === decodeURIComponent(userId ?? ""));
+          await route.fulfill({
+            json: { item: { userId: user?.id, displayName: user?.displayName, passwordChangedAt: "2026-07-13T12:00:00.000Z" }, source: "postgres" },
+          });
+          return;
+        }
         if (route.request().url().includes("/disable")) {
           await route.fulfill({ json: { item: { active: false }, source: "postgres" } });
           return;
@@ -371,6 +379,25 @@ test.describe("Production admin management journey", () => {
       await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("active");
       await expect(page.getByText("assistant@example.test")).toBeVisible();
       await expect(page.getByRole("button", { name: "Приостановить роль врача" })).toBeVisible();
+      await page.getByLabel("Поиск сотрудников").fill("assistant@example.test");
+      await page.getByRole("button", { name: "Задать новый пароль" }).click();
+      const passwordRegion = page.getByRole("region", { name: "Новый пароль для Ассистент Тестовый" });
+      const newPasswordInput = passwordRegion.getByLabel("Новый пароль", { exact: true });
+      await newPasswordInput.fill("123456789");
+      await passwordRegion.getByRole("button", { name: "Сохранить пароль" }).click();
+      await expect(passwordRegion.getByRole("alert")).toContainText("Новый пароль должен быть не короче 10 символов.");
+      await newPasswordInput.fill("new-assistant-password-2");
+      await passwordRegion.getByRole("button", { name: "Показать новый пароль сотрудника" }).click();
+      await expect(newPasswordInput).toHaveAttribute("type", "text");
+      await passwordRegion.getByRole("button", { name: "Сохранить пароль" }).click();
+      await expect(passwordRegion.getByRole("status")).toContainText("Новый пароль сохранён: Ассистент Тестовый");
+      await expect(newPasswordInput).toHaveValue("");
+      await expectNoHorizontalOverflow(page);
+      if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
+      await passwordRegion.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`admin-doctors-password-${viewport.name}.png`) });
+      await passwordRegion.getByRole("button", { name: "Отмена" }).click();
+      await page.getByLabel("Поиск сотрудников").fill("");
       await expectNoHorizontalOverflow(page);
       if (viewport.name.includes("mobile")) await expectMainTapTargets(page);
       await scrollMainToTop(page);
