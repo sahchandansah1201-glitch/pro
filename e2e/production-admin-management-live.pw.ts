@@ -797,7 +797,10 @@ test.describe("Live production admin management journey", () => {
       duplicateDoctorConsoleErrors.join("\n"),
     ).toEqual([]);
 
-    await page.getByRole("tab", { name: "Ассистенты" }).click();
+    const assistantsTab = page.getByRole("tab", { name: "Ассистенты" });
+    await assistantsTab.click();
+    await expect(assistantsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Врачи" })).toHaveAttribute("aria-selected", "false");
     await expect(page.getByRole("heading", { name: "Ассистенты клиники" })).toBeVisible();
     await page.getByRole("button", { name: "Добавить ассистента" }).click();
     const assistantRegion = page.getByRole("region", { name: "Добавить ассистента" });
@@ -833,11 +836,32 @@ test.describe("Live production admin management journey", () => {
     await expectNoHorizontalOverflow(page);
     await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
     await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
-    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png") });
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-assistants-desktop-1280.png") });
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
     await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-assistants-mobile-390.png") });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const doctorsTab = page.getByRole("tab", { name: "Врачи" });
+    await doctorsTab.click();
+    await expect(doctorsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Ассистенты" })).toHaveAttribute("aria-selected", "false");
+    await expect(page.getByRole("heading", { name: "Врачи клиники" })).toBeVisible();
+    await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));
+    await appMain(page).evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png") });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { name: "Врачи клиники" })).toBeVisible();
+    await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.evaluate(() => window.scrollTo({ top: 0, left: 0 }));

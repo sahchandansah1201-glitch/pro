@@ -463,6 +463,10 @@ const REQUIRED_TEXT = {
     "Поиск сотрудников",
     "Фильтр доступа",
     "Приостановить роль врача",
+    "live-clinic-admin-doctors-desktop-1280.png",
+    "live-clinic-admin-doctors-mobile-390.png",
+    "live-clinic-admin-assistants-desktop-1280.png",
+    "live-clinic-admin-assistants-mobile-390.png",
     "live-clinic-admin-access-desktop-1280.png",
     "live-clinic-admin-access-mobile-390.png",
     "clinicAdminRecentAuditEvents",
@@ -812,6 +816,14 @@ function scanRuntimeCoupling(errors, root) {
 }
 
 export function validateLiveE2EContract(errors, root) {
+  const markersAppearInOrder = (content, markers) => {
+    let cursor = -1;
+    for (const marker of markers) {
+      cursor = content.indexOf(marker, cursor + 1);
+      if (cursor === -1) return false;
+    }
+    return true;
+  };
   const hasRequiredHelperImport = (content, requiredHelpers) => {
     const match = content.match(/import\s*\{([^}]+)\}\s*from\s*["']\.\/live-admin-test-helpers["'];?/s);
     if (!match) return false;
@@ -872,22 +884,26 @@ export function validateLiveE2EContract(errors, root) {
         "Клиника ассистента",
         "Добавить ассистента",
         "Ассистент добавлен",
-    "assistantCreateRequestsBeforeValidation",
-    "Разделы сотрудников",
-    "Учётная запись и роль — разные уровни доступа.",
-    "Поиск сотрудников",
-    "Фильтр доступа",
-    "Приостановить роль врача",
-    "live-clinic-admin-access-desktop-1280.png",
-    "live-clinic-admin-access-mobile-390.png",
-    "Показать временный пароль врача",
-    "Скрыть временный пароль врача",
-    "Показать временный пароль ассистента",
-    "Скрыть временный пароль ассистента",
-    "clinicAdminDuplicateDoctorResponse",
-    "duplicateDoctorConsoleErrorsStart",
-    "filterExpectedHttpStatusConsoleErrors(duplicateDoctorConsoleErrors, 409, 1)",
-    "Учётная запись с такой почтой уже существует.",
+        "assistantCreateRequestsBeforeValidation",
+        "Разделы сотрудников",
+        "Учётная запись и роль — разные уровни доступа.",
+        "Поиск сотрудников",
+        "Фильтр доступа",
+        "Приостановить роль врача",
+        "live-clinic-admin-doctors-desktop-1280.png",
+        "live-clinic-admin-doctors-mobile-390.png",
+        "live-clinic-admin-assistants-desktop-1280.png",
+        "live-clinic-admin-assistants-mobile-390.png",
+        "live-clinic-admin-access-desktop-1280.png",
+        "live-clinic-admin-access-mobile-390.png",
+        "Показать временный пароль врача",
+        "Скрыть временный пароль врача",
+        "Показать временный пароль ассистента",
+        "Скрыть временный пароль ассистента",
+        "clinicAdminDuplicateDoctorResponse",
+        "duplicateDoctorConsoleErrorsStart",
+        "filterExpectedHttpStatusConsoleErrors(duplicateDoctorConsoleErrors, 409, 1)",
+        "Учётная запись с такой почтой уже существует.",
         "clinicAdminRecentAuditEvents",
         "Поиск по разделам справки",
         "Услуги",
@@ -1163,6 +1179,33 @@ export function validateLiveE2EContract(errors, root) {
     ) {
       errors.push(
         `${file} must not compare the analytics audit count with a separately queried recent-event list; concurrent audit writes make equality timing-dependent`,
+      );
+    }
+    if (
+      file === "e2e/production-admin-management-live.pw.ts" &&
+      !markersAppearInOrder(content, [
+        "const assistantsTab =",
+        "assistantsTab.click()",
+        'expect(assistantsTab).toHaveAttribute("aria-selected", "true")',
+        'getByRole("heading", { name: "Ассистенты клиники" })',
+        "live-clinic-admin-assistants-desktop-1280.png",
+        "live-clinic-admin-assistants-mobile-390.png",
+        "const doctorsTab =",
+        "doctorsTab.click()",
+        'expect(doctorsTab).toHaveAttribute("aria-selected", "true")',
+        'getByRole("heading", { name: "Врачи клиники" })',
+        "live-clinic-admin-doctors-desktop-1280.png",
+        "live-clinic-admin-doctors-mobile-390.png",
+        "const accessTab =",
+        "accessTab.click()",
+        'expect(accessTab).toHaveAttribute("aria-selected", "true")',
+        'getByRole("heading", { name: "Управление доступом" })',
+        "live-clinic-admin-access-desktop-1280.png",
+        "live-clinic-admin-access-mobile-390.png",
+      ])
+    ) {
+      errors.push(
+        `${file} must select and verify each clinic staff tab before its desktop and mobile screenshots`,
       );
     }
   }

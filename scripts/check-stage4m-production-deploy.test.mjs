@@ -134,7 +134,46 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Поиск сотрудников/);
   assert.match(errors.join("\n"), /missing live coverage marker: Фильтр доступа/);
   assert.match(errors.join("\n"), /missing live coverage marker: Приостановить роль врача/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-doctors-desktop-1280\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-doctors-mobile-390\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-assistants-desktop-1280\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-assistants-mobile-390\.png/);
+  assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-access-desktop-1280\.png/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-access-mobile-390\.png/);
+});
+
+test("Stage 4M guard rejects clinic staff screenshots captured under the wrong tab", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-staff-screenshot-order-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-admin-management-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainLink, mainText, sidebarLink } from "./live-admin-test-helpers";',
+      'const assistantsTab = page.getByRole("tab", { name: "Ассистенты" });',
+      'await assistantsTab.click();',
+      'await expect(assistantsTab).toHaveAttribute("aria-selected", "true");',
+      'await expect(page.getByRole("heading", { name: "Ассистенты клиники" })).toBeVisible();',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-desktop-1280.png") });',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-doctors-mobile-390.png") });',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-assistants-desktop-1280.png") });',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-assistants-mobile-390.png") });',
+      'const doctorsTab = page.getByRole("tab", { name: "Врачи" });',
+      'await doctorsTab.click();',
+      'await expect(doctorsTab).toHaveAttribute("aria-selected", "true");',
+      'await expect(page.getByRole("heading", { name: "Врачи клиники" })).toBeVisible();',
+      'const accessTab = page.getByRole("tab", { name: "Доступ" });',
+      'await accessTab.click();',
+      'await expect(accessTab).toHaveAttribute("aria-selected", "true");',
+      'await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-desktop-1280.png") });',
+      'await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-mobile-390.png") });',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /must select and verify each clinic staff tab before its desktop and mobile screenshots/);
 });
 
 test("Stage 4M guard requires clinic admin services live coverage", () => {
