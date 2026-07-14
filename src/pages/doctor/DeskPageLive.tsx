@@ -27,9 +27,10 @@ import {
   type SelfHostedDoctorDashboard,
 } from "@/lib/self-hosted-dashboard-api";
 import {
-  isSelfHostedApiConfigured,
-  useSelfHostedApiSession,
-} from "@/lib/self-hosted-api-session";
+  listSelfHostedPatients,
+  type SelfHostedPatientDTO,
+} from "@/lib/self-hosted-patient-api";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 const STATUS_LABEL: Record<string, string> = {
   planned: "Запланирован",
@@ -144,6 +145,7 @@ type CurrentAction = {
 
 export default function DeskPageLive() {
   const session = useSelfHostedApiSession();
+  const sessionConfigured = session.status === "configured" && Boolean(session.apiToken);
   const [dashboard, setDashboard] =
     useState<SelfHostedDoctorDashboard>(EMPTY_DASHBOARD);
   const [leadsAppointments, setLeadsAppointments] =
@@ -156,6 +158,9 @@ export default function DeskPageLive() {
   );
   const [newLeadSummary, setNewLeadSummary] = useState("");
   const [newLeadSource, setNewLeadSource] = useState("operator");
+  const [newLeadPatientId, setNewLeadPatientId] = useState("");
+  const [patients, setPatients] = useState<SelfHostedPatientDTO[]>([]);
+  const [patientsLoadFailed, setPatientsLoadFailed] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
@@ -164,7 +169,7 @@ export default function DeskPageLive() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!isSelfHostedApiConfigured(session)) {
+      if (!sessionConfigured) {
         setStatus("error");
         setError({
           kind: "not_configured",
@@ -174,7 +179,7 @@ export default function DeskPageLive() {
         return;
       }
       setStatus("loading");
-      const [result, leadsResult] = await Promise.all([
+      const [result, leadsResult, patientsResult] = await Promise.all([
         getSelfHostedDoctorDashboard({
           apiBaseUrl: session.apiBaseUrl,
           apiToken: session.apiToken,
@@ -183,6 +188,11 @@ export default function DeskPageLive() {
           apiBaseUrl: session.apiBaseUrl,
           apiToken: session.apiToken,
           limit: 5,
+        }),
+        listSelfHostedPatients({
+          apiBaseUrl: session.apiBaseUrl,
+          apiToken: session.apiToken,
+          limit: 200,
         }),
       ]);
       if (cancelled) return;
@@ -199,6 +209,13 @@ export default function DeskPageLive() {
         setLeadsAppointments(EMPTY_LEADS_APPOINTMENTS);
         setLeadsAppointmentsError(leadsResult.error);
       }
+      if (patientsResult.ok) {
+        setPatients(patientsResult.value ?? []);
+        setPatientsLoadFailed(false);
+      } else {
+        setPatients([]);
+        setPatientsLoadFailed(true);
+      }
       setStatus("ready");
       setError(null);
     }
@@ -206,7 +223,7 @@ export default function DeskPageLive() {
     return () => {
       cancelled = true;
     };
-  }, [session.apiBaseUrl, session.apiToken, session.status]);
+  }, [session.apiBaseUrl, session.apiToken, sessionConfigured]);
 
   const baseArgs = {
     apiBaseUrl: session.apiBaseUrl,
@@ -232,6 +249,7 @@ export default function DeskPageLive() {
     const result = await createSelfHostedLead({
       ...baseArgs,
       payload: {
+        patientId: newLeadPatientId || undefined,
         source: newLeadSource,
         safeSummary: newLeadSummary,
       },
@@ -239,6 +257,7 @@ export default function DeskPageLive() {
     setLeadBusy(null);
     if (result.ok) {
       setNewLeadSummary("");
+      setNewLeadPatientId("");
       setLeadStatus(
         `Заявка ${result.value?.safeSummary ?? ""} создана в системе клиники.`,
       );
@@ -522,7 +541,7 @@ export default function DeskPageLive() {
                 onSubmit={submitCreateLead}
                 className="border-b border-border px-4 py-3"
               >
-                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(180px,0.65fr)_140px_auto] xl:items-end">
                   <div className="min-w-0 flex-1">
                     <label
                       className="mb-1 block text-[12px] font-medium"
@@ -540,7 +559,28 @@ export default function DeskPageLive() {
                       placeholder="Запрос на первичный осмотр, источник и безопасный контекст"
                     />
                   </div>
-                  <div className="w-full sm:w-36">
+                  <div className="min-w-0">
+                    <label
+                      className="mb-1 block text-[12px] font-medium"
+                      htmlFor="stage5l-lead-patient"
+                    >
+                      Пациент для записи
+                    </label>
+                    <select
+                      id="stage5l-lead-patient"
+                      value={newLeadPatientId}
+                      onChange={(event) => setNewLeadPatientId(event.target.value)}
+                      className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                    >
+                      <option value="">Без привязки к пациенту</option>
+                      {patients.map((patient) => (
+                        <option key={patient.id} value={patient.id}>
+                          {patient.fullName} · {formatCardNumber(patient.code)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-full">
                     <label
                       className="mb-1 block text-[12px] font-medium"
                       htmlFor="stage5l-lead-source"
@@ -574,6 +614,14 @@ export default function DeskPageLive() {
                     {leadBusy === "create" ? "Создаём…" : "Добавить заявку"}
                   </Button>
                 </div>
+                <p className="mb-2 text-meta">
+                  Для создания визита выберите пациента. Без выбора сохранится только заявка.
+                </p>
+                {patientsLoadFailed ? (
+                  <p role="alert" className="mb-2 text-meta text-destructive">
+                    Не удалось загрузить пациентов. Обновите страницу перед созданием записи.
+                  </p>
+                ) : null}
                 <div
                   role="status"
                   aria-live="polite"

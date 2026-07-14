@@ -219,7 +219,7 @@ commit;
 }
 
 test.describe("Live production doctor workspace journey", () => {
-  test("doctor signs in, sees scoped workspace, creates an intake request, and cannot enter admin", async ({
+  test("doctor signs in, creates a patient visit, opens imaging, and cannot enter admin", async ({
     page,
   }, testInfo) => {
     test.skip(CONFIRMATION !== REQUIRED_CONFIRMATION, `Set STAGE4M_CONFIRM_CREATE_TEST_CLINIC=${REQUIRED_CONFIRMATION}`);
@@ -249,8 +249,10 @@ test.describe("Live production doctor workspace journey", () => {
           url.pathname === "/api/v1/doctor/dashboard" ||
           url.pathname === "/api/v1/leads/appointments" ||
           url.pathname === "/api/v1/leads" ||
+          /^\/api\/v1\/leads\/[^/]+\/book-appointment$/.test(url.pathname) ||
           url.pathname === "/api/v1/patients" ||
-          /^\/api\/v1\/patients\/[^/]+$/.test(url.pathname)
+          /^\/api\/v1\/patients\/[^/]+$/.test(url.pathname) ||
+          /^\/api\/v1\/visits\/[^/]+$/.test(url.pathname)
         ) {
           doctorResponses.push({
             method: response.request().method(),
@@ -355,17 +357,6 @@ test.describe("Live production doctor workspace journey", () => {
       await expect(sidebarLinks(page, name), `doctor sidebar should not include ${name}`).toHaveCount(0);
     }
 
-    await page.getByLabel("Краткое описание заявки").fill(leadSummary);
-    const createLeadResponsePromise = page.waitForResponse((response) =>
-      isResponse(response, "POST", /^\/api\/v1\/leads$/),
-    );
-    await page.getByRole("button", { name: "Добавить заявку" }).click();
-    const createLeadResponse = await createLeadResponsePromise;
-    expect(createLeadResponse.status()).toBeGreaterThanOrEqual(200);
-    expect(createLeadResponse.status()).toBeLessThan(300);
-    await expect(mainText(page, /создана в системе клиники/)).toBeVisible();
-    await expect(mainText(page, leadSummary).first()).toBeVisible();
-
     const patientsListResponsePromise = page.waitForResponse((response) =>
       isResponse(response, "GET", /^\/api\/v1\/patients$/),
     );
@@ -395,7 +386,73 @@ test.describe("Live production doctor workspace journey", () => {
     const createPatientResponse = await createPatientResponsePromise;
     expect(createPatientResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createPatientResponse.status()).toBeLessThan(300);
+    const createPatientBody = await createPatientResponse.json() as { item?: { id?: string } };
+    const createdPatientId = createPatientBody.item?.id;
+    if (!createdPatientId) throw new Error("created patient response must include id");
     await expect(mainText(page, `Пациент ${patientFullName} создан в системе клиники.`)).toBeVisible();
+    await expect(mainText(page, patientFullName)).toBeVisible();
+
+    const deskPatientsResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", /^\/api\/v1\/patients$/),
+    );
+    await sidebarLink(page, "Рабочий стол").click();
+    const deskPatientsResponse = await deskPatientsResponsePromise;
+    expect(deskPatientsResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(deskPatientsResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: "Рабочий стол" })).toBeVisible();
+    await page.getByLabel("Пациент для записи").selectOption(createdPatientId);
+    await page.getByLabel("Краткое описание заявки").fill(leadSummary);
+    const createLeadResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "POST", /^\/api\/v1\/leads$/),
+    );
+    await page.getByRole("button", { name: "Добавить заявку" }).click();
+    const createLeadResponse = await createLeadResponsePromise;
+    expect(createLeadResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(createLeadResponse.status()).toBeLessThan(300);
+    const createLeadBody = await createLeadResponse.json() as { item?: { id?: string; patientId?: string } };
+    const createdLeadId = createLeadBody.item?.id;
+    if (!createdLeadId) throw new Error("created lead response must include id");
+    expect(createLeadBody.item?.patientId).toBe(createdPatientId);
+    await expect(mainText(page, /создана в системе клиники/)).toBeVisible();
+    await expect(mainText(page, leadSummary).first()).toBeVisible();
+
+    const bookVisitResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "POST", new RegExp(`^/api/v1/leads/${createdLeadId}/book-appointment$`)),
+    );
+    await page.getByRole("button", { name: `Создать запись из заявки: ${leadSummary}` }).click();
+    const bookVisitResponse = await bookVisitResponsePromise;
+    expect(bookVisitResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(bookVisitResponse.status()).toBeLessThan(300);
+    const bookVisitBody = await bookVisitResponse.json() as {
+      appointment?: { visitId?: string; patientId?: string };
+    };
+    const createdVisitId = bookVisitBody.appointment?.visitId;
+    if (!createdVisitId) throw new Error("booked appointment response must include visitId");
+    expect(bookVisitBody.appointment?.patientId).toBe(createdPatientId);
+    await expect(mainText(page, /записана на визит/)).toBeVisible();
+
+    const visitResponsePromise = page.waitForResponse((response) =>
+      isResponse(response, "GET", new RegExp(`^/api/v1/visits/${createdVisitId}$`)),
+    );
+    await mainLink(page, `Открыть запись ${createdVisitId}`).click();
+    const visitResponse = await visitResponsePromise;
+    expect(visitResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(visitResponse.status()).toBeLessThan(300);
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(`^${patientFullName} · Визит`) })).toBeVisible();
+    await page.getByRole("tab", { name: "Снимки" }).click();
+    await expect(mainText(page, "Источник данных: система клиники")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-created-visit-desktop-1280.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(`^${patientFullName} · Визит`) })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMainTapTargets(page);
+    await page.screenshot({ path: testInfo.outputPath("live-doctor-created-visit-mobile-390.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await sidebarLink(page, "Пациенты").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Пациенты" })).toBeVisible();
     await expect(mainText(page, patientFullName)).toBeVisible();
 
     await page.getByLabel(`Редактировать пациента ${patientFullName}`).filter({ visible: true }).first().click();
@@ -468,6 +525,8 @@ test.describe("Live production doctor workspace journey", () => {
     expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/doctor/dashboard" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/leads/appointments" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "POST" && item.path === "/api/v1/leads" && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "POST" && /^\/api\/v1\/leads\/[^/]+\/book-appointment$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
+    expect(doctorResponses.some((item) => item.method === "GET" && /^\/api\/v1\/visits\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "GET" && item.path === "/api/v1/patients" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "POST" && item.path === "/api/v1/patients" && item.status >= 200 && item.status < 300)).toBe(true);
     expect(doctorResponses.some((item) => item.method === "PATCH" && /^\/api\/v1\/patients\/[^/]+$/.test(item.path) && item.status >= 200 && item.status < 300)).toBe(true);

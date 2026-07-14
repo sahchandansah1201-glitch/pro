@@ -38,9 +38,15 @@ describe("DeskPage · Stage 5I production dashboard", () => {
               stage: "5L",
               item: {
                 id: "lead-created-1",
+                patientId: "10000000-0000-4000-8000-000000000201",
                 source: "operator",
                 status: "new",
                 safeSummary: "Новая заявка из системы клиники",
+                patient: {
+                  id: "10000000-0000-4000-8000-000000000201",
+                  fullName: "Пациент клиники",
+                  code: "DP-LIVE-1",
+                },
               },
             }),
             { status: 201, headers: { "content-type": "application/json" } },
@@ -145,6 +151,27 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 dateTo: null,
                 search: null,
               },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+
+      if (url.endsWith("/api/v1/patients?limit=200&offset=0")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "10000000-0000-4000-8000-000000000201",
+                  code: "DP-LIVE-1",
+                  fullName: "Пациент клиники",
+                  birthDate: "1990-06-15",
+                  sex: "female",
+                  phototype: "III",
+                  imagingConsent: true,
+                },
+              ],
             }),
             { status: 200, headers: { "content-type": "application/json" } },
           ),
@@ -287,6 +314,9 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       },
     );
 
+    fireEvent.change(screen.getByLabelText("Пациент для записи"), {
+      target: { value: "10000000-0000-4000-8000-000000000201" },
+    });
     fireEvent.change(screen.getByLabelText("Краткое описание заявки"), {
       target: { value: "Новая заявка из системы клиники" },
     });
@@ -299,6 +329,11 @@ describe("DeskPage · Stage 5I production dashboard", () => {
           headers: expect.objectContaining({
             Authorization: "Bearer token-5i",
             "Content-Type": "application/json",
+          }),
+          body: JSON.stringify({
+            patientId: "10000000-0000-4000-8000-000000000201",
+            source: "operator",
+            safeSummary: "Новая заявка из системы клиники",
           }),
         }),
       ),
