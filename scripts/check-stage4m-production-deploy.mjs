@@ -546,6 +546,8 @@ const REQUIRED_TEXT = {
     "Добавить заявку",
     "book-appointment",
     "Создать запись из заявки",
+    "imagingBeforeOperationalControls",
+    "Рабочая запись визита",
     "live-doctor-created-visit-desktop-1280.png",
     "live-doctor-created-visit-mobile-390.png",
     "/api/v1/patients",
@@ -1327,6 +1329,23 @@ export function validateDoctorVisitActionTapTargets(errors, root) {
   }
 }
 
+export function validateDoctorVisitWorkspacePriority(errors, root) {
+  const file = "src/pages/doctor/VisitWorkspacePage.tsx";
+  if (!existsSync(join(root, file))) {
+    errors.push(`Missing required file: ${file}`);
+    return;
+  }
+
+  const content = read(root, file);
+  const tabsStart = content.indexOf("<Tabs");
+  const tabsEnd = tabsStart >= 0 ? content.indexOf("</Tabs>", tabsStart) : -1;
+  const liveActions = content.indexOf("<VisitWorkspaceLiveActions");
+
+  if (tabsStart < 0 || tabsEnd < 0 || liveActions < tabsEnd) {
+    errors.push(`${file} must render selected tab content before the operational visit controls`);
+  }
+}
+
 function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of [
@@ -1373,6 +1392,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   validateLiveE2EContract(errors, root);
   validateStage4MDbSmokeContract(errors, root);
   validateDoctorVisitActionTapTargets(errors, root);
+  validateDoctorVisitWorkspacePriority(errors, root);
   validatePackageScripts(errors, root);
   return { ok: errors.length === 0, errors, checkedFiles: REQUIRED_FILES.length };
 }

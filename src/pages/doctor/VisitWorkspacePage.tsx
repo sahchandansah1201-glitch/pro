@@ -367,7 +367,6 @@ export default function VisitWorkspacePage() {
       ) : null}
 
       <VisitWorkspaceLiveBanner visitId={visit.id} />
-      <VisitWorkspaceLiveActions visit={visit} lesions={lesions} />
 
       <Tabs
         value={activeTab}
@@ -458,6 +457,8 @@ export default function VisitWorkspacePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <VisitWorkspaceLiveActions visit={visit} lesions={lesions} />
     </div>
   );
 }

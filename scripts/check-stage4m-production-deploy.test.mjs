@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   collectStage4MChecks,
   validateDoctorVisitActionTapTargets,
+  validateDoctorVisitWorkspacePriority,
   validateLiveE2EContract,
   validateStage4MDbSmokeContract,
 } from "./check-stage4m-production-deploy.mjs";
@@ -194,6 +195,28 @@ test("Stage 4M guard requires 44px touch targets in the doctor visit action form
 
   assert.deepEqual(errors, [
     "src/pages/doctor/VisitWorkspaceLiveActions.tsx control stage4h-visit-status must keep a minimum 44px touch target",
+  ]);
+});
+
+test("Stage 4M guard keeps the selected doctor workspace before operational controls", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-doctor-visit-workspace-priority-"));
+  const doctorDir = join(root, "src", "pages", "doctor");
+  mkdirSync(doctorDir, { recursive: true });
+  writeFileSync(
+    join(doctorDir, "VisitWorkspacePage.tsx"),
+    [
+      "<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />",
+      "<Tabs>",
+      "  <TabsContent value=\"imaging\">Снимки визита</TabsContent>",
+      "</Tabs>",
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateDoctorVisitWorkspacePriority(errors, root);
+
+  assert.deepEqual(errors, [
+    "src/pages/doctor/VisitWorkspacePage.tsx must render selected tab content before the operational visit controls",
   ]);
 });
 

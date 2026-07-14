@@ -656,5 +656,64 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
         path: `test-results/visit-workspace-qa-native-russian-${viewport.name}-timeline-region.png`,
       });
     });
+
+    test(`/patients imaging priority @ ${viewport.name}`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text());
+      });
+      page.on("pageerror", (error) => errors.push(error.message));
+
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await installMockBackend(page);
+      await setDemoRole(page, "doctor");
+      await page.addInitScript(
+        ({ baseKey, tokenKey, userKey, apiBaseUrl }) => {
+          window.localStorage.setItem(baseKey, apiBaseUrl);
+          window.localStorage.setItem(tokenKey, "local-jwt");
+          window.localStorage.setItem(
+            userKey,
+            JSON.stringify({ id: "doctor-1", displayName: "Врач клиники", roles: ["doctor"] }),
+          );
+        },
+        {
+          baseKey: SELF_HOSTED_API_BASE_URL_KEY,
+          tokenKey: SELF_HOSTED_API_TOKEN_KEY,
+          userKey: SELF_HOSTED_API_USER_KEY,
+          apiBaseUrl: API_BASE_URL,
+        },
+      );
+
+      await page.goto(`${APP_BASE_URL}/patients/live-patient/visits/live-visit?tab=imaging&lesion=live-lesion`, {
+        waitUntil: "networkidle",
+      });
+
+      await expect(page.getByRole("tab", { name: "Снимки" })).toHaveAttribute("data-state", "active");
+      const imagingRegion = page.getByRole("region", { name: /Снимки визита/i }).first();
+      const operationalControls = page.getByRole("region", { name: "Рабочая запись визита" });
+      await expect(imagingRegion).toBeVisible();
+      await expect(operationalControls).toBeVisible();
+      const [imagingBox, operationalControlsBox] = await Promise.all([
+        imagingRegion.boundingBox(),
+        operationalControls.boundingBox(),
+      ]);
+      expect(imagingBox).not.toBeNull();
+      expect(operationalControlsBox).not.toBeNull();
+      expect(imagingBox!.y).toBeLessThan(operationalControlsBox!.y);
+      await expectNoHorizontalOverflow(page, `${viewport.name} imaging`);
+      if (viewport.width < 640) {
+        await expectMobileTapTargets(
+          page,
+          `${viewport.name} imaging`,
+          '[aria-label="Снимки визита"]',
+        );
+      }
+      expect(errors, `${viewport.name}: imaging console/page errors`).toEqual([]);
+
+      await page.screenshot({
+        path: `test-results/visit-workspace-qa-native-russian-${viewport.name}-imaging-priority.png`,
+        fullPage: true,
+      });
+    });
   }
 });

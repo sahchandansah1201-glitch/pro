@@ -2435,6 +2435,21 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
     }
   });
 
+  it("renders the selected imaging workspace before the operational controls", async () => {
+    vi.stubGlobal("fetch", createLiveWorkspaceFetchMock());
+
+    renderAt("/patients/live-patient/visits/live-visit?tab=imaging");
+
+    const imagingRegions = await screen.findAllByRole("region", { name: /Снимки визита/i });
+    const workingRecord = await screen.findByRole("region", { name: "Рабочая запись визита" });
+
+    for (const imagingRegion of imagingRegions) {
+      expect(imagingRegion.compareDocumentPosition(workingRecord)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    }
+  });
+
   it("maps technical production API errors to public clinic-system copy", async () => {
     const baseFetchMock = createLiveWorkspaceFetchMock();
     const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {

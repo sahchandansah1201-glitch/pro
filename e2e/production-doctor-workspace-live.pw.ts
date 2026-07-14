@@ -443,6 +443,16 @@ test.describe("Live production doctor workspace journey", () => {
     expect(visitResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: new RegExp(`^${patientFullName} · Визит`) })).toBeVisible();
     await page.getByRole("tab", { name: "Снимки" }).click();
+    const imagingWorkspace = page.getByRole("region", { name: "Снимки визита" }).first();
+    await expect(imagingWorkspace).toBeVisible();
+    const imagingBeforeOperationalControls = await imagingWorkspace.evaluate((element) => {
+      const operationalControls = document.querySelector('[aria-label="Рабочая запись визита"]');
+      return Boolean(
+        operationalControls &&
+        (element.compareDocumentPosition(operationalControls) & Node.DOCUMENT_POSITION_FOLLOWING),
+      );
+    });
+    expect(imagingBeforeOperationalControls).toBe(true);
     await expect(mainText(page, "Источник данных: система клиники")).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-doctor-created-visit-desktop-1280.png"), fullPage: true });
