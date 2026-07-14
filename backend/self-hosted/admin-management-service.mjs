@@ -511,7 +511,8 @@ export function createAdminManagementService({ adminManagementRepository, auditR
     async disableUser(userId, authContext, meta = {}) {
       const scope = adminScope(authContext);
       const safeUserId = assertUuid(userId, "userId");
-      const user = await adminManagementRepository.disableUser({ userId: safeUserId });
+      const user = await adminManagementRepository.disableUser({ userId: safeUserId, ...scope });
+      if (!user) throw new AdminManagementNotFoundError();
       await recordAuditBestEffort(auditRepository, {
         clinicId: scope.allClinics ? null : scope.clinicIds[0],
         actorUserId: authContext.userId,
@@ -527,7 +528,8 @@ export function createAdminManagementService({ adminManagementRepository, auditR
     async reactivateUser(userId, authContext, meta = {}) {
       const scope = adminScope(authContext);
       const safeUserId = assertUuid(userId, "userId");
-      const user = await adminManagementRepository.reactivateUser({ userId: safeUserId });
+      const user = await adminManagementRepository.reactivateUser({ userId: safeUserId, ...scope });
+      if (!user) throw new AdminManagementNotFoundError();
       await recordAuditBestEffort(auditRepository, {
         clinicId: scope.allClinics ? null : scope.clinicIds[0],
         actorUserId: authContext.userId,

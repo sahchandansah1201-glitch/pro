@@ -207,8 +207,24 @@ test.describe("Production admin management journey", () => {
           });
           return;
         }
-        if (route.request().url().includes("/disable")) {
-          await route.fulfill({ json: { item: { active: false }, source: "postgres" } });
+        if (route.request().url().includes("/disable") && route.request().method() === "PATCH") {
+          const userId = route.request().url().match(/\/admin\/users\/([^/]+)\/disable/)?.[1];
+          const user = [...users, ...doctors].find((item) => item.id === decodeURIComponent(userId ?? ""));
+          if (user) {
+            user.active = false;
+            user.disabledAt = "2026-07-13T12:00:00.000Z";
+          }
+          await route.fulfill({ json: { item: user, source: "postgres" } });
+          return;
+        }
+        if (route.request().url().includes("/reactivate") && route.request().method() === "PATCH") {
+          const userId = route.request().url().match(/\/admin\/users\/([^/]+)\/reactivate/)?.[1];
+          const user = [...users, ...doctors].find((item) => item.id === decodeURIComponent(userId ?? ""));
+          if (user) {
+            user.active = true;
+            user.disabledAt = null;
+          }
+          await route.fulfill({ json: { item: user, source: "postgres" } });
           return;
         }
         if (route.request().url().includes("/role")) {
@@ -370,7 +386,8 @@ test.describe("Production admin management journey", () => {
       await accessTab.click();
       await expect(accessTab).toHaveAttribute("aria-selected", "true");
       await expect(page.getByRole("tab", { name: "Ассистенты" })).toHaveAttribute("aria-selected", "false");
-      await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+      const accessDirectory = page.getByRole("region", { name: "Управление доступом" });
+      await expect(accessDirectory.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
       await expect(page.getByText("Учётная запись и роль — разные уровни доступа.")).toBeVisible();
       await page.getByLabel("Поиск сотрудников").fill("doctor@example.test");
       await expect(page.getByText("doctor@example.test")).toBeVisible();
@@ -379,7 +396,14 @@ test.describe("Production admin management journey", () => {
       await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("active");
       await expect(page.getByText("assistant@example.test")).toBeVisible();
       await expect(page.getByRole("button", { name: "Приостановить роль врача" })).toBeVisible();
+      await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("all");
       await page.getByLabel("Поиск сотрудников").fill("assistant@example.test");
+      await page.getByRole("button", { name: "Отключить доступ" }).click();
+      await expect(page.getByRole("status")).toContainText("Доступ сотрудника отключён: Ассистент Тестовый");
+      await expect(accessDirectory.getByText("Доступ отключён")).toBeVisible();
+      await page.getByRole("button", { name: "Вернуть доступ" }).click();
+      await expect(page.getByRole("status")).toContainText("Доступ сотрудника возвращён: Ассистент Тестовый");
+      await expect(accessDirectory.getByText("Доступ включён")).toBeVisible();
       await page.getByRole("button", { name: "Задать новый пароль" }).click();
       const passwordRegion = page.getByRole("region", { name: "Новый пароль для Ассистент Тестовый" });
       const newPasswordInput = passwordRegion.getByLabel("Новый пароль", { exact: true });

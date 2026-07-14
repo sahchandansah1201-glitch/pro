@@ -138,15 +138,27 @@ test.describe("Live production auth and session journey", () => {
     expect(secondLoginResponse.status()).toBeLessThan(300);
     await expect(bannerText(page, "Рабочее место · Системный администратор")).toBeVisible({ timeout: 15_000 });
 
-    await page.evaluate((key) => localStorage.setItem(key, "expired-live-test-token"), TOKEN_KEY);
+    await page.goto("/admin/doctors", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
+    await page.getByRole("tab", { name: "Доступ" }).click();
+    await expect(page.getByRole("button", { name: "Отключить доступ" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Задать новый пароль" }).first()).toBeVisible();
     const expiredResponsePromise = page.waitForResponse((response) => {
       const path = new URL(response.url()).pathname;
-      return response.status() === 401 && /^\/api\/v1\/admin\/(users|clinics)$/.test(path);
+      return response.status() === 401 && /^\/api\/v1\/admin\/(doctors|users|clinics)$/.test(path);
     });
-    await page.goto("/sys/users", { waitUntil: "networkidle" });
+    await page.evaluate(
+      ({ key, eventName }) => {
+        localStorage.setItem(key, "expired-live-test-token");
+        window.dispatchEvent(new Event(eventName));
+      },
+      { key: TOKEN_KEY, eventName: "derma-pro:self-hosted-api-session" },
+    );
     await expiredResponsePromise;
     await expect(mainText(page, "Сессия истекла")).toBeVisible();
-    await expect(mainText(page, "Новые сотрудники и роли не сохраняются, пока вы не войдёте заново.")).toBeVisible();
+    await expect(mainText(page, "Изменения сотрудников не сохраняются, пока вы не войдёте заново.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Отключить доступ" }).first()).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Задать новый пароль" }).first()).toBeDisabled();
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("live-auth-expired-desktop-1280.png"), fullPage: true });
 

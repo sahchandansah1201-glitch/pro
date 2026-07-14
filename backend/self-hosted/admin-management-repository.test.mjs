@@ -50,6 +50,22 @@ test("admin management mutation SQL uses writable CTEs PostgreSQL accepts", () =
     "user_row",
   );
 
+  const scopedDisableSql = buildDisableAdminUserSql({
+    userId: "10000000-0000-4000-8000-000000000101",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+  });
+  assert.match(scopedDisableSql, /ur\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/);
+  assert.match(scopedDisableSql, /protected_role\.role = 'system_admin'/);
+
+  const scopedReactivateSql = buildReactivateAdminUserSql({
+    userId: "10000000-0000-4000-8000-000000000101",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    allClinics: false,
+  });
+  assert.match(scopedReactivateSql, /ur\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/);
+  assert.match(scopedReactivateSql, /protected_role\.role = 'system_admin'/);
+
   assertMutationUsesWritableCte(
     buildAssignAdminUserRoleSql({
       userId: "10000000-0000-4000-8000-000000000101",

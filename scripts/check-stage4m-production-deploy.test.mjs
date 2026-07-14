@@ -29,6 +29,8 @@ test("Stage 4M guard requires the production auth/session live journey", () => {
 
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: \/api\/v1\/auth\/login/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Сессия истекла/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Изменения сотрудников не сохраняются/);
+  assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: toBeDisabled/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: live-auth-invalid-mobile-390\.png/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: Показать введённые символы/);
   assert.match(errors.join("\n"), /production-auth-session-live\.pw\.ts missing live coverage marker: missing-auth-/);
@@ -134,6 +136,11 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: Поиск сотрудников/);
   assert.match(errors.join("\n"), /missing live coverage marker: Фильтр доступа/);
   assert.match(errors.join("\n"), /missing live coverage marker: Приостановить роль врача/);
+  assert.match(errors.join("\n"), /missing live coverage marker: accessDisableResponsePromise/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Доступ сотрудника отключён/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Вернуть доступ/);
+  assert.match(errors.join("\n"), /missing live coverage marker: accessReactivateResponsePromise/);
+  assert.match(errors.join("\n"), /missing live coverage marker: Доступ сотрудника возвращён/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-doctors-desktop-1280\.png/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-doctors-mobile-390\.png/);
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-assistants-desktop-1280\.png/);

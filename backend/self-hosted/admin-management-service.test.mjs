@@ -15,7 +15,7 @@ const CLINIC_AUTH = {
   clinicIds: ["10000000-0000-4000-8000-000000000001"],
 };
 
-function createService({ calls = [], createUserResult, resetUserResult } = {}) {
+function createService({ calls = [], createUserResult, disableUserResult, reactivateUserResult, resetUserResult } = {}) {
   const repository = {
     async listUsers(params) {
       calls.push(["listUsers", params]);
@@ -33,11 +33,15 @@ function createService({ calls = [], createUserResult, resetUserResult } = {}) {
     },
     async disableUser(params) {
       calls.push(["disableUser", params]);
-      return { id: params.userId, disabledAt: "2026-06-22T00:00:00.000Z" };
+      return disableUserResult === undefined
+        ? { id: params.userId, disabledAt: "2026-06-22T00:00:00.000Z" }
+        : disableUserResult;
     },
     async reactivateUser(params) {
       calls.push(["reactivateUser", params]);
-      return { id: params.userId, disabledAt: null, active: true };
+      return reactivateUserResult === undefined
+        ? { id: params.userId, disabledAt: null, active: true }
+        : reactivateUserResult;
     },
     async resetUserPassword(params) {
       calls.push(["resetUserPassword", { ...params, passwordHash: params.passwordHash ? "[hash]" : "" }]);
@@ -819,6 +823,67 @@ test("system admin reactivates account and can disable one role without deleting
   assert.deepEqual(calls.map((call) => call[0]), ["reactivateUser", "setUserRoleStatus"]);
   assert.equal(auditEvents[0].action, "admin.user.reactivate");
   assert.equal(auditEvents[1].action, "admin.user.role.status.update");
+});
+
+test("clinic admin disables and restores only an employee in the assigned clinic scope", async () => {
+  const { service, calls, auditEvents } = createService();
+  await service.disableUser(
+    "10000000-0000-4000-8000-000000000201",
+    CLINIC_AUTH,
+    { correlationId: "disable-scoped-user" },
+  );
+  await service.reactivateUser(
+    "10000000-0000-4000-8000-000000000201",
+    CLINIC_AUTH,
+    { correlationId: "reactivate-scoped-user" },
+  );
+
+  assert.deepEqual(calls.slice(0, 2), [
+    [
+      "disableUser",
+      {
+        userId: "10000000-0000-4000-8000-000000000201",
+        allClinics: false,
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roles: ["clinic_admin"],
+      },
+    ],
+    [
+      "reactivateUser",
+      {
+        userId: "10000000-0000-4000-8000-000000000201",
+        allClinics: false,
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roles: ["clinic_admin"],
+      },
+    ],
+  ]);
+  assert.equal(auditEvents[0].clinicId, "10000000-0000-4000-8000-000000000001");
+  assert.equal(auditEvents[1].clinicId, "10000000-0000-4000-8000-000000000001");
+});
+
+test("clinic admin cannot disable an account outside the assigned clinic scope", async () => {
+  const { service, calls, auditEvents } = createService({ disableUserResult: null });
+
+  await assert.rejects(
+    () => service.disableUser(
+      "10000000-0000-4000-8000-000000000299",
+      CLINIC_AUTH,
+      { correlationId: "disable-out-of-scope-user" },
+    ),
+    /not found/i,
+  );
+
+  assert.deepEqual(calls[0], [
+    "disableUser",
+    {
+      userId: "10000000-0000-4000-8000-000000000299",
+      allClinics: false,
+      clinicIds: ["10000000-0000-4000-8000-000000000001"],
+      roles: ["clinic_admin"],
+    },
+  ]);
+  assert.deepEqual(auditEvents, []);
 });
 
 test("clinic admin resets a scoped employee password as a hash and records safe audit", async () => {

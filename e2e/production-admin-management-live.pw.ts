@@ -874,7 +874,8 @@ test.describe("Live production admin management journey", () => {
     await accessTab.click();
     await expect(accessTab).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tab", { name: "Ассистенты" })).toHaveAttribute("aria-selected", "false");
-    await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+    const accessDirectory = page.getByRole("region", { name: "Управление доступом" });
+    await expect(accessDirectory.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
     await expect(mainText(page, "Учётная запись и роль — разные уровни доступа.")).toBeVisible();
     await page.getByLabel("Поиск сотрудников").fill(clinicAdminDoctorEmail);
     await expect(mainText(page, clinicAdminDoctorEmail).first()).toBeVisible();
@@ -884,7 +885,30 @@ test.describe("Live production admin management journey", () => {
     await expect(mainText(page, clinicAdminAssistantEmail).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Приостановить роль врача" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Отключить доступ" }).first()).toBeVisible();
+    await page.getByRole("combobox", { name: "Фильтр доступа" }).selectOption("all");
     await page.getByLabel("Поиск сотрудников").fill(clinicAdminAssistantEmail);
+    const accessDisableResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "PATCH", /^\/api\/v1\/admin\/users\/[^/]+\/disable$/),
+    );
+    await page.getByRole("button", { name: "Отключить доступ" }).click();
+    const accessDisableResponse = await accessDisableResponsePromise;
+    expect(accessDisableResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(accessDisableResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Доступ сотрудника отключён: ${clinicAdminAssistantName}`)).toBeVisible();
+    await expect(accessDirectory.getByText("Доступ отключён")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Вернуть доступ" })).toBeVisible();
+
+    const accessReactivateResponsePromise = page.waitForResponse((response) =>
+      isAdminUserResponse(response, "PATCH", /^\/api\/v1\/admin\/users\/[^/]+\/reactivate$/),
+    );
+    await page.getByRole("button", { name: "Вернуть доступ" }).click();
+    const accessReactivateResponse = await accessReactivateResponsePromise;
+    expect(accessReactivateResponse.status()).toBeGreaterThanOrEqual(200);
+    expect(accessReactivateResponse.status()).toBeLessThan(300);
+    await expect(mainText(page, `Доступ сотрудника возвращён: ${clinicAdminAssistantName}`)).toBeVisible();
+    await expect(accessDirectory.getByText("Доступ включён")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Отключить доступ" })).toBeVisible();
+
     await page.getByRole("button", { name: "Задать новый пароль" }).click();
     const passwordRegion = page.getByRole("region", { name: `Новый пароль для ${clinicAdminAssistantName}` });
     await expect(passwordRegion.getByText("Текущий пароль посмотреть нельзя. Введите новый пароль и передайте его сотруднику безопасным способом.")).toBeVisible();
@@ -916,7 +940,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-access-desktop-1280.png") });
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
+    await expect(accessDirectory.getByRole("heading", { name: "Управление доступом" })).toBeVisible();
     await page.getByLabel("Поиск сотрудников").fill(clinicAdminAssistantEmail);
     await page.getByRole("button", { name: "Задать новый пароль" }).click();
     const mobilePasswordRegion = page.getByRole("region", { name: `Новый пароль для ${clinicAdminAssistantName}` });

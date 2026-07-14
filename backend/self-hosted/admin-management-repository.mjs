@@ -84,6 +84,25 @@ function userClinicScopeWhere({ alias = "ur", clinicIds = [], allClinics = false
   return `and ${alias}.clinic_id in (${sqlUuidList(ids)})`;
 }
 
+function adminUserMutationScopeWhere({ alias = "app_users", clinicIds = [], allClinics = false } = {}) {
+  const ids = safeUuidList(clinicIds);
+  if (allClinics) return "";
+  if (ids.length === 0) return "and false";
+  return `and exists (
+      select 1
+      from user_roles ur
+      where ur.user_id = ${alias}.id
+        and ur.clinic_id in (${sqlUuidList(ids)})
+        and ur.role in ('doctor', 'private_doctor', 'assistant', 'operator')
+    )
+    and not exists (
+      select 1
+      from user_roles protected_role
+      where protected_role.user_id = ${alias}.id
+        and protected_role.role = 'system_admin'
+    )`;
+}
+
 function pagination({ limit = DEFAULT_LIMIT, offset = 0 } = {}) {
   return {
     limit: clampInteger(limit, { fallback: DEFAULT_LIMIT, min: 1, max: MAX_LIMIT }),
@@ -213,13 +232,15 @@ from (
 `.trim();
 }
 
-export function buildDisableAdminUserSql({ userId } = {}) {
+export function buildDisableAdminUserSql({ userId, clinicIds = [], allClinics = false } = {}) {
+  const scopeWhere = adminUserMutationScopeWhere({ clinicIds, allClinics });
   return `
 with updated as (
   update app_users
   set disabled_at = coalesce(disabled_at, now()), updated_at = now()
   where id = ${sqlUuid(userId)}
-  returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at as "disabledAt"
+    ${scopeWhere}
+  returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at is null as "active", disabled_at as "disabledAt"
 )
 select row_to_json(result)::text
 from (
@@ -228,12 +249,14 @@ from (
 `.trim();
 }
 
-export function buildReactivateAdminUserSql({ userId } = {}) {
+export function buildReactivateAdminUserSql({ userId, clinicIds = [], allClinics = false } = {}) {
+  const scopeWhere = adminUserMutationScopeWhere({ clinicIds, allClinics });
   return `
 with updated as (
   update app_users
   set disabled_at = null, updated_at = now()
   where id = ${sqlUuid(userId)}
+    ${scopeWhere}
   returning id::text as "id", email::text as "email", display_name as "displayName", disabled_at is null as "active", disabled_at as "disabledAt"
 )
 select row_to_json(result)::text

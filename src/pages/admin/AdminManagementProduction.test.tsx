@@ -11,6 +11,7 @@ import SysUsersPage from "@/pages/sys/SysUsersPage";
 
 const sessionMock = vi.hoisted(() => ({
   roles: ["system_admin"] as string[],
+  clear: vi.fn(),
 }));
 
 vi.mock("@/lib/app-mode", () => ({
@@ -18,7 +19,7 @@ vi.mock("@/lib/app-mode", () => ({
 }));
 
 vi.mock("@/lib/self-hosted-api-session", () => ({
-  clearSelfHostedApiSession: () => {},
+  clearSelfHostedApiSession: sessionMock.clear,
   isSelfHostedApiConfigured: (session: { status: string; apiToken: string | null }) =>
     session.status === "configured" && Boolean(session.apiToken),
   useSelfHostedApiSession: () => ({
@@ -74,6 +75,7 @@ function renderRouted(ui: React.ReactElement) {
 describe("Production admin management UI", () => {
   afterEach(() => {
     sessionMock.roles = ["system_admin"];
+    sessionMock.clear.mockReset();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -794,6 +796,80 @@ describe("Production admin management UI", () => {
     expect(screen.getByLabelText("Поиск сотрудников")).toBeInTheDocument();
     expect(screen.getByText("owner@example.test")).toBeInTheDocument();
     expect(screen.getByText("assistant@example.test")).toBeInTheDocument();
+  });
+
+  it("disables and restores employee access with persisted state and visible feedback", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    let active = true;
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      const currentOwner = { ...owner, active, disabledAt: active ? null : "2026-07-13T12:00:00.000Z" };
+      if (href.endsWith("/api/v1/admin/users/user-1/disable") && init?.method === "PATCH") {
+        active = false;
+        return json({ item: { ...currentOwner, active: false, disabledAt: "2026-07-13T12:00:00.000Z" } });
+      }
+      if (href.endsWith("/api/v1/admin/users/user-1/reactivate") && init?.method === "PATCH") {
+        active = true;
+        return json({ item: { ...currentOwner, active: true, disabledAt: null } });
+      }
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [currentOwner] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole("button", { name: "Отключить доступ" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(`Доступ сотрудника отключён: ${owner.displayName}`);
+    const accessDirectory = screen.getByRole("region", { name: "Управление доступом" });
+    expect(await within(accessDirectory).findByText("Доступ отключён")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Вернуть доступ" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/disable",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Вернуть доступ" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(`Доступ сотрудника возвращён: ${owner.displayName}`);
+    expect(await within(accessDirectory).findByText("Доступ включён")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отключить доступ" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/admin/users/user-1/reactivate",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("blocks staff mutations and offers a new login when access change finds an expired session", async () => {
+    sessionMock.roles = ["clinic_admin"];
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/admin/users/user-1/disable") && init?.method === "PATCH") {
+        return json({ error: { code: "invalid_token", message: "Invalid or expired authorization token" } }, 401);
+      }
+      if (href.endsWith("/api/v1/admin/doctors")) return json({ items: [owner] });
+      if (href.endsWith("/api/v1/admin/clinics")) return json({ items: [clinic] });
+      if (href.endsWith("/api/v1/admin/users")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRouted(<AdminDoctorsPage />);
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Доступ" }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole("button", { name: "Отключить доступ" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Сессия истекла");
+    expect(alert).toHaveTextContent("Изменения сотрудников не сохраняются, пока вы не войдёте заново.");
+    expect(within(alert).getByRole("button", { name: "Войти заново" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отключить доступ" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Задать новый пароль" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Приостановить роль врача" })).toBeDisabled();
   });
 
   it("lets a clinic admin set a new employee password without exposing the current password", async () => {
