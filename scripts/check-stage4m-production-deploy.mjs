@@ -1273,6 +1273,60 @@ export function validateStage4MDbSmokeContract(errors, root) {
   }
 }
 
+export function validateDoctorVisitActionTapTargets(errors, root) {
+  const file = "src/pages/doctor/VisitWorkspaceLiveActions.tsx";
+  if (!existsSync(join(root, file))) {
+    errors.push(`Missing required file: ${file}`);
+    return;
+  }
+
+  const content = read(root, file);
+  const controlIds = [
+    "stage4h-visit-status",
+    "stage4h-new-lesion-label",
+    "stage4h-new-lesion-zone",
+    "stage4h-lesion-select",
+    "stage4h-lesion-label",
+    "stage17-follow-up-due-at",
+    "stage17-follow-up-reason",
+  ];
+
+  function openingTagAt(idIndex) {
+    const tagStart = idIndex >= 0 ? content.lastIndexOf("<", idIndex) : -1;
+    if (tagStart < 0) return "";
+
+    let braceDepth = 0;
+    let quote = null;
+    for (let index = tagStart; index < content.length; index += 1) {
+      const character = content[index];
+      if (quote) {
+        if (character === "\\") index += 1;
+        else if (character === quote) quote = null;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === "`") {
+        quote = character;
+      } else if (character === "{") {
+        braceDepth += 1;
+      } else if (character === "}") {
+        braceDepth -= 1;
+      } else if (character === ">" && braceDepth === 0) {
+        return content.slice(tagStart, index + 1);
+      }
+    }
+    return "";
+  }
+
+  for (const controlId of controlIds) {
+    const idIndex = content.indexOf(`id="${controlId}"`);
+    const openingTag = openingTagAt(idIndex);
+
+    if (!openingTag.includes("min-h-11")) {
+      errors.push(`${file} control ${controlId} must keep a minimum 44px touch target`);
+    }
+  }
+}
+
 function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of [
@@ -1318,6 +1372,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   scanRuntimeCoupling(errors, root);
   validateLiveE2EContract(errors, root);
   validateStage4MDbSmokeContract(errors, root);
+  validateDoctorVisitActionTapTargets(errors, root);
   validatePackageScripts(errors, root);
   return { ok: errors.length === 0, errors, checkedFiles: REQUIRED_FILES.length };
 }

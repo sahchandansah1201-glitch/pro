@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import {
   collectStage4MChecks,
+  validateDoctorVisitActionTapTargets,
   validateLiveE2EContract,
   validateStage4MDbSmokeContract,
 } from "./check-stage4m-production-deploy.mjs";
@@ -169,6 +170,31 @@ test("Stage 4M guard requires the doctor journey to open the current staff creat
   assert.match(errors.join("\n"), /missing live coverage marker: getByRole\("region", \{ name: "Добавить врача" \}\)/);
   assert.match(errors.join("\n"), /missing live coverage marker: doctorRegion\.getByLabel\("ФИО врача"\)/);
   assert.match(errors.join("\n"), /missing live coverage marker: doctorRegion\.getByRole\("button", \{ name: "Добавить врача" \}\)/);
+});
+
+test("Stage 4M guard requires 44px touch targets in the doctor visit action forms", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-doctor-visit-touch-targets-"));
+  const doctorDir = join(root, "src", "pages", "doctor");
+  mkdirSync(doctorDir, { recursive: true });
+  writeFileSync(
+    join(doctorDir, "VisitWorkspaceLiveActions.tsx"),
+    [
+      '<select id="stage4h-visit-status" className="h-9" />',
+      '<Input id="stage4h-new-lesion-label" className="min-h-11" />',
+      '<Input id="stage4h-new-lesion-zone" className="min-h-11" />',
+      '<select id="stage4h-lesion-select" className="min-h-11" />',
+      '<Input id="stage4h-lesion-label" className="min-h-11" />',
+      '<Input id="stage17-follow-up-due-at" className="min-h-11" />',
+      '<Input id="stage17-follow-up-reason" className="min-h-11" />',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateDoctorVisitActionTapTargets(errors, root);
+
+  assert.deepEqual(errors, [
+    "src/pages/doctor/VisitWorkspaceLiveActions.tsx control stage4h-visit-status must keep a minimum 44px touch target",
+  ]);
 });
 
 test("Stage 4M guard rejects clinic staff screenshots captured under the wrong tab", () => {

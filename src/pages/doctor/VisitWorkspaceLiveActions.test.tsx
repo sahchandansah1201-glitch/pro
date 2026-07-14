@@ -79,6 +79,26 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("keeps visit action controls at least 44 pixels tall for touch", () => {
+    configureSession();
+
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+
+    const controlIds = [
+      "stage4h-visit-status",
+      "stage4h-new-lesion-label",
+      "stage4h-new-lesion-zone",
+      "stage4h-lesion-select",
+      "stage4h-lesion-label",
+      "stage17-follow-up-due-at",
+      "stage17-follow-up-reason",
+    ];
+
+    for (const controlId of controlIds) {
+      expect(document.getElementById(controlId)).toHaveClass("min-h-11");
+    }
+  });
+
   it("saves visit, creates lesion, archives lesion, and saves report with bearer token", async () => {
     configureSession();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

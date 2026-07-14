@@ -1390,7 +1390,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             id="stage4h-visit-status"
             value={visitStatus}
             onChange={(event) => setVisitStatus(event.target.value as typeof visitStatus)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+            className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
           >
             <option value="draft">Черновик</option>
             <option value="in_progress">В работе</option>
@@ -1420,7 +1420,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             id="stage4h-new-lesion-label"
             value={newLesionLabel}
             onChange={(event) => setNewLesionLabel(event.target.value)}
-            className="h-9 text-[13px]"
+            className="min-h-11 text-[13px]"
           />
           <label className="block text-[12px] font-medium" htmlFor="stage4h-new-lesion-zone">
             Зона
@@ -1429,7 +1429,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             id="stage4h-new-lesion-zone"
             value={newLesionZone}
             onChange={(event) => setNewLesionZone(event.target.value)}
-            className="h-9 text-[13px]"
+            className="min-h-11 text-[13px]"
             placeholder="спина, плечо, голень"
           />
           <Button type="submit" size="sm" disabled={busy === "create-lesion"} className="min-h-11 text-[12px]">
@@ -1451,7 +1451,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
               setSelectedLesionId(nextId);
               setSelectedLesionLabel(next?.label ?? "");
             }}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+            className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]"
           >
             {lesions.map((lesion) => (
               <option key={lesion.id} value={lesion.id}>
@@ -1466,7 +1466,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             id="stage4h-lesion-label"
             value={selectedLesionLabel}
             onChange={(event) => setSelectedLesionLabel(event.target.value)}
-            className="h-9 text-[13px]"
+            className="min-h-11 text-[13px]"
           />
           <div className="flex flex-wrap gap-2">
             <Button type="submit" size="sm" disabled={!selectedLesionId || busy === "update-lesion"} className="min-h-11 text-[12px]">
@@ -1520,7 +1520,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             type="datetime-local"
             value={followUpDueAt}
             onChange={(event) => setFollowUpDueAt(event.target.value)}
-            className="h-9 text-[13px]"
+            className="min-h-11 text-[13px]"
           />
           <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-reason">
             Причина
@@ -1529,7 +1529,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             id="stage17-follow-up-reason"
             value={followUpReason}
             onChange={(event) => setFollowUpReason(event.target.value)}
-            className="h-9 text-[13px]"
+            className="min-h-11 text-[13px]"
           />
           <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-summary">
             Текст для пациента
