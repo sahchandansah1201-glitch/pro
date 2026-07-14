@@ -291,15 +291,18 @@ test.describe("Live production doctor workspace journey", () => {
 
     await sidebarLink(page, "Врачи и ассистенты").click();
     await expect(page.getByRole("heading", { level: 1, name: "Врачи и ассистенты" })).toBeVisible();
-    await page.getByLabel("ФИО врача").fill(doctorDisplayName);
-    await page.getByLabel("Эл. почта").fill(doctorEmail);
-    await page.getByLabel("Временный пароль").fill(doctorPassword);
-    await page.getByLabel("Тип врача").selectOption("doctor");
-    await page.getByLabel("Клиника").selectOption({ label: clinicName });
+    await page.getByRole("button", { name: "Добавить врача" }).click();
+    const doctorRegion = page.getByRole("region", { name: "Добавить врача" });
+    await expect(doctorRegion).toBeVisible();
+    await doctorRegion.getByLabel("ФИО врача").fill(doctorDisplayName);
+    await doctorRegion.getByLabel("Эл. почта", { exact: true }).fill(doctorEmail);
+    await doctorRegion.getByLabel("Временный пароль", { exact: true }).fill(doctorPassword);
+    await doctorRegion.getByLabel("Тип врача").selectOption("doctor");
+    await doctorRegion.getByLabel("Клиника").selectOption({ label: clinicName });
     const createDoctorResponsePromise = page.waitForResponse((response) =>
       isResponse(response, "POST", /^\/api\/v1\/admin\/doctors$/),
     );
-    await page.getByRole("button", { name: "Добавить врача" }).click();
+    await doctorRegion.getByRole("button", { name: "Добавить врача" }).click();
     const createDoctorResponse = await createDoctorResponsePromise;
     expect(createDoctorResponse.status()).toBeGreaterThanOrEqual(200);
     expect(createDoctorResponse.status()).toBeLessThan(300);

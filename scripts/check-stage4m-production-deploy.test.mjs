@@ -151,6 +151,26 @@ test("Stage 4M guard requires clinic admin assistant creation coverage", () => {
   assert.match(errors.join("\n"), /missing live coverage marker: live-clinic-admin-password-mobile-390\.png/);
 });
 
+test("Stage 4M guard requires the doctor journey to open the current staff creation panel", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-live-doctor-create-panel-contract-"));
+  mkdirSync(join(root, "e2e"), { recursive: true });
+  writeFileSync(
+    join(root, "e2e", "production-doctor-workspace-live.pw.ts"),
+    [
+      'import { appMain, bannerText, expectMainTapTargets, expectNoHorizontalOverflow, mainText, pageHeaderText, sidebarLink, sidebarLinks } from "./live-admin-test-helpers";',
+      'await page.getByLabel("ФИО врача").fill(doctorDisplayName);',
+      'await page.getByRole("button", { name: "Добавить врача" }).click();',
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateLiveE2EContract(errors, root);
+
+  assert.match(errors.join("\n"), /missing live coverage marker: getByRole\("region", \{ name: "Добавить врача" \}\)/);
+  assert.match(errors.join("\n"), /missing live coverage marker: doctorRegion\.getByLabel\("ФИО врача"\)/);
+  assert.match(errors.join("\n"), /missing live coverage marker: doctorRegion\.getByRole\("button", \{ name: "Добавить врача" \}\)/);
+});
+
 test("Stage 4M guard rejects clinic staff screenshots captured under the wrong tab", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-live-staff-screenshot-order-contract-"));
   mkdirSync(join(root, "e2e"), { recursive: true });
