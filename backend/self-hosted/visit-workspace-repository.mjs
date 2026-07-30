@@ -75,6 +75,10 @@ from (
     ${visitColumns("v")},
     p.full_name as "patientFullName",
     p.code as "patientCode",
+    p.birth_date as "patientBirthDate",
+    p.sex as "patientSex",
+    p.phototype as "patientPhototype",
+    p.imaging_consent as "patientImagingConsent",
     c.slug as "clinicSlug",
     c.name as "clinicName"
   from visits v
@@ -169,6 +173,10 @@ function normalizeVisitDetail(row) {
       id: row.patientId ? String(row.patientId) : null,
       fullName: row.patientFullName ?? null,
       code: row.patientCode ?? null,
+      birthDate: row.patientBirthDate ?? null,
+      sex: row.patientSex ?? null,
+      phototype: row.patientPhototype ?? null,
+      imagingConsent: row.patientImagingConsent === true,
     },
     clinic: {
       id: row.clinicId ? String(row.clinicId) : null,

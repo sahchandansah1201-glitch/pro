@@ -126,7 +126,15 @@ describe("self-hosted visit api client", () => {
           id: VISIT_ID,
           status: "in_progress",
           startedAt: "2026-05-12T09:00:00.000Z",
-          patient: { id: PATIENT_ID, fullName: "Demo Patient One", code: "DP-DEMO-0001" },
+          patient: {
+            id: PATIENT_ID,
+            fullName: "Demo Patient One",
+            code: "DP-DEMO-0001",
+            birthDate: "1990-01-02",
+            sex: "male",
+            phototype: "III",
+            imagingConsent: true,
+          },
           clinic: { id: "c", slug: "demo-clinic", name: "Demo Clinic" },
         },
       }),
@@ -134,6 +142,12 @@ describe("self-hosted visit api client", () => {
     const res = await getSelfHostedVisit({ apiBaseUrl: BASE, apiToken: TOKEN, visitId: VISIT_ID });
     expect(res.ok).toBe(true);
     expect(res.value?.patient.fullName).toBe("Demo Patient One");
+    expect(res.value?.patient).toMatchObject({
+      birthDate: "1990-01-02",
+      sex: "male",
+      phototype: "III",
+      imagingConsent: true,
+    });
     expect(res.value?.clinic.slug).toBe("demo-clinic");
   });
 

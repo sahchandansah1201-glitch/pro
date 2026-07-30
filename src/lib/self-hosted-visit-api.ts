@@ -52,6 +52,10 @@ export interface SelfHostedVisitDetailDTO extends SelfHostedVisitDTO {
     id: string | null;
     fullName: string | null;
     code: string | null;
+    birthDate: string | null;
+    sex: string | null;
+    phototype: string | null;
+    imagingConsent: boolean;
   };
   clinic: {
     id: string | null;
@@ -213,6 +217,10 @@ function toVisitDetail(input: Record<string, unknown>): SelfHostedVisitDetailDTO
       id: patient.id == null ? null : String(patient.id),
       fullName: patient.fullName == null ? null : String(patient.fullName),
       code: patient.code == null ? null : String(patient.code),
+      birthDate: patient.birthDate == null ? null : String(patient.birthDate),
+      sex: patient.sex == null ? null : String(patient.sex),
+      phototype: patient.phototype == null ? null : String(patient.phototype),
+      imagingConsent: patient.imagingConsent === true,
     },
     clinic: {
       id: clinic.id == null ? null : String(clinic.id),

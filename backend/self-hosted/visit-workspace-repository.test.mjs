@@ -35,6 +35,10 @@ test("buildGetVisitSql joins patient and clinic for detail rendering", () => {
     clinicIds: [CLINIC_ID],
   });
   assert.match(sql, /join patients p/);
+  assert.match(sql, /p\.birth_date as "patientBirthDate"/);
+  assert.match(sql, /p\.sex as "patientSex"/);
+  assert.match(sql, /p\.phototype as "patientPhototype"/);
+  assert.match(sql, /p\.imaging_consent as "patientImagingConsent"/);
   assert.match(sql, /join clinics c/);
   assert.match(sql, new RegExp(`v\\.id = '${VISIT_ID}'::uuid`));
 });
@@ -100,6 +104,10 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
             updatedAt: "2026-05-12T09:00:00.000Z",
             patientFullName: "Demo Patient One",
             patientCode: "DP-DEMO-0001",
+            patientBirthDate: "1990-01-02",
+            patientSex: "male",
+            patientPhototype: "III",
+            patientImagingConsent: true,
             clinicSlug: "demo-clinic",
             clinicName: "Dermatolog Pro Demo Clinic",
           },
@@ -150,6 +158,10 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
 
   const visit = await repo.getVisit({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.equal(visit.patient.fullName, "Demo Patient One");
+  assert.equal(visit.patient.birthDate, "1990-01-02");
+  assert.equal(visit.patient.sex, "male");
+  assert.equal(visit.patient.phototype, "III");
+  assert.equal(visit.patient.imagingConsent, true);
   assert.equal(visit.clinic.slug, "demo-clinic");
 
   const lesions = await repo.listVisitLesions({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });

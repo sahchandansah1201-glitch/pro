@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   collectStage4MChecks,
   validateDoctorVisitActionTapTargets,
+  validateDoctorVisitPatientProjection,
   validateDoctorVisitWorkspacePriority,
   validateLiveE2EContract,
   validateStage4MDbSmokeContract,
@@ -54,6 +55,28 @@ test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: Рабочее место · Ассистент/);
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-assistant-mobile-390\.png/);
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-doctor-mobile-390\.png/);
+});
+
+test("Stage 4M guard requires real doctor visit patient demographics and imaging consent", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-doctor-visit-patient-projection-"));
+  mkdirSync(join(root, "backend", "self-hosted"), { recursive: true });
+  mkdirSync(join(root, "src", "lib"), { recursive: true });
+  writeFileSync(
+    join(root, "backend", "self-hosted", "visit-workspace-repository.mjs"),
+    'p.full_name as "patientFullName"',
+  );
+  writeFileSync(
+    join(root, "src", "lib", "self-hosted-clinical-adapter.ts"),
+    'birthDate: "1900-01-01", imaging: false',
+  );
+
+  const errors = [];
+  validateDoctorVisitPatientProjection(errors, root);
+
+  assert.match(errors.join("\n"), /patientBirthDate/);
+  assert.match(errors.join("\n"), /patientImagingConsent/);
+  assert.match(errors.join("\n"), /dto\.patient\.birthDate/);
+  assert.match(errors.join("\n"), /dto\.patient\.imagingConsent/);
 });
 
 test("Stage 4M guard rejects ambiguous live e2e main locators", () => {

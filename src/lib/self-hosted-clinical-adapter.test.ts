@@ -28,11 +28,25 @@ describe("self-hosted clinical adapter", () => {
       chiefComplaint: "контроль",
       createdAt: "2026-05-12T08:59:00.000Z",
       updatedAt: "2026-05-12T09:30:00.000Z",
-      patient: { id: "patient-1", fullName: "Live Patient", code: "DP-live" },
+      patient: {
+        id: "patient-1",
+        fullName: "Live Patient",
+        code: "DP-live",
+        birthDate: "1990-01-02",
+        sex: "male",
+        phototype: "III",
+        imagingConsent: true,
+      },
       clinic: { id: "clinic-1", slug: "clinic", name: "Clinic" },
     };
 
-    expect(selfHostedVisitDetailToPatient(visit).fullName).toBe("Live Patient");
+    expect(selfHostedVisitDetailToPatient(visit)).toMatchObject({
+      fullName: "Live Patient",
+      birthDate: "1990-01-02",
+      sex: "male",
+      phototype: "III",
+      consents: { imaging: true },
+    });
     expect(selfHostedVisitToDomain(visit)).toMatchObject({
       id: "visit-1",
       patientId: "patient-1",
@@ -78,4 +92,3 @@ describe("self-hosted clinical adapter", () => {
     });
   });
 });
-

@@ -1275,6 +1275,41 @@ export function validateStage4MDbSmokeContract(errors, root) {
   }
 }
 
+export function validateDoctorVisitPatientProjection(errors, root) {
+  const requiredMarkers = {
+    "backend/self-hosted/visit-workspace-repository.mjs": [
+      'p.birth_date as "patientBirthDate"',
+      'p.sex as "patientSex"',
+      'p.phototype as "patientPhototype"',
+      'p.imaging_consent as "patientImagingConsent"',
+      "birthDate: row.patientBirthDate ?? null",
+      "sex: row.patientSex ?? null",
+      "phototype: row.patientPhototype ?? null",
+      "imagingConsent: row.patientImagingConsent === true",
+    ],
+    "src/lib/self-hosted-clinical-adapter.ts": [
+      'birthDate: dto.patient.birthDate ?? "1900-01-01"',
+      "sex: normalizeSex(dto.patient.sex)",
+      "phototype: normalizePhototype(dto.patient.phototype)",
+      "imaging: dto.patient.imagingConsent === true",
+    ],
+  };
+
+  for (const [file, markers] of Object.entries(requiredMarkers)) {
+    if (!existsSync(join(root, file))) {
+      errors.push(`Missing required file: ${file}`);
+      continue;
+    }
+
+    const content = read(root, file);
+    for (const marker of markers) {
+      if (!content.includes(marker)) {
+        errors.push(`${file} missing production visit patient projection marker: ${marker}`);
+      }
+    }
+  }
+}
+
 export function validateDoctorVisitActionTapTargets(errors, root) {
   const file = "src/pages/doctor/VisitWorkspaceLiveActions.tsx";
   if (!existsSync(join(root, file))) {
@@ -1391,6 +1426,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   scanRuntimeCoupling(errors, root);
   validateLiveE2EContract(errors, root);
   validateStage4MDbSmokeContract(errors, root);
+  validateDoctorVisitPatientProjection(errors, root);
   validateDoctorVisitActionTapTargets(errors, root);
   validateDoctorVisitWorkspacePriority(errors, root);
   validatePackageScripts(errors, root);
