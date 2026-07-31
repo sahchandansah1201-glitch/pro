@@ -4697,7 +4697,7 @@ function BodyMapTab({
                         {LESION_STATUS[lesion.status]}
                       </span>
                     </div>
-                    <dl className="mt-1.5 grid grid-cols-4 gap-x-2 text-[11px]">
+                    <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
                       <Stat term="Впервые" value={formatDate(lesion.firstSeenAt)} />
                       <Stat term="Снимков" value={imageCount} />
                       <Stat term="4 признака" value={a ? a.abcd.total.toFixed(1) : "—"} />
@@ -4853,7 +4853,7 @@ function BodyMapTab({
                 локально, не сохранено
               </span>
             </div>
-            <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
               <Stat term="Позиция" value={formatBodyMapPosition(selectedDraft.mapPoint)} />
               <Stat term="Снимков" value="—" />
               <Stat term="4 признака" value="—" />
@@ -4889,7 +4889,7 @@ function BodyMapTab({
                 </Link>
               </Button>
             </div>
-            <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
               <Stat term="Позиция" value={formatBodyMapPosition(resolvePoint(selectedLesion))} />
               <Stat term="Снимков" value={selImageCount} />
               <Stat term="4 признака" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
@@ -5127,9 +5127,9 @@ function Field({ term, value }: { term: string; value: React.ReactNode }) {
 
 function Stat({ term, value }: { term: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-1">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-muted-foreground">{term}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
+      <dd className="min-w-0 break-words font-medium leading-tight tabular-nums">{value}</dd>
     </div>
   );
 }
