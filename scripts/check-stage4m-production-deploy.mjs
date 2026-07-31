@@ -68,6 +68,9 @@ const REQUIRED_FILES = [
   "scripts/run-production-public-analysis-live-e2e.test.mjs",
   "scripts/run-production-rds3-import-live-e2e.mjs",
   "scripts/run-production-rds3-import-live-e2e.test.mjs",
+  "scripts/windows/DermatologProRdsBridgeSetup.ps1",
+  "scripts/rds3-windows-bridge-installer.test.mjs",
+  "docs/backend/rds3-folder-importer-windows.md",
   "e2e/live-admin-test-helpers.ts",
   "e2e/production-auth-session-live.pw.ts",
   "e2e/production-admin-management-live.pw.ts",
@@ -1244,6 +1247,43 @@ export function validateLiveE2EContract(errors, root) {
   }
 }
 
+export function validateRds3WindowsBridgeAuth(errors, root) {
+  const file = "scripts/windows/DermatologProRdsBridgeSetup.ps1";
+  if (!existsSync(join(root, file))) return;
+  const content = read(root, file);
+  for (const marker of [
+    "/api/v1/auth/login",
+    "emailCipher",
+    "passwordCipher",
+    "Get-BridgeSession",
+    "expiresInSeconds",
+    'role -eq "assistant"',
+    "Test-BridgeAccess",
+    "Choose-Visit",
+    "/api/v1/visits?limit=50",
+    "retrySeconds = 15",
+    "[почта скрыта]",
+    "[пароль скрыт]",
+    "[ключ скрыт]",
+  ]) {
+    if (!content.includes(marker)) {
+      errors.push(`${file} missing bridge auth marker: ${marker}`);
+    }
+  }
+  if (/\btokenCipher\s*=/.test(content)) {
+    errors.push(`${file} must not persist a bearer token`);
+  }
+  if (/Read-Host\s+"Ключ доступа"/.test(content)) {
+    errors.push(`${file} must not ask for a raw access key`);
+  }
+  if (/Prompt\s+"Номер визита в системе"/.test(content)) {
+    errors.push(`${file} must not ask the user for an internal visit id`);
+  }
+  if (/Prompt\s+"Номер очага/.test(content)) {
+    errors.push(`${file} must not ask the user for an internal lesion id`);
+  }
+}
+
 export function validateStage4MDbSmokeContract(errors, root) {
   const file = "scripts/stage4m-patient-portal-db-smoke.mjs";
   if (!existsSync(join(root, file))) return;
@@ -1425,6 +1465,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   }
   scanRuntimeCoupling(errors, root);
   validateLiveE2EContract(errors, root);
+  validateRds3WindowsBridgeAuth(errors, root);
   validateStage4MDbSmokeContract(errors, root);
   validateDoctorVisitPatientProjection(errors, root);
   validateDoctorVisitActionTapTargets(errors, root);

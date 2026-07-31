@@ -10,13 +10,14 @@ import {
   validateDoctorVisitPatientProjection,
   validateDoctorVisitWorkspacePriority,
   validateLiveE2EContract,
+  validateRds3WindowsBridgeAuth,
   validateStage4MDbSmokeContract,
 } from "./check-stage4m-production-deploy.mjs";
 
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 90);
+  assert.equal(result.checkedFiles, 93);
 });
 
 test("Stage 4M guard requires the production auth/session live journey", () => {
@@ -55,6 +56,29 @@ test("Stage 4M guard requires the read-only RDS-3 receipt journey", () => {
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: Рабочее место · Ассистент/);
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-assistant-mobile-390\.png/);
   assert.match(errors.join("\n"), /production-rds3-import-live\.pw\.ts missing live coverage marker: live-rds3-doctor-mobile-390\.png/);
+});
+
+test("Stage 4M guard requires renewable assistant authentication in the Windows RDS-3 bridge", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-rds3-windows-auth-"));
+  mkdirSync(join(root, "scripts", "windows"), { recursive: true });
+  writeFileSync(
+    join(root, "scripts", "windows", "DermatologProRdsBridgeSetup.ps1"),
+    'Read-Host "Ключ доступа" -AsSecureString\nAsk-Text -Prompt "Номер визита в системе"\nAsk-Text -Prompt "Номер очага"\n$config = @{ tokenCipher = "cipher" }',
+  );
+
+  const errors = [];
+  validateRds3WindowsBridgeAuth(errors, root);
+
+  assert.match(errors.join("\n"), /missing bridge auth marker: \/api\/v1\/auth\/login/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: emailCipher/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: passwordCipher/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: Get-BridgeSession/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: Choose-Visit/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: \/api\/v1\/visits\?limit=50/);
+  assert.match(errors.join("\n"), /must not persist a bearer token/);
+  assert.match(errors.join("\n"), /must not ask for a raw access key/);
+  assert.match(errors.join("\n"), /must not ask the user for an internal visit id/);
+  assert.match(errors.join("\n"), /must not ask the user for an internal lesion id/);
 });
 
 test("Stage 4M guard requires real doctor visit patient demographics and imaging consent", () => {

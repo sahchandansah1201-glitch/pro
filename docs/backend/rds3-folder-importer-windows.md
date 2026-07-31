@@ -1,4 +1,4 @@
-# RDS-3 folder importer for Windows 11
+# RDS-3 folder importer for Windows 10 and 11
 
 This runbook describes the first safe integration path for the RDS-3 dermatoscope.
 It does not install a USB driver and does not talk to the device directly. The
@@ -7,7 +7,7 @@ saved image from the local workstation folder.
 
 ## Scope
 
-- Target workstation: Windows 11 with the RDS-3 developer application installed.
+- Target workstation: Windows 10 or 11 with the RDS-3 developer application installed.
 - Source folder: `%USERPROFILE%\Documents\Dermatoscopy` by default.
 - Backend target: the clinic self-hosted Dermatolog Pro backend.
 - Product action: attach the saved dermatoscopy image to an existing visit.
@@ -34,11 +34,20 @@ The setup file asks the user to:
 
 1. choose the folder where the RDS-3 application saves photos;
 2. enter the Dermatolog Pro address;
-3. enter the visit id and optional lesion id;
-4. enter the access key.
+3. enter the assistant work email and password;
+4. select an available visit by patient, date, and status.
 
-The access key is saved with Windows current-user encryption
-(`ConvertFrom-SecureString`). The installed bridge creates shortcuts for:
+The installer verifies that the account has the assistant role and loads only
+the visits available to that assistant. The user does not need to find or type
+an internal visit or lesion UUID. The first physical import is saved without a
+lesion binding. The email and password are saved with Windows current-user
+encryption (`ConvertFrom-SecureString`).
+The worker signs in through `POST /api/v1/auth/login`, keeps the short-lived
+bearer token only in process memory, and renews it before expiry. Neither the
+plain credentials nor the bearer token are written to the configuration,
+receipt, ledger, or log.
+
+The installed bridge creates shortcuts for:
 
 - starting `Dermatolog Pro RDS Bridge`;
 - reconfiguring the bridge later;

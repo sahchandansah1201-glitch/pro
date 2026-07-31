@@ -1,4 +1,4 @@
-﻿# Dermatolog Pro RDS Bridge setup for Windows 11.
+﻿# Dermatolog Pro RDS Bridge setup for Windows 10 and 11.
 # Run in Windows PowerShell: powershell -ExecutionPolicy Bypass -File .\DermatologProRdsBridgeSetup.ps1
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +33,7 @@ function Read-Config {
   return Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
-function Get-PlainToken {
+function Get-PlainSecret {
   param([string]$Cipher)
   $secure = ConvertTo-SecureString $Cipher
   $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
@@ -45,10 +45,28 @@ function Get-PlainToken {
 }
 
 function Hide-SensitiveText {
-  param([string]$Text, [object]$Config, [string]$PlainToken)
+  param(
+    [string]$Text,
+    [object]$Config,
+    [string]$PlainEmail,
+    [string]$PlainPassword,
+    [string]$PlainToken
+  )
   $result = [string]$Text
   if ($Config.watchDir) {
     $result = $result.Replace([string]$Config.watchDir, "[папка снимков]")
+  }
+  if ($Config.visitId) {
+    $result = $result.Replace([string]$Config.visitId, "[номер визита скрыт]")
+  }
+  if ($Config.lesionId) {
+    $result = $result.Replace([string]$Config.lesionId, "[номер очага скрыт]")
+  }
+  if ($PlainEmail) {
+    $result = $result.Replace($PlainEmail, "[почта скрыта]")
+  }
+  if ($PlainPassword) {
+    $result = $result.Replace($PlainPassword, "[пароль скрыт]")
   }
   if ($PlainToken) {
     $result = $result.Replace($PlainToken, "[ключ скрыт]")
@@ -131,6 +149,54 @@ function Test-StableFile {
   Start-Sleep -Milliseconds $StableMilliseconds
   $second = Get-Item -LiteralPath $FilePath
   return ($first.Length -eq $second.Length) -and ($first.LastWriteTimeUtc -eq $second.LastWriteTimeUtc)
+}
+
+function Invoke-BridgeLogin {
+  param([object]$Config, [string]$PlainEmail, [string]$PlainPassword)
+  $base = ([string]$Config.apiBaseUrl).TrimEnd("/")
+  $body = @{
+    email = $PlainEmail
+    password = $PlainPassword
+  } | ConvertTo-Json
+  $login = Invoke-RestMethod `
+    -Uri "$base/api/v1/auth/login" `
+    -Method "Post" `
+    -Headers @{ Accept = "application/json" } `
+    -ContentType "application/json; charset=utf-8" `
+    -Body $body
+  $accessToken = [string]$login.accessToken
+  if (-not $accessToken) {
+    throw "Система не вернула ключ рабочей сессии."
+  }
+  $assistantRoles = @($login.user.roles | Where-Object { [string]$_.role -eq "assistant" })
+  if ($assistantRoles.Count -eq 0) {
+    throw "Для импорта снимков нужна учётная запись ассистента."
+  }
+  $expiresInSeconds = 3600
+  if ($login.expiresInSeconds -and [int]$login.expiresInSeconds -gt 0) {
+    $expiresInSeconds = [int]$login.expiresInSeconds
+  }
+  $refreshAfterSeconds = $expiresInSeconds - 120
+  if ($refreshAfterSeconds -lt 30) {
+    $refreshAfterSeconds = 30
+  }
+  return [pscustomobject]@{
+    accessToken = $accessToken
+    expiresAt = (Get-Date).ToUniversalTime().AddSeconds($refreshAfterSeconds)
+  }
+}
+
+function Get-BridgeSession {
+  param(
+    [object]$Config,
+    [string]$PlainEmail,
+    [string]$PlainPassword,
+    [object]$Session
+  )
+  if ($null -eq $Session -or (Get-Date).ToUniversalTime() -ge [datetime]$Session.expiresAt) {
+    return Invoke-BridgeLogin -Config $Config -PlainEmail $PlainEmail -PlainPassword $PlainPassword
+  }
+  return $Session
 }
 
 function Invoke-BridgeJson {
@@ -262,7 +328,13 @@ function Import-RdsImage {
 }
 
 function Scan-RdsFolder {
-  param([object]$Config, [object]$Ledger, [string]$PlainToken)
+  param(
+    [object]$Config,
+    [object]$Ledger,
+    [string]$PlainEmail,
+    [string]$PlainPassword,
+    [string]$PlainToken
+  )
   $extensions = @(".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif")
   Get-ChildItem -LiteralPath $Config.watchDir -File | Where-Object {
     $extensions -contains $_.Extension.ToLowerInvariant()
@@ -270,14 +342,25 @@ function Scan-RdsFolder {
     try {
       Import-RdsImage -FilePath $_.FullName -Config $Config -Ledger $Ledger -PlainToken $PlainToken
     } catch {
-      $message = Hide-SensitiveText -Text $_.Exception.Message -Config $Config -PlainToken $PlainToken
+      $message = Hide-SensitiveText `
+        -Text $_.Exception.Message `
+        -Config $Config `
+        -PlainEmail $PlainEmail `
+        -PlainPassword $PlainPassword `
+        -PlainToken $PlainToken
       Write-BridgeLog "Ошибка импорта снимка: $message"
     }
   }
 }
 
 $config = Read-Config
-$plainToken = Get-PlainToken -Cipher ([string]$config.tokenCipher)
+if (-not $config.emailCipher -or -not $config.passwordCipher) {
+  Write-BridgeLog "Настройки bridge устарели. Запустите настройку повторно."
+  exit 1
+}
+$plainEmail = Get-PlainSecret -Cipher ([string]$config.emailCipher)
+$plainPassword = Get-PlainSecret -Cipher ([string]$config.passwordCipher)
+$session = $null
 if (-not (Test-Path -LiteralPath $config.watchDir)) {
   New-Item -ItemType Directory -Path $config.watchDir -Force | Out-Null
 }
@@ -285,7 +368,31 @@ $ledger = Read-Ledger -LedgerPath $config.ledgerPath
 Write-BridgeLog "Bridge запущен. Папка снимков подключена."
 
 while ($true) {
-  Scan-RdsFolder -Config $config -Ledger $ledger -PlainToken $plainToken
+  try {
+    $session = Get-BridgeSession `
+      -Config $config `
+      -PlainEmail $plainEmail `
+      -PlainPassword $plainPassword `
+      -Session $session
+    Scan-RdsFolder `
+      -Config $config `
+      -Ledger $ledger `
+      -PlainEmail $plainEmail `
+      -PlainPassword $plainPassword `
+      -PlainToken ([string]$session.accessToken)
+  } catch {
+    $plainToken = if ($session) { [string]$session.accessToken } else { "" }
+    $message = Hide-SensitiveText `
+      -Text $_.Exception.Message `
+      -Config $config `
+      -PlainEmail $plainEmail `
+      -PlainPassword $plainPassword `
+      -PlainToken $plainToken
+    Write-BridgeLog "Ошибка подключения к системе: $message"
+    $session = $null
+    Start-Sleep -Seconds ([int]$config.retrySeconds)
+    continue
+  }
   Start-Sleep -Seconds ([int]$config.pollSeconds)
 }
 '@
@@ -341,18 +448,149 @@ function Ask-RequiredText {
   }
 }
 
-function Ask-RequiredUuid {
-  param([string]$Title, [string]$Prompt, [string]$FieldName)
-  while ($true) {
-    $value = Ask-Text -Title $Title -Prompt $Prompt -DefaultValue ""
-    $parsed = [guid]::Empty
-    if ([guid]::TryParse($value, [ref]$parsed)) {
-      return $parsed.ToString()
-    }
-    if (-not (Confirm-RetryInput -Message "Укажите корректный UUID для поля '$FieldName'.")) {
-      return $null
-    }
+function Get-PlainSecureString {
+  param([Security.SecureString]$SecureValue)
+  $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureValue)
+  try {
+    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
   }
+}
+
+function Test-BridgeAccess {
+  param(
+    [string]$ApiBaseUrl,
+    [string]$Email,
+    [Security.SecureString]$SecurePassword
+  )
+  $plainPassword = Get-PlainSecureString -SecureValue $SecurePassword
+  try {
+    $base = $ApiBaseUrl.TrimEnd("/")
+    $loginBody = @{
+      email = $Email
+      password = $plainPassword
+    } | ConvertTo-Json
+    $login = Invoke-RestMethod `
+      -Uri "$base/api/v1/auth/login" `
+      -Method "Post" `
+      -Headers @{ Accept = "application/json" } `
+      -ContentType "application/json; charset=utf-8" `
+      -Body $loginBody
+    $accessToken = [string]$login.accessToken
+    if (-not $accessToken) {
+      throw "Система не вернула ключ рабочей сессии."
+    }
+    $assistantRoles = @($login.user.roles | Where-Object { [string]$_.role -eq "assistant" })
+    if ($assistantRoles.Count -eq 0) {
+      throw "Для импорта снимков нужна учётная запись ассистента."
+    }
+    $visitResponse = Invoke-RestMethod `
+      -Uri "$base/api/v1/visits?limit=50" `
+      -Method "Get" `
+      -Headers @{
+        Accept = "application/json"
+        Authorization = "Bearer $accessToken"
+      }
+    $visits = @($visitResponse.items | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.id) })
+    if ($visits.Count -eq 0) {
+      throw "Для ассистента нет доступных визитов."
+    }
+    return $visits
+  } finally {
+    $plainPassword = $null
+  }
+}
+
+function Choose-Visit {
+  param([object[]]$Visits)
+  $statusLabels = @{
+    draft = "запланирован"
+    in_progress = "идёт приём"
+    signed = "завершён"
+    cancelled = "отменён"
+  }
+  $choices = @(
+    $Visits | ForEach-Object {
+      $visit = $_
+      $patientName = [string]$visit.patient.fullName
+      if ([string]::IsNullOrWhiteSpace($patientName)) {
+        $patientName = "Пациент не указан"
+      }
+      $startedAt = "дата не указана"
+      if ($visit.startedAt) {
+        try {
+          $startedAt = ([DateTimeOffset]::Parse([string]$visit.startedAt)).LocalDateTime.ToString("dd.MM.yyyy HH:mm")
+        } catch {
+          $startedAt = "дата не указана"
+        }
+      }
+      $status = [string]$visit.status
+      $statusLabel = if ($statusLabels.ContainsKey($status)) { $statusLabels[$status] } else { "статус не указан" }
+      [pscustomobject]@{
+        Label = "$patientName · $startedAt · $statusLabel"
+        Id = [string]$visit.id
+      }
+    }
+  )
+
+  $form = New-Object System.Windows.Forms.Form
+  $form.Text = $AppName
+  $form.Width = 650
+  $form.Height = 190
+  $form.StartPosition = "CenterScreen"
+  $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+  $form.MaximizeBox = $false
+  $form.MinimizeBox = $false
+
+  $label = New-Object System.Windows.Forms.Label
+  $label.Left = 20
+  $label.Top = 20
+  $label.Width = 590
+  $label.Height = 32
+  $label.Text = "Выберите визит, к которому bridge будет добавлять снимки."
+  $form.Controls.Add($label)
+
+  $combo = New-Object System.Windows.Forms.ComboBox
+  $combo.Left = 20
+  $combo.Top = 55
+  $combo.Width = 590
+  $combo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+  $combo.DisplayMember = "Label"
+  $combo.ValueMember = "Id"
+  $combo.DataSource = $choices
+  $combo.SelectedIndex = 0
+  $form.Controls.Add($combo)
+
+  $selectButton = New-Object System.Windows.Forms.Button
+  $selectButton.Text = "Выбрать"
+  $selectButton.Left = 430
+  $selectButton.Top = 100
+  $selectButton.Width = 85
+  $selectButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+  $form.AcceptButton = $selectButton
+  $form.Controls.Add($selectButton)
+
+  $cancelButton = New-Object System.Windows.Forms.Button
+  $cancelButton.Text = "Отмена"
+  $cancelButton.Left = 525
+  $cancelButton.Top = 100
+  $cancelButton.Width = 85
+  $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+  $form.CancelButton = $cancelButton
+  $form.Controls.Add($cancelButton)
+
+  $dialogResult = $form.ShowDialog()
+  $selectedVisitId = if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+    [string]$combo.SelectedValue
+  } else {
+    $null
+  }
+  $form.Dispose()
+  if ($null -eq $selectedVisitId) {
+    return $null
+  }
+  return $selectedVisitId
 }
 
 function New-BridgeShortcut {
@@ -385,17 +623,49 @@ if ($null -eq $apiBaseUrl) {
   exit 0
 }
 
-$visitId = Ask-RequiredUuid -Title $AppName -Prompt "Номер визита в системе" -FieldName "Номер визита"
+$emailCipher = $null
+$passwordCipher = $null
+$availableVisits = @()
+while ($true) {
+  $email = Ask-RequiredText `
+    -Title $AppName `
+    -Prompt "Рабочая почта ассистента" `
+    -DefaultValue "" `
+    -FieldName "Рабочая почта ассистента"
+  if ($null -eq $email) {
+    Write-Host "Установка отменена пользователем."
+    exit 0
+  }
+  Write-Host "Введите пароль ассистента. Данные входа будут зашифрованы для текущего пользователя Windows."
+  $securePassword = Read-Host "Пароль ассистента" -AsSecureString
+  try {
+    $availableVisits = @(
+      Test-BridgeAccess `
+      -ApiBaseUrl $apiBaseUrl `
+      -Email $email `
+      -SecurePassword $securePassword
+    )
+    $secureEmail = ConvertTo-SecureString -String $email -AsPlainText -Force
+    $emailCipher = $secureEmail | ConvertFrom-SecureString
+    $passwordCipher = $securePassword | ConvertFrom-SecureString
+    break
+  } catch {
+    if (-not (Confirm-RetryInput -Message "Не удалось войти как ассистент или загрузить доступные визиты. Проверьте почту, пароль и подключение к системе.")) {
+      Write-Host "Установка отменена пользователем."
+      exit 0
+    }
+  }
+}
+
+$email = $null
+$secureEmail = $null
+$securePassword = $null
+$visitId = Choose-Visit -Visits $availableVisits
+$availableVisits = $null
 if ($null -eq $visitId) {
   Write-Host "Установка отменена пользователем."
   exit 0
 }
-
-$lesionId = Ask-Text -Title $AppName -Prompt "Номер очага, если известен. Можно оставить пустым." -DefaultValue ""
-
-Write-Host "Введите ключ доступа к системе. Он будет сохранён только в зашифрованном виде для текущего пользователя Windows."
-$secureToken = Read-Host "Ключ доступа" -AsSecureString
-$tokenCipher = $secureToken | ConvertFrom-SecureString
 
 New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
 Set-Content -LiteralPath $WorkerPath -Value $WorkerScript -Encoding UTF8
@@ -406,12 +676,14 @@ if ($PSCommandPath) {
 $config = [ordered]@{
   watchDir = $watchDir
   apiBaseUrl = $apiBaseUrl.TrimEnd("/")
-  tokenCipher = $tokenCipher
+  emailCipher = $emailCipher
+  passwordCipher = $passwordCipher
   visitId = $visitId
-  lesionId = $lesionId
+  lesionId = ""
   ledgerPath = (Join-Path $watchDir ".dermatolog-pro-rds3-import-ledger.json")
   receiptPath = (Join-Path $InstallRoot "last-receipt.json")
   pollSeconds = 2
+  retrySeconds = 15
   stableMilliseconds = 1200
   maxBytes = 26214400
 }
