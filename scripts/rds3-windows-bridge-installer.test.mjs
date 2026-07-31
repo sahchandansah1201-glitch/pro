@@ -69,6 +69,15 @@ test("RDS-3 Windows bridge backs off after authentication or network failures", 
   assert.match(text, /Start-Sleep -Seconds \(\[int\]\$config\.retrySeconds\)/);
 });
 
+test("RDS-3 Windows bridge prevents concurrent workers during reconfiguration and startup", () => {
+  const text = installerText();
+  assert.match(text, /System\.Threading\.Mutex/);
+  assert.match(text, /Local\\DermatologProRdsBridge/);
+  assert.match(text, /Get-CimInstance Win32_Process/);
+  assert.match(text, /CommandLine -like "\*\$WorkerPath\*"/);
+  assert.match(text, /Stop-Process -Id \$process\.ProcessId/);
+});
+
 test("RDS-3 Windows bridge redacts local credentials and transient tokens", () => {
   const text = installerText();
   assert.match(text, /\[почта скрыта\]/);

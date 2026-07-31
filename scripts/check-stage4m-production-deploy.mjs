@@ -1262,6 +1262,8 @@ export function validateRds3WindowsBridgeAuth(errors, root) {
     "Choose-Visit",
     "/api/v1/visits?limit=50",
     "retrySeconds = 15",
+    "System.Threading.Mutex",
+    "Stop-RunningBridge",
     "[почта скрыта]",
     "[пароль скрыт]",
     "[ключ скрыт]",

@@ -53,6 +53,10 @@ The installed bridge creates shortcuts for:
 - reconfiguring the bridge later;
 - optional Windows startup launch.
 
+Only one worker can run for the current Windows user. Reconfiguration stops the
+previous worker before replacing its script and settings, and then offers to
+start the newly configured worker.
+
 The installer writes files under:
 
 ```text

@@ -109,6 +109,8 @@ const REQUIRED_TEXT = {
     "Choose-Visit",
     "/api/v1/visits?limit=50",
     "retrySeconds = 15",
+    "System.Threading.Mutex",
+    "Stop-RunningBridge",
     "/api/v1/visits/$visit/assets",
     "/capture-metadata",
     "Dermatolog Pro RDS Bridge.lnk",
@@ -119,6 +121,7 @@ const REQUIRED_TEXT = {
     "selects an assistant-visible visit without asking for an internal UUID",
     "logs in and renews short-lived bearer tokens",
     "backs off after authentication or network failures",
+    "prevents concurrent workers during reconfiguration and startup",
     "existing safe asset contracts",
   ],
   "docs/backend/stage-4i-self-hosted-assets.md": [

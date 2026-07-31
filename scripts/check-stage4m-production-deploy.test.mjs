@@ -75,6 +75,8 @@ test("Stage 4M guard requires renewable assistant authentication in the Windows 
   assert.match(errors.join("\n"), /missing bridge auth marker: Get-BridgeSession/);
   assert.match(errors.join("\n"), /missing bridge auth marker: Choose-Visit/);
   assert.match(errors.join("\n"), /missing bridge auth marker: \/api\/v1\/visits\?limit=50/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: System\.Threading\.Mutex/);
+  assert.match(errors.join("\n"), /missing bridge auth marker: Stop-RunningBridge/);
   assert.match(errors.join("\n"), /must not persist a bearer token/);
   assert.match(errors.join("\n"), /must not ask for a raw access key/);
   assert.match(errors.join("\n"), /must not ask the user for an internal visit id/);

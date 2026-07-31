@@ -18,6 +18,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$mutexCreated = $false
+$bridgeMutex = [System.Threading.Mutex]::new(
+  $true,
+  "Local\DermatologProRdsBridge",
+  [ref]$mutexCreated
+)
+if (-not $mutexCreated) {
+  $bridgeMutex.Dispose()
+  Write-Host "Dermatolog Pro RDS Bridge уже запущен."
+  exit 0
+}
+
 function Write-BridgeLog {
   param([string]$Message)
   $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -604,6 +616,19 @@ function New-BridgeShortcut {
   $shortcut.Save()
 }
 
+function Stop-RunningBridge {
+  param([string]$WorkerPath)
+  $processes = @(
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name -in @("powershell.exe", "pwsh.exe") -and
+      $_.CommandLine -like "*$WorkerPath*"
+    }
+  )
+  foreach ($process in $processes) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+  }
+}
+
 Add-WindowsForms
 
 Write-Host ""
@@ -668,6 +693,7 @@ if ($null -eq $visitId) {
 }
 
 New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
+Stop-RunningBridge -WorkerPath $WorkerPath
 Set-Content -LiteralPath $WorkerPath -Value $WorkerScript -Encoding UTF8
 if ($PSCommandPath) {
   Copy-Item -LiteralPath $PSCommandPath -Destination $InstalledSetupPath -Force
