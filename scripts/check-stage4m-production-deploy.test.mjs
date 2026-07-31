@@ -26,12 +26,21 @@ test("Stage 4M guard requires the complete clinical body atlas", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-clinical-body-atlas-"));
   mkdirSync(join(root, "src", "components", "clinical"), { recursive: true });
   mkdirSync(join(root, "src", "lib"), { recursive: true });
+  mkdirSync(join(root, "scripts"), { recursive: true });
   mkdirSync(join(root, "docs"), { recursive: true });
   mkdirSync(join(root, "public", "clinical-body-atlas"), { recursive: true });
 
   writeFileSync(
     join(root, "src", "components", "clinical", "ClinicalBodyAtlas.tsx"),
-    'data-source="makehuman-cc0-parametric"\nclinicalBodyAtlasAssetPath(profile, view)',
+    'data-source="makehuman-cc0-clinical-line-art"\nclinicalBodyAtlasAssetPath(profile, view)',
+  );
+  writeFileSync(
+    join(root, "scripts", "render-clinical-body-line-atlas.py"),
+    [
+      "CLINICAL_BODY_LINE_ATLAS_RENDER_OK",
+      "scene.render.use_freestyle = True",
+      "scene.render.film_transparent = True",
+    ].join("\n"),
   );
   writeFileSync(
     join(root, "src", "lib", "clinical-body-atlas.ts"),
@@ -43,6 +52,7 @@ test("Stage 4M guard requires the complete clinical body atlas", () => {
       "MakeHuman Community 1.3",
       "exported models are released under CC0",
       "SMPL was not selected",
+      "no image, tracing, or interface asset",
       "placement surface only",
     ].join("\n"),
   );

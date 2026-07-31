@@ -7,8 +7,8 @@ import {
 } from "@/lib/clinical-body-atlas";
 
 const ATLAS_BACKGROUND = "#061015";
-const ATLAS_SKIN = "#d8c3b5";
-const ATLAS_LINE = "#8e786d";
+const ATLAS_SKIN = "#faf7ed";
+const ATLAS_LINE = "#243638";
 
 function ScalpAtlas() {
   return (
@@ -66,7 +66,7 @@ export function ClinicalBodyAtlas({
       data-age-band={profile.ageBand}
       data-sex={profile.sex}
       data-view={view}
-      data-source="makehuman-cc0-parametric"
+      data-source="makehuman-cc0-clinical-line-art"
     >
       {assetPath ? (
         <>

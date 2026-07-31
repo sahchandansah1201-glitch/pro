@@ -2,9 +2,12 @@
 
 ## Decision
 
-The body-map workspace uses pre-rendered parametric human models instead of a
-hand-drawn SVG silhouette. The models preserve a consistent coordinate surface
-while showing age-dependent head, trunk, limb, shoulder, and pelvic proportions.
+The body-map workspace uses original flat clinical line art rendered from
+parametric human models. It follows the familiar medical-atlas convention of a
+light figure, dark contour, four orthographic views, visible hands and feet, and
+restrained surface landmarks. The models preserve a consistent coordinate
+surface while showing age-dependent head, trunk, limb, shoulder, and pelvic
+proportions.
 
 Seven age profiles are available:
 
@@ -44,19 +47,24 @@ the product without carrying MakeHuman's application license into the product.
 
 MakeHuman was selected because one parametric source controls age, sex, weight,
 muscle, height, and body proportions, and its exported models are CC0. The
-production atlas uses a neutral clay material and fixed orthographic camera so
-the surface remains readable without suggesting a diagnosis or representing a
-real patient.
+production atlas uses a flat light material, clinical contour lines, and a fixed
+orthographic camera. This keeps the surface readable without suggesting a
+diagnosis or representing a real patient. A user-provided screenshot was used
+only to establish the visual direction; no image, tracing, or interface asset
+from that application is included in the product.
 
 ## Generation profile
 
 The source parameters use representative ages 1, 3, 7, 13, 16, 30, and 70.
 Height and body-proportion controls stay neutral; weight and muscle are kept in
-the middle of their ranges with small age-appropriate adjustments. Every model
-is rendered from identical front, back, left, and right orthographic cameras as
-a 560 x 920 WebP. The interface fits each image to a stable 240 x 400 coordinate
-surface so existing normalized lesion positions remain compatible. The
-committed assets, not MakeHuman or Blender, are production runtime dependencies.
+the middle of their ranges with small age-appropriate adjustments. The Blender
+renderer in `scripts/render-clinical-body-line-atlas.py` creates original
+transparent PNGs with silhouette and surface-detail line sets. Every model is
+rendered from identical front, back, left, and right orthographic cameras and
+committed as a 720 x 1200 WebP. The interface fits each image to a stable
+240 x 400 coordinate surface so existing normalized lesion positions remain
+compatible. The committed assets, not MakeHuman or Blender, are production
+runtime dependencies.
 
 ## Product boundary
 

@@ -1358,8 +1358,13 @@ export function validateDoctorVisitPatientProjection(errors, root) {
 export function validateClinicalBodyAtlasAssets(errors, root) {
   const requiredMarkers = {
     "src/components/clinical/ClinicalBodyAtlas.tsx": [
-      'data-source="makehuman-cc0-parametric"',
+      'data-source="makehuman-cc0-clinical-line-art"',
       "clinicalBodyAtlasAssetPath(profile, view)",
+    ],
+    "scripts/render-clinical-body-line-atlas.py": [
+      "CLINICAL_BODY_LINE_ATLAS_RENDER_OK",
+      "scene.render.use_freestyle = True",
+      "scene.render.film_transparent = True",
     ],
     "src/lib/clinical-body-atlas.ts": [
       '"older_adult"',
@@ -1371,6 +1376,7 @@ export function validateClinicalBodyAtlasAssets(errors, root) {
       "MakeHuman Community 1.3",
       "exported models are released under CC0",
       "SMPL was not selected",
+      "no image, tracing, or interface asset",
       "placement surface only",
     ],
   };

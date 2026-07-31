@@ -53,7 +53,7 @@ describe("ClinicalBodyAtlas", () => {
           expect(atlas).toHaveAttribute("data-view", view);
           expect(atlas).toHaveAttribute(
             "data-source",
-            "makehuman-cc0-parametric",
+            "makehuman-cc0-clinical-line-art",
           );
           expect(image).toHaveAttribute(
             "href",
