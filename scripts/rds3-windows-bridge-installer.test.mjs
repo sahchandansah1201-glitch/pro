@@ -37,6 +37,15 @@ test("RDS-3 Windows bridge installer selects an assistant-visible visit without 
   assert.doesNotMatch(text, /throw "Поле '\$FieldName' обязательно/);
 });
 
+test("RDS-3 Windows bridge installer populates a one-visit selector before selecting its first item", () => {
+  const text = installerText();
+  assert.match(text, /foreach \(\$choice in \$choices\)/);
+  assert.match(text, /\$combo\.Items\.Add\(\$choice\)/);
+  assert.match(text, /if \(\$combo\.Items\.Count -gt 0\)/);
+  assert.match(text, /\$combo\.SelectedItem\.Id/);
+  assert.doesNotMatch(text, /\$combo\.DataSource\s*=\s*\$choices/);
+});
+
 test("RDS-3 Windows bridge installer stores assistant credentials through Windows user encryption", () => {
   const text = installerText();
   assert.match(text, /Рабочая почта ассистента/);

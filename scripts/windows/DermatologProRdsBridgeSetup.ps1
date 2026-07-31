@@ -569,9 +569,12 @@ function Choose-Visit {
   $combo.Width = 590
   $combo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
   $combo.DisplayMember = "Label"
-  $combo.ValueMember = "Id"
-  $combo.DataSource = $choices
-  $combo.SelectedIndex = 0
+  foreach ($choice in $choices) {
+    [void]$combo.Items.Add($choice)
+  }
+  if ($combo.Items.Count -gt 0) {
+    $combo.SelectedIndex = 0
+  }
   $form.Controls.Add($combo)
 
   $selectButton = New-Object System.Windows.Forms.Button
@@ -594,7 +597,7 @@ function Choose-Visit {
 
   $dialogResult = $form.ShowDialog()
   $selectedVisitId = if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
-    [string]$combo.SelectedValue
+    [string]$combo.SelectedItem.Id
   } else {
     $null
   }
