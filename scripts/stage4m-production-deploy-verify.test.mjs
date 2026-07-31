@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
@@ -11,6 +11,15 @@ import {
   renderStage4MPlan,
   runStage4M,
 } from "./stage4m-production-deploy-verify.mjs";
+import { CLINICAL_BODY_ATLAS_ASSET_PATHS } from "./clinical-body-atlas-assets.mjs";
+
+function writeClinicalBodyAtlasAssets(root, outDir) {
+  for (const assetPath of CLINICAL_BODY_ATLAS_ASSET_PATHS) {
+    const target = join(root, outDir, assetPath);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, "atlas");
+  }
+}
 
 test("Stage 4M parser supports deployment commands and validates app port", () => {
   const parsed = parseStage4MArgs([
@@ -232,6 +241,7 @@ test("Stage 4M production frontend build injects required Vite env from env file
             const outDir = args[args.indexOf("--outDir") + 1];
             mkdirSync(join(options.cwd, outDir), { recursive: true });
             writeFileSync(join(options.cwd, outDir, "index.html"), "<html></html>");
+            writeClinicalBodyAtlasAssets(options.cwd, outDir);
           }
           return { status: 0, stdout: "ok", stderr: "" };
         },
@@ -241,6 +251,47 @@ test("Stage 4M production frontend build injects required Vite env from env file
     assert.equal(buildCalls.length, 1);
     assert.equal(buildCalls[0].VITE_APP_MODE, "production");
     assert.equal(buildCalls[0].VITE_SELF_HOSTED_API_BASE_URL, "https://pro.example.test");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M safe frontend build rejects a missing clinical body atlas asset", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-atlas-build-"));
+  try {
+    const envFile = join(root, ".env.production");
+    const summaryPath = join(root, "summary.md");
+    writeFileSync(
+      envFile,
+      [
+        "VITE_APP_MODE=production",
+        "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+      ].join("\n"),
+    );
+    assert.throws(
+      () => runStage4M(
+        {
+          command: "first-boot",
+          summaryPath,
+          receiptPath: join(root, "receipt.json"),
+          projectName: "prod",
+          appPort: "8080",
+          envFile,
+          cwd: root,
+        },
+        {
+          spawn(cmd, args, options) {
+            if (cmd === "npm" && args.slice(0, 2).join(" ") === "run build") {
+              const outDir = args[args.indexOf("--outDir") + 1];
+              mkdirSync(join(options.cwd, outDir), { recursive: true });
+              writeFileSync(join(options.cwd, outDir, "index.html"), "<html></html>");
+            }
+            return { status: 0, stdout: "ok", stderr: "" };
+          },
+        },
+      ),
+      /staged frontend is missing clinical body atlas asset/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

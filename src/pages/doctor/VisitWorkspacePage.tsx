@@ -28,6 +28,8 @@ import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
 import {
+  CLINICAL_BODY_ATLAS_HEIGHT,
+  CLINICAL_BODY_ATLAS_WIDTH,
   currentClinicalBodyAtlasIso,
   type ClinicalBodyProfile,
 } from "@/lib/clinical-body-atlas";
@@ -4995,7 +4997,7 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
   return (
     <svg
       ref={svgRef}
-      viewBox="0 0 200 400"
+      viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
       className="block h-auto w-full cursor-crosshair"
       role="img"
       aria-label={ariaLabel}
@@ -5030,8 +5032,8 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
         <g key={`demo-${p.id}`} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
           <title>{`Локальный учебный очаг: ${p.label}`}</title>
           <circle
-            cx={p.x * 200}
-            cy={p.y * 400}
+            cx={p.x * CLINICAL_BODY_ATLAS_WIDTH}
+            cy={p.y * CLINICAL_BODY_ATLAS_HEIGHT}
             r={p.selected ? 8 : 6}
             fill="hsl(var(--surface))"
             stroke="hsl(var(--primary))"
@@ -5040,8 +5042,8 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
             opacity={0.85}
           />
           <text
-            x={p.x * 200}
-            y={p.y * 400 + 3}
+            x={p.x * CLINICAL_BODY_ATLAS_WIDTH}
+            y={p.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
             textAnchor="middle"
             fontSize={8}
             fontWeight={700}
@@ -5052,19 +5054,24 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
         </g>
       ))}
       {points.map((p) => (
-        <g key={p.id} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
+        <g
+          key={p.id}
+          data-marker-id={p.id}
+          onClick={(e) => { e.stopPropagation(); p.onSelect(); }}
+          style={{ cursor: "pointer" }}
+        >
           <title>{`${p.num}. ${p.label}`}</title>
           <circle
-            cx={p.x * 200}
-            cy={p.y * 400}
+            cx={p.x * CLINICAL_BODY_ATLAS_WIDTH}
+            cy={p.y * CLINICAL_BODY_ATLAS_HEIGHT}
             r={p.selected ? 8 : 6}
             fill={p.selected ? "hsl(var(--primary))" : "hsl(var(--surface))"}
             stroke={p.selected ? "hsl(var(--primary))" : "hsl(var(--foreground))"}
             strokeWidth={1.2}
           />
           <text
-            x={p.x * 200}
-            y={p.y * 400 + 3}
+            x={p.x * CLINICAL_BODY_ATLAS_WIDTH}
+            y={p.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
             textAnchor="middle"
             fontSize={8}
             fontWeight={600}
@@ -5077,8 +5084,8 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
       {pending && (
         <g pointerEvents="none">
           <circle
-            cx={pending.x * 200}
-            cy={pending.y * 400}
+            cx={pending.x * CLINICAL_BODY_ATLAS_WIDTH}
+            cy={pending.y * CLINICAL_BODY_ATLAS_HEIGHT}
             r={9}
             fill="none"
             stroke="hsl(var(--primary))"
@@ -5086,8 +5093,8 @@ function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySv
             strokeWidth={1.4}
           />
           <text
-            x={pending.x * 200}
-            y={pending.y * 400 + 3}
+            x={pending.x * CLINICAL_BODY_ATLAS_WIDTH}
+            y={pending.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
             textAnchor="middle"
             fontSize={10}
             fontWeight={700}

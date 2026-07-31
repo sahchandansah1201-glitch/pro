@@ -85,7 +85,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
     expect(screen.getByRole("tab", { name: /Карта тела/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/Полная карта тела/)).toBeInTheDocument();
-    expect(screen.getByText(/Профиль карты:\s*Женщина · 18 лет и старше/)).toBeInTheDocument();
+    expect(screen.getByText(/Профиль карты:\s*Женщина · 18–64 года/)).toBeInTheDocument();
     expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-age-band", "adult");
@@ -109,7 +109,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("p-004/v-005 shows the age-specific adult male profile", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
-    expect(screen.getByText(/Профиль карты:\s*Мужчина · 18 лет и старше/)).toBeInTheDocument();
+    expect(screen.getByText(/Профиль карты:\s*Мужчина · 18–64 года/)).toBeInTheDocument();
   });
   it("renders all five projection buttons", () => {
     renderAt("/patients/p-001/visits/v-001");
@@ -125,6 +125,10 @@ describe("VisitWorkspacePage · Карта тела", () => {
     fireEvent.click(screen.getByText(/Очаг B/));
     const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
+    const marker = svg.querySelector("[data-marker-id='l-008'] circle");
+    expect(marker).not.toBeNull();
+    expect(Number(marker?.getAttribute("cx"))).toBeCloseTo(100.8);
+    expect(Number(marker?.getAttribute("cy"))).toBeCloseTo(56);
   });
   it("clicking SVG opens 'Новый учебный очаг' panel with defaults; cancel hides it", () => {
     renderAt("/patients/p-001/visits/v-001");

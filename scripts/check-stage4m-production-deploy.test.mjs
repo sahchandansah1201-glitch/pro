@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import {
   collectStage4MChecks,
+  validateClinicalBodyAtlasAssets,
   validateDoctorVisitActionTapTargets,
   validateDoctorVisitPatientProjection,
   validateDoctorVisitWorkspacePriority,
@@ -13,11 +14,49 @@ import {
   validateRds3WindowsBridgeAuth,
   validateStage4MDbSmokeContract,
 } from "./check-stage4m-production-deploy.mjs";
+import { CLINICAL_BODY_ATLAS_ASSET_PATHS } from "./clinical-body-atlas-assets.mjs";
 
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 93);
+  assert.equal(result.checkedFiles, 94);
+});
+
+test("Stage 4M guard requires the complete clinical body atlas", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-clinical-body-atlas-"));
+  mkdirSync(join(root, "src", "components", "clinical"), { recursive: true });
+  mkdirSync(join(root, "src", "lib"), { recursive: true });
+  mkdirSync(join(root, "docs"), { recursive: true });
+  mkdirSync(join(root, "public", "clinical-body-atlas"), { recursive: true });
+
+  writeFileSync(
+    join(root, "src", "components", "clinical", "ClinicalBodyAtlas.tsx"),
+    'data-source="makehuman-cc0-parametric"\nclinicalBodyAtlasAssetPath(profile, view)',
+  );
+  writeFileSync(
+    join(root, "src", "lib", "clinical-body-atlas.ts"),
+    '"older_adult"\n"Женщина · 18–64 года"\n"Женщина · 65 лет и старше"\n/clinical-body-atlas/',
+  );
+  writeFileSync(
+    join(root, "docs", "clinical-body-atlas.md"),
+    [
+      "MakeHuman Community 1.3",
+      "exported models are released under CC0",
+      "SMPL was not selected",
+      "placement surface only",
+    ].join("\n"),
+  );
+
+  for (const assetPath of CLINICAL_BODY_ATLAS_ASSET_PATHS.slice(1)) {
+    writeFileSync(join(root, "public", assetPath), Buffer.alloc(2048));
+  }
+
+  const errors = [];
+  validateClinicalBodyAtlasAssets(errors, root);
+
+  assert.deepEqual(errors, [
+    `Missing clinical body atlas asset: public/${CLINICAL_BODY_ATLAS_ASSET_PATHS[0]}`,
+  ]);
 });
 
 test("Stage 4M guard requires the production auth/session live journey", () => {

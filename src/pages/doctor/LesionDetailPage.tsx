@@ -39,6 +39,8 @@ import { RiskBadge } from "@/components/clinical/RiskBadge";
 import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
 import { formatCardNumber } from "@/lib/card-number";
 import {
+  CLINICAL_BODY_ATLAS_HEIGHT,
+  CLINICAL_BODY_ATLAS_WIDTH,
   clinicalBodyProfileFromAge,
   clinicalBodyProfileLabel,
   type ClinicalBodyProfile,
@@ -1841,11 +1843,11 @@ function BodyMapMini({
   x: number;
   y: number;
 }) {
-  const cx = Math.max(0, Math.min(1, x)) * 200;
-  const cy = Math.max(0, Math.min(1, y)) * 400;
+  const cx = Math.max(0, Math.min(1, x)) * CLINICAL_BODY_ATLAS_WIDTH;
+  const cy = Math.max(0, Math.min(1, y)) * CLINICAL_BODY_ATLAS_HEIGHT;
   return (
     <svg
-      viewBox="0 0 200 400"
+      viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
       width={44}
       height={80}
       role="img"
@@ -1884,8 +1886,8 @@ function BodyMapDialog({
   bodyZone: string;
   label: string;
 }) {
-  const cx = Math.max(0, Math.min(1, x)) * 200;
-  const cy = Math.max(0, Math.min(1, y)) * 400;
+  const cx = Math.max(0, Math.min(1, x)) * CLINICAL_BODY_ATLAS_WIDTH;
+  const cy = Math.max(0, Math.min(1, y)) * CLINICAL_BODY_ATLAS_HEIGHT;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1901,7 +1903,7 @@ function BodyMapDialog({
         </DialogHeader>
         <div className="mx-auto w-full max-w-[360px]">
           <svg
-            viewBox="0 0 200 400"
+            viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
             role="img"
             aria-label={`Увеличенная карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
             className="block h-auto w-full"
@@ -1913,8 +1915,8 @@ function BodyMapDialog({
               strokeDasharray="3 3"
               strokeWidth={0.8}
             >
-              <line x1={0} y1={cy} x2={200} y2={cy} />
-              <line x1={cx} y1={0} x2={cx} y2={400} />
+              <line x1={0} y1={cy} x2={CLINICAL_BODY_ATLAS_WIDTH} y2={cy} />
+              <line x1={cx} y1={0} x2={cx} y2={CLINICAL_BODY_ATLAS_HEIGHT} />
             </g>
             {/* Пульсирующее кольцо */}
             <circle

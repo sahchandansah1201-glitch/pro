@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // Stage 4M · Production deployment verification guard.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { CLINICAL_BODY_ATLAS_ASSET_PATHS } from "./clinical-body-atlas-assets.mjs";
 
 const REQUIRED_FILES = [
   "scripts/stage4m-production-deploy-verify.mjs",
   "scripts/stage4m-production-deploy-verify.test.mjs",
   "scripts/stage4m-production-deploy-status.mjs",
   "scripts/stage4m-production-deploy-status.test.mjs",
+  "scripts/clinical-body-atlas-assets.mjs",
   "scripts/stage4m-self-hosted-schema-migrations.mjs",
   "scripts/stage4m-self-hosted-schema-migrations.test.mjs",
   "backend/self-hosted/db/migrations/0090_stage6_service_keys.sql",
@@ -1352,6 +1355,50 @@ export function validateDoctorVisitPatientProjection(errors, root) {
   }
 }
 
+export function validateClinicalBodyAtlasAssets(errors, root) {
+  const requiredMarkers = {
+    "src/components/clinical/ClinicalBodyAtlas.tsx": [
+      'data-source="makehuman-cc0-parametric"',
+      "clinicalBodyAtlasAssetPath(profile, view)",
+    ],
+    "src/lib/clinical-body-atlas.ts": [
+      '"older_adult"',
+      '"Женщина · 18–64 года"',
+      '"Женщина · 65 лет и старше"',
+      "/clinical-body-atlas/",
+    ],
+    "docs/clinical-body-atlas.md": [
+      "MakeHuman Community 1.3",
+      "exported models are released under CC0",
+      "SMPL was not selected",
+      "placement surface only",
+    ],
+  };
+
+  for (const [file, markers] of Object.entries(requiredMarkers)) {
+    if (!existsSync(join(root, file))) {
+      errors.push(`Missing required file: ${file}`);
+      continue;
+    }
+    const content = read(root, file);
+    for (const marker of markers) {
+      if (!content.includes(marker)) {
+        errors.push(`${file} missing clinical body atlas marker: ${marker}`);
+      }
+    }
+  }
+
+  for (const assetPath of CLINICAL_BODY_ATLAS_ASSET_PATHS) {
+    const file = `public/${assetPath}`;
+    const absolutePath = join(root, file);
+    if (!existsSync(absolutePath)) {
+      errors.push(`Missing clinical body atlas asset: ${file}`);
+    } else if (statSync(absolutePath).size < 1024) {
+      errors.push(`Clinical body atlas asset is unexpectedly small: ${file}`);
+    }
+  }
+}
+
 export function validateDoctorVisitActionTapTargets(errors, root) {
   const file = "src/pages/doctor/VisitWorkspaceLiveActions.tsx";
   if (!existsSync(join(root, file))) {
@@ -1470,6 +1517,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   validateRds3WindowsBridgeAuth(errors, root);
   validateStage4MDbSmokeContract(errors, root);
   validateDoctorVisitPatientProjection(errors, root);
+  validateClinicalBodyAtlasAssets(errors, root);
   validateDoctorVisitActionTapTargets(errors, root);
   validateDoctorVisitWorkspacePriority(errors, root);
   validatePackageScripts(errors, root);

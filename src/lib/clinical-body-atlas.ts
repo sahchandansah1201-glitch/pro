@@ -4,7 +4,8 @@ export type ClinicalBodyAgeBand =
   | "child"
   | "adolescent"
   | "late_adolescent"
-  | "adult";
+  | "adult"
+  | "older_adult";
 
 export type ClinicalBodySex = "female" | "male";
 
@@ -13,6 +14,50 @@ export type ClinicalBodyView = "front" | "back" | "left" | "right" | "scalp";
 export interface ClinicalBodyProfile {
   sex: ClinicalBodySex;
   ageBand: ClinicalBodyAgeBand;
+}
+
+export const CLINICAL_BODY_ATLAS_WIDTH = 240;
+export const CLINICAL_BODY_ATLAS_HEIGHT = 400;
+
+const PROFILE_ASSET_NAME: Record<
+  ClinicalBodyAgeBand,
+  Record<ClinicalBodySex, string>
+> = {
+  infant: {
+    female: "infant_female_1",
+    male: "infant_male_1",
+  },
+  early_child: {
+    female: "early_child_female_3",
+    male: "early_child_male_3",
+  },
+  child: {
+    female: "child_female_7",
+    male: "child_male_7",
+  },
+  adolescent: {
+    female: "adolescent_female_13",
+    male: "adolescent_male_13",
+  },
+  late_adolescent: {
+    female: "late_adolescent_female_16",
+    male: "late_adolescent_male_16",
+  },
+  adult: {
+    female: "adult_female_30",
+    male: "adult_male_30",
+  },
+  older_adult: {
+    female: "older_female_70",
+    male: "older_male_70",
+  },
+};
+
+export function clinicalBodyAtlasAssetPath(
+  profile: ClinicalBodyProfile,
+  view: Exclude<ClinicalBodyView, "scalp">,
+): string {
+  return `/clinical-body-atlas/${PROFILE_ASSET_NAME[profile.ageBand][profile.sex]}-${view}.webp`;
 }
 
 export function currentClinicalBodyAtlasIso(): string {
@@ -28,6 +73,7 @@ export function clinicalBodyProfileFromAge(
   if (ageYears < 10) return { sex, ageBand: "child" };
   if (ageYears < 15) return { sex, ageBand: "adolescent" };
   if (ageYears < 18) return { sex, ageBand: "late_adolescent" };
+  if (ageYears >= 65) return { sex, ageBand: "older_adult" };
   return { sex, ageBand: "adult" };
 }
 
@@ -48,7 +94,12 @@ export function clinicalBodyProfileLabel(profile: ClinicalBodyProfile): string {
   if (ageBand === "late_adolescent") {
     return `Подросток · ${sex === "female" ? "девушка" : "юноша"} · 15–17 лет`;
   }
+  if (ageBand === "older_adult") {
+    return sex === "female"
+      ? "Женщина · 65 лет и старше"
+      : "Мужчина · 65 лет и старше";
+  }
   return sex === "female"
-    ? "Женщина · 18 лет и старше"
-    : "Мужчина · 18 лет и старше";
+    ? "Женщина · 18–64 года"
+    : "Мужчина · 18–64 года";
 }

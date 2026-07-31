@@ -8,6 +8,8 @@ import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, readFileSync, write
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CLINICAL_BODY_ATLAS_ASSET_PATHS } from "./clinical-body-atlas-assets.mjs";
+
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
 const DEFAULT_APP_PORT = "8080";
 const DEFAULT_ENV_FILE = "deploy/self-hosted/.env.production";
@@ -627,6 +629,11 @@ function publishStagedFrontend({ cwd, stagingDir = SAFE_BUILD_OUT_DIR, distDir =
   if (!existsSync(stagingIndex)) {
     throw new Error(`staged frontend is missing index.html: ${stagingDir}/index.html`);
   }
+  for (const assetPath of CLINICAL_BODY_ATLAS_ASSET_PATHS) {
+    if (!existsSync(join(stagingPath, assetPath))) {
+      throw new Error(`staged frontend is missing clinical body atlas asset: ${assetPath}`);
+    }
+  }
   mkdirSync(distPath, { recursive: true });
   for (const entry of readdirSync(stagingPath, { withFileTypes: true })) {
     if (entry.name === "index.html") continue;
@@ -635,6 +642,11 @@ function publishStagedFrontend({ cwd, stagingDir = SAFE_BUILD_OUT_DIR, distDir =
   cpSync(stagingIndex, join(distPath, "index.html"), { force: true });
   if (!existsSync(join(distPath, "index.html"))) {
     throw new Error("published frontend is missing dist/index.html");
+  }
+  for (const assetPath of CLINICAL_BODY_ATLAS_ASSET_PATHS) {
+    if (!existsSync(join(distPath, assetPath))) {
+      throw new Error(`published frontend is missing clinical body atlas asset: ${assetPath}`);
+    }
   }
 }
 

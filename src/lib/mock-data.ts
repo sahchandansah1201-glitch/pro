@@ -422,7 +422,7 @@ export const LESIONS: Lesion[] = [
     id: "l-008",
     patientId: "p-004",
     bodyZone: "висок левый",
-    mapPoint: { view: "left", x: 0.24, y: 0.14 },
+    mapPoint: { view: "left", x: 0.42, y: 0.14 },
     label: "Очаг B",
     firstSeenAt: "2026-02-05",
     status: "active",

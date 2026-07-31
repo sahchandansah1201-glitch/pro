@@ -28,17 +28,17 @@ describe("body-map-model", () => {
     const p = getPatientById("p-001")!;
     const profile = getBodyMapProfile(p);
     expect(profile).toEqual({ sex: "female", ageBand: "adult" });
-    expect(bodyMapProfileLabel(profile)).toBe("Женщина · 18 лет и старше");
+    expect(bodyMapProfileLabel(profile)).toBe("Женщина · 18–64 года");
   });
 
   it("p-004 maps to the adult male profile", () => {
     const p = getPatientById("p-004")!;
     const profile = getBodyMapProfile(p);
     expect(profile).toEqual({ sex: "male", ageBand: "adult" });
-    expect(bodyMapProfileLabel(profile)).toBe("Мужчина · 18 лет и старше");
+    expect(bodyMapProfileLabel(profile)).toBe("Мужчина · 18–64 года");
   });
 
-  it("selects all six age-specific atlas profiles", () => {
+  it("selects all seven age-specific atlas profiles", () => {
     expect(getBodyMapProfile({ sex: "female", birthDate: "2025-08-01" })).toEqual({
       sex: "female",
       ageBand: "infant",
@@ -63,6 +63,10 @@ describe("body-map-model", () => {
       sex: "male",
       ageBand: "adult",
     });
+    expect(getBodyMapProfile({ sex: "female", birthDate: "1940-01-01" })).toEqual({
+      sex: "female",
+      ageBand: "older_adult",
+    });
   });
 
   it("uses native Russian age labels without sexualising young children", () => {
@@ -80,6 +84,12 @@ describe("body-map-model", () => {
     );
     expect(bodyMapProfileLabel({ sex: "female", ageBand: "late_adolescent" })).toBe(
       "Подросток · девушка · 15–17 лет",
+    );
+    expect(bodyMapProfileLabel({ sex: "male", ageBand: "adult" })).toBe(
+      "Мужчина · 18–64 года",
+    );
+    expect(bodyMapProfileLabel({ sex: "female", ageBand: "older_adult" })).toBe(
+      "Женщина · 65 лет и старше",
     );
   });
 

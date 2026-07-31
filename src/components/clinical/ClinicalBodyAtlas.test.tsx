@@ -2,22 +2,28 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ClinicalBodyAtlas } from "./ClinicalBodyAtlas";
-import type {
-  ClinicalBodyAgeBand,
-  ClinicalBodyProfile,
-  ClinicalBodyView,
+import {
+  CLINICAL_BODY_ATLAS_HEIGHT,
+  CLINICAL_BODY_ATLAS_WIDTH,
+  clinicalBodyAtlasAssetPath,
+  clinicalBodyProfileFromAge,
+  type ClinicalBodyAgeBand,
+  type ClinicalBodyProfile,
+  type ClinicalBodyView,
 } from "@/lib/clinical-body-atlas";
 
 function renderAtlas(profile: ClinicalBodyProfile, view: ClinicalBodyView) {
   return render(
-    <svg viewBox="0 0 200 400">
+    <svg
+      viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
+    >
       <ClinicalBodyAtlas profile={profile} view={view} />
     </svg>,
   );
 }
 
 describe("ClinicalBodyAtlas", () => {
-  it("renders every age band and keeps a larger relative head for younger children", () => {
+  it("maps every age band and sex to a dedicated four-view atlas", () => {
     const bands: ClinicalBodyAgeBand[] = [
       "infant",
       "early_child",
@@ -25,54 +31,73 @@ describe("ClinicalBodyAtlas", () => {
       "adolescent",
       "late_adolescent",
       "adult",
+      "older_adult",
     ];
-    const headSizes: number[] = [];
-    const shoulderPositions: number[] = [];
-    const crotchPositions: number[] = [];
+    const views: Exclude<ClinicalBodyView, "scalp">[] = [
+      "front",
+      "back",
+      "left",
+      "right",
+    ];
 
     for (const ageBand of bands) {
-      const { unmount } = renderAtlas({ sex: "female", ageBand }, "front");
-      const atlas = screen.getByTestId("clinical-body-atlas");
-      expect(atlas).toHaveAttribute("data-age-band", ageBand);
-      headSizes.push(Number(atlas.getAttribute("data-head-rx")));
-      shoulderPositions.push(Number(atlas.getAttribute("data-shoulder-y")));
-      crotchPositions.push(Number(atlas.getAttribute("data-crotch-y")));
-      unmount();
-    }
+      for (const sex of ["female", "male"] as const) {
+        for (const view of views) {
+          const profile = { ageBand, sex };
+          const { container, unmount } = renderAtlas(profile, view);
+          const atlas = screen.getByTestId("clinical-body-atlas");
+          const image = container.querySelector('[data-part="atlas-image"]');
 
-    expect(headSizes).toEqual([34, 29, 25, 22, 19.5, 19]);
-    expect(shoulderPositions).toEqual([103, 91, 83, 74, 67, 65]);
-    expect(crotchPositions).toEqual([250, 243, 237, 229, 223, 223]);
-  });
-
-  it("renders native front, back, left, right and scalp anatomy", () => {
-    const views: ClinicalBodyView[] = ["front", "back", "left", "right", "scalp"];
-    for (const view of views) {
-      const { container, unmount } = renderAtlas({ sex: "male", ageBand: "adult" }, view);
-      expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-view", view);
-      if (view === "left" || view === "right") {
-        expect(container.querySelector('[data-part="side-profile"]')).not.toBeNull();
+          expect(atlas).toHaveAttribute("data-age-band", ageBand);
+          expect(atlas).toHaveAttribute("data-sex", sex);
+          expect(atlas).toHaveAttribute("data-view", view);
+          expect(atlas).toHaveAttribute(
+            "data-source",
+            "makehuman-cc0-parametric",
+          );
+          expect(image).toHaveAttribute(
+            "href",
+            clinicalBodyAtlasAssetPath(profile, view),
+          );
+          unmount();
+        }
       }
-      if (view === "scalp") {
-        expect(container.querySelector('[data-part="scalp"]')).not.toBeNull();
-      }
-      unmount();
     }
   });
 
-  it("keeps adult chest landmarks out of infant and child profiles", () => {
-    const { container, rerender } = render(
-      <svg viewBox="0 0 200 400">
-        <ClinicalBodyAtlas profile={{ sex: "female", ageBand: "early_child" }} view="front" />
-      </svg>,
+  it("keeps the scalp as a dedicated clinical orientation map", () => {
+    const { container } = renderAtlas(
+      { sex: "female", ageBand: "adult" },
+      "scalp",
     );
-    expect(container.querySelector('[data-part="adult-female-chest"]')).toBeNull();
 
-    rerender(
-      <svg viewBox="0 0 200 400">
-        <ClinicalBodyAtlas profile={{ sex: "female", ageBand: "adult" }} view="front" />
-      </svg>,
+    expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute(
+      "data-view",
+      "scalp",
     );
-    expect(container.querySelector('[data-part="adult-female-chest"]')).not.toBeNull();
+    expect(container.querySelector('[data-part="scalp"]')).not.toBeNull();
+    expect(container.querySelector('[data-part="atlas-image"]')).toBeNull();
+  });
+
+  it("selects the correct profile at every age boundary", () => {
+    const cases: Array<[number, ClinicalBodyAgeBand]> = [
+      [0, "infant"],
+      [0.99, "infant"],
+      [1, "early_child"],
+      [4.99, "early_child"],
+      [5, "child"],
+      [9.99, "child"],
+      [10, "adolescent"],
+      [14.99, "adolescent"],
+      [15, "late_adolescent"],
+      [17.99, "late_adolescent"],
+      [18, "adult"],
+      [64.99, "adult"],
+      [65, "older_adult"],
+    ];
+
+    for (const [age, ageBand] of cases) {
+      expect(clinicalBodyProfileFromAge("female", age).ageBand).toBe(ageBand);
+    }
   });
 });
