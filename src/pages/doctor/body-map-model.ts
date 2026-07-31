@@ -1,16 +1,15 @@
 /**
  * Helpers for the visit workspace Body Map.
  *
- * Pure logic only: variant selection, deterministic age calc, simple
+ * Pure logic only: age-specific atlas selection, deterministic age calc, simple
  * anatomical zone hints. No mock-data mutation, no IO.
  */
 import type { BodyMapPoint, Patient } from "@/lib/domain";
-
-export type BodyMapVariant =
-  | "adult_female"
-  | "adult_male"
-  | "child_girl"
-  | "child_boy";
+import {
+  clinicalBodyProfileFromAge,
+  clinicalBodyProfileLabel,
+  type ClinicalBodyProfile,
+} from "@/lib/clinical-body-atlas";
 
 /** Stable demo "now" — used for deterministic age calculation in tests/UI. */
 export const BODY_MAP_DEMO_NOW = "2026-05-04T00:00:00Z";
@@ -25,24 +24,18 @@ export function calcAgeAt(birthDate: string, nowIso: string = BODY_MAP_DEMO_NOW)
   return age;
 }
 
-const CHILD_MAX_AGE = 14;
-
-export function getBodyMapVariant(
+export function getBodyMapProfile(
   patient: Pick<Patient, "sex" | "birthDate">,
   nowIso: string = BODY_MAP_DEMO_NOW,
-): BodyMapVariant {
-  const isChild = calcAgeAt(patient.birthDate, nowIso) < CHILD_MAX_AGE;
-  if (patient.sex === "female") return isChild ? "child_girl" : "adult_female";
-  return isChild ? "child_boy" : "adult_male";
+): ClinicalBodyProfile {
+  return clinicalBodyProfileFromAge(
+    patient.sex,
+    Math.max(0, calcAgeAt(patient.birthDate, nowIso)),
+  );
 }
 
-export function bodyMapVariantLabel(v: BodyMapVariant): string {
-  switch (v) {
-    case "adult_female": return "Женщина";
-    case "adult_male": return "Мужчина";
-    case "child_girl": return "Девочка";
-    case "child_boy": return "Мальчик";
-  }
+export function bodyMapProfileLabel(profile: ClinicalBodyProfile): string {
+  return clinicalBodyProfileLabel(profile);
 }
 
 export function bodyMapViewLabel(v: BodyMapPoint["view"]): string {

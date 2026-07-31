@@ -36,13 +36,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { RiskBadge } from "@/components/clinical/RiskBadge";
-import {
-  BodySilhouette,
-  pickFigure,
-  FIGURE_LABEL,
-  type Figure,
-} from "@/components/clinical/BodySilhouette";
+import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
 import { formatCardNumber } from "@/lib/card-number";
+import {
+  clinicalBodyProfileFromAge,
+  clinicalBodyProfileLabel,
+  type ClinicalBodyProfile,
+} from "@/lib/clinical-body-atlas";
 import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAssessmentsByLesionId,
@@ -1831,47 +1831,35 @@ function ComparisonFullScreenDialog({
 }
 
 function BodyMapMini({
+  profile,
   view,
   x,
   y,
 }: {
+  profile: ClinicalBodyProfile;
   view: Lesion["mapPoint"]["view"];
   x: number;
   y: number;
 }) {
-  const cx = Math.max(0, Math.min(1, x)) * 60;
-  const cy = Math.max(0, Math.min(1, y)) * 88;
-  const silhouette =
-    view === "scalp" ? (
-      <ellipse cx="30" cy="44" rx="22" ry="26" />
-    ) : view === "left" || view === "right" ? (
-      <path d="M30 4 c6 0 10 4 10 10 c0 4 -2 7 -4 9 l4 8 v34 c0 4 -2 6 -4 8 l-2 12 h-8 l-2 -12 c-2 -2 -4 -4 -4 -8 v-34 l4 -8 c-2 -2 -4 -5 -4 -9 c0 -6 4 -10 10 -10 z" />
-    ) : (
-      <path d="M30 4 c5 0 9 4 9 9 c0 5 -4 9 -9 9 c-5 0 -9 -4 -9 -9 c0 -5 4 -9 9 -9 z M18 24 h24 l4 18 l-4 2 l-2 -10 v22 h-6 v28 h-8 v-28 h-8 v-22 l-2 10 l-4 -2 z" />
-    );
+  const cx = Math.max(0, Math.min(1, x)) * 200;
+  const cy = Math.max(0, Math.min(1, y)) * 400;
   return (
     <svg
-      viewBox="0 0 60 88"
+      viewBox="0 0 200 400"
       width={44}
-      height={64}
+      height={80}
       role="img"
       aria-label={`Карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
       className="shrink-0 rounded border bg-muted/30"
     >
-      <g
-        fill="hsl(var(--muted-foreground) / 0.25)"
-        stroke="hsl(var(--muted-foreground) / 0.6)"
-        strokeWidth="1"
-      >
-        {silhouette}
-      </g>
+      <ClinicalBodyAtlas profile={profile} view={view} />
       <circle
         cx={cx}
         cy={cy}
-        r="3.5"
+        r="10"
         fill="hsl(var(--destructive))"
         stroke="hsl(var(--background))"
-        strokeWidth="1.2"
+        strokeWidth="3"
       />
     </svg>
   );
@@ -1880,7 +1868,7 @@ function BodyMapMini({
 function BodyMapDialog({
   open,
   onOpenChange,
-  figure,
+  profile,
   view,
   x,
   y,
@@ -1889,24 +1877,13 @@ function BodyMapDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  figure: Figure;
+  profile: ClinicalBodyProfile;
   view: Lesion["mapPoint"]["view"];
   x: number;
   y: number;
   bodyZone: string;
   label: string;
 }) {
-  // BodySilhouette поддерживает только front/back. left/right/scalp проецируем на front
-  // и подсвечиваем словом-подсказкой ниже карты.
-  const projected: "front" | "back" = view === "back" ? "back" : "front";
-  const note =
-    view === "left" || view === "right"
-      ? `Боковая проекция (${VIEW_LABEL[view]}) показана на фронтальном силуэте.`
-      : view === "scalp"
-        ? "Локализация на волосистой части головы — точка отнесена к зоне головы фронтального силуэта."
-        : null;
-
-  // Координаты в системе viewBox 200x400 у BodySilhouette.
   const cx = Math.max(0, Math.min(1, x)) * 200;
   const cy = Math.max(0, Math.min(1, y)) * 400;
 
@@ -1919,8 +1896,7 @@ function BodyMapDialog({
           </DialogTitle>
           <DialogDescription className="text-[12px]">
             {bodyZone} · проекция {VIEW_LABEL[view]} · координаты x
-            {(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · силуэт:{" "}
-            {FIGURE_LABEL[figure]}
+            {(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · {clinicalBodyProfileLabel(profile)}
           </DialogDescription>
         </DialogHeader>
         <div className="mx-auto w-full max-w-[360px]">
@@ -1930,7 +1906,7 @@ function BodyMapDialog({
             aria-label={`Увеличенная карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
             className="block h-auto w-full"
           >
-            <BodySilhouette view={projected} figure={figure} />
+            <ClinicalBodyAtlas profile={profile} view={view} />
             {/* Прицельные линии X/Y */}
             <g
               stroke="hsl(var(--destructive) / 0.45)"
@@ -1958,11 +1934,6 @@ function BodyMapDialog({
               strokeWidth={1.5}
             />
           </svg>
-          {note && (
-            <p className="mt-2 text-center text-[11px] italic text-muted-foreground">
-              {note}
-            </p>
-          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -2224,6 +2195,11 @@ export default function LesionDetailPage() {
       </div>
     );
   }
+
+  const bodyProfile = clinicalBodyProfileFromAge(
+    patient.sex,
+    calcAge(patient.birthDate),
+  );
 
   const visitById = (vid: string) => visits.find((v) => v.id === vid);
 
@@ -2920,6 +2896,7 @@ export default function LesionDetailPage() {
                   className="group relative shrink-0 rounded border bg-muted/30 p-0 transition hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <BodyMapMini
+                    profile={bodyProfile}
                     view={lesion.mapPoint.view}
                     x={lesion.mapPoint.x}
                     y={lesion.mapPoint.y}
@@ -3565,7 +3542,7 @@ export default function LesionDetailPage() {
       <BodyMapDialog
         open={mapOpen}
         onOpenChange={setMapOpen}
-        figure={pickFigure(patient.sex, calcAge(patient.birthDate))}
+        profile={bodyProfile}
         view={lesion.mapPoint.view}
         x={lesion.mapPoint.x}
         y={lesion.mapPoint.y}

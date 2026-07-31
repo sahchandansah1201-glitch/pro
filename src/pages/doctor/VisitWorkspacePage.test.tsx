@@ -78,22 +78,22 @@ function sourceSection(source: string, start: string, end: string): string {
   expect(endIndex).toBeGreaterThan(startIndex);
   return source.slice(startIndex, endIndex);
 }
-
 describe("VisitWorkspacePage · Карта тела", () => {
-  it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
+  it("p-001/v-001 shows the adult female profile, front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
     expect(screen.getByRole("tab", { name: /Карта тела/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/Полная карта тела/)).toBeInTheDocument();
-    expect(screen.getByText(/Тип карты:\s*Женщина/)).toBeInTheDocument();
+    expect(screen.getByText(/Профиль карты:\s*Женщина · 18 лет и старше/)).toBeInTheDocument();
     expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Карта тела/ });
+    expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-age-band", "adult");
+    expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-sex", "female");
     expect(svg.getAttribute("aria-label")).toMatch(/Женщина/);
     expect(svg.getAttribute("aria-label")).toMatch(/Передняя поверхность/);
     expect(svg.textContent).toMatch(/ПЕРЕД/);
   });
-
   it("clicking 'Сзади' switches to back surface with hint and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
@@ -106,13 +106,11 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(svg.getAttribute("aria-label")).toMatch(/Задняя поверхность/);
     expect(svg.textContent).toMatch(/СПИНА/);
   });
-
-  it("p-004/v-005 (male) shows 'Тип карты: Мужчина'", () => {
+  it("p-004/v-005 shows the age-specific adult male profile", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
-    expect(screen.getByText(/Тип карты:\s*Мужчина/)).toBeInTheDocument();
+    expect(screen.getByText(/Профиль карты:\s*Мужчина · 18 лет и старше/)).toBeInTheDocument();
   });
-
   it("renders all five projection buttons", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
@@ -120,7 +118,6 @@ describe("VisitWorkspacePage · Карта тела", () => {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
   });
-
   it("selecting a 'left' lesion switches projection to Слева", () => {
     // p-004 has l-008 with mapPoint.view='left'
     renderAt("/patients/p-004/visits/v-005");
@@ -129,7 +126,6 @@ describe("VisitWorkspacePage · Карта тела", () => {
     const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
   });
-
   it("clicking SVG opens 'Новый учебный очаг' panel with defaults; cancel hides it", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
@@ -147,7 +143,6 @@ describe("VisitWorkspacePage · Карта тела", () => {
     fireEvent.click(cancel);
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
   });
-
   it("does not contain forbidden tokens or placeholder text in DOM", () => {
     const { container } = renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
@@ -156,14 +151,12 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(html.toLowerCase()).not.toMatch(/placeholder/);
   });
 });
-
 describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
   it("Карта тела selected lesion shows 'Связанные снимки' panel for l-008", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /К снимкам этого очага/ })).toBeInTheDocument();
   });
-
   it("clicking 'К снимкам этого очага' switches to Imaging tab with lesion preselected", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
@@ -172,29 +165,24 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
     const lesionSelect = selects.find((s) => s.value === "l-008");
     expect(lesionSelect).toBeTruthy();
   });
-
   it("Imaging tab shows 'Открыть на карте тела' for selected linked image and returns to Карта тела", () => {
     renderAt("/patients/p-004/visits/v-005?tab=imaging&lesion=l-008");
     const btn = screen.getByRole("button", { name: /Открыть на карте тела/ });
     fireEvent.click(btn);
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
   });
-
   it("lesion list shows 'нет оценки' and 'нужен пересмотр' chips on v-005", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap");
     expect(screen.getAllByText(/нет оценки/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/нужен пересмотр/).length).toBeGreaterThan(0);
   });
-
   it("регрессия: round-trip Карта тела → Imaging → Карта тела сохраняет lesion и переключает таб", async () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
-
     const bodymapTab = screen.getByRole("tab", { name: /карта тела/i });
     const imagingTab = screen.getByRole("tab", { name: /снимки/i });
     expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
     expect(imagingTab.getAttribute("aria-selected")).toBe("false");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-
     // Карта тела → Imaging: таб переключился, lesion предвыбран.
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
     expect(imagingTab.getAttribute("aria-selected")).toBe("true");
@@ -203,20 +191,17 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       (s) => s.value === "l-008",
     );
     expect(lesionSelect).toBeTruthy();
-
     // Imaging → Карта тела: возврат с тем же lesion.
     fireEvent.click(screen.getByRole("button", { name: /Открыть на карте тела/ }));
     expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
     expect(imagingTab.getAttribute("aria-selected")).toBe("false");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-
     const lesion = (await import("@/lib/mock-data"))
       .getLesionsByPatientId("p-004")
       .find((l) => l.id === "l-008")!;
     expect(screen.getAllByText(new RegExp(lesion.label)).length).toBeGreaterThan(0);
   });
 });
-
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   function placePoint() {
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
@@ -224,7 +209,6 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
   }
-
   it("opens 'Новый учебный очаг' panel with prefilled, editable zone and default label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();

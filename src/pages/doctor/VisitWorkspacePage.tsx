@@ -26,6 +26,11 @@ import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanne
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
+import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
+import {
+  currentClinicalBodyAtlasIso,
+  type ClinicalBodyProfile,
+} from "@/lib/clinical-body-atlas";
 import {
   TimelineQaGroupHeader,
   TimelineQaGroupNav,
@@ -121,11 +126,10 @@ import {
   bodyMapSurfaceBadge,
   bodyMapSurfaceHint,
   bodyMapSurfaceLabel,
-  bodyMapVariantLabel,
+  bodyMapProfileLabel,
   bodyMapViewLabel,
-  getBodyMapVariant,
+  getBodyMapProfile,
   suggestBodyZone,
-  type BodyMapVariant,
 } from "@/pages/doctor/body-map-model";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
@@ -4454,8 +4458,11 @@ function BodyMapTab({
   initialLesionId?: string | null;
   onOpenImaging: (lesionId: string) => void;
 }) {
-  const variant: BodyMapVariant = getBodyMapVariant(patient);
-  const variantLabel = bodyMapVariantLabel(variant);
+  const profile = getBodyMapProfile(
+    patient,
+    productionMode ? currentClinicalBodyAtlasIso() : BODY_MAP_DEMO_NOW,
+  );
+  const profileLabel = bodyMapProfileLabel(profile);
 
   const placedLesions = useMemo(() => {
     return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
@@ -4585,7 +4592,7 @@ function BodyMapTab({
               </button>
             ))}
           </div>
-          <div className="text-[11px] text-muted-foreground">Тип карты: {variantLabel}</div>
+          <div className="text-[11px] text-muted-foreground">Профиль карты: {profileLabel}</div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
               <ZoomOut className="h-3.5 w-3.5" />
@@ -4613,7 +4620,7 @@ function BodyMapTab({
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
           <div className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <BodySvg
-              variant={variant}
+              profile={profile}
               view={view}
               points={visiblePoints.map((p) => ({
                 id: p.lesion.id,
@@ -4962,7 +4969,7 @@ interface PointProps {
 }
 
 interface BodySvgProps {
-  variant: BodyMapVariant;
+  profile: ClinicalBodyProfile;
   view: View;
   points: PointProps[];
   pending: { x: number; y: number } | null;
@@ -4970,9 +4977,9 @@ interface BodySvgProps {
   onPlace: (np: { view: View; x: number; y: number }) => void;
 }
 
-function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
+function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const ariaLabel = `Карта тела · ${bodyMapVariantLabel(variant)} · ${bodyMapSurfaceLabel(view)}`;
+  const ariaLabel = `Карта тела · ${bodyMapProfileLabel(profile)} · ${bodyMapSurfaceLabel(view)}`;
   const badge = bodyMapSurfaceBadge(view);
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -4994,7 +5001,7 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
       aria-label={ariaLabel}
       onClick={handleClick}
     >
-      <VariantSilhouette variant={variant} view={view} />
+      <ClinicalBodyAtlas profile={profile} view={view} />
       {/* Non-interactive surface badge, top-left */}
       <g pointerEvents="none">
         <rect
@@ -5093,142 +5100,6 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
     </svg>
   );
 }
-
-/**
- * Neutral clinical silhouettes per variant and projection.
- * Same viewBox 0 0 200 400; normalized x/y stay anatomically meaningful.
- */
-function VariantSilhouette({ variant, view }: { variant: BodyMapVariant; view: View }) {
-  const stroke = "hsl(var(--border))";
-  const fill = "hsl(var(--surface))";
-
-  // Per-variant proportions (medically neutral).
-  const G = {
-    adult_female: { headR: 18, shoulderHalf: 32, waistHalf: 24, hipHalf: 38, headCy: 30 },
-    adult_male:   { headR: 19, shoulderHalf: 40, waistHalf: 32, hipHalf: 34, headCy: 30 },
-    child_girl:   { headR: 22, shoulderHalf: 26, waistHalf: 22, hipHalf: 28, headCy: 36 },
-    child_boy:    { headR: 22, shoulderHalf: 28, waistHalf: 24, hipHalf: 28, headCy: 36 },
-  }[variant];
-
-  const cx = 100;
-  const headCy = G.headCy;
-  const shoulderY = headCy + G.headR + 14;
-  const waistY = 160;
-  const hipY = 210;
-  const legBottom = 360;
-
-  if (view === "scalp") {
-    // Top-down view of head. Show scalp circle with parting line on female variants.
-    const showParting = variant === "adult_female" || variant === "child_girl";
-    return (
-      <g fill={fill} stroke={stroke} strokeWidth={1}>
-        <ellipse cx={cx} cy={200} rx={70} ry={90} />
-        {/* Schematic ears */}
-        <ellipse cx={cx - 70} cy={200} rx={6} ry={12} />
-        <ellipse cx={cx + 70} cy={200} rx={6} ry={12} />
-        {/* Forehead/back hint */}
-        <line x1={cx} y1={110} x2={cx} y2={130} stroke={stroke} strokeDasharray="2 2" />
-        <text x={cx} y={104} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))" stroke="none">лоб</text>
-        <text x={cx} y={302} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))" stroke="none">затылок</text>
-        {showParting && (
-          <line x1={cx} y1={130} x2={cx} y2={270} stroke={stroke} strokeDasharray="3 3" opacity={0.6} />
-        )}
-      </g>
-    );
-  }
-
-  if (view === "left" || view === "right") {
-    // Side profile: head, neck, torso column, arm hint, leg.
-    const facing = view === "left" ? -1 : 1; // direction the nose points
-    const noseX = cx + facing * 14;
-    return (
-      <g fill={fill} stroke={stroke} strokeWidth={1}>
-        {/* Head with subtle nose bump */}
-        <ellipse cx={cx} cy={headCy} rx={G.headR} ry={G.headR + 2} />
-        <path d={`M${cx + facing * (G.headR - 1)},${headCy - 2} Q${noseX},${headCy + 2} ${cx + facing * (G.headR - 1)},${headCy + 6}`} />
-        {/* Neck */}
-        <rect x={cx - 7} y={headCy + G.headR} width={14} height={shoulderY - (headCy + G.headR)} />
-        {/* Torso column */}
-        <path d={`M${cx - 22},${shoulderY} L${cx + 22},${shoulderY} L${cx + 18},${waistY} L${cx + 22},${hipY} L${cx - 22},${hipY} L${cx - 18},${waistY} Z`} />
-        {/* Arm hint, hanging on facing side */}
-        <path d={`M${cx + facing * 18},${shoulderY + 4} L${cx + facing * 22},${hipY - 4} L${cx + facing * 14},${hipY - 4} L${cx + facing * 12},${shoulderY + 8} Z`} />
-        {/* Leg */}
-        <path d={`M${cx - 14},${hipY} L${cx + 14},${hipY} L${cx + 10},${legBottom - 8} L${cx - 10},${legBottom - 8} Z`} />
-        {/* Foot */}
-        <ellipse cx={cx + facing * 8} cy={legBottom} rx={14} ry={6} />
-      </g>
-    );
-  }
-
-  // front / back
-  const sL = cx - G.shoulderHalf, sR = cx + G.shoulderHalf;
-  const wL = cx - G.waistHalf, wR = cx + G.waistHalf;
-  const hL = cx - G.hipHalf, hR = cx + G.hipHalf;
-
-  const torso = `M${sL},${shoulderY} L${sR},${shoulderY} L${wR},${waistY} L${hR},${hipY} L${hL},${hipY} L${wL},${waistY} Z`;
-  const armL = `M${sL},${shoulderY + 4} L${sL - 14},${waistY} L${sL - 18},${hipY + 28} L${sL - 8},${hipY + 30} L${sL - 6},${waistY + 4} L${sL + 6},${shoulderY + 8} Z`;
-  const armR = `M${sR},${shoulderY + 4} L${sR + 14},${waistY} L${sR + 18},${hipY + 28} L${sR + 8},${hipY + 30} L${sR + 6},${waistY + 4} L${sR - 6},${shoulderY + 8} Z`;
-  const legL = `M${hL},${hipY} L${cx - 22},${hipY + 60} L${cx - 16},${legBottom - 8} L${cx - 4},${legBottom - 8} L${cx - 4},${hipY} Z`;
-  const legR = `M${hR},${hipY} L${cx + 22},${hipY + 60} L${cx + 16},${legBottom - 8} L${cx + 4},${legBottom - 8} L${cx + 4},${hipY} Z`;
-
-  const isFemale = variant === "adult_female" || variant === "child_girl";
-  const hairBack = view === "back" && isFemale;
-
-  return (
-    <g fill={fill} stroke={stroke} strokeWidth={1}>
-      <ellipse cx={cx} cy={headCy} rx={G.headR} ry={G.headR + 2} />
-      {hairBack && (
-        <path
-          d={`M${cx - G.headR + 1},${headCy + 2} q0,${G.headR + 14} ${G.headR - 1},${G.headR + 18} q${G.headR - 1},-6 ${G.headR - 1},-${G.headR + 18}`}
-          fill="hsl(var(--surface-muted))"
-        />
-      )}
-      <rect x={cx - 7} y={headCy + G.headR} width={14} height={shoulderY - (headCy + G.headR)} />
-      <path d={armL} />
-      <path d={armR} />
-      <path d={torso} />
-      <path d={legL} />
-      <path d={legR} />
-      <ellipse cx={sL - 14} cy={hipY + 36} rx={8} ry={11} />
-      <ellipse cx={sR + 14} cy={hipY + 36} rx={8} ry={11} />
-      <ellipse cx={cx - 14} cy={legBottom + 2} rx={12} ry={6} />
-      <ellipse cx={cx + 14} cy={legBottom + 2} rx={12} ry={6} />
-      {/* Schematic separators */}
-      <g stroke={stroke} strokeDasharray="2 2" opacity={0.5} fill="none">
-        <line x1={wL} y1={waistY} x2={wR} y2={waistY} />
-        <line x1={cx} y1={shoulderY + 4} x2={cx} y2={hipY} />
-      </g>
-      {/* Anatomical markers — different for front vs back so the surface is unambiguous */}
-      {view === "front" ? (
-        <g fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.8} opacity={0.75}>
-          {/* Eyes */}
-          <circle cx={cx - 6} cy={headCy - 2} r={1.2} fill="hsl(var(--muted-foreground))" stroke="none" />
-          <circle cx={cx + 6} cy={headCy - 2} r={1.2} fill="hsl(var(--muted-foreground))" stroke="none" />
-          {/* Nose */}
-          <path d={`M${cx},${headCy + 1} l-1.5,5 h3 z`} />
-          {/* Mouth */}
-          <line x1={cx - 4} y1={headCy + 9} x2={cx + 4} y2={headCy + 9} stroke="hsl(var(--muted-foreground))" />
-          {/* Sternum / chest guide */}
-          <line x1={cx} y1={shoulderY + 8} x2={cx} y2={waistY - 12} strokeDasharray="3 2" />
-          {/* Navel */}
-          <circle cx={cx} cy={(waistY + hipY) / 2} r={1.6} fill="hsl(var(--muted-foreground))" stroke="none" />
-        </g>
-      ) : view === "back" ? (
-        <g fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.8} opacity={0.75}>
-          {/* Spine line */}
-          <line x1={cx} y1={shoulderY + 6} x2={cx} y2={hipY - 4} strokeDasharray="3 2" />
-          {/* Shoulder blades */}
-          <path d={`M${cx - 16},${shoulderY + 16} q-6,14 0,28`} />
-          <path d={`M${cx + 16},${shoulderY + 16} q6,14 0,28`} />
-          {/* Lumbar / lower-back guide */}
-          <line x1={cx - 14} y1={waistY + 16} x2={cx + 14} y2={waistY + 16} />
-          <text x={cx + 18} y={waistY + 19} fontSize={7} fill="hsl(var(--muted-foreground))" stroke="none">поясница</text>
-        </g>
-      ) : null}
-    </g>
-  );
-}
-
 
 // ───────── Local primitives (mirrored from PatientDetailPage) ─────────
 

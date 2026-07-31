@@ -5,9 +5,9 @@ import {
   bodyMapSurfaceBadge,
   bodyMapSurfaceHint,
   bodyMapSurfaceLabel,
-  bodyMapVariantLabel,
+  bodyMapProfileLabel,
   calcAgeAt,
-  getBodyMapVariant,
+  getBodyMapProfile,
   suggestBodyZone,
 } from "./body-map-model";
 import { getPatientById } from "@/lib/mock-data";
@@ -24,30 +24,63 @@ describe("body-map-model", () => {
     expect(calcAgeAt("2015-01-01")).toBe(11);
   });
 
-  it("p-001 (female adult) maps to adult_female / Женщина", () => {
+  it("p-001 maps to the adult female profile", () => {
     const p = getPatientById("p-001")!;
-    const v = getBodyMapVariant(p);
-    expect(v).toBe("adult_female");
-    expect(bodyMapVariantLabel(v)).toBe("Женщина");
+    const profile = getBodyMapProfile(p);
+    expect(profile).toEqual({ sex: "female", ageBand: "adult" });
+    expect(bodyMapProfileLabel(profile)).toBe("Женщина · 18 лет и старше");
   });
 
-  it("p-004 (male adult) maps to adult_male / Мужчина", () => {
+  it("p-004 maps to the adult male profile", () => {
     const p = getPatientById("p-004")!;
-    const v = getBodyMapVariant(p);
-    expect(v).toBe("adult_male");
-    expect(bodyMapVariantLabel(v)).toBe("Мужчина");
+    const profile = getBodyMapProfile(p);
+    expect(profile).toEqual({ sex: "male", ageBand: "adult" });
+    expect(bodyMapProfileLabel(profile)).toBe("Мужчина · 18 лет и старше");
   });
 
-  it("synthetic child female -> child_girl / Девочка", () => {
-    const v = getBodyMapVariant({ sex: "female", birthDate: "2015-01-01" });
-    expect(v).toBe("child_girl");
-    expect(bodyMapVariantLabel(v)).toBe("Девочка");
+  it("selects all six age-specific atlas profiles", () => {
+    expect(getBodyMapProfile({ sex: "female", birthDate: "2025-08-01" })).toEqual({
+      sex: "female",
+      ageBand: "infant",
+    });
+    expect(getBodyMapProfile({ sex: "male", birthDate: "2023-01-01" })).toEqual({
+      sex: "male",
+      ageBand: "early_child",
+    });
+    expect(getBodyMapProfile({ sex: "female", birthDate: "2018-01-01" })).toEqual({
+      sex: "female",
+      ageBand: "child",
+    });
+    expect(getBodyMapProfile({ sex: "male", birthDate: "2013-01-01" })).toEqual({
+      sex: "male",
+      ageBand: "adolescent",
+    });
+    expect(getBodyMapProfile({ sex: "female", birthDate: "2010-01-01" })).toEqual({
+      sex: "female",
+      ageBand: "late_adolescent",
+    });
+    expect(getBodyMapProfile({ sex: "male", birthDate: "1990-01-01" })).toEqual({
+      sex: "male",
+      ageBand: "adult",
+    });
   });
 
-  it("synthetic child male -> child_boy / Мальчик", () => {
-    const v = getBodyMapVariant({ sex: "male", birthDate: "2015-01-01" });
-    expect(v).toBe("child_boy");
-    expect(bodyMapVariantLabel(v)).toBe("Мальчик");
+  it("uses native Russian age labels without sexualising young children", () => {
+    expect(bodyMapProfileLabel({ sex: "female", ageBand: "infant" })).toBe(
+      "Младенец · девочка · до 1 года",
+    );
+    expect(bodyMapProfileLabel({ sex: "male", ageBand: "early_child" })).toBe(
+      "Ребёнок · мальчик · 1–4 года",
+    );
+    expect(bodyMapProfileLabel({ sex: "female", ageBand: "child" })).toBe(
+      "Ребёнок · девочка · 5–9 лет",
+    );
+    expect(bodyMapProfileLabel({ sex: "male", ageBand: "adolescent" })).toBe(
+      "Подросток · мальчик · 10–14 лет",
+    );
+    expect(bodyMapProfileLabel({ sex: "female", ageBand: "late_adolescent" })).toBe(
+      "Подросток · девушка · 15–17 лет",
+    );
   });
 
   it("suggestBodyZone returns non-empty labels for every projection", () => {
