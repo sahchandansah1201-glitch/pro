@@ -104,6 +104,7 @@ interface Props {
   patientId: string;
   lesions: Lesion[];
   initialLesionId?: string | null;
+  initialImageId?: string | null;
   onOpenBodyMap?: (lesionId: string) => void;
   /**
    * Bearer JWT for the clinical assets API. When omitted the imaging tab
@@ -120,6 +121,7 @@ export function VisitImagingTab({
   patientId,
   lesions,
   initialLesionId,
+  initialImageId,
   onOpenBodyMap,
   apiToken,
   apiBaseUrl,
@@ -166,9 +168,23 @@ export function VisitImagingTab({
     });
   }, [allImages, lesionFilter, kindFilter, sourceFilter, qualityFilter]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(allImages[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialImageId && allImages.some((image) => image.id === initialImageId)
+      ? initialImageId
+      : allImages[0]?.id ?? null,
+  );
   const [compareId, setCompareId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    if (!initialImageId) return;
+    const image = allImages.find((item) => item.id === initialImageId);
+    if (!image) return;
+    setSelectedId(image.id);
+    if (image.lesionId && lesions.some((lesion) => lesion.id === image.lesionId)) {
+      setLesionFilter(image.lesionId);
+    }
+  }, [allImages, initialImageId, lesions]);
 
   // Fix 1: keep viewer selection in sync with active filters.
   // Pure derivation — actual state sync happens in useEffect below.
@@ -1763,7 +1779,11 @@ function CompareSelect({
 
 function PreviewPane({ image, zoom, title }: { image: ClinicalImage; zoom: number; title: string }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div
+      className="flex flex-col gap-1"
+      data-testid={title === "Основной" ? "selected-image-preview" : undefined}
+      data-image-id={image.id}
+    >
       <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span className="font-medium uppercase tracking-wide">{title}</span>
         <span className="truncate">{KIND_LABEL[image.kind]} · {formatDateTime(image.capturedAt)}</span>

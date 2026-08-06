@@ -61,6 +61,15 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
     expect(html).not.toMatch(/storage_object_path/);
     expect(html).not.toMatch(/\bexif\b/i);
   });
+
+  it("selects the exact image requested by body-map navigation", () => {
+    renderTab({ initialLesionId: "l-001", initialImageId: "i-002" });
+
+    expect(screen.getByTestId("selected-image-preview")).toHaveAttribute(
+      "data-image-id",
+      "i-002",
+    );
+  });
 });
 
 describe("VisitImagingTab · API panel · demo (no token) mode", () => {

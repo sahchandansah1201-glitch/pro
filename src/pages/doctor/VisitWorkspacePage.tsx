@@ -40,6 +40,7 @@ import {
 import { LongitudinalQaSummary } from "@/pages/doctor/visit-workspace/LongitudinalQaSummary";
 import { ProductionClinicalDecisionSummary } from "@/pages/doctor/visit-workspace/ProductionClinicalDecisionSummary";
 import { ClinicalReportCompletionSummary } from "@/pages/doctor/visit-workspace/ClinicalReportCompletionSummary";
+import { LesionSourcePhotoPanel } from "@/pages/doctor/visit-workspace/LesionSourcePhotoPanel";
 import {
   humanDisplayValue,
   humanFieldTerm,
@@ -133,6 +134,7 @@ import {
   getBodyMapProfile,
   suggestBodyZone,
 } from "@/pages/doctor/body-map-model";
+import { getDemoLesionSourceLocalization } from "@/pages/doctor/lesion-source-localization";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -205,13 +207,15 @@ export default function VisitWorkspacePage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const updateNav = useCallback(
-    (tab: string, lesionId?: string | null) => {
+    (tab: string, lesionId?: string | null, imageId?: string | null) => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.set("tab", tab);
           if (lesionId) next.set("lesion", lesionId);
           else next.delete("lesion");
+          if (imageId) next.set("image", imageId);
+          else next.delete("image");
           return next;
         },
         { replace: false },
@@ -323,6 +327,7 @@ export default function VisitWorkspacePage() {
     ? (tabParam as TabKey)
     : "intake";
   const lesionParam = searchParams.get("lesion");
+  const imageParam = searchParams.get("image");
 
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Карта", value: formatCardNumber(patient.code) },
@@ -401,7 +406,7 @@ export default function VisitWorkspacePage() {
             lesions={lesions}
             productionMode={productionMode}
             initialLesionId={lesionParam}
-            onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
+            onOpenImaging={(lesionId, imageId) => updateNav("imaging", lesionId, imageId)}
           />
         </TabsContent>
 
@@ -411,6 +416,7 @@ export default function VisitWorkspacePage() {
             patientId={patient.id}
             lesions={lesions}
             initialLesionId={lesionParam}
+            initialImageId={imageParam}
             onOpenBodyMap={(lesionId) => updateNav("bodymap", lesionId)}
             apiToken={apiSession.apiToken}
             apiBaseUrl={apiSession.apiBaseUrl}
@@ -4458,7 +4464,7 @@ function BodyMapTab({
   lesions: Lesion[];
   productionMode?: boolean;
   initialLesionId?: string | null;
-  onOpenImaging: (lesionId: string) => void;
+  onOpenImaging: (lesionId: string, imageId?: string | null) => void;
 }) {
   const profile = getBodyMapProfile(
     patient,
@@ -4517,6 +4523,9 @@ function BodyMapTab({
 
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
   const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
+  const sourceLocalization = selectedLesion && !productionMode
+    ? getDemoLesionSourceLocalization(selectedLesion.id)
+    : null;
   const visitAssessments = productionMode ? [] : getAssessmentsByVisitId(visit.id);
   const selImages = selectedLesion && !productionMode ? getImagesByLesionId(selectedLesion.id) : [];
   const selImageCount = selImages.length;
@@ -4897,6 +4906,13 @@ function BodyMapTab({
               <Stat term="4 признака" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
               <Stat term="7 баллов" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
             </dl>
+            {sourceLocalization ? (
+              <LesionSourcePhotoPanel
+                localization={sourceLocalization}
+                onOpenSource={(imageId) => onOpenImaging(selectedLesion.id, imageId)}
+                onOpenCapture={() => onOpenImaging(selectedLesion.id)}
+              />
+            ) : null}
             <div className="mt-2 rounded-md border border-border bg-surface-muted px-2.5 py-2">
               <div className="flex items-baseline justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-[12px] font-semibold">

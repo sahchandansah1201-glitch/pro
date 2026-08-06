@@ -156,6 +156,55 @@ describe("VisitWorkspacePage · Карта тела", () => {
   });
 });
 describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
+  it("shows the exact synthetic overview source for a captured lesion", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap&lesion=l-001");
+
+    expect(screen.getByRole("heading", { name: "Источник положения" })).toBeInTheDocument();
+    expect(screen.getByText("Снято полностью")).toBeInTheDocument();
+    expect(screen.getByText("Подтверждено врачом")).toBeInTheDocument();
+    expect(screen.getByText(/Синтетический обзорный снимок/)).toBeInTheDocument();
+    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-x", "0.43");
+    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-y", "0.31");
+  });
+
+  it("opens the exact overview image selected from the body map", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap&lesion=l-001");
+
+    fireEvent.click(screen.getByRole("button", { name: "Открыть исходный снимок" }));
+
+    expect(screen.getByRole("tab", { name: /снимки/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("selected-image-preview")).toHaveAttribute("data-image-id", "i-001");
+  });
+
+  it("asks for clinician review when the overview covers the area only partially", () => {
+    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-009");
+
+    expect(screen.getByText("Снято частично")).toBeInTheDocument();
+    expect(screen.getByText("Нужно подтверждение врача")).toBeInTheDocument();
+    expect(screen.getByText(/нужен дополнительный ракурс с согласия пациента/i)).toBeInTheDocument();
+  });
+
+  it("does not infer absence when the anatomical area has no overview image", () => {
+    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-010");
+
+    expect(screen.getByText("Не снято")).toBeInTheDocument();
+    expect(screen.getByText(/Это не означает отсутствие образования/)).toBeInTheDocument();
+    expect(screen.queryByTestId("source-photo-marker")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Перейти к съёмке" })).toBeInTheDocument();
+  });
+
+  it("opens the imaging workflow for an area that needs an additional angle", () => {
+    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-010");
+
+    fireEvent.click(screen.getByRole("button", { name: "Перейти к съёмке" }));
+
+    expect(screen.getByRole("tab", { name: /снимки/i })).toHaveAttribute("aria-selected", "true");
+    const lesionFilter = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
+      (select) => select.value === "l-010",
+    );
+    expect(lesionFilter).toBeTruthy();
+  });
+
   it("Карта тела selected lesion shows 'Связанные снимки' panel for l-008", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
@@ -2416,6 +2465,7 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
     expect(screen.getAllByText(/врач клиники/i).length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent(/edc29a29-afa5-4608-a93e-de2c728472c3/);
     expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Источник положения" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Визит не найден/)).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/"))) {
