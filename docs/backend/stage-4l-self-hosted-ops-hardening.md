@@ -85,9 +85,19 @@ node scripts/stage4l-self-hosted-ops.mjs backup \
 The backup directory contains:
 
 - `postgres.dump` — custom-format PostgreSQL dump.
-- `object-storage.tgz` — archive of the backend-owned object storage volume.
+- `object-storage.tgz` — archive of the backend-owned local object-storage
+  volume used by the current file read/write implementation.
+- `minio-object-storage.tgz` — archive of the separate MinIO data volume.
 - `stage4l-backup-manifest.json` — safe manifest without credentials, tokens,
   object keys, storage paths, or patient names.
+- `SHA256SUMS` — checksums for the database dump, both object-storage archives,
+  and the safe manifest.
+
+The helper verifies that both named Docker volumes already exist before it
+mounts either one. This prevents Docker from silently creating and archiving an
+empty volume after a naming error. It then validates the PostgreSQL catalog with
+`pg_restore --list`, lists both tar archives, writes checksums, and restricts the
+backup directory/files to modes `0700`/`0600`.
 
 `backups/self-hosted/` is gitignored.
 
@@ -119,13 +129,15 @@ node scripts/stage4l-self-hosted-ops.mjs restore \
 
 The restore plan:
 
-1. Stops the compose stack.
-2. Removes PostgreSQL and backend object-storage volumes.
-3. Re-initializes PostgreSQL from migrations.
-4. Restores `postgres.dump` with `pg_restore`.
-5. Restores `object-storage.tgz` into the backend-owned object storage volume.
-6. Starts the full stack.
-7. Runs the Stage 4K smoke as a post-restore verification.
+1. Verifies `SHA256SUMS` before any destructive restore step.
+2. Stops the compose stack.
+3. Removes PostgreSQL, backend-owned object-storage, and MinIO data volumes.
+4. Re-initializes PostgreSQL from migrations.
+5. Restores `postgres.dump` with `pg_restore`.
+6. Restores `object-storage.tgz` into the backend-owned object-storage volume.
+7. Restores `minio-object-storage.tgz` into the MinIO data volume.
+8. Starts the full stack.
+9. Runs the Stage 4K smoke as a post-restore verification.
 
 ## CI and local preflight
 

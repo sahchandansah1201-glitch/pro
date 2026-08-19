@@ -4,6 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -78,6 +79,7 @@ export function parseStage4LOpsArgs(argv = []) {
     confirm: "",
     summaryPath: "",
   };
+  let hasExplicitComposeFile = false;
 
   for (let index = 1; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -87,17 +89,17 @@ export function parseStage4LOpsArgs(argv = []) {
     }
     if (arg === "--compose-file") {
       const value = safePath(argv[++index], DEFAULT_COMPOSE_FILE);
-      parsed.composeFiles = parsed.composeFiles[0] === DEFAULT_COMPOSE_FILE && parsed.composeFiles.length === 1
-        ? [value]
-        : [...parsed.composeFiles, value];
+      if (!hasExplicitComposeFile) parsed.composeFiles = [];
+      hasExplicitComposeFile = true;
+      parsed.composeFiles.push(value);
       parsed.composeFile = parsed.composeFiles[0];
       continue;
     }
     if (arg.startsWith("--compose-file=")) {
       const value = safePath(arg.slice("--compose-file=".length), DEFAULT_COMPOSE_FILE);
-      parsed.composeFiles = parsed.composeFiles[0] === DEFAULT_COMPOSE_FILE && parsed.composeFiles.length === 1
-        ? [value]
-        : [...parsed.composeFiles, value];
+      if (!hasExplicitComposeFile) parsed.composeFiles = [];
+      hasExplicitComposeFile = true;
+      parsed.composeFiles.push(value);
       parsed.composeFile = parsed.composeFiles[0];
       continue;
     }
@@ -182,13 +184,15 @@ export function buildBackupPlan(options = {}) {
     files: {
       postgresDump: `${backupDir}/postgres.dump`,
       objectStorageArchive: `${backupDir}/object-storage.tgz`,
+      minioObjectStorageArchive: `${backupDir}/minio-object-storage.tgz`,
       manifest: `${backupDir}/stage4l-backup-manifest.json`,
+      checksums: `${backupDir}/SHA256SUMS`,
     },
     steps: [
       {
         label: "Create backup directory",
         cmd: "mkdir",
-        args: ["-p", backupDir],
+        args: ["-p", "-m", "700", backupDir],
       },
       {
         label: "Dump PostgreSQL database",
@@ -207,6 +211,16 @@ export function buildBackupPlan(options = {}) {
           "--no-acl",
         ], config.composeEnvFile),
         stdoutFile: `${backupDir}/postgres.dump`,
+      },
+      {
+        label: "Verify backend-owned object storage volume exists",
+        cmd: "docker",
+        args: ["volume", "inspect", `${config.projectName}_backend-object-storage`],
+      },
+      {
+        label: "Verify MinIO object storage volume exists",
+        cmd: "docker",
+        args: ["volume", "inspect", `${config.projectName}_object-storage-data`],
       },
       {
         label: "Archive backend-owned object storage volume",
@@ -228,9 +242,93 @@ export function buildBackupPlan(options = {}) {
         ],
       },
       {
+        label: "Archive MinIO object storage volume",
+        cmd: "docker",
+        args: [
+          "run",
+          "--rm",
+          "-v",
+          `${config.projectName}_object-storage-data:/data:ro`,
+          "-v",
+          `${absBackupDir}:/backup`,
+          "alpine:3.20",
+          "tar",
+          "-czf",
+          "/backup/minio-object-storage.tgz",
+          "-C",
+          "/data",
+          ".",
+        ],
+      },
+      {
+        label: "Validate PostgreSQL backup catalog",
+        cmd: "docker",
+        args: dockerComposeArgs(config.composeFiles || config.composeFile, config.projectName, [
+          "exec",
+          "-T",
+          "postgres",
+          "pg_restore",
+          "--list",
+        ], config.composeEnvFile),
+        stdinFile: `${backupDir}/postgres.dump`,
+      },
+      {
+        label: "Validate backend-owned object storage archive",
+        cmd: "docker",
+        args: [
+          "run",
+          "--rm",
+          "-v",
+          `${absBackupDir}:/backup:ro`,
+          "alpine:3.20",
+          "tar",
+          "-tzf",
+          "/backup/object-storage.tgz",
+        ],
+      },
+      {
+        label: "Validate MinIO object storage archive",
+        cmd: "docker",
+        args: [
+          "run",
+          "--rm",
+          "-v",
+          `${absBackupDir}:/backup:ro`,
+          "alpine:3.20",
+          "tar",
+          "-tzf",
+          "/backup/minio-object-storage.tgz",
+        ],
+      },
+      {
         label: "Write backup manifest",
         cmd: "write-file",
         args: [`${backupDir}/stage4l-backup-manifest.json`],
+      },
+      {
+        label: "Write backup checksums",
+        cmd: "sha256sum",
+        args: [
+          "postgres.dump",
+          "object-storage.tgz",
+          "minio-object-storage.tgz",
+          "stage4l-backup-manifest.json",
+        ],
+        cwd: absBackupDir,
+        stdoutFile: `${backupDir}/SHA256SUMS`,
+      },
+      {
+        label: "Restrict backup file permissions",
+        cmd: "chmod",
+        args: [
+          "600",
+          "postgres.dump",
+          "object-storage.tgz",
+          "minio-object-storage.tgz",
+          "stage4l-backup-manifest.json",
+          "SHA256SUMS",
+        ],
+        cwd: absBackupDir,
       },
     ],
   };
@@ -248,16 +346,24 @@ export function buildRestorePlan(options = {}) {
     files: {
       postgresDump: `${backupDir}/postgres.dump`,
       objectStorageArchive: `${backupDir}/object-storage.tgz`,
+      minioObjectStorageArchive: `${backupDir}/minio-object-storage.tgz`,
       manifest: `${backupDir}/stage4l-backup-manifest.json`,
+      checksums: `${backupDir}/SHA256SUMS`,
     },
     steps: [
+      {
+        label: "Verify backup checksums before destructive restore",
+        cmd: "sha256sum",
+        args: ["-c", "SHA256SUMS"],
+        cwd: absBackupDir,
+      },
       {
         label: "Stop compose stack before restore",
         cmd: "docker",
         args: dockerComposeArgs(config.composeFiles || config.composeFile, config.projectName, ["down"], config.composeEnvFile),
       },
       {
-        label: "Remove PostgreSQL and backend object-storage volumes",
+        label: "Remove PostgreSQL and object-storage volumes",
         cmd: "docker",
         args: [
           "volume",
@@ -265,6 +371,7 @@ export function buildRestorePlan(options = {}) {
           "-f",
           `${config.projectName}_postgres-data`,
           `${config.projectName}_backend-object-storage`,
+          `${config.projectName}_object-storage-data`,
         ],
       },
       {
@@ -305,6 +412,22 @@ export function buildRestorePlan(options = {}) {
           "sh",
           "-c",
           "rm -rf /data/* && tar -xzf /backup/object-storage.tgz -C /data",
+        ],
+      },
+      {
+        label: "Restore MinIO object storage volume",
+        cmd: "docker",
+        args: [
+          "run",
+          "--rm",
+          "-v",
+          `${config.projectName}_object-storage-data:/data`,
+          "-v",
+          `${absBackupDir}:/backup:ro`,
+          "alpine:3.20",
+          "sh",
+          "-c",
+          "rm -rf /data/* && tar -xzf /backup/minio-object-storage.tgz -C /data",
         ],
       },
       {
@@ -384,12 +507,14 @@ export function renderPlan(plan) {
 
 function runStep(step, { spawn = spawnSync } = {}) {
   if (step.cmd === "mkdir") {
-    mkdirSync(step.args[1], { recursive: true });
+    const target = step.args.at(-1);
+    mkdirSync(target, { recursive: true, mode: 0o700 });
+    chmodSync(target, 0o700);
     return;
   }
   if (step.cmd === "write-file") return;
   const result = spawn(step.cmd, step.args, {
-    cwd: process.cwd(),
+    cwd: step.cwd || process.cwd(),
     encoding: step.stdoutFile ? null : "utf8",
     input: step.stdinFile ? readFileSync(step.stdinFile) : undefined,
     stdio: step.stdoutFile ? ["ignore", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
@@ -416,6 +541,8 @@ function writeManifest(plan) {
         files: {
           postgresDump: basename(plan.files.postgresDump),
           objectStorageArchive: basename(plan.files.objectStorageArchive),
+          minioObjectStorageArchive: basename(plan.files.minioObjectStorageArchive),
+          checksums: basename(plan.files.checksums),
         },
         privacy: "No raw credentials, tokens, patient names, object keys, or storage paths are written to this manifest.",
       },
@@ -441,7 +568,13 @@ export function runRestore(options = {}, io = {}) {
   if (options.confirm !== RESTORE_CONFIRMATION) {
     throw new Error(`restore requires --confirm=${RESTORE_CONFIRMATION}`);
   }
-  for (const file of [plan.files.postgresDump, plan.files.objectStorageArchive, plan.files.manifest]) {
+  for (const file of [
+    plan.files.postgresDump,
+    plan.files.objectStorageArchive,
+    plan.files.minioObjectStorageArchive,
+    plan.files.manifest,
+    plan.files.checksums,
+  ]) {
     if (!existsSync(file)) throw new Error(`Missing backup file: ${file}`);
   }
   for (const step of plan.steps) runStep(step, io);
