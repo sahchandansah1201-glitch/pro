@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
+import { reconcileClinicalAssets } from "./stage4l-backup-consistency.mjs";
 import {
   buildBackupPlan,
   buildRestorePlan,
@@ -14,6 +16,145 @@ import {
   runRestore,
   verifyEnvText,
 } from "./stage4l-self-hosted-ops.mjs";
+
+const PRODUCT_GIT_SHA = "59b49740feaea3667a75ca95b316965933152832";
+const STAGE4L_GIT_SHA = "1c17f82a32a50115da2df7ad7c445fb93da551c9";
+
+function backupOptions(backupDir, extra = {}) {
+  return {
+    command: "backup",
+    backupDir,
+    projectName: "demo-project",
+    productGitSha: PRODUCT_GIT_SHA,
+    stage4lGitSha: STAGE4L_GIT_SHA,
+    ...extra,
+  };
+}
+
+function cleanReconciliation() {
+  return {
+    danglingReferenceCount: 0,
+    orphanPayloadCount: 0,
+    payloadSidecarDefectCount: 0,
+    checksumMismatchCount: 0,
+    byteSizeMismatchCount: 0,
+  };
+}
+
+function successfulLifecycle(events = []) {
+  return {
+    inventory() {
+      events.push("inventory");
+      return {
+        writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+        unknownCount: 0,
+      };
+    },
+    quiesce(inventory) {
+      events.push("quiesce");
+      return {
+        writers: inventory.writers.map((writer) => ({ ...writer, stopped: true })),
+        minio: { id: "object-storage", wasRunning: true, stopped: true },
+        unknownCount: 0,
+        forcedTerminationCount: 0,
+        quiescedAt: "2026-08-20T10:00:00.000Z",
+      };
+    },
+    resume() {
+      events.push("resume");
+      return { ok: true, resumedAt: "2026-08-20T10:01:00.000Z" };
+    },
+  };
+}
+
+test("Stage 4L cross-store reconciliation accepts matching asset payloads and sidecars", () => {
+  const result = reconcileClinicalAssets({
+    assets: [
+      {
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/asset-a.jpg",
+        checksumSha256: "aaaaaaaa",
+        byteSize: 3,
+      },
+      {
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/asset-b.jpg",
+        checksumSha256: null,
+        byteSize: 4,
+      },
+    ],
+    files: [
+      {
+        kind: "payload",
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/asset-a.jpg",
+        checksumSha256: "aaaaaaaa",
+        byteSize: 3,
+      },
+      { kind: "sidecar", objectBucket: "clinical-assets", objectKey: "clinics/demo/asset-a.jpg" },
+      {
+        kind: "payload",
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/asset-b.jpg",
+        checksumSha256: "bbbbbbbb",
+        byteSize: 4,
+      },
+      { kind: "sidecar", objectBucket: "clinical-assets", objectKey: "clinics/demo/asset-b.jpg" },
+    ],
+  });
+  assert.deepEqual(result, {
+    danglingReferenceCount: 0,
+    orphanPayloadCount: 0,
+    payloadSidecarDefectCount: 0,
+    checksumMismatchCount: 0,
+    byteSizeMismatchCount: 0,
+  });
+});
+
+test("Stage 4L cross-store reconciliation reports all five defect classes deterministically", () => {
+  const result = reconcileClinicalAssets({
+    assets: [
+      {
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/dangling.jpg",
+        checksumSha256: "aaaaaaaa",
+        byteSize: 1,
+      },
+      {
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/mismatch.jpg",
+        checksumSha256: "bbbbbbbb",
+        byteSize: 2,
+      },
+    ],
+    files: [
+      {
+        kind: "payload",
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/mismatch.jpg",
+        checksumSha256: "cccccccc",
+        byteSize: 3,
+      },
+      { kind: "sidecar", objectBucket: "clinical-assets", objectKey: "clinics/demo/mismatch.jpg" },
+      {
+        kind: "payload",
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/orphan.jpg",
+        checksumSha256: "dddddddd",
+        byteSize: 4,
+      },
+      { kind: "sidecar", objectBucket: "clinical-assets", objectKey: "clinics/demo/orphan.jpg" },
+      { kind: "sidecar", objectBucket: "clinical-assets", objectKey: "clinics/demo/sidecar-only.jpg" },
+    ],
+  });
+  assert.deepEqual(result, {
+    danglingReferenceCount: 1,
+    orphanPayloadCount: 1,
+    payloadSidecarDefectCount: 1,
+    checksumMismatchCount: 1,
+    byteSizeMismatchCount: 1,
+  });
+});
 
 test("Stage 4L backup dry-run validates and archives both object-storage volumes without secrets", () => {
   const parsed = parseStage4LOpsArgs([
@@ -32,6 +173,8 @@ test("Stage 4L backup dry-run validates and archives both object-storage volumes
   const plan = buildBackupPlan(parsed);
   const out = renderPlan(plan);
   assert.match(out, /mkdir -p -m 700 backups\/self-hosted\/test-run/);
+  assert.match(out, /Consistency: application_consistent_quiesced/);
+  assert.match(out, /inventory -> quiesce writers -> stop MinIO -> capture -> reconcile -> resume/);
   assert.match(out, /--env-file deploy\/self-hosted\/\.env\.production/);
   assert.match(out, /-f deploy\/self-hosted\/docker-compose\.stage4a\.yml/);
   assert.match(out, /-f deploy\/self-hosted\/docker-compose\.production\.example\.yml/);
@@ -53,6 +196,21 @@ test("Stage 4L backup dry-run validates and archives both object-storage volumes
     /chmod 600 postgres\.dump object-storage\.tgz minio-object-storage\.tgz stage4l-backup-manifest\.json SHA256SUMS/,
   );
   assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|DEVICE_BRIDGE_WORKER_TOKEN=|MINIO_ROOT_PASSWORD=/);
+});
+
+test("Stage 4L parser accepts explicit backup identity flags", () => {
+  const parsed = parseStage4LOpsArgs([
+    "backup",
+    "--backup-set-id=q1-test-backup",
+    `--product-git-sha=${PRODUCT_GIT_SHA}`,
+    "--stage4l-git-sha",
+    STAGE4L_GIT_SHA,
+    "--quiescence-timeout-seconds=45",
+  ]);
+  assert.equal(parsed.backupSetId, "q1-test-backup");
+  assert.equal(parsed.productGitSha, PRODUCT_GIT_SHA);
+  assert.equal(parsed.stage4lGitSha, STAGE4L_GIT_SHA);
+  assert.equal(parsed.quiescenceTimeoutSeconds, 45);
 });
 
 test("Stage 4L restore plan is explicit, destructive, and requires confirmation outside dry-run", () => {
@@ -78,18 +236,288 @@ test("Stage 4L restore plan is explicit, destructive, and requires confirmation 
   );
 });
 
-test("Stage 4L backup runner writes a manifest and captures PostgreSQL dump bytes", () => {
+test("Stage 4L backup execution fails closed without a quiescence lifecycle adapter", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-quiescence-required-"));
+  try {
+    assert.throws(
+      () => runBackup(
+        {
+          command: "backup",
+          backupDir: join(root, "backup"),
+          projectName: "demo-project",
+        },
+        {
+          spawn() {
+            return { status: 0, stdout: Buffer.from(""), stderr: Buffer.from("") };
+          },
+        },
+      ),
+      /quiescence lifecycle adapter is required/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L backup quiesces known writers and MinIO before capture, then resumes", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-quiesced-order-"));
+  try {
+    const events = [];
+    const result = runBackup(
+      backupOptions(join(root, "backup")),
+      {
+        lifecycle: {
+          inventory() {
+            events.push("inventory");
+            return {
+              writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+              unknownCount: 0,
+            };
+          },
+          quiesce(inventory, context) {
+            events.push("quiesce");
+            assert.equal(context.timeoutSeconds, 30);
+            return {
+              writers: inventory.writers.map((writer) => ({ ...writer, stopped: true })),
+              minio: { id: "object-storage", wasRunning: true, stopped: true },
+              unknownCount: 0,
+              forcedTerminationCount: 0,
+              quiescedAt: "2026-08-20T10:00:00.000Z",
+            };
+          },
+          resume() {
+            events.push("resume");
+            return { ok: true, resumedAt: "2026-08-20T10:01:00.000Z" };
+          },
+        },
+        reconcile() {
+          events.push("reconcile");
+          return {
+            danglingReferenceCount: 0,
+            orphanPayloadCount: 0,
+            payloadSidecarDefectCount: 0,
+            checksumMismatchCount: 0,
+            byteSizeMismatchCount: 0,
+          };
+        },
+        spawn(cmd, args) {
+          if (args.includes("pg_dump")) events.push("capture");
+          if (args.includes("pg_dump")) {
+            return { status: 0, stdout: Buffer.from("PGDUMP"), stderr: Buffer.from("") };
+          }
+          if (cmd === "sha256sum") {
+            return { status: 0, stdout: Buffer.from("checksums"), stderr: Buffer.from("") };
+          }
+          return { status: 0, stdout: "", stderr: "" };
+        },
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.ok(events.indexOf("inventory") < events.indexOf("quiesce"));
+    assert.ok(events.indexOf("quiesce") < events.indexOf("capture"));
+    assert.ok(events.indexOf("capture") < events.indexOf("reconcile"));
+    assert.ok(events.indexOf("reconcile") < events.indexOf("resume"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L backup rejects an unknown writer before quiescence or capture", () => {
+  const events = [];
+  assert.throws(
+    () => runBackup(
+      backupOptions("backups/self-hosted/unknown-writer"),
+      {
+        lifecycle: {
+          inventory() {
+            events.push("inventory");
+            return {
+              writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+              unknownCount: 1,
+            };
+          },
+          quiesce() {
+            events.push("quiesce");
+          },
+          resume() {
+            events.push("resume");
+          },
+        },
+        reconcile() {
+          events.push("reconcile");
+        },
+        spawn() {
+          events.push("capture");
+          return { status: 0, stdout: "", stderr: "" };
+        },
+      },
+    ),
+    /unknown writer/i,
+  );
+  assert.deepEqual(events, ["inventory"]);
+});
+
+test("Stage 4L backup requires exact product and Stage 4L Git SHAs before writer inventory", () => {
+  const events = [];
+  assert.throws(
+    () => runBackup(
+      { command: "backup", backupDir: "backups/self-hosted/missing-shas", projectName: "demo-project" },
+      {
+        lifecycle: {
+          inventory() {
+            events.push("inventory");
+          },
+          quiesce() {},
+          resume() {},
+        },
+        reconcile() {},
+      },
+    ),
+    /exact 40-character product and Stage 4L Git SHAs/i,
+  );
+  assert.deepEqual(events, []);
+});
+
+test("Stage 4L backup rejects forced termination and still resumes before capture", () => {
+  const events = [];
+  assert.throws(
+    () => runBackup(
+      backupOptions("backups/self-hosted/forced-stop"),
+      {
+        lifecycle: {
+          inventory() {
+            events.push("inventory");
+            return {
+              writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+              unknownCount: 0,
+            };
+          },
+          quiesce(inventory) {
+            events.push("quiesce");
+            return {
+              writers: inventory.writers.map((writer) => ({ ...writer, stopped: true })),
+              minio: { id: "object-storage", wasRunning: true, stopped: true },
+              unknownCount: 0,
+              forcedTerminationCount: 1,
+              quiescedAt: "2026-08-20T10:00:00.000Z",
+            };
+          },
+          resume() {
+            events.push("resume");
+            return { ok: true, resumedAt: "2026-08-20T10:01:00.000Z" };
+          },
+        },
+        reconcile() {
+          events.push("reconcile");
+        },
+        spawn() {
+          events.push("capture");
+          return { status: 0, stdout: "", stderr: "" };
+        },
+      },
+    ),
+    /forced termination/i,
+  );
+  assert.deepEqual(events, ["inventory", "quiesce", "resume"]);
+});
+
+test("Stage 4L backup rejects reconciliation defects before writing a manifest and resumes", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-reconciliation-fail-"));
+  const backupDir = join(root, "backup");
+  const events = [];
+  try {
+    assert.throws(
+      () => runBackup(
+        backupOptions(backupDir),
+        {
+          lifecycle: {
+            inventory() {
+              return {
+                writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+                unknownCount: 0,
+              };
+            },
+            quiesce(inventory) {
+              return {
+                writers: inventory.writers.map((writer) => ({ ...writer, stopped: true })),
+                minio: { id: "object-storage", wasRunning: true, stopped: true },
+                unknownCount: 0,
+                forcedTerminationCount: 0,
+                quiescedAt: "2026-08-20T10:00:00.000Z",
+              };
+            },
+            resume() {
+              events.push("resume");
+              return { ok: true, resumedAt: "2026-08-20T10:01:00.000Z" };
+            },
+          },
+          reconcile() {
+            return {
+              danglingReferenceCount: 0,
+              orphanPayloadCount: 1,
+              payloadSidecarDefectCount: 0,
+              checksumMismatchCount: 0,
+              byteSizeMismatchCount: 0,
+            };
+          },
+          spawn(cmd, args) {
+            if (args.includes("pg_dump")) {
+              return { status: 0, stdout: Buffer.from("PGDUMP"), stderr: Buffer.from("") };
+            }
+            return { status: 0, stdout: "", stderr: "" };
+          },
+        },
+      ),
+      /cross-store reconciliation failed.*orphanPayloadCount/i,
+    );
+    assert.equal(existsSync(join(backupDir, "stage4l-backup-manifest.json")), false);
+    assert.deepEqual(events, ["resume"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L quiesced backup writes manifest v2 and a checksum-bound completion receipt", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4l-backup-"));
   try {
     const backupDir = join(root, "backup");
     const calls = [];
     const result = runBackup(
+      backupOptions(backupDir, { backupSetId: "q1-test-backup" }),
       {
-        command: "backup",
-        backupDir,
-        projectName: "demo-project",
-      },
-      {
+        lifecycle: {
+          inventory() {
+            return {
+              writers: [{ id: "backend", kind: "compose", wasRunning: true }],
+              unknownCount: 0,
+            };
+          },
+          quiesce(inventory) {
+            return {
+              writers: inventory.writers.map((writer) => ({ ...writer, stopped: true })),
+              minio: { id: "object-storage", wasRunning: true, stopped: true },
+              unknownCount: 0,
+              forcedTerminationCount: 0,
+              quiescedAt: "2026-08-20T10:00:00.000Z",
+            };
+          },
+          resume() {
+            return { ok: true, resumedAt: "2026-08-20T10:01:00.000Z" };
+          },
+        },
+        reconcile() {
+          return {
+            danglingReferenceCount: 0,
+            orphanPayloadCount: 0,
+            payloadSidecarDefectCount: 0,
+            checksumMismatchCount: 0,
+            byteSizeMismatchCount: 0,
+          };
+        },
+        now: (() => {
+          const values = ["2026-08-20T09:59:00.000Z", "2026-08-20T10:00:30.000Z"];
+          return () => values.shift();
+        })(),
         spawn(cmd, args) {
           calls.push(`${cmd} ${args.join(" ")}`);
           if (args.includes("pg_dump")) {
@@ -111,14 +539,37 @@ test("Stage 4L backup runner writes a manifest and captures PostgreSQL dump byte
     assert.match(readFileSync(join(backupDir, "postgres.dump"), "utf8"), /PGDUMP/);
     assert.match(readFileSync(join(backupDir, "SHA256SUMS"), "utf8"), /minio-object-storage\.tgz/);
     const manifest = JSON.parse(readFileSync(join(backupDir, "stage4l-backup-manifest.json"), "utf8"));
+    const completion = JSON.parse(readFileSync(join(backupDir, "stage4l-backup-completion.json"), "utf8"));
+    assert.equal(manifest.schemaVersion, 2);
     assert.equal(manifest.stage, "4L");
+    assert.equal(manifest.backupSetId, "q1-test-backup");
+    assert.equal(manifest.classification, "application_consistent_quiesced");
+    assert.equal(manifest.state, "CAPTURE_VALIDATED");
+    assert.equal(manifest.productGitSha, PRODUCT_GIT_SHA);
+    assert.equal(manifest.stage4lGitSha, STAGE4L_GIT_SHA);
+    assert.equal(manifest.startedAt, "2026-08-20T09:59:00.000Z");
+    assert.equal(manifest.captureFinishedAt, "2026-08-20T10:00:30.000Z");
+    assert.deepEqual(manifest.writers.expected, ["backend"]);
+    assert.deepEqual(manifest.writers.stopped, ["backend"]);
+    assert.equal(manifest.writers.drainTimeoutSeconds, 30);
+    assert.deepEqual(manifest.reconciliation, {
+      danglingReferenceCount: 0,
+      orphanPayloadCount: 0,
+      payloadSidecarDefectCount: 0,
+      checksumMismatchCount: 0,
+      byteSizeMismatchCount: 0,
+    });
     assert.equal(manifest.files.minioObjectStorageArchive, "minio-object-storage.tgz");
     assert.equal(manifest.files.checksums, "SHA256SUMS");
+    assert.equal(completion.backupSetId, "q1-test-backup");
+    assert.equal(completion.state, "SEALED_RESTORE_POINT");
+    assert.equal(completion.resumedAt, "2026-08-20T10:01:00.000Z");
+    assert.match(completion.backupChecksumsSha256, /^[a-f0-9]{64}$/);
     assert.equal(calls.filter((cmd) => cmd.includes("alpine:3.20 tar -czf")).length, 2);
     assert.ok(calls.some((cmd) => cmd.includes("volume inspect demo-project_backend-object-storage")));
     assert.ok(calls.some((cmd) => cmd.includes("volume inspect demo-project_object-storage-data")));
     assert.ok(calls.some((cmd) => cmd.includes("pg_restore --list")));
-    assert.doesNotMatch(JSON.stringify(manifest), /secret|password|object_key/i);
+    assert.doesNotMatch(JSON.stringify({ manifest, completion }), /secret|password|object_key/i);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -130,12 +581,10 @@ test("Stage 4L backup fails closed before archive when a required object-storage
     const calls = [];
     assert.throws(
       () => runBackup(
+        backupOptions(join(root, "backup")),
         {
-          command: "backup",
-          backupDir: join(root, "backup"),
-          projectName: "demo-project",
-        },
-        {
+          lifecycle: successfulLifecycle(),
+          reconcile: cleanReconciliation,
           spawn(cmd, args) {
             calls.push(`${cmd} ${args.join(" ")}`);
             if (args.includes("pg_dump")) {
@@ -161,12 +610,10 @@ test("Stage 4L backup refuses a corrupt object-storage archive", () => {
   try {
     assert.throws(
       () => runBackup(
+        backupOptions(join(root, "backup")),
         {
-          command: "backup",
-          backupDir: join(root, "backup"),
-          projectName: "demo-project",
-        },
-        {
+          lifecycle: successfulLifecycle(),
+          reconcile: cleanReconciliation,
           spawn(cmd, args) {
             if (args.includes("pg_dump")) {
               return { status: 0, stdout: Buffer.from("PGDUMP"), stderr: Buffer.from("") };
@@ -185,6 +632,139 @@ test("Stage 4L backup refuses a corrupt object-storage archive", () => {
   }
 });
 
+test("Stage 4L backup does not seal a restore point when service resume is not proven", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-resume-fail-"));
+  const backupDir = join(root, "backup");
+  try {
+    const lifecycle = successfulLifecycle();
+    lifecycle.resume = () => ({ ok: false, resumedAt: "" });
+    assert.throws(
+      () => runBackup(backupOptions(backupDir), {
+        lifecycle,
+        reconcile: cleanReconciliation,
+        spawn(cmd, args) {
+          if (args.includes("pg_dump")) {
+            return { status: 0, stdout: Buffer.from("PGDUMP"), stderr: Buffer.from("") };
+          }
+          if (cmd === "sha256sum") {
+            return { status: 0, stdout: Buffer.from("checksums"), stderr: Buffer.from("") };
+          }
+          return { status: 0, stdout: "", stderr: "" };
+        },
+      }),
+      /did not prove a successful service resume/i,
+    );
+    assert.equal(existsSync(join(backupDir, "stage4l-backup-completion.json")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L backup resumes services after capture failure and does not seal the backup", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-capture-fail-"));
+  const backupDir = join(root, "backup");
+  const events = [];
+  try {
+    assert.throws(
+      () => runBackup(backupOptions(backupDir), {
+        lifecycle: successfulLifecycle(events),
+        reconcile: cleanReconciliation,
+        spawn(cmd, args) {
+          if (args.includes("pg_dump")) {
+            events.push("capture-fail");
+            return { status: 1, stdout: "", stderr: "pg dump failed" };
+          }
+          return { status: 0, stdout: "", stderr: "" };
+        },
+      }),
+      /Dump PostgreSQL database failed: pg dump failed/,
+    );
+    assert.deepEqual(events, ["inventory", "quiesce", "capture-fail", "resume"]);
+    assert.equal(existsSync(join(backupDir, "stage4l-backup-completion.json")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L restore rejects an unsealed manifest v2 before any destructive command", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-unsealed-restore-"));
+  try {
+    for (const name of ["postgres.dump", "object-storage.tgz", "minio-object-storage.tgz", "SHA256SUMS"]) {
+      writeFileSync(join(root, name), name);
+    }
+    writeFileSync(join(root, "stage4l-backup-manifest.json"), JSON.stringify({
+      schemaVersion: 2,
+      backupSetId: "q1-test-backup",
+      state: "CAPTURE_VALIDATED",
+    }));
+    const calls = [];
+    assert.throws(
+      () => runRestore(
+        {
+          command: "restore",
+          backupDir: root,
+          projectName: "demo-project",
+          confirm: "RESTORE_SELF_HOSTED_DATA",
+        },
+        {
+          spawn(cmd, args) {
+            calls.push(`${cmd} ${args.join(" ")}`);
+            return { status: 0, stdout: "", stderr: "" };
+          },
+        },
+      ),
+      /sealed completion receipt/i,
+    );
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L restore accepts a matching v2 seal and still verifies checksums before Docker", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-sealed-restore-"));
+  try {
+    for (const name of ["postgres.dump", "object-storage.tgz", "minio-object-storage.tgz"]) {
+      writeFileSync(join(root, name), name);
+    }
+    const checksumText = "bad-checksum  postgres.dump\n";
+    writeFileSync(join(root, "SHA256SUMS"), checksumText);
+    writeFileSync(join(root, "stage4l-backup-manifest.json"), JSON.stringify({
+      schemaVersion: 2,
+      backupSetId: "q1-test-backup",
+      state: "CAPTURE_VALIDATED",
+    }));
+    writeFileSync(join(root, "stage4l-backup-completion.json"), JSON.stringify({
+      schemaVersion: 1,
+      backupSetId: "q1-test-backup",
+      state: "SEALED_RESTORE_POINT",
+      backupChecksumsSha256: createHash("sha256").update(checksumText).digest("hex"),
+      resumedAt: "2026-08-20T10:01:00.000Z",
+    }));
+    const calls = [];
+    assert.throws(
+      () => runRestore(
+        {
+          command: "restore",
+          backupDir: root,
+          projectName: "demo-project",
+          confirm: "RESTORE_SELF_HOSTED_DATA",
+        },
+        {
+          spawn(cmd, args) {
+            calls.push(`${cmd} ${args.join(" ")}`);
+            return { status: 1, stdout: "", stderr: "checksum mismatch" };
+          },
+        },
+      ),
+      /Verify backup checksums before destructive restore failed: checksum mismatch/,
+    );
+    assert.deepEqual(calls, ["sha256sum -c SHA256SUMS"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("Stage 4L restore verifies checksums before stopping the stack", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4l-restore-checksum-"));
   try {
@@ -192,11 +772,11 @@ test("Stage 4L restore verifies checksums before stopping the stack", () => {
       "postgres.dump",
       "object-storage.tgz",
       "minio-object-storage.tgz",
-      "stage4l-backup-manifest.json",
       "SHA256SUMS",
     ]) {
       writeFileSync(join(root, name), name);
     }
+    writeFileSync(join(root, "stage4l-backup-manifest.json"), "{}");
     const calls = [];
     assert.throws(
       () => runRestore(

@@ -71,7 +71,31 @@ Dry-run first:
 npm run ops:stage4l:backup:dry-run
 ```
 
-Create a backup from a running stack:
+Q1 implements and tests the fail-closed application-consistency boundary. The
+required lifecycle is:
+
+```text
+inventory -> quiesce writers -> stop MinIO -> capture -> reconcile -> resume
+```
+
+The backup is classified as `application_consistent_quiesced` only when all of
+the following are true:
+
+- the writer inventory contains the known `backend` writer and zero unknown
+  writers;
+- every running writer and the MinIO `object-storage` service is proven stopped
+  inside the bounded drain interval and without forced termination;
+- the PostgreSQL dump and both object-storage archives validate;
+- cross-store reconciliation reports zero dangling references, orphan
+  payloads, payload/sidecar defects, checksum mismatches, and byte-size
+  mismatches;
+- the exact 40-character product Git SHA and Stage 4L Git SHA are recorded;
+- services are proven resumed after capture.
+
+The CLI currently has no production lifecycle/reconciliation adapter, so
+production execution remains disabled and a non-dry-run CLI backup fails closed.
+Q1 can be executed only through a reviewed adapter supplied by the runtime or
+test harness. The future invocation contract is:
 
 ```bash
 node scripts/stage4l-self-hosted-ops.mjs backup \
@@ -79,8 +103,16 @@ node scripts/stage4l-self-hosted-ops.mjs backup \
   --compose-file deploy/self-hosted/docker-compose.stage4a.yml \
   --compose-file deploy/self-hosted/docker-compose.production.example.yml \
   --compose-env-file deploy/self-hosted/.env.production \
-  --backup-root backups/self-hosted
+  --backup-root backups/self-hosted \
+  --backup-set-id <safe-unique-id> \
+  --product-git-sha <exact-40-hex-sha> \
+  --stage4l-git-sha <exact-40-hex-sha> \
+  --quiescence-timeout-seconds 30
 ```
+
+Do not run that command against production until the Q2 disposable-stack test
+has proved the concrete adapter under concurrent write load and the production
+change has separate authorization and rollback evidence.
 
 The backup directory contains:
 
@@ -89,15 +121,23 @@ The backup directory contains:
   volume used by the current file read/write implementation.
 - `minio-object-storage.tgz` — archive of the separate MinIO data volume.
 - `stage4l-backup-manifest.json` — safe manifest without credentials, tokens,
-  object keys, storage paths, or patient names.
+  object keys, storage paths, or patient names. Manifest v2 uses state
+  `CAPTURE_VALIDATED`; this state alone is not a restore point.
 - `SHA256SUMS` — checksums for the database dump, both object-storage archives,
   and the safe manifest.
+- `stage4l-backup-completion.json` — created only after successful service
+  resume; state `SEALED_RESTORE_POINT` binds the receipt to `SHA256SUMS`.
 
 The helper verifies that both named Docker volumes already exist before it
 mounts either one. This prevents Docker from silently creating and archiving an
 empty volume after a naming error. It then validates the PostgreSQL catalog with
 `pg_restore --list`, lists both tar archives, writes checksums, and restricts the
 backup directory/files to modes `0700`/`0600`.
+
+A manifest v2 without a matching sealed completion receipt is an incomplete
+capture and must never be selected for restore. Older manifests remain
+recognizable as `legacy_storage_level`; that compatibility does not upgrade
+their consistency classification or make them release-grade evidence.
 
 `backups/self-hosted/` is gitignored.
 
@@ -129,15 +169,17 @@ node scripts/stage4l-self-hosted-ops.mjs restore \
 
 The restore plan:
 
-1. Verifies `SHA256SUMS` before any destructive restore step.
-2. Stops the compose stack.
-3. Removes PostgreSQL, backend-owned object-storage, and MinIO data volumes.
-4. Re-initializes PostgreSQL from migrations.
-5. Restores `postgres.dump` with `pg_restore`.
-6. Restores `object-storage.tgz` into the backend-owned object-storage volume.
-7. Restores `minio-object-storage.tgz` into the MinIO data volume.
-8. Starts the full stack.
-9. Runs the Stage 4K smoke as a post-restore verification.
+1. For manifest v2, verifies the matching `SEALED_RESTORE_POINT` receipt and its
+   binding to `SHA256SUMS` before running any command.
+2. Verifies `SHA256SUMS` before any destructive restore step.
+3. Stops the compose stack.
+4. Removes PostgreSQL, backend-owned object-storage, and MinIO data volumes.
+5. Re-initializes PostgreSQL from migrations.
+6. Restores `postgres.dump` with `pg_restore`.
+7. Restores `object-storage.tgz` into the backend-owned object-storage volume.
+8. Restores `minio-object-storage.tgz` into the MinIO data volume.
+9. Starts the full stack.
+10. Runs the Stage 4K smoke as a post-restore verification.
 
 ## CI and local preflight
 

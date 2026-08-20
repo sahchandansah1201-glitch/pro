@@ -3,6 +3,7 @@
 // Dry-run-first backup/restore/env verification for the single-server product.
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -12,6 +13,8 @@ import {
 } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { assertReconciliationClean } from "./stage4l-backup-consistency.mjs";
 
 const DEFAULT_COMPOSE_FILE = "deploy/self-hosted/docker-compose.stage4a.yml";
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-stage4l-ops";
@@ -78,6 +81,10 @@ export function parseStage4LOpsArgs(argv = []) {
     envFile: DEFAULT_ENV_FILE,
     confirm: "",
     summaryPath: "",
+    backupSetId: "",
+    productGitSha: "",
+    stage4lGitSha: "",
+    quiescenceTimeoutSeconds: 30,
   };
   let hasExplicitComposeFile = false;
 
@@ -135,6 +142,38 @@ export function parseStage4LOpsArgs(argv = []) {
       parsed.backupDir = safePath(arg.slice("--backup-dir=".length), "");
       continue;
     }
+    if (arg === "--backup-set-id") {
+      parsed.backupSetId = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--backup-set-id=")) {
+      parsed.backupSetId = arg.slice("--backup-set-id=".length).trim();
+      continue;
+    }
+    if (arg === "--product-git-sha") {
+      parsed.productGitSha = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--product-git-sha=")) {
+      parsed.productGitSha = arg.slice("--product-git-sha=".length).trim();
+      continue;
+    }
+    if (arg === "--stage4l-git-sha") {
+      parsed.stage4lGitSha = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--stage4l-git-sha=")) {
+      parsed.stage4lGitSha = arg.slice("--stage4l-git-sha=".length).trim();
+      continue;
+    }
+    if (arg === "--quiescence-timeout-seconds") {
+      parsed.quiescenceTimeoutSeconds = Number(argv[++index]);
+      continue;
+    }
+    if (arg.startsWith("--quiescence-timeout-seconds=")) {
+      parsed.quiescenceTimeoutSeconds = Number(arg.slice("--quiescence-timeout-seconds=".length));
+      continue;
+    }
     if (arg === "--env-file") {
       parsed.envFile = safePath(argv[++index], DEFAULT_ENV_FILE);
       continue;
@@ -181,12 +220,20 @@ export function buildBackupPlan(options = {}) {
   return {
     type: "backup",
     backupDir,
+    consistencyMode: "application_consistent_quiesced",
+    requiredLifecycle: "inventory -> quiesce writers -> stop MinIO -> capture -> reconcile -> resume",
+    backupSetId: config.backupSetId || basename(backupDir),
+    productGitSha: config.productGitSha || "",
+    stage4lGitSha: config.stage4lGitSha || "",
+    quiescenceTimeoutSeconds: config.quiescenceTimeoutSeconds,
+    projectName: config.projectName,
     files: {
       postgresDump: `${backupDir}/postgres.dump`,
       objectStorageArchive: `${backupDir}/object-storage.tgz`,
       minioObjectStorageArchive: `${backupDir}/minio-object-storage.tgz`,
       manifest: `${backupDir}/stage4l-backup-manifest.json`,
       checksums: `${backupDir}/SHA256SUMS`,
+      completionReceipt: `${backupDir}/stage4l-backup-completion.json`,
     },
     steps: [
       {
@@ -349,6 +396,7 @@ export function buildRestorePlan(options = {}) {
       minioObjectStorageArchive: `${backupDir}/minio-object-storage.tgz`,
       manifest: `${backupDir}/stage4l-backup-manifest.json`,
       checksums: `${backupDir}/SHA256SUMS`,
+      completionReceipt: `${backupDir}/stage4l-backup-completion.json`,
     },
     steps: [
       {
@@ -493,6 +541,10 @@ export function renderPlan(plan) {
   if (plan.requiredConfirmation) {
     lines.push(`- Restore confirmation required: ${plan.requiredConfirmation}`);
   }
+  if (plan.consistencyMode) {
+    lines.push(`- Consistency: ${plan.consistencyMode}`);
+    lines.push(`- Required lifecycle: ${plan.requiredLifecycle}`);
+  }
   lines.push("", "## Steps");
   for (const step of plan.steps) {
     const suffix = step.stdoutFile
@@ -527,22 +579,46 @@ function runStep(step, { spawn = spawnSync } = {}) {
   if (step.stdoutFile) writeFileSync(step.stdoutFile, result.stdout);
 }
 
-function writeManifest(plan) {
+function writeManifest(plan, { inventory, evidence, reconciliation, startedAt, captureFinishedAt }) {
   const manifestPath = plan.files.manifest;
   mkdirSync(dirname(manifestPath), { recursive: true });
   writeFileSync(
     manifestPath,
     JSON.stringify(
       {
+        schemaVersion: 2,
         stage: "4L",
         type: "self-hosted-backup",
-        createdAt: new Date().toISOString(),
-        backupDir: plan.backupDir,
+        backupSetId: plan.backupSetId,
+        classification: "application_consistent_quiesced",
+        state: "CAPTURE_VALIDATED",
+        productGitSha: plan.productGitSha,
+        stage4lGitSha: plan.stage4lGitSha,
+        composeProject: plan.projectName,
+        startedAt,
+        quiescedAt: evidence.quiescedAt,
+        captureFinishedAt,
+        writers: {
+          expected: inventory.writers.map((writer) => writer.id),
+          stopped: evidence.writers.filter((writer) => writer.stopped === true).map((writer) => writer.id),
+          expectedCount: inventory.writers.length,
+          stoppedCount: evidence.writers.filter((writer) => writer.stopped === true).length,
+          unknownCount: evidence.unknownCount,
+          forcedTerminationCount: evidence.forcedTerminationCount,
+          drainTimeoutSeconds: plan.quiescenceTimeoutSeconds,
+        },
+        stores: {
+          postgres: { role: "authoritative", validated: true },
+          backendObjectStorage: { role: "authoritative", validated: true },
+          minio: { role: "operational_not_runtime_authoritative", validated: true },
+        },
+        reconciliation,
         files: {
           postgresDump: basename(plan.files.postgresDump),
           objectStorageArchive: basename(plan.files.objectStorageArchive),
           minioObjectStorageArchive: basename(plan.files.minioObjectStorageArchive),
           checksums: basename(plan.files.checksums),
+          completionReceipt: basename(plan.files.completionReceipt),
         },
         privacy: "No raw credentials, tokens, patient names, object keys, or storage paths are written to this manifest.",
       },
@@ -552,14 +628,184 @@ function writeManifest(plan) {
   );
 }
 
+function validateResumeEvidence(evidence) {
+  if (evidence?.ok !== true || !evidence.resumedAt || Number.isNaN(Date.parse(evidence.resumedAt))) {
+    throw new Error("quiescence lifecycle did not prove a successful service resume.");
+  }
+  return evidence;
+}
+
+function writeCompletionReceipt(plan, resumeEvidence) {
+  const receipt = {
+    schemaVersion: 1,
+    stage: "4L",
+    type: "self-hosted-backup-completion",
+    backupSetId: plan.backupSetId,
+    state: "SEALED_RESTORE_POINT",
+    backupChecksumsSha256: createHash("sha256").update(readFileSync(plan.files.checksums)).digest("hex"),
+    resumedAt: resumeEvidence.resumedAt,
+    privacy: "No raw credentials, tokens, patient names, object keys, or storage paths are written to this receipt.",
+  };
+  writeFileSync(plan.files.completionReceipt, JSON.stringify(receipt, null, 2));
+  chmodSync(plan.files.completionReceipt, 0o600);
+  return receipt;
+}
+
+function parseJsonFile(path, label) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    throw new Error(`${label} is not valid JSON: ${error?.message || error}`);
+  }
+}
+
+function verifyBackupSetSeal(plan) {
+  const manifest = parseJsonFile(plan.files.manifest, "backup manifest");
+  if (manifest.schemaVersion !== 2) {
+    return { classification: "legacy_storage_level", manifest };
+  }
+  if (manifest.state !== "CAPTURE_VALIDATED" || !manifest.backupSetId) {
+    throw new Error("manifest v2 is not a validated backup capture.");
+  }
+  if (!existsSync(plan.files.completionReceipt)) {
+    throw new Error("manifest v2 requires a sealed completion receipt before restore.");
+  }
+  const receipt = parseJsonFile(plan.files.completionReceipt, "backup completion receipt");
+  const checksumsSha256 = createHash("sha256").update(readFileSync(plan.files.checksums)).digest("hex");
+  if (
+    receipt.schemaVersion !== 1
+    || receipt.state !== "SEALED_RESTORE_POINT"
+    || receipt.backupSetId !== manifest.backupSetId
+    || receipt.backupChecksumsSha256 !== checksumsSha256
+    || !receipt.resumedAt
+    || Number.isNaN(Date.parse(receipt.resumedAt))
+  ) {
+    throw new Error("backup completion receipt does not seal this manifest and checksum set.");
+  }
+  return { classification: "application_consistent_quiesced", manifest, receipt };
+}
+
+function validateWriterInventory(inventory) {
+  const writers = Array.isArray(inventory?.writers) ? inventory.writers : [];
+  if (!Number.isInteger(inventory?.unknownCount) || inventory.unknownCount !== 0) {
+    throw new Error("writer inventory contains an unknown writer.");
+  }
+  if (writers.length === 0) throw new Error("writer inventory must include the backend writer.");
+  const ids = new Set();
+  for (const writer of writers) {
+    const id = String(writer?.id || "");
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id)) {
+      throw new Error("writer inventory contains an unsafe writer id.");
+    }
+    if (ids.has(id)) throw new Error("writer inventory contains a duplicate writer id.");
+    if (typeof writer.wasRunning !== "boolean") {
+      throw new Error("writer inventory must record whether each writer was running.");
+    }
+    ids.add(id);
+  }
+  if (!ids.has("backend")) throw new Error("writer inventory must include the backend writer.");
+  return inventory;
+}
+
+function validateBackupIdentity(plan) {
+  const shaPattern = /^[a-f0-9]{40}$/;
+  if (!shaPattern.test(plan.productGitSha) || !shaPattern.test(plan.stage4lGitSha)) {
+    throw new Error("backup execution requires exact 40-character product and Stage 4L Git SHAs.");
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(plan.backupSetId)) {
+    throw new Error("backup execution requires a safe backup set id.");
+  }
+  if (
+    !Number.isInteger(plan.quiescenceTimeoutSeconds)
+    || plan.quiescenceTimeoutSeconds < 1
+    || plan.quiescenceTimeoutSeconds > 300
+  ) {
+    throw new Error("backup execution requires a quiescence timeout from 1 to 300 seconds.");
+  }
+  return plan;
+}
+
+function validateQuiescenceEvidence(inventory, evidence) {
+  if (!Number.isInteger(evidence?.unknownCount) || evidence.unknownCount !== 0) {
+    throw new Error("quiescence evidence contains an unknown writer.");
+  }
+  if (!Number.isInteger(evidence?.forcedTerminationCount) || evidence.forcedTerminationCount !== 0) {
+    throw new Error("quiescence evidence contains a forced termination.");
+  }
+  if (!evidence?.quiescedAt || Number.isNaN(Date.parse(evidence.quiescedAt))) {
+    throw new Error("quiescence evidence must contain a valid quiescedAt timestamp.");
+  }
+  const stoppedById = new Map(
+    (Array.isArray(evidence.writers) ? evidence.writers : []).map((writer) => [String(writer?.id || ""), writer]),
+  );
+  for (const writer of inventory.writers) {
+    const stopped = stoppedById.get(writer.id);
+    if (!stopped || (writer.wasRunning && stopped.stopped !== true)) {
+      throw new Error(`writer ${writer.id} was not proven stopped.`);
+    }
+  }
+  if (stoppedById.size !== inventory.writers.length) {
+    throw new Error("quiescence evidence writer set does not match the inventory.");
+  }
+  if (evidence?.minio?.id !== "object-storage" || typeof evidence.minio.wasRunning !== "boolean") {
+    throw new Error("quiescence evidence must include the MinIO object-storage service.");
+  }
+  if (evidence.minio.wasRunning && evidence.minio.stopped !== true) {
+    throw new Error("MinIO was not proven stopped before capture.");
+  }
+  return evidence;
+}
+
 export function runBackup(options = {}, io = {}) {
   const plan = buildBackupPlan(options);
   if (options.dryRun) return { ok: true, dryRun: true, output: renderPlan(plan), plan };
-  for (const step of plan.steps) {
-    runStep(step, io);
-    if (step.cmd === "write-file") writeManifest(plan);
+  const lifecycle = io.lifecycle;
+  if (!lifecycle) {
+    throw new Error("a quiescence lifecycle adapter is required for backup execution.");
   }
-  return { ok: true, dryRun: false, plan };
+  if (![lifecycle.inventory, lifecycle.quiesce, lifecycle.resume].every((method) => typeof method === "function")) {
+    throw new Error("the quiescence lifecycle adapter must provide inventory, quiesce, and resume.");
+  }
+  if (typeof io.reconcile !== "function") {
+    throw new Error("a cross-store reconciliation adapter is required for backup execution.");
+  }
+
+  validateBackupIdentity(plan);
+  const now = io.now || (() => new Date().toISOString());
+  const startedAt = now();
+  if (!startedAt || Number.isNaN(Date.parse(startedAt))) {
+    throw new Error("backup execution requires a valid startedAt timestamp.");
+  }
+  const inventory = validateWriterInventory(lifecycle.inventory({ plan }));
+  let quiescenceStarted = false;
+  let evidence;
+  let reconciliation;
+  let resumeEvidence;
+  try {
+    quiescenceStarted = true;
+    evidence = validateQuiescenceEvidence(inventory, lifecycle.quiesce(inventory, {
+      plan,
+      timeoutSeconds: plan.quiescenceTimeoutSeconds,
+    }));
+    for (const step of plan.steps) {
+      runStep(step, io);
+      if (step.cmd === "write-file") {
+        reconciliation = assertReconciliationClean(io.reconcile({ plan, inventory, evidence }));
+        writeManifest(plan, {
+          inventory,
+          evidence,
+          reconciliation,
+          startedAt,
+          captureFinishedAt: now(),
+        });
+      }
+    }
+  } finally {
+    if (quiescenceStarted) resumeEvidence = lifecycle.resume({ plan, inventory, evidence });
+  }
+  validateResumeEvidence(resumeEvidence);
+  const completionReceipt = writeCompletionReceipt(plan, resumeEvidence);
+  return { ok: true, dryRun: false, plan, reconciliation, completionReceipt };
 }
 
 export function runRestore(options = {}, io = {}) {
@@ -577,8 +823,9 @@ export function runRestore(options = {}, io = {}) {
   ]) {
     if (!existsSync(file)) throw new Error(`Missing backup file: ${file}`);
   }
+  const backupSet = verifyBackupSetSeal(plan);
   for (const step of plan.steps) runStep(step, io);
-  return { ok: true, dryRun: false, plan };
+  return { ok: true, dryRun: false, plan, backupSet };
 }
 
 export function runVerifyEnv(options = {}) {
@@ -609,7 +856,7 @@ function usage() {
   return [
     "Usage:",
     "  node scripts/stage4l-self-hosted-ops.mjs backup --dry-run",
-    "  node scripts/stage4l-self-hosted-ops.mjs backup --backup-root backups/self-hosted",
+    "  node scripts/stage4l-self-hosted-ops.mjs backup --backup-root backups/self-hosted --backup-set-id <id> --product-git-sha <40-hex> --stage4l-git-sha <40-hex> --quiescence-timeout-seconds 30",
     "  node scripts/stage4l-self-hosted-ops.mjs restore --dry-run --backup-dir backups/self-hosted/20260514000000",
     `  node scripts/stage4l-self-hosted-ops.mjs restore --backup-dir <dir> --confirm=${RESTORE_CONFIRMATION}`,
     "  node scripts/stage4l-self-hosted-ops.mjs verify-env --env-file deploy/self-hosted/.env.production.example",
