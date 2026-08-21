@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dermatolog Pro Self-hosted API",
-    "version": "4H-visit-workspace-writes",
-    "summary": "Self-hosted backend visit workspace write API",
-    "description": "Stage 4H adds RBAC-protected write endpoints for the doctor visit workspace: PATCH /api/v1/visits/{visitId}, POST /api/v1/visits/{visitId}/lesions, PATCH /api/v1/lesions/{lesionId}, DELETE /api/v1/lesions/{lesionId} (soft archive), PATCH /api/v1/visits/{visitId}/report. Only system_admin and doctor roles may write."
+    "version": "4L-Q3-body-map-persistence",
+    "summary": "Self-hosted visit writes with precise body-map persistence",
+    "description": "RBAC-protected doctor visit writes. Body-map lesion creation stores a registered region, projection and relative coordinates; it requires Idempotency-Key. Placement correction uses expectedPlacementRevision. Archive remains a soft delete. Only system_admin and doctor roles may write."
   },
   "servers": [{ "url": "http://localhost:8080", "description": "Self-hosted reverse proxy" }],
   "security": [{ "bearerAuth": [] }],
@@ -39,7 +39,8 @@
         "operationId": "createLesion",
         "summary": "Create a lesion attached to a visit",
         "parameters": [
-          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "Idempotency-Key", "in": "header", "required": false, "description": "Required when bodyMap is present; 16-128 safe characters.", "schema": { "type": "string", "minLength": 16, "maxLength": 128 } }
         ],
         "requestBody": {
           "required": true,
@@ -54,6 +55,7 @@
           "401": { "description": "Authentication required" },
           "403": { "description": "Forbidden by RBAC" },
           "404": { "description": "Visit not found in scope" },
+          "409": { "description": "Idempotency key reused with another payload" },
           "422": { "description": "Validation error" }
         }
       }
@@ -78,6 +80,7 @@
           "401": { "description": "Authentication required" },
           "403": { "description": "Forbidden by RBAC" },
           "404": { "description": "Lesion not found in scope" },
+          "409": { "description": "Placement revision conflict; reload before correction" },
           "422": { "description": "Validation error" }
         }
       },
@@ -142,6 +145,7 @@
           "bodySurface": { "type": "string", "nullable": true },
           "status": { "type": "string", "enum": ["active", "monitoring", "removed", "archived"] },
           "riskLevel": { "type": "string", "enum": ["low", "moderate", "high", "urgent"], "nullable": true }
+          ,"bodyMap": { "$ref": "#/components/schemas/BodyMapPlacementRequest" }
         }
       },
       "LesionPatchRequest": {
@@ -152,6 +156,19 @@
           "bodySurface": { "type": "string", "nullable": true },
           "status": { "type": "string", "enum": ["active", "monitoring", "removed", "archived"] },
           "riskLevel": { "type": "string", "enum": ["low", "moderate", "high", "urgent"], "nullable": true }
+          ,"bodyMap": { "$ref": "#/components/schemas/BodyMapPlacementRequest" }
+          ,"expectedPlacementRevision": { "type": "integer", "minimum": 0, "description": "Required when bodyMap is changed; 0 establishes a placement for a historical lesion." }
+        }
+      },
+      "BodyMapPlacementRequest": {
+        "type": "object",
+        "required": ["view", "x", "y", "regionId"],
+        "properties": {
+          "view": { "type": "string", "enum": ["front", "back", "left", "right", "scalp"] },
+          "x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "y": { "type": "number", "minimum": 0, "maximum": 1 },
+          "regionId": { "type": "string", "description": "Registered id from the versioned clinical body atlas manifest." },
+          "detailId": { "type": "string", "enum": ["digit-1", "digit-2", "digit-3", "digit-4", "digit-5"], "nullable": true }
         }
       },
       "ReportPatchRequest": {

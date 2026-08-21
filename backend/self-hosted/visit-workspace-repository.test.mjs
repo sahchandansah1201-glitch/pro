@@ -51,6 +51,9 @@ test("buildListVisitLesionsSql filters by visit id", () => {
   assert.match(sql, /from lesions l/);
   assert.match(sql, new RegExp(`l\\.visit_id = '${VISIT_ID}'::uuid`));
   assert.doesNotMatch(sql, /and l\.clinic_id in/);
+  assert.match(sql, /l\.body_region_id as "bodyRegionId"/);
+  assert.match(sql, /l\.body_map_x::float8 as "bodyMapX"/);
+  assert.match(sql, /and l\.deleted_at is null/);
   assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."createdAt" asc\)/);
 });
 
@@ -125,6 +128,12 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
             bodySurface: null,
             status: "active",
             riskLevel: "moderate",
+            bodyMapView: "front",
+            bodyMapX: 0.35083,
+            bodyMapY: 0.99001,
+            bodyRegionId: "front-right-toes",
+            bodyRegionDetailId: "digit-5",
+            placementRevision: 1,
             createdAt: "2026-05-12T09:00:00.000Z",
             updatedAt: "2026-05-12T09:00:00.000Z",
           },
@@ -166,6 +175,8 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
 
   const lesions = await repo.listVisitLesions({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.equal(lesions[0].riskLevel, "moderate");
+  assert.deepEqual(lesions[0].mapPoint, { view: "front", x: 0.35083, y: 0.99001 });
+  assert.equal(lesions[0].bodyRegionDetailId, "digit-5");
 
   const assets = await repo.listVisitAssets({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.equal(assets[0].kind, "dermoscopy");

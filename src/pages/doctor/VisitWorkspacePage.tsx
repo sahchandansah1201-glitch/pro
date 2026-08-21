@@ -118,7 +118,13 @@ import {
   type SelfHostedClinicalReportPackageDTO,
   type SelfHostedPatientPhotoProtocolReleaseAuditDTO,
 } from "@/lib/self-hosted-clinical-report-package-api";
-import type { SelfHostedVisitReportDTO, VisitReportPayload } from "@/lib/self-hosted-visit-write-api";
+import {
+  createSelfHostedIdempotencyKey,
+  createSelfHostedVisitLesion,
+  updateSelfHostedVisitLesion,
+  type SelfHostedVisitReportDTO,
+  type VisitReportPayload,
+} from "@/lib/self-hosted-visit-write-api";
 import {
   selfHostedLesionToDomain,
   selfHostedVisitDetailToPatient,
@@ -223,6 +229,16 @@ export default function VisitWorkspacePage() {
     },
     [setSearchParams],
   );
+
+  const handleLiveLesionCreated = useCallback((created: SelfHostedVisitLesionDTO) => {
+    setLiveState((current) => {
+      if (current.kind !== "ready") return current;
+      const lesions = current.lesions.some((lesion) => lesion.id === created.id)
+        ? current.lesions.map((lesion) => (lesion.id === created.id ? created : lesion))
+        : [...current.lesions, created];
+      return { ...current, lesions };
+    });
+  }, []);
 
   useEffect(() => {
     if (!productionMode || !liveBackend || !visitId) {
@@ -405,7 +421,10 @@ export default function VisitWorkspacePage() {
             visit={visit}
             lesions={lesions}
             productionMode={productionMode}
+            apiBaseUrl={selfHostedSession.apiBaseUrl}
+            apiToken={selfHostedSession.apiToken}
             initialLesionId={lesionParam}
+            onLesionCreated={handleLiveLesionCreated}
             onOpenImaging={(lesionId, imageId) => updateNav("imaging", lesionId, imageId)}
           />
         </TabsContent>
@@ -4472,14 +4491,20 @@ function BodyMapTab({
   visit,
   lesions,
   productionMode = false,
+  apiBaseUrl,
+  apiToken,
   initialLesionId,
+  onLesionCreated,
   onOpenImaging,
 }: {
   patient: Patient;
   visit: Visit;
   lesions: Lesion[];
   productionMode?: boolean;
+  apiBaseUrl?: string | null;
+  apiToken?: string | null;
   initialLesionId?: string | null;
+  onLesionCreated?: (lesion: SelfHostedVisitLesionDTO) => void;
   onOpenImaging: (lesionId: string, imageId?: string | null) => void;
 }) {
   const profile = getBodyMapProfile(
@@ -4513,6 +4538,9 @@ function BodyMapTab({
   const [anatomyDetailDraft, setAnatomyDetailDraft] = useState("");
   const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
   const [productionPlacementNotice, setProductionPlacementNotice] = useState("");
+  const [pendingIdempotencyKey, setPendingIdempotencyKey] = useState("");
+  const [savingPlacement, setSavingPlacement] = useState(false);
+  const [editingLesionId, setEditingLesionId] = useState<string | null>(null);
 
   const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
   const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
@@ -4558,11 +4586,16 @@ function BodyMapTab({
     : null;
 
   const handlePlace = (np: ClinicalBodyRegionPlacement) => {
-    if (productionMode) {
-      setProductionPlacementNotice(
-        "Рабочий режим: локальное добавление очага отключено. Используйте запись визита из системы клиники.",
-      );
-      return;
+    let idempotencyKey = "";
+    if (productionMode && !editingLesionId) {
+      try {
+        idempotencyKey = createSelfHostedIdempotencyKey();
+      } catch {
+        setProductionPlacementNotice(
+          "Безопасное добавление точки недоступно в этом браузере. Обновите страницу в защищённом соединении.",
+        );
+        return;
+      }
     }
     setPending({
       view: np.view,
@@ -4573,15 +4606,21 @@ function BodyMapTab({
     });
     setZoneDraft(np.regionLabel);
     setAnatomyDetailDraft("");
-    setDraftLabel("Новый очаг");
-    setDraftStatus("active");
-    setDraftNote("");
+    if (!editingLesionId) {
+      setDraftLabel("Новый очаг");
+      setDraftStatus("active");
+      setDraftNote("");
+    }
+    setProductionPlacementNotice("");
+    setPendingIdempotencyKey(idempotencyKey);
   };
 
   const cancelPending = () => {
     setPending(null);
     setDraftNote("");
     setAnatomyDetailDraft("");
+    setPendingIdempotencyKey("");
+    setEditingLesionId(null);
   };
 
   const addLocalDraft = () => {
@@ -4602,6 +4641,72 @@ function BodyMapTab({
     setPending(null);
     setDraftNote("");
     setAnatomyDetailDraft("");
+  };
+
+  const saveProductionPlacement = async () => {
+    if (!pending || !productionMode || savingPlacement) return;
+    setSavingPlacement(true);
+    setProductionPlacementNotice("Сохраняем очаг в системе клиники…");
+    const placementPayload = {
+      label: draftLabel.trim() || "Новый очаг",
+      status: draftStatus,
+      bodyMap: {
+        view: pending.view,
+        x: pending.x,
+        y: pending.y,
+        regionId: pending.regionId,
+        detailId: anatomyDetailDraft || null,
+      },
+    } as const;
+    const editedLesion = editingLesionId
+      ? lesions.find((lesion) => lesion.id === editingLesionId) ?? null
+      : null;
+    const result = editedLesion
+      ? await updateSelfHostedVisitLesion({
+          apiBaseUrl,
+          apiToken,
+          lesionId: editedLesion.id,
+          payload: {
+            ...placementPayload,
+            expectedPlacementRevision: editedLesion.placementRevision ?? 0,
+          },
+        })
+      : await createSelfHostedVisitLesion({
+          apiBaseUrl,
+          apiToken,
+          visitId: visit.id,
+          idempotencyKey: pendingIdempotencyKey,
+          payload: placementPayload,
+        });
+    setSavingPlacement(false);
+    if (!result.ok || !result.value) {
+      setProductionPlacementNotice(
+        selfHostedPublicErrorText(result.error, "Не удалось сохранить очаг. Точка оставлена в форме для безопасного повтора."),
+      );
+      return;
+    }
+    onLesionCreated?.(result.value);
+    setSelected(result.value.id);
+    setPending(null);
+    setPendingIdempotencyKey("");
+    setAnatomyDetailDraft("");
+    setEditingLesionId(null);
+    setProductionPlacementNotice(
+      editedLesion ? "Положение очага исправлено в системе клиники." : "Очаг сохранён в системе клиники.",
+    );
+  };
+
+  const startProductionCorrection = (lesion: Lesion) => {
+    setEditingLesionId(lesion.id);
+    setPending(null);
+    setSelected(lesion.id);
+    setView(resolvePoint(lesion).view);
+    setDraftLabel(lesion.label);
+    setDraftStatus(lesion.status);
+    setAnatomyDetailDraft(lesion.bodyRegionDetailId ?? "");
+    setZoneDraft(lesion.bodyZone);
+    setPendingIdempotencyKey("");
+    setProductionPlacementNotice("Укажите новое точное место на модели и подтвердите анатомическую область.");
   };
 
   const localDraftsForView = localDrafts.filter((d) => d.mapPoint.view === view);
@@ -4843,7 +4948,9 @@ function BodyMapTab({
 
         {pending && (
           <div className="border-t border-border bg-surface p-3">
-            <div className="text-[13px] font-semibold">Новый учебный очаг</div>
+            <div className="text-[13px] font-semibold">
+              {productionMode ? (editingLesionId ? "Исправление положения очага" : "Новый очаг") : "Новый учебный очаг"}
+            </div>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
               <Stat term="Позиция" value={formatBodyMapPosition(pending)} />
@@ -4880,8 +4987,12 @@ function BodyMapTab({
                   setZoneDraft(e.target.value);
                   setAnatomyDetailDraft("");
                 }}
+                readOnly={productionMode}
                 className="mt-1 min-h-11 text-[12px]"
               />
+              {productionMode && (
+                <span className="mt-1 block">Название задаёт анатомический справочник; конкретный палец подтверждает врач.</span>
+              )}
             </label>
             <label className="mt-2 block text-[11px] text-muted-foreground">
               Метка очага
@@ -4904,21 +5015,26 @@ function BodyMapTab({
                 ))}
               </select>
             </label>
-            <label className="mt-2 block text-[11px] text-muted-foreground">
-              Комментарий врача
-              <Textarea
-                value={draftNote}
-                onChange={(e) => setDraftNote(e.target.value)}
-                className="mt-1 min-h-[60px] text-[12px]"
-              />
-            </label>
+            {!productionMode && (
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Комментарий врача
+                <Textarea
+                  value={draftNote}
+                  onChange={(e) => setDraftNote(e.target.value)}
+                  className="mt-1 min-h-[60px] text-[12px]"
+                />
+              </label>
+            )}
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="min-h-11 text-[12px]"
-                onClick={addLocalDraft}
+                onClick={productionMode ? () => { void saveProductionPlacement(); } : addLocalDraft}
+                disabled={savingPlacement}
               >
-                Добавить локально
+                {productionMode
+                  ? (savingPlacement ? "Сохраняем…" : editingLesionId ? "Сохранить исправление" : "Сохранить в системе клиники")
+                  : "Добавить локально"}
               </Button>
               <Button
                 size="sm"
@@ -4930,7 +5046,9 @@ function BodyMapTab({
               </Button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Учебный очаг не сохранён в данные визита.
+              {productionMode
+                ? "Координата, проекция и подтверждённая область будут сохранены в записи визита."
+                : "Учебный очаг не сохранён в данные визита."}
             </p>
           </div>
         )}
@@ -4984,6 +5102,17 @@ function BodyMapTab({
                 </Link>
               </Button>
             </div>
+            {productionMode && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="mt-2 min-h-11 text-[12px]"
+                onClick={() => startProductionCorrection(selectedLesion)}
+              >
+                {(selectedLesion.placementRevision ?? 0) > 0 ? "Исправить положение" : "Указать точное положение"}
+              </Button>
+            )}
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
               <Stat term="Позиция" value={formatBodyMapPosition(resolvePoint(selectedLesion))} />
               <Stat term="Снимков" value={selImageCount} />

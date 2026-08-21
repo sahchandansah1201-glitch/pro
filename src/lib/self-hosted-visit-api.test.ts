@@ -155,7 +155,16 @@ describe("self-hosted visit api client", () => {
     fetchSpy.mockResolvedValueOnce(
       jsonResponse(200, {
         items: [
-          { id: "l1", label: "L1", status: "active", riskLevel: "moderate" },
+          {
+            id: "l1",
+            label: "L1",
+            status: "active",
+            riskLevel: "moderate",
+            bodyRegionId: "front-right-toes",
+            bodyRegionDetailId: "digit-5",
+            mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
+            placementRevision: 1,
+          },
           { id: "l2", label: "L2", status: "monitoring", riskLevel: "weird" },
         ],
       }),
@@ -167,6 +176,8 @@ describe("self-hosted visit api client", () => {
     });
     expect(res.ok).toBe(true);
     expect(res.value?.[0]?.riskLevel).toBe("moderate");
+    expect(res.value?.[0]?.mapPoint).toEqual({ view: "front", x: 0.35083, y: 0.99001 });
+    expect(res.value?.[0]?.bodyRegionDetailId).toBe("digit-5");
     expect(res.value?.[1]?.riskLevel).toBeNull();
   });
 

@@ -80,6 +80,10 @@ describe("self-hosted clinical adapter", () => {
         bodySurface: null,
         status: "archived",
         riskLevel: null,
+        bodyRegionId: "front-right-toes",
+        bodyRegionDetailId: "digit-5",
+        mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
+        placementRevision: 1,
         createdAt: "2026-05-12T09:00:00.000Z",
         updatedAt: null,
       },
@@ -89,6 +93,7 @@ describe("self-hosted clinical adapter", () => {
       patientId: "patient-1",
       bodyZone: "не указана",
       status: "archived",
+      mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
     });
   });
 });

@@ -5,6 +5,7 @@ import { ForbiddenError } from "./rbac.mjs";
 import {
   createVisitWorkspaceWriteService,
   normalizeCreateLesionPayload,
+  normalizeUpdateLesionPayload,
   normalizeUpdateReportPayload,
   normalizeUpdateVisitPayload,
   VisitWorkspaceValidationError,
@@ -65,6 +66,97 @@ test("payload normalizers reject empty or invalid visit workspace writes", () =>
   assert.throws(() => normalizeCreateLesionPayload({ label: "" }), VisitWorkspaceValidationError);
   assert.throws(() => normalizeCreateLesionPayload({ label: "L1", riskLevel: "diagnosis" }), VisitWorkspaceValidationError);
   assert.throws(() => normalizeUpdateReportPayload({ status: "published" }), VisitWorkspaceValidationError);
+});
+
+test("body-map payload is canonicalized from the registered region and keeps five-decimal coordinates", () => {
+  assert.deepEqual(
+    normalizeCreateLesionPayload({
+      label: "Очаг на мизинце",
+      bodyZone: "произвольный текст клиента",
+      bodyMap: {
+        view: "front",
+        x: 0.3508319,
+        y: 0.990014,
+        regionId: "front-right-toes",
+        detailId: "digit-5",
+      },
+    }),
+    {
+      label: "Очаг на мизинце",
+      bodyZone: "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
+      bodySurface: "anterior",
+      status: "active",
+      riskLevel: null,
+      bodyMap: {
+        view: "front",
+        x: 0.35083,
+        y: 0.99001,
+        regionId: "front-right-toes",
+        detailId: "digit-5",
+      },
+    },
+  );
+  assert.throws(
+    () => normalizeUpdateLesionPayload({ bodyMap: { view: "front", x: 0.5, y: 0.5, regionId: "front-face" } }),
+    (error) => error instanceof VisitWorkspaceValidationError
+      && error.publicDetails.some((detail) => detail.field === "expectedPlacementRevision"),
+  );
+  assert.equal(
+    normalizeUpdateLesionPayload({
+      expectedPlacementRevision: 0,
+      bodyMap: { view: "front", x: 0.5, y: 0.5, regionId: "front-face" },
+    }).expectedPlacementRevision,
+    0,
+  );
+});
+
+test("body-map create requires an idempotency key and audits only a new placement", async () => {
+  const auditEvents = [];
+  const calls = [];
+  const service = createService({
+    auditEvents,
+    repo: {
+      async createLesion(input) {
+        calls.push(input);
+        return {
+          lesion: {
+            id: LESION_ID,
+            clinicId: CLINIC_ID,
+            visitId: VISIT_ID,
+            label: input.label,
+            bodyRegionId: input.bodyMap.regionId,
+            placementRevision: 1,
+          },
+          replayed: false,
+        };
+      },
+    },
+  });
+  const bodyMap = { view: "front", x: 0.35, y: 0.99, regionId: "front-right-toes", detailId: "digit-5" };
+
+  await assert.rejects(
+    () => service.createLesion(VISIT_ID, { label: "L1", bodyMap }, authContext, { correlationId: "c-map" }),
+    (error) => error instanceof VisitWorkspaceValidationError
+      && error.publicDetails.some((detail) => detail.field === "Idempotency-Key"),
+  );
+  const result = await service.createLesion(
+    VISIT_ID,
+    { label: "L1", bodyMap },
+    authContext,
+    { correlationId: "c-map", idempotencyKey: "019ffbca-f316-7f81-80db-9e1792daa4d5" },
+  );
+
+  assert.equal(result.lesion.bodyRegionId, "front-right-toes");
+  assert.equal(result.replayed, false);
+  assert.equal(calls[0].idempotencyKey, "019ffbca-f316-7f81-80db-9e1792daa4d5");
+  assert.match(calls[0].requestHash, /^[a-f0-9]{64}$/);
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    changedFields: ["label", "bodyZone", "bodySurface", "status", "riskLevel", "bodyMap"],
+    bodyRegionId: "front-right-toes",
+    bodyMapView: "front",
+    placementRevision: 1,
+  });
 });
 
 test("service updates visit, lesion, archive and report with audit events", async () => {

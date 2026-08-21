@@ -109,10 +109,17 @@ from (
     l.body_surface as "bodySurface",
     l.status as "status",
     l.risk_level as "riskLevel",
+    l.body_map_view as "bodyMapView",
+    l.body_map_x::float8 as "bodyMapX",
+    l.body_map_y::float8 as "bodyMapY",
+    l.body_region_id as "bodyRegionId",
+    l.body_region_detail_id as "bodyRegionDetailId",
+    l.placement_revision as "placementRevision",
     l.created_at as "createdAt",
     l.updated_at as "updatedAt"
   from lesions l
   where l.visit_id = ${sqlUuid(visitId)}
+    and l.deleted_at is null
     ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
   order by l.created_at asc
   limit 500
@@ -197,6 +204,16 @@ function normalizeLesion(row) {
     bodySurface: row.bodySurface ?? null,
     status: String(row.status ?? "active"),
     riskLevel: row.riskLevel ?? null,
+    bodyRegionId: row.bodyRegionId ?? null,
+    bodyRegionDetailId: row.bodyRegionDetailId ?? null,
+    mapPoint: row.bodyMapView == null || row.bodyMapX == null || row.bodyMapY == null
+      ? null
+      : {
+          view: String(row.bodyMapView),
+          x: Number(row.bodyMapX),
+          y: Number(row.bodyMapY),
+        },
+    placementRevision: Number(row.placementRevision ?? 0),
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
   };

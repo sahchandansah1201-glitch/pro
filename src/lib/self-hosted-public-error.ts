@@ -11,6 +11,12 @@ export function selfHostedPublicErrorText(
   fallback = "Действие не выполнено.",
 ): string {
   if (!error) return fallback;
+  if (error.code === "placement_conflict") {
+    return "Точка уже была изменена. Обновите запись очага перед повторным исправлением.";
+  }
+  if (error.code === "idempotency_conflict") {
+    return "Этот запрос уже использован для другой точки. Обновите карту и повторите добавление.";
+  }
   if (error.details?.length) return error.details.map((item) => item.message).join(" ");
   if (isSelfHostedSessionExpiredError(error)) return "Сессия истекла. Выйдите и войдите в систему заново.";
   if (error.status === 404 || /not_found$/.test(error.code)) {

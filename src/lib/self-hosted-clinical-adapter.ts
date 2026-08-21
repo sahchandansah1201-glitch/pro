@@ -86,9 +86,12 @@ export function selfHostedLesionToDomain(dto: SelfHostedVisitLesionDTO, patientI
     id: dto.id,
     patientId: dto.patientId ?? patientId,
     bodyZone: dto.bodyZone ?? "не указана",
-    mapPoint: fallbackPoint(),
+    mapPoint: dto.mapPoint ?? fallbackPoint(),
     label: dto.label || "Очаг",
     firstSeenAt: dto.createdAt ?? "",
     status: selfHostedLesionStatusToDomain(dto.status),
+    bodyRegionId: dto.bodyRegionId ?? null,
+    bodyRegionDetailId: dto.bodyRegionDetailId ?? null,
+    placementRevision: dto.placementRevision ?? 0,
   };
 }

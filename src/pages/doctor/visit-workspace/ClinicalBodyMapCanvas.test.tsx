@@ -39,7 +39,7 @@ describe("ClinicalBodyMapCanvas", () => {
     });
   });
 
-  it("supports keyboard placement through the stable region anchor", () => {
+  it("supports keyboard placement through the current model hit-map geometry", () => {
     const onPlace = vi.fn();
     render(
       <ClinicalBodyMapCanvas
@@ -52,6 +52,14 @@ describe("ClinicalBodyMapCanvas", () => {
       />,
     );
 
+    const region = screen.getByTestId("region-back-left-calf") as unknown as SVGGraphicsElement;
+    region.getBBox = () => ({
+      x: 132,
+      y: 268,
+      width: 16,
+      height: 28,
+    }) as DOMRect;
+
     fireEvent.change(screen.getByLabelText("Выбрать анатомическую область"), {
       target: { value: "back-left-calf" },
     });
@@ -60,6 +68,8 @@ describe("ClinicalBodyMapCanvas", () => {
         view: "back",
         regionId: "back-left-calf",
         regionLabel: "Задняя поверхность левой голени",
+        x: 0.58333,
+        y: 0.705,
       }),
     );
   });

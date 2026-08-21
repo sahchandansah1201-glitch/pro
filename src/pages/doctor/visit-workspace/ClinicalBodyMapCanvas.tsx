@@ -95,10 +95,25 @@ export function ClinicalBodyMapCanvas({
   };
 
   const placeAtAnchor = (region: ClinicalBodyRegion) => {
+    const target = Array.from(
+      svgRef.current?.querySelectorAll<SVGGraphicsElement>("[data-region-id]") ?? [],
+    ).find((element) => element.dataset.regionId === region.id);
+    let point = region.anchor;
+    try {
+      const bounds = target?.getBBox();
+      if (bounds && bounds.width > 0 && bounds.height > 0) {
+        point = {
+          x: +((bounds.x + bounds.width / 2) / CLINICAL_BODY_ATLAS_WIDTH).toFixed(5),
+          y: +((bounds.y + bounds.height / 2) / CLINICAL_BODY_ATLAS_HEIGHT).toFixed(5),
+        };
+      }
+    } catch {
+      // An unavailable external SVG geometry falls back to the registry anchor.
+    }
     onPlace({
       view,
-      x: region.anchor.x,
-      y: region.anchor.y,
+      x: point.x,
+      y: point.y,
       regionId: region.id,
       regionLabel: region.label,
     });

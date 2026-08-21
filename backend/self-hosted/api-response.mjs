@@ -13,7 +13,7 @@ export function corsHeaders(config, requestOrigin = "") {
     "access-control-allow-origin": allowedOrigin,
     "access-control-allow-credentials": "true",
     "access-control-allow-methods": DEFAULT_ALLOWED_METHODS,
-    "access-control-allow-headers": "content-type,authorization,x-correlation-id",
+    "access-control-allow-headers": "content-type,authorization,x-correlation-id,idempotency-key",
     "vary": "origin",
   };
 }

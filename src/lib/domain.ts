@@ -116,6 +116,12 @@ export interface Lesion {
   label: string;
   firstSeenAt: string;
   status: LesionStatus;
+  /** Stable server-owned atlas region for production body-map persistence. */
+  bodyRegionId?: string | null;
+  /** Optional doctor-confirmed digit detail. */
+  bodyRegionDetailId?: string | null;
+  /** Optimistic-concurrency revision; 0 means no confirmed server placement. */
+  placementRevision?: number;
 }
 
 export interface ImageQuality {

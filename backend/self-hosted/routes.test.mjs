@@ -2647,7 +2647,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
 
   const openapi4h = await request("/openapi.stage4h.json");
   assert.equal(openapi4h.status, 200);
-  assert.equal(openapi4h.json.info.version, "4H-visit-workspace-writes");
+  assert.equal(openapi4h.json.info.version, "4L-Q3-body-map-persistence");
   assert.ok(openapi4h.json.paths["/api/v1/visits/{visitId}/report"].patch);
 
   const openapi5h = await request("/openapi.stage5h.json");
@@ -4880,7 +4880,7 @@ test("Stage 4H · write routes validate JSON and RBAC", async () => {
 test("Stage 4H · /openapi.stage4h.json documents write endpoints", async () => {
   const response = await request("/openapi.stage4h.json");
   assert.equal(response.status, 200);
-  assert.equal(response.json.info.version, "4H-visit-workspace-writes");
+  assert.equal(response.json.info.version, "4L-Q3-body-map-persistence");
   assert.ok(response.json.paths["/api/v1/visits/{visitId}"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesions"].post);
   assert.ok(response.json.paths["/api/v1/lesions/{lesionId}"].delete);

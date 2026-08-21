@@ -43,6 +43,8 @@ const COMPLETE_SCHEMA = {
   clinicBotSettingsRequiredColumns: true,
   publicAnalysisLinksTable: true,
   publicAnalysisLinksRequiredColumns: true,
+  lesionBodyMapRequiredColumns: true,
+  lesionBodyMapIdempotencyIndex: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
   deviceBridgeCommandsTable: true,
@@ -79,6 +81,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /0091_stage6_clinic_services\.sql/);
   assert.match(out, /0092_stage6_admin_integrations_bot\.sql/);
   assert.match(out, /0093_stage6_public_analysis_links\.sql/);
+  assert.match(out, /0094_stage4l_body_map_persistence\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
   assert.match(out, /patient portal role\/ownership\/write tables/);
@@ -88,6 +91,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /integrations table/);
   assert.match(out, /bot settings table/);
   assert.match(out, /public analysis links table/);
+  assert.match(out, /precise lesion body-map columns\/idempotency index/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -141,6 +145,8 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[17].input.includes("create table if not exists clinic_bot_settings"));
   assert.ok(calls[18].input.includes("create table if not exists public_analysis_links"));
   assert.ok(calls[18].input.includes("token_hash"));
+  assert.ok(calls[19].input.includes("body_region_detail_id"));
+  assert.ok(calls[19].input.includes("lesions_creation_idempotency_idx"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });

@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
   "backend/self-hosted/db/migrations/0005_stage4h_visit_workspace_writes.sql",
+  "backend/self-hosted/db/migrations/0094_stage4l_body_map_persistence.sql",
+  "backend/self-hosted/clinical-body-region-contract.mjs",
+  "backend/self-hosted/clinical-body-region-contract.test.mjs",
   "backend/self-hosted/visit-workspace-write-repository.mjs",
   "backend/self-hosted/visit-workspace-write-repository.test.mjs",
   "backend/self-hosted/visit-workspace-write-service.mjs",
@@ -30,6 +33,20 @@ const REQUIRED_TEXT = {
     "buildUpdateLesionSql",
     "buildArchiveLesionSql",
     "buildUpsertReportSql",
+    "creation_idempotency_key",
+    "placement_revision",
+    "insert into audit_log",
+  ],
+  "backend/self-hosted/db/migrations/0094_stage4l_body_map_persistence.sql": [
+    "body_region_id",
+    "body_region_detail_id",
+    "lesions_creation_idempotency_idx",
+    "placement_revision",
+  ],
+  "backend/self-hosted/clinical-body-region-contract.mjs": [
+    "normalizeClinicalBodyPlacement",
+    "bodyRegionDetailId",
+    "endsWith(\"-toes\")",
   ],
   "backend/self-hosted/visit-workspace-write-service.mjs": [
     "createVisitWorkspaceWriteService",
@@ -52,7 +69,9 @@ const REQUIRED_TEXT = {
     "visitWriteScope",
   ],
   "backend/self-hosted/openapi.stage4h.json": [
-    "4H-visit-workspace-writes",
+    "4L-Q3-body-map-persistence",
+    "BodyMapPlacementRequest",
+    "Idempotency-Key",
     "/api/v1/visits/{visitId}",
     "/api/v1/visits/{visitId}/lesions",
     "/api/v1/lesions/{lesionId}",
@@ -66,7 +85,7 @@ const REQUIRED_TEXT = {
     "updateSelfHostedVisitReport",
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Self-hosted запись визита",
+    "Рабочая запись визита",
     "Сохранить визит",
     "Создать очаг",
     "Архивировать",
@@ -74,6 +93,10 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/VisitWorkspacePage.tsx": [
     "VisitWorkspaceLiveActions",
+    "createSelfHostedVisitLesion",
+    "updateSelfHostedVisitLesion",
+    "Сохранить в системе клиники",
+    "Исправить положение",
   ],
   "docs/backend/stage-4h-visit-workspace-writes.md": [
     "Stage 4H",
@@ -103,6 +126,7 @@ const PROTECTED_RUNTIME_FILES = [
   "backend/self-hosted/visit-workspace-write-repository.mjs",
   "backend/self-hosted/visit-workspace-write-service.mjs",
   "backend/self-hosted/openapi.stage4h.json",
+  "backend/self-hosted/clinical-body-region-contract.mjs",
   "src/lib/self-hosted-visit-write-api.ts",
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx",
 ];

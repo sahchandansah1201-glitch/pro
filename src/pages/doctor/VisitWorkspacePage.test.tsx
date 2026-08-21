@@ -3464,17 +3464,4 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     );
   });
 
-  it("disables local demo lesion placement in production Карта тела", async () => {
-    renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
-
-    expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
-    const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
-    fireEvent.change(regionSelect, {
-      target: { value: regionSelect.options[1].value },
-    });
-
-    expect(screen.getByText(/локальное добавление очага отключено/)).toBeInTheDocument();
-    expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /Добавить локально/ })).toBeNull();
-  });
 });

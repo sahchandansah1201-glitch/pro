@@ -1693,13 +1693,13 @@ export async function handleSelfHostedRequest(
         decodeURIComponent(visitLesionsMatch[1]),
         parseJsonBody(request.body),
         authContext,
-        { correlationId },
+        { correlationId, idempotencyKey: request.headers?.["idempotency-key"] || request.headers?.["Idempotency-Key"] || null },
       );
       return jsonResponse(
-        201,
+        result.replayed ? 200 : 201,
         {
-          stage: "4H",
-          source: "postgres",
+          stage: result.lesion?.mapPoint ? "4L-Q3" : "4H",
+          source: "postgres", replayed: result.replayed,
           item: result.lesion,
           auth: {
             userId: authContext.userId,

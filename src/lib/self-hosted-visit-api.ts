@@ -74,6 +74,14 @@ export interface SelfHostedVisitLesionDTO {
   bodySurface: string | null;
   status: string;
   riskLevel: "low" | "moderate" | "high" | "urgent" | null;
+  bodyRegionId?: string | null;
+  bodyRegionDetailId?: string | null;
+  mapPoint?: {
+    view: "front" | "back" | "left" | "right" | "scalp";
+    x: number;
+    y: number;
+  } | null;
+  placementRevision?: number;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -264,6 +272,16 @@ function toLesion(input: Record<string, unknown>): SelfHostedVisitLesionDTO {
     bodySurface: input.bodySurface == null ? null : String(input.bodySurface),
     status: String(input.status ?? "active"),
     riskLevel,
+    bodyRegionId: input.bodyRegionId == null ? null : String(input.bodyRegionId),
+    bodyRegionDetailId: input.bodyRegionDetailId == null ? null : String(input.bodyRegionDetailId),
+    mapPoint: isRecord(input.mapPoint)
+      ? {
+          view: String(input.mapPoint.view ?? "front") as NonNullable<SelfHostedVisitLesionDTO["mapPoint"]>["view"],
+          x: Number(input.mapPoint.x),
+          y: Number(input.mapPoint.y),
+        }
+      : null,
+    placementRevision: Number(input.placementRevision ?? 0),
     createdAt: input.createdAt == null ? null : String(input.createdAt),
     updatedAt: input.updatedAt == null ? null : String(input.updatedAt),
   };

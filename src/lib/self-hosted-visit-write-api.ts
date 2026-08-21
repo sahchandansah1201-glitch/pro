@@ -34,6 +34,14 @@ export interface VisitLesionPayload {
   bodySurface?: string | null;
   status?: string;
   riskLevel?: "low" | "moderate" | "high" | "urgent" | null;
+  bodyMap?: {
+    view: "front" | "back" | "left" | "right" | "scalp";
+    x: number;
+    y: number;
+    regionId: string;
+    detailId?: string | null;
+  };
+  expectedPlacementRevision?: number;
 }
 
 export interface VisitReportPayload {
@@ -76,6 +84,7 @@ export interface UpdateSelfHostedVisitArgs extends VisitArgs {
 }
 
 export interface CreateSelfHostedVisitLesionArgs extends VisitArgs {
+  idempotencyKey?: string;
   payload: VisitLesionPayload;
 }
 
@@ -96,6 +105,17 @@ const NOT_CONFIGURED: SelfHostedApiError = {
   code: "not_configured",
   message: "Self-hosted backend-сессия не подключена.",
 };
+
+export function createSelfHostedIdempotencyKey(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  if (!globalThis.crypto?.getRandomValues) {
+    throw new Error("Secure random values are unavailable for an idempotent clinical write.");
+  }
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  const encoded = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `body-map-${encoded}`;
+}
 
 function ok<T>(value: T): SelfHostedApiResult<T> {
   return { ok: true, value, error: null };
@@ -155,6 +175,7 @@ async function requestJson<T>(
   method: "POST" | "PATCH" | "DELETE",
   payload: unknown,
   mapper: (item: Record<string, unknown>) => T,
+  extraHeaders: HeadersInit = {},
 ): Promise<SelfHostedApiResult<T>> {
   let response: Response;
   try {
@@ -163,6 +184,7 @@ async function requestJson<T>(
       headers: {
         ...authHeaders(token),
         "Content-Type": "application/json",
+        ...extraHeaders,
       },
       body: JSON.stringify(payload ?? {}),
     });
@@ -212,6 +234,16 @@ function toLesion(input: Record<string, unknown>): SelfHostedVisitLesionDTO {
     bodySurface: input.bodySurface == null ? null : String(input.bodySurface),
     status: String(input.status ?? "active"),
     riskLevel,
+    bodyRegionId: input.bodyRegionId == null ? null : String(input.bodyRegionId),
+    bodyRegionDetailId: input.bodyRegionDetailId == null ? null : String(input.bodyRegionDetailId),
+    mapPoint: isRecord(input.mapPoint)
+      ? {
+          view: String(input.mapPoint.view ?? "front") as NonNullable<SelfHostedVisitLesionDTO["mapPoint"]>["view"],
+          x: Number(input.mapPoint.x),
+          y: Number(input.mapPoint.y),
+        }
+      : null,
+    placementRevision: Number(input.placementRevision ?? 0),
     createdAt: input.createdAt == null ? null : String(input.createdAt),
     updatedAt: input.updatedAt == null ? null : String(input.updatedAt),
   };
@@ -261,6 +293,7 @@ export async function createSelfHostedVisitLesion(
     "POST",
     args.payload,
     toLesion,
+    args.idempotencyKey ? { "Idempotency-Key": args.idempotencyKey } : {},
   );
 }
 
