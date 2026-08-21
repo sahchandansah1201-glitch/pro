@@ -234,7 +234,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarContent>
+      <SidebarContent role="navigation" aria-label="Основная навигация">
         {!collapsed && (
           <div className="px-3 pt-3 pb-2">
             <div className="text-[13px] font-semibold tracking-tight text-sidebar-foreground">

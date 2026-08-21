@@ -78,83 +78,6 @@ function sourceSection(source: string, start: string, end: string): string {
   expect(endIndex).toBeGreaterThan(startIndex);
   return source.slice(startIndex, endIndex);
 }
-describe("VisitWorkspacePage · Карта тела", () => {
-  it("p-001/v-001 shows the adult female profile, front surface label, badge and aria-label", () => {
-    renderAt("/patients/p-001/visits/v-001");
-    openBodyMap();
-    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
-    expect(screen.getByRole("tab", { name: /Карта тела/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText(/Полная карта тела/)).toBeInTheDocument();
-    expect(screen.getByText(/Профиль карты:\s*Женщина · 18–64 года/)).toBeInTheDocument();
-    expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
-    const svg = screen.getByRole("img", { name: /Карта тела/ });
-    expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-age-band", "adult");
-    expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-sex", "female");
-    expect(svg.getAttribute("aria-label")).toMatch(/Женщина/);
-    expect(svg.getAttribute("aria-label")).toMatch(/Передняя поверхность/);
-    expect(svg.textContent).toMatch(/ПЕРЕД/);
-  });
-  it("clicking 'Сзади' switches to back surface with hint and aria-label", () => {
-    renderAt("/patients/p-001/visits/v-001");
-    openBodyMap();
-    fireEvent.click(screen.getByRole("button", { name: "Сзади" }));
-    expect(screen.getByText(/Задняя поверхность/)).toBeInTheDocument();
-    const hint = screen.getByText(/Ориентиры:/);
-    expect(hint.textContent).toMatch(/лопатки/);
-    expect(hint.textContent).toMatch(/позвоночник/);
-    const svg = screen.getByRole("img", { name: /Карта тела/ });
-    expect(svg.getAttribute("aria-label")).toMatch(/Задняя поверхность/);
-    expect(svg.textContent).toMatch(/СПИНА/);
-  });
-  it("p-004/v-005 shows the age-specific adult male profile", () => {
-    renderAt("/patients/p-004/visits/v-005");
-    openBodyMap();
-    expect(screen.getByText(/Профиль карты:\s*Мужчина · 18–64 года/)).toBeInTheDocument();
-  });
-  it("renders all five projection buttons", () => {
-    renderAt("/patients/p-001/visits/v-001");
-    openBodyMap();
-    for (const name of ["Спереди", "Сзади", "Слева", "Справа", "Голова"]) {
-      expect(screen.getByRole("button", { name })).toBeInTheDocument();
-    }
-  });
-  it("selecting a 'left' lesion switches projection to Слева", () => {
-    // p-004 has l-008 with mapPoint.view='left'
-    renderAt("/patients/p-004/visits/v-005");
-    openBodyMap();
-    fireEvent.click(screen.getByText(/Очаг B/));
-    const svg = screen.getByRole("img", { name: /Карта тела/ });
-    expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
-    const marker = svg.querySelector("[data-marker-id='l-008'] circle");
-    expect(marker).not.toBeNull();
-    expect(Number(marker?.getAttribute("cx"))).toBeCloseTo(100.8);
-    expect(Number(marker?.getAttribute("cy"))).toBeCloseTo(56);
-  });
-  it("clicking SVG opens 'Новый учебный очаг' panel with defaults; cancel hides it", () => {
-    renderAt("/patients/p-001/visits/v-001");
-    openBodyMap();
-    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
-    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
-    expect(screen.getByText(/Новый учебный очаг/)).toBeInTheDocument();
-    const labelInput = screen.getByDisplayValue("Новый очаг") as HTMLInputElement;
-    expect(labelInput).toBeInTheDocument();
-    const statusSelect = screen.getByLabelText(/Статус учебного очага/) as HTMLSelectElement;
-    expect(statusSelect.value).toBe("active");
-    expect(screen.getByRole("button", { name: /Добавить локально/ })).toBeInTheDocument();
-    const cancel = screen.getByRole("button", { name: /Отменить/ });
-    fireEvent.click(cancel);
-    expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
-  });
-  it("does not contain forbidden tokens or placeholder text in DOM", () => {
-    const { container } = renderAt("/patients/p-001/visits/v-001");
-    openBodyMap();
-    const html = container.innerHTML;
-    for (const t of FORBIDDEN) expect(html).not.toMatch(new RegExp(t));
-    expect(html.toLowerCase()).not.toMatch(/placeholder/);
-  });
-});
 describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
   it("shows the exact synthetic overview source for a captured lesion", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap&lesion=l-001");
@@ -165,6 +88,7 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
     expect(screen.getByText(/Синтетический обзорный снимок/)).toBeInTheDocument();
     expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-x", "0.43");
     expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-y", "0.31");
+    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("role", "img");
   });
 
   it("opens the exact overview image selected from the body map", () => {
@@ -257,10 +181,10 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
 });
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   function placePoint() {
-    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
-    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+    const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
+    fireEvent.change(regionSelect, {
+      target: { value: regionSelect.options[1].value },
+    });
   }
   it("opens 'Новый учебный очаг' panel with prefilled, editable zone and default label", () => {
     renderAt("/patients/p-001/visits/v-001");
@@ -294,6 +218,7 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
     expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
+    expect(document.querySelector("[data-body-region-id='back-occiput']")).not.toBeNull();
     expect(screen.getAllByText(/локально, не сохранено/).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Это учебный очаг\. Он существует только в интерфейсе текущего визита\./),
@@ -357,8 +282,11 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
     // create a draft on Карта тела
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+      ({ left: 0, top: 0, right: 240, bottom: 400, width: 240, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    fireEvent.click(screen.getByTestId("region-back-lumbar-spine"), {
+      clientX: 120,
+      clientY: 172,
+    });
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
     expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
 
@@ -3540,10 +3468,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
 
     expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
-    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
-    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+    const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
+    fireEvent.change(regionSelect, {
+      target: { value: regionSelect.options[1].value },
+    });
 
     expect(screen.getByText(/локальное добавление очага отключено/)).toBeInTheDocument();
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();

@@ -147,8 +147,10 @@ const LOCAL_STEPS = [
 ] as const;
 
 export default function CapturePage() {
-  if (isProductionAppMode()) return <CapturePageLive />;
+  return isProductionAppMode() ? <CapturePageLive /> : <CapturePageDemo />;
+}
 
+function CapturePageDemo() {
   const [patientId, setPatientId] = useState("p-004");
   const initialVisits = getVisitsByPatientId("p-004");
   const initialLesions = getLesionsByPatientId("p-004");

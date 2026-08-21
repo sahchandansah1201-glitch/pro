@@ -6,6 +6,7 @@ import {
   CLINICAL_BODY_ATLAS_HEIGHT,
   CLINICAL_BODY_ATLAS_WIDTH,
   clinicalBodyAtlasAssetPath,
+  clinicalBodyAtlasSource,
   clinicalBodyProfileFromAge,
   type ClinicalBodyAgeBand,
   type ClinicalBodyProfile,
@@ -53,7 +54,7 @@ describe("ClinicalBodyAtlas", () => {
           expect(atlas).toHaveAttribute("data-view", view);
           expect(atlas).toHaveAttribute(
             "data-source",
-            "makehuman-cc0-clinical-line-art",
+            clinicalBodyAtlasSource(),
           );
           expect(image).toHaveAttribute(
             "href",

@@ -1,8 +1,8 @@
 /**
  * Helpers for the visit workspace Body Map.
  *
- * Pure logic only: age-specific atlas selection, deterministic age calc, simple
- * anatomical zone hints. No mock-data mutation, no IO.
+ * Pure logic only: age-specific atlas selection and deterministic age calc.
+ * Anatomical placement is resolved by the fail-closed region maps.
  */
 import type { BodyMapPoint, Patient } from "@/lib/domain";
 import {
@@ -96,57 +96,3 @@ export const BODY_MAP_VIEW_BUTTON_LABEL: Record<BodyMapPoint["view"], string> = 
   right: "Справа",
   scalp: "Голова",
 };
-
-/**
- * Suggest a broad anatomical zone for a placement.
- *
- * Deterministic; UI-only hint, not medical logic. Coordinates are normalized
- * 0..1 in the same viewBox as the silhouette (200x400).
- */
-export function suggestBodyZone(view: BodyMapPoint["view"], x: number, y: number): string {
-  if (view === "scalp") return "волосистая часть головы";
-
-  if (view === "left" || view === "right") {
-    const side = view === "left" ? "левая сторона" : "правая сторона";
-    if (y < 0.18) return `${side}, голова/лицо`;
-    if (y < 0.28) return `${side}, шея`;
-    if (y < 0.55) return `${side}, боковая поверхность туловища`;
-    if (y < 0.7) return `${side}, область таза/бедра`;
-    if (y < 0.9) return `${side}, голень`;
-    return `${side}, стопа`;
-  }
-
-  // front / back
-  const isBack = view === "back";
-  if (y < 0.1) return isBack ? "затылок" : "лицо";
-  if (y < 0.18) return "шея";
-  if (y < 0.28) {
-    if (x < 0.35) return isBack ? "плечо левое (сзади)" : "плечо левое";
-    if (x > 0.65) return isBack ? "плечо правое (сзади)" : "плечо правое";
-    return isBack ? "верх спины" : "верх грудной клетки";
-  }
-  if (y < 0.42) {
-    if (x < 0.28) return isBack ? "плечо/предплечье левое" : "плечо левое";
-    if (x > 0.72) return isBack ? "плечо/предплечье правое" : "плечо правое";
-    return isBack ? "межлопаточная область" : "грудная клетка";
-  }
-  if (y < 0.55) {
-    if (x < 0.28) return "предплечье левое";
-    if (x > 0.72) return "предплечье правое";
-    return isBack ? "поясница" : "живот";
-  }
-  if (y < 0.62) {
-    if (x < 0.25) return "кисть левая";
-    if (x > 0.75) return "кисть правая";
-    return isBack ? "крестцово-поясничная область" : "нижняя часть живота";
-  }
-  if (y < 0.78) {
-    if (x < 0.5) return isBack ? "бедро левое (сзади)" : "бедро левое";
-    return isBack ? "бедро правое (сзади)" : "бедро правое";
-  }
-  if (y < 0.93) {
-    if (x < 0.5) return isBack ? "голень левая (сзади)" : "голень левая";
-    return isBack ? "голень правая (сзади)" : "голень правая";
-  }
-  return x < 0.5 ? "стопа левая" : "стопа правая";
-}

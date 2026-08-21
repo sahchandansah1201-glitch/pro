@@ -2,6 +2,7 @@ import {
   CLINICAL_BODY_ATLAS_HEIGHT,
   CLINICAL_BODY_ATLAS_WIDTH,
   clinicalBodyAtlasAssetPath,
+  clinicalBodyAtlasSource,
   type ClinicalBodyProfile,
   type ClinicalBodyView,
 } from "@/lib/clinical-body-atlas";
@@ -66,7 +67,7 @@ export function ClinicalBodyAtlas({
       data-age-band={profile.ageBand}
       data-sex={profile.sex}
       data-view={view}
-      data-source="makehuman-cc0-clinical-line-art"
+      data-source={clinicalBodyAtlasSource()}
     >
       {assetPath ? (
         <>

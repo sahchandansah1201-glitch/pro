@@ -8,7 +8,6 @@ import {
   bodyMapProfileLabel,
   calcAgeAt,
   getBodyMapProfile,
-  suggestBodyZone,
 } from "./body-map-model";
 import { getPatientById } from "@/lib/mock-data";
 
@@ -91,19 +90,6 @@ describe("body-map-model", () => {
     expect(bodyMapProfileLabel({ sex: "female", ageBand: "older_adult" })).toBe(
       "Женщина · 65 лет и старше",
     );
-  });
-
-  it("suggestBodyZone returns non-empty labels for every projection", () => {
-    for (const view of BODY_MAP_VIEWS) {
-      const z = suggestBodyZone(view, 0.5, 0.5);
-      expect(typeof z).toBe("string");
-      expect(z.length).toBeGreaterThan(0);
-    }
-    expect(suggestBodyZone("scalp", 0.5, 0.5)).toMatch(/головы/);
-    expect(suggestBodyZone("left", 0.5, 0.6)).toMatch(/левая/);
-    expect(suggestBodyZone("right", 0.5, 0.6)).toMatch(/правая/);
-    expect(suggestBodyZone("front", 0.5, 0.05)).toMatch(/лицо/);
-    expect(suggestBodyZone("back", 0.5, 0.05)).toMatch(/затылок/);
   });
 
   it("surface labels, hints and badges cover all five projections", () => {

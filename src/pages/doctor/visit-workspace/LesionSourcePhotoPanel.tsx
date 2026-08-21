@@ -44,9 +44,9 @@ export function LesionSourcePhotoPanel({
         <span
           className={`rounded-sm border px-1.5 py-0.5 text-[11px] font-medium ${
             localization.coverage === "captured"
-              ? "border-success/40 bg-success/10 text-success"
+              ? "border-success/40 bg-success/10 text-foreground"
               : localization.coverage === "partial"
-                ? "border-warning/40 bg-warning/10 text-warning"
+                ? "border-warning/40 bg-warning/10 text-foreground"
                 : "border-border bg-surface-muted text-muted-foreground"
           }`}
         >
@@ -73,6 +73,7 @@ export function LesionSourcePhotoPanel({
                   top: `${localization.imagePoint!.y * 100}%`,
                 }}
                 aria-label="Положение очага на исходном снимке"
+                role="img"
               />
             </div>
             <p className="mt-1 text-[10px] leading-snug text-muted-foreground">

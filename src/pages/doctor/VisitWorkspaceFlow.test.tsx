@@ -158,20 +158,10 @@ describe("Visit Workspace · invalid params", () => {
 
 describe("Visit Workspace · local draft isolation across downstream tabs", () => {
   function placeLocalDraft() {
-    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
-    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({
-        left: 0,
-        top: 0,
-        right: 200,
-        bottom: 400,
-        width: 200,
-        height: 400,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+    const regionSelect = screen.getByLabelText(
+      "Выбрать анатомическую область",
+    ) as HTMLSelectElement;
+    fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
   }
 

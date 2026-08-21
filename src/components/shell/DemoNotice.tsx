@@ -12,7 +12,7 @@ export function DemoNotice() {
       style={{
         background: "hsl(var(--warning) / 0.08)",
         borderColor: "hsl(var(--warning) / 0.30)",
-        color: "hsl(var(--warning))",
+        color: "hsl(var(--foreground))",
       }}
     >
       <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />

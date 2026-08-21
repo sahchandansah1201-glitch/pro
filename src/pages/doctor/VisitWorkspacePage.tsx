@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
@@ -26,13 +26,7 @@ import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanne
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
-import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
-import {
-  CLINICAL_BODY_ATLAS_HEIGHT,
-  CLINICAL_BODY_ATLAS_WIDTH,
-  currentClinicalBodyAtlasIso,
-  type ClinicalBodyProfile,
-} from "@/lib/clinical-body-atlas";
+import { currentClinicalBodyAtlasIso } from "@/lib/clinical-body-atlas";
 import {
   TimelineQaGroupHeader,
   TimelineQaGroupNav,
@@ -41,6 +35,10 @@ import { LongitudinalQaSummary } from "@/pages/doctor/visit-workspace/Longitudin
 import { ProductionClinicalDecisionSummary } from "@/pages/doctor/visit-workspace/ProductionClinicalDecisionSummary";
 import { ClinicalReportCompletionSummary } from "@/pages/doctor/visit-workspace/ClinicalReportCompletionSummary";
 import { LesionSourcePhotoPanel } from "@/pages/doctor/visit-workspace/LesionSourcePhotoPanel";
+import {
+  ClinicalBodyMapCanvas,
+  type ClinicalBodyRegionPlacement,
+} from "@/pages/doctor/visit-workspace/ClinicalBodyMapCanvas";
 import {
   humanDisplayValue,
   humanFieldTerm,
@@ -126,13 +124,11 @@ import {
   BODY_MAP_DEMO_NOW,
   BODY_MAP_VIEWS,
   BODY_MAP_VIEW_BUTTON_LABEL,
-  bodyMapSurfaceBadge,
   bodyMapSurfaceHint,
   bodyMapSurfaceLabel,
   bodyMapProfileLabel,
   bodyMapViewLabel,
   getBodyMapProfile,
-  suggestBodyZone,
 } from "@/pages/doctor/body-map-model";
 import { getDemoLesionSourceLocalization } from "@/pages/doctor/lesion-source-localization";
 
@@ -4434,6 +4430,7 @@ interface PendingPoint {
   view: View;
   x: number;
   y: number;
+  regionId: string;
   zone: string;
 }
 
@@ -4444,6 +4441,7 @@ function formatBodyMapPosition(point: Pick<BodyMapPoint, "x" | "y">) {
 interface LocalLesionDraft {
   id: string;
   label: string;
+  bodyRegionId: string;
   bodyZone: string;
   status: Lesion["status"];
   mapPoint: BodyMapPoint;
@@ -4536,16 +4534,21 @@ function BodyMapTab({
     ? selImages.map((i) => i.capturedAt).sort().slice(-1)[0]
     : null;
 
-  const handlePlace = (np: { view: View; x: number; y: number }) => {
+  const handlePlace = (np: ClinicalBodyRegionPlacement) => {
     if (productionMode) {
       setProductionPlacementNotice(
         "Рабочий режим: локальное добавление очага отключено. Используйте запись визита из системы клиники.",
       );
       return;
     }
-    const zone = suggestBodyZone(np.view, np.x, np.y);
-    setPending({ view: np.view, x: np.x, y: np.y, zone });
-    setZoneDraft(zone);
+    setPending({
+      view: np.view,
+      x: np.x,
+      y: np.y,
+      regionId: np.regionId,
+      zone: np.regionLabel,
+    });
+    setZoneDraft(np.regionLabel);
     setDraftLabel("Новый очаг");
     setDraftStatus("active");
     setDraftNote("");
@@ -4562,6 +4565,7 @@ function BodyMapTab({
     const draft: LocalLesionDraft = {
       id,
       label: draftLabel.trim() || "Новый очаг",
+      bodyRegionId: pending.regionId,
       bodyZone: zoneDraft.trim() || pending.zone,
       status: draftStatus,
       mapPoint: { view: pending.view, x: pending.x, y: pending.y },
@@ -4630,7 +4634,7 @@ function BodyMapTab({
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
           <div className="mx-auto" style={{ width: `${320 * zoom}px` }}>
-            <BodySvg
+            <ClinicalBodyMapCanvas
               profile={profile}
               view={view}
               points={visiblePoints.map((p) => ({
@@ -4727,7 +4731,7 @@ function BodyMapTab({
                           </span>
                         )}
                         {lNeedsReview && (
-                          <span className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning">
+                          <span className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-foreground">
                             нужен пересмотр
                           </span>
                         )}
@@ -4751,6 +4755,7 @@ function BodyMapTab({
                 return (
                   <li
                     key={d.id}
+                    data-body-region-id={d.bodyRegionId}
                     className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
                     onClick={() => {
                       setSelected(d.id);
@@ -4792,7 +4797,7 @@ function BodyMapTab({
               <Stat term="Позиция" value={formatBodyMapPosition(pending)} />
             </dl>
             <label className="mt-2 block text-[11px] text-muted-foreground">
-              Подсказанная зона
+              Анатомическая область
               <Input
                 value={zoneDraft}
                 onChange={(e) => setZoneDraft(e.target.value)}
@@ -4923,8 +4928,8 @@ function BodyMapTab({
                     selImageCount === 0
                       ? "border border-border bg-surface text-muted-foreground"
                       : selNeedsReview
-                        ? "bg-warning text-warning-foreground"
-                        : "bg-success text-success-foreground"
+                        ? "bg-[hsl(38_85%_30%)] text-white"
+                        : "bg-[hsl(158_55%_28%)] text-white"
                   }`}
                 >
                   {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество хорошее"}
@@ -4971,156 +4976,6 @@ function BodyMapTab({
         )}
       </div>
     </div>
-  );
-}
-
-// ───────── SVG body silhouette (variant-aware) ─────────
-
-interface PointProps {
-  id: string;
-  num: number;
-  x: number;
-  y: number;
-  selected: boolean;
-  label: string;
-  onSelect: () => void;
-}
-
-interface BodySvgProps {
-  profile: ClinicalBodyProfile;
-  view: View;
-  points: PointProps[];
-  pending: { x: number; y: number } | null;
-  demoPoints: PointProps[];
-  onPlace: (np: { view: View; x: number; y: number }) => void;
-}
-
-function BodySvg({ profile, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const ariaLabel = `Карта тела · ${bodyMapProfileLabel(profile)} · ${bodyMapSurfaceLabel(view)}`;
-  const badge = bodyMapSurfaceBadge(view);
-
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    if (x < 0 || x > 1 || y < 0 || y > 1) return;
-    onPlace({ view, x: +x.toFixed(3), y: +y.toFixed(3) });
-  };
-
-  return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
-      className="block h-auto w-full cursor-crosshair"
-      role="img"
-      aria-label={ariaLabel}
-      onClick={handleClick}
-    >
-      <ClinicalBodyAtlas profile={profile} view={view} />
-      {/* Non-interactive surface badge, top-left */}
-      <g pointerEvents="none">
-        <rect
-          x={4}
-          y={4}
-          rx={2}
-          ry={2}
-          width={badge.length * 5.4 + 10}
-          height={14}
-          fill="hsl(var(--primary))"
-          opacity={0.9}
-        />
-        <text
-          x={9}
-          y={14}
-          fontSize={9}
-          fontWeight={700}
-          letterSpacing="0.5"
-          fill="hsl(var(--primary-foreground))"
-          stroke="none"
-        >
-          {badge}
-        </text>
-      </g>
-      {demoPoints.map((p) => (
-        <g key={`demo-${p.id}`} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
-          <title>{`Локальный учебный очаг: ${p.label}`}</title>
-          <circle
-            cx={p.x * CLINICAL_BODY_ATLAS_WIDTH}
-            cy={p.y * CLINICAL_BODY_ATLAS_HEIGHT}
-            r={p.selected ? 8 : 6}
-            fill="hsl(var(--surface))"
-            stroke="hsl(var(--primary))"
-            strokeDasharray="2 2"
-            strokeWidth={1.4}
-            opacity={0.85}
-          />
-          <text
-            x={p.x * CLINICAL_BODY_ATLAS_WIDTH}
-            y={p.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
-            textAnchor="middle"
-            fontSize={8}
-            fontWeight={700}
-            fill="hsl(var(--primary))"
-          >
-            {p.num}
-          </text>
-        </g>
-      ))}
-      {points.map((p) => (
-        <g
-          key={p.id}
-          data-marker-id={p.id}
-          onClick={(e) => { e.stopPropagation(); p.onSelect(); }}
-          style={{ cursor: "pointer" }}
-        >
-          <title>{`${p.num}. ${p.label}`}</title>
-          <circle
-            cx={p.x * CLINICAL_BODY_ATLAS_WIDTH}
-            cy={p.y * CLINICAL_BODY_ATLAS_HEIGHT}
-            r={p.selected ? 8 : 6}
-            fill={p.selected ? "hsl(var(--primary))" : "hsl(var(--surface))"}
-            stroke={p.selected ? "hsl(var(--primary))" : "hsl(var(--foreground))"}
-            strokeWidth={1.2}
-          />
-          <text
-            x={p.x * CLINICAL_BODY_ATLAS_WIDTH}
-            y={p.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
-            textAnchor="middle"
-            fontSize={8}
-            fontWeight={600}
-            fill={p.selected ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))"}
-          >
-            {p.num}
-          </text>
-        </g>
-      ))}
-      {pending && (
-        <g pointerEvents="none">
-          <circle
-            cx={pending.x * CLINICAL_BODY_ATLAS_WIDTH}
-            cy={pending.y * CLINICAL_BODY_ATLAS_HEIGHT}
-            r={9}
-            fill="none"
-            stroke="hsl(var(--primary))"
-            strokeDasharray="3 2"
-            strokeWidth={1.4}
-          />
-          <text
-            x={pending.x * CLINICAL_BODY_ATLAS_WIDTH}
-            y={pending.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
-            textAnchor="middle"
-            fontSize={10}
-            fontWeight={700}
-            fill="hsl(var(--primary))"
-          >
-            +
-          </text>
-        </g>
-      )}
-    </svg>
   );
 }
 

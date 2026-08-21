@@ -53,11 +53,37 @@ const PROFILE_ASSET_NAME: Record<
   },
 };
 
+export type ClinicalBodyAtlasSource = "makehuman-cc0" | "daz-hires-local";
+
+export function clinicalBodyAtlasSource(): ClinicalBodyAtlasSource {
+  return import.meta.env.VITE_CLINICAL_BODY_ATLAS_SOURCE === "daz-hires-local"
+    ? "daz-hires-local"
+    : "makehuman-cc0";
+}
+
+export function clinicalBodyProfileAssetName(profile: ClinicalBodyProfile): string {
+  return PROFILE_ASSET_NAME[profile.ageBand][profile.sex];
+}
+
 export function clinicalBodyAtlasAssetPath(
   profile: ClinicalBodyProfile,
   view: Exclude<ClinicalBodyView, "scalp">,
 ): string {
-  return `/clinical-body-atlas/${PROFILE_ASSET_NAME[profile.ageBand][profile.sex]}-${view}.webp`;
+  const assetName = clinicalBodyProfileAssetName(profile);
+  return clinicalBodyAtlasSource() === "daz-hires-local"
+    ? `/clinical-body-atlas-daz-local/${assetName}-${view}.png`
+    : `/clinical-body-atlas/${assetName}-${view}.webp`;
+}
+
+export function clinicalBodyRegionHitMapPath(
+  profile: ClinicalBodyProfile,
+  view: Exclude<ClinicalBodyView, "scalp">,
+): string {
+  const assetName = clinicalBodyProfileAssetName(profile);
+  const directory = clinicalBodyAtlasSource() === "daz-hires-local"
+    ? "clinical-body-atlas-daz-local"
+    : "clinical-body-atlas-regions";
+  return `/${directory}/${assetName}-${view}.hitmap.svg`;
 }
 
 export function currentClinicalBodyAtlasIso(): string {

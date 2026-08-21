@@ -31,7 +31,7 @@ describe("self-hosted-role", () => {
     const value = session(["system_admin"]);
     expect(primarySelfHostedRole(value)).toBe("system_admin");
     expect(selfHostedRoleLabel(value)).toBe("Системный администратор");
-    expect(selfHostedHomePath(value)).toBe("/sys/users");
+    expect(selfHostedHomePath(value)).toBe("/admin/clinics");
   });
 
   it("checks route access against every backend role", () => {

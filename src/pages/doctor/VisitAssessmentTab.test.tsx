@@ -108,10 +108,10 @@ describe("VisitAssessmentTab · existing assessment + CTAs", () => {
 describe("VisitAssessmentTab · Body Map draft does not leak", () => {
   it("draft created on Body Map is not selectable as a real lesion in Assessment", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
-    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
-    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
-    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+    const regionSelect = screen.getByLabelText(
+      "Выбрать анатомическую область",
+    ) as HTMLSelectElement;
+    fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
 
     const tab = screen.getByRole("tab", { name: /Оценка/ });
