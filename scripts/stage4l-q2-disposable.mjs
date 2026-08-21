@@ -382,6 +382,7 @@ export async function runSyntheticWriter({
   resultPath,
   maxAttempts = Number.POSITIVE_INFINITY,
   intervalMs = 100,
+  requestTimeoutMs = 250,
   fetchImpl = fetch,
   now = () => new Date().toISOString(),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -399,6 +400,7 @@ export async function runSyntheticWriter({
       const response = await fetchImpl(`${baseUrl}/api/v1/visits/${session.visitId}/assets`, {
         method: "POST",
         headers: { ...session.headers, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(requestTimeoutMs),
         body: JSON.stringify({
           kind: "overview_photo",
           contentType: "image/png",

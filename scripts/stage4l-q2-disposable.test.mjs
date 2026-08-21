@@ -98,13 +98,17 @@ test("Stage 4L Q2 synthetic writer records accepted and fenced attempts without 
     "2026-08-21T10:00:00.100Z",
     "2026-08-21T10:00:00.150Z",
   ];
+  const requestOptions = [];
   try {
     const result = await runSyntheticWriter({
       baseUrl: "http://127.0.0.1:19121",
       resultPath,
       maxAttempts: 2,
       intervalMs: 0,
-      fetchImpl: async () => responses.shift(),
+      fetchImpl: async (_url, init) => {
+        requestOptions.push(init);
+        return responses.shift();
+      },
       now: () => times.shift(),
       sleep: async () => {},
     });
@@ -112,6 +116,7 @@ test("Stage 4L Q2 synthetic writer records accepted and fenced attempts without 
     assert.equal(result.rejectedCount, 1);
     assert.equal(result.attempts[0].accepted, true);
     assert.equal(result.attempts[1].accepted, false);
+    assert.ok(requestOptions.slice(-2).every((init) => init.signal instanceof AbortSignal));
     const saved = await readFile(resultPath, "utf8");
     assert.doesNotMatch(saved, /header\.secret|demo-password|stage4l-q2-writer-0/);
   } finally {
