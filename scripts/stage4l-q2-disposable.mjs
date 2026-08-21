@@ -440,7 +440,10 @@ export function analyzeWriterFence(writerResult, { quiescedAt, resumedAt } = {})
     (attempt) => attempt.accepted === true && Date.parse(attempt.startedAt) >= Date.parse(resumedAt),
   ).length;
   if (acceptedBeforeFence < 1 || rejectedInsideFence < 1 || acceptedAfterFence < 1) {
-    throw new Error("Q2 did not prove accepted-before, rejected-inside, and accepted-after writer-fence behavior.");
+    throw new Error(
+      "Q2 did not prove accepted-before, rejected-inside, and accepted-after writer-fence behavior "
+      + `(observed ${acceptedBeforeFence}/${rejectedInsideFence}/${acceptedAfterFence}).`,
+    );
   }
   return { acceptedBeforeFence, rejectedInsideFence, acceptedAfterFence };
 }
@@ -498,12 +501,13 @@ function createDisposableLifecycle(plan, env) {
       if (backendExitCode !== 0) {
         throw new Error(`Q2 backend did not stop gracefully; exit code ${backendExitCode}.`);
       }
+      const quiescedAt = new Date().toISOString();
       composeRun(plan, plan.sourceProject, ["stop", "-t", String(timeoutSeconds), "object-storage"], env);
       if (composeServices(plan, plan.sourceProject, env).includes("object-storage")) {
         throw new Error("Q2 object storage is still running after stop.");
       }
       return {
-        quiescedAt: new Date().toISOString(),
+        quiescedAt,
         writers: [{ id: "backend", stopped: true }],
         unknownCount: 0,
         forcedTerminationCount: 0,
