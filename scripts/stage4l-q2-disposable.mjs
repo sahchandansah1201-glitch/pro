@@ -387,20 +387,7 @@ export async function runSyntheticWriter({
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   shouldStop = () => false,
 } = {}) {
-  const login = await requestJson(`${baseUrl}/api/v1/auth/login`, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "doctor.demo@example.invalid", password: "demo-password" }),
-  }, fetchImpl);
-  const token = String(login?.accessToken || "");
-  if (!token) throw new Error("synthetic writer login did not return a token.");
-  const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
-  const patients = await requestJson(`${baseUrl}/api/v1/patients?limit=5`, { headers }, fetchImpl);
-  const patientId = String(patients?.items?.[0]?.id || "");
-  if (!patientId) throw new Error("synthetic writer did not find a seeded patient.");
-  const visits = await requestJson(`${baseUrl}/api/v1/patients/${patientId}/visits`, { headers }, fetchImpl);
-  const visitId = String(visits?.items?.[0]?.id || "");
-  if (!visitId) throw new Error("synthetic writer did not find a seeded visit.");
+  const session = await openSyntheticSession(baseUrl, fetchImpl);
 
   const attempts = [];
   for (let index = 0; index < maxAttempts && !shouldStop(); index += 1) {
@@ -409,9 +396,9 @@ export async function runSyntheticWriter({
     let status = 0;
     let accepted = false;
     try {
-      const response = await fetchImpl(`${baseUrl}/api/v1/visits/${visitId}/assets`, {
+      const response = await fetchImpl(`${baseUrl}/api/v1/visits/${session.visitId}/assets`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { ...session.headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "overview_photo",
           contentType: "image/png",

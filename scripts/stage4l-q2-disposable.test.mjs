@@ -86,7 +86,8 @@ test("Stage 4L Q2 synthetic writer records accepted and fenced attempts without 
   const resultPath = join(root, "writer.json");
   const responses = [
     new Response(JSON.stringify({ accessToken: "header.secret.signature" }), { status: 200 }),
-    new Response(JSON.stringify({ items: [{ id: "patient-1" }] }), { status: 200 }),
+    new Response(JSON.stringify({ items: [{ id: "patient-without-visit" }, { id: "patient-1" }] }), { status: 200 }),
+    new Response(JSON.stringify({ items: [] }), { status: 200 }),
     new Response(JSON.stringify({ items: [{ id: "visit-1" }] }), { status: 200 }),
     new Response(JSON.stringify({ item: { id: "asset-1" } }), { status: 201 }),
     new Response(JSON.stringify({ error: { code: "unavailable" } }), { status: 503 }),
