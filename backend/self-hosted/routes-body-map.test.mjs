@@ -29,6 +29,10 @@ function runtime({ replayed = false, calls = [] } = {}) {
             mapPoint: { view: "front", x: 0.35083, y: 0.7875 },
             bodyRegionId: "front-right-toes",
             bodyRegionDetailId: "digit-5",
+            bodyAtlasSource: "makehuman-cc0",
+            bodyAtlasProfileId: "adult_female_30",
+            bodyAtlasManifestSha256: "a".repeat(64),
+            bodyRegionMapSha256: "b".repeat(64),
             placementRevision: 1,
           },
           scope: { allClinics: false },
@@ -57,12 +61,21 @@ test("body-map create route forwards idempotency and distinguishes create from r
   const calls = [];
   const body = JSON.stringify({
     label: "Очаг на мизинце",
-    bodyMap: { view: "front", x: 0.35083, y: 0.7875, regionId: "front-right-toes", detailId: "digit-5" },
+    bodyMap: {
+      atlasSource: "makehuman-cc0",
+      atlasProfileId: "adult_female_30",
+      view: "front",
+      x: 0.35,
+      y: 0.96,
+      regionId: "front-right-toes",
+      detailId: "digit-5",
+    },
   });
   const created = await request("POST", body, { "idempotency-key": IDEMPOTENCY_KEY }, runtime({ calls }));
   assert.equal(created.status, 201);
-  assert.equal(created.json.stage, "4L-Q3");
+  assert.equal(created.json.stage, "4L-Q4");
   assert.equal(created.json.replayed, false);
+  assert.equal(created.json.item.bodyAtlasProfileId, "adult_female_30");
   assert.equal(calls[0][3].idempotencyKey, IDEMPOTENCY_KEY);
 
   const replay = await request("POST", body, { "Idempotency-Key": IDEMPOTENCY_KEY }, runtime({ replayed: true }));
@@ -84,4 +97,23 @@ test("body-map route exposes the idempotency CORS and OpenAPI contracts", async 
   const document = JSON.parse(openapi.body);
   assert.ok(document.components.schemas.BodyMapPlacementRequest);
   assert.equal(document.paths["/api/v1/visits/{visitId}/lesions"].post.parameters[1].name, "Idempotency-Key");
+  assert.deepEqual(document.components.schemas.BodyMapPlacementRequest.required, [
+    "atlasSource", "atlasProfileId", "view", "x", "y", "regionId",
+  ]);
+});
+
+test("body-map backend config pins the committed atlas and requires an explicit local DAZ pin", () => {
+  assert.equal(config.clinicalBodyAtlasSource, "makehuman-cc0");
+  assert.equal(
+    config.clinicalBodyAtlasManifestSha256,
+    "e485f8cc56c2670f0dd052514d445f9f7692db2e1ed3ddca9075192752fd0a61",
+  );
+  const localDaz = readSelfHostedConfig({
+    CLINICAL_BODY_ATLAS_SOURCE: "daz-hires-local",
+    CLINICAL_BODY_ATLAS_DIR: "/tmp/atlas",
+    CLINICAL_BODY_ATLAS_MANIFEST_SHA256: "a".repeat(64),
+  });
+  assert.equal(localDaz.clinicalBodyAtlasSource, "daz-hires-local");
+  assert.equal(localDaz.clinicalBodyAtlasDir, "/tmp/atlas");
+  assert.equal(localDaz.clinicalBodyAtlasManifestSha256, "a".repeat(64));
 });

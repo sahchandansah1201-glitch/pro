@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const REQUIRED_FILES = [
   "backend/self-hosted/db/migrations/0005_stage4h_visit_workspace_writes.sql",
   "backend/self-hosted/db/migrations/0094_stage4l_body_map_persistence.sql",
+  "backend/self-hosted/db/migrations/0095_stage4l_body_atlas_contract.sql",
   "backend/self-hosted/clinical-body-region-contract.mjs",
   "backend/self-hosted/clinical-body-region-contract.test.mjs",
   "backend/self-hosted/visit-workspace-write-repository.mjs",
@@ -20,6 +21,7 @@ const REQUIRED_FILES = [
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx",
   "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx",
   "docs/backend/stage-4h-visit-workspace-writes.md",
+  "docs/backend/stage-4l-atlas-source-geometry-contract.md",
   "scripts/check-stage4h-self-hosted-visit-workspace-writes.mjs",
   "scripts/check-stage4h-self-hosted-visit-workspace-writes.test.mjs",
   ".github/workflows/stage4h-visit-workspace-writes.yml",
@@ -43,8 +45,17 @@ const REQUIRED_TEXT = {
     "lesions_creation_idempotency_idx",
     "placement_revision",
   ],
+  "backend/self-hosted/db/migrations/0095_stage4l_body_atlas_contract.sql": [
+    "body_atlas_source",
+    "body_atlas_profile_id",
+    "body_atlas_manifest_sha256",
+    "body_region_map_sha256",
+  ],
   "backend/self-hosted/clinical-body-region-contract.mjs": [
     "normalizeClinicalBodyPlacement",
+    "createClinicalBodyAtlasContract",
+    "expectedManifestSha256",
+    "outside the claimed region",
     "bodyRegionDetailId",
     "endsWith(\"-toes\")",
   ],
@@ -69,8 +80,9 @@ const REQUIRED_TEXT = {
     "visitWriteScope",
   ],
   "backend/self-hosted/openapi.stage4h.json": [
-    "4L-Q3-body-map-persistence",
+    "4L-Q4-body-atlas-geometry",
     "BodyMapPlacementRequest",
+    "atlasProfileId",
     "Idempotency-Key",
     "/api/v1/visits/{visitId}",
     "/api/v1/visits/{visitId}/lesions",
@@ -83,6 +95,7 @@ const REQUIRED_TEXT = {
     "updateSelfHostedVisitLesion",
     "archiveSelfHostedVisitLesion",
     "updateSelfHostedVisitReport",
+    "atlasProfileId",
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
     "Рабочая запись визита",
@@ -106,6 +119,12 @@ const REQUIRED_TEXT = {
     "DELETE /api/v1/lesions/{lesionId}",
     "PATCH /api/v1/visits/{visitId}/report",
     "npm run preflight:stage4h",
+  ],
+  "docs/backend/stage-4l-atlas-source-geometry-contract.md": [
+    "atlasSource",
+    "atlasProfileId",
+    "point",
+    "fail closed",
   ],
   ".github/workflows/stage4h-visit-workspace-writes.yml": [
     "name: stage4h-visit-workspace-writes",

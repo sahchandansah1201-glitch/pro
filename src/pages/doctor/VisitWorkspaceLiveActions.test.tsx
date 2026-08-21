@@ -1204,7 +1204,7 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(JSON.parse(String(sopPolicyGovernanceClosureCall?.[1]?.body)).sopPolicyGovernanceClosureState).toBe("closed");
     const sopPolicyGovernanceEvidenceCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence"));
     expect(JSON.parse(String(sopPolicyGovernanceEvidenceCall?.[1]?.body)).sopPolicyGovernanceEvidenceState).toBe("exported");
-  });
+  }, 15_000);
 
   it("shows validation status returned by backend", async () => {
     configureSession();

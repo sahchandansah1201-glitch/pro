@@ -19,7 +19,15 @@ const json = (value: unknown, status = 200) => Promise.resolve(new Response(JSON
 type BodyMapPayload = {
   label?: string;
   status?: string;
-  bodyMap?: { view: string; x: number; y: number; regionId: string; detailId?: string };
+  bodyMap?: {
+    atlasSource: string;
+    atlasProfileId: string;
+    view: string;
+    x: number;
+    y: number;
+    regionId: string;
+    detailId?: string;
+  };
 };
 
 function lesion(payload: BodyMapPayload, revision: number) {
@@ -57,7 +65,15 @@ function fetchMock() {
         chiefComplaint: "контроль",
         createdAt: "2026-08-21T11:00:00.000Z",
         updatedAt: "2026-08-21T12:00:00.000Z",
-        patient: { id: "live-patient", fullName: "Петрова Анна", code: "DP-live-001" },
+        patient: {
+          id: "live-patient",
+          fullName: "Петрова Анна",
+          code: "DP-live-001",
+          birthDate: "1990-01-01",
+          sex: "female",
+          phototype: "II",
+          imagingConsent: true,
+        },
         clinic: { id: "clinic-1", slug: "live", name: "Клиника" },
       } });
     }
@@ -120,7 +136,13 @@ describe("VisitWorkspacePage · production body-map persistence", () => {
     });
     expect(JSON.parse(String((createCall?.[1] as RequestInit).body))).toMatchObject({
       label: "Очаг на мизинце",
-      bodyMap: { view: "front", regionId: "front-right-toes", detailId: "digit-5" },
+      bodyMap: {
+        atlasSource: "makehuman-cc0",
+        atlasProfileId: "adult_female_30",
+        view: "front",
+        regionId: "front-right-toes",
+        detailId: "digit-5",
+      },
     });
   });
 
@@ -139,7 +161,13 @@ describe("VisitWorkspacePage · production body-map persistence", () => {
       String(url).endsWith("/api/v1/lesions/live-lesion-created") && init?.method === "PATCH");
     expect(JSON.parse(String((patchCall?.[1] as RequestInit).body))).toMatchObject({
       expectedPlacementRevision: 1,
-      bodyMap: { view: "front", regionId: "front-right-toes", detailId: "digit-5" },
+      bodyMap: {
+        atlasSource: "makehuman-cc0",
+        atlasProfileId: "adult_female_30",
+        view: "front",
+        regionId: "front-right-toes",
+        detailId: "digit-5",
+      },
     });
   });
 });

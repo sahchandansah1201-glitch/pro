@@ -45,3 +45,9 @@
 - frontend API: DTO round trip и `Idempotency-Key`;
 - UI: production create, doctor-confirmed digit, correction with revision, safe retry copy;
 - migration runner: migration included and schema columns/index verified.
+
+## Последующий контракт Q4
+
+Gate `Stage 4L-Q4` дополняет эту схему серверной проверкой источника, профиля и
+попадания точки внутрь области. Точный delta, совместимость и границы описаны в
+`docs/backend/stage-4l-atlas-source-geometry-contract.md`.

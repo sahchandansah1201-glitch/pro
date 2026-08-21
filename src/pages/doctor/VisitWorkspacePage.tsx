@@ -28,6 +28,7 @@ import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import {
   clinicalBodyAtlasSource,
+  clinicalBodyProfileAssetName,
   currentClinicalBodyAtlasIso,
 } from "@/lib/clinical-body-atlas";
 import { clinicalBodyRegionDetailOptions } from "@/lib/clinical-body-regions";
@@ -4509,7 +4510,7 @@ function BodyMapTab({
 }) {
   const profile = getBodyMapProfile(
     patient,
-    productionMode ? currentClinicalBodyAtlasIso() : BODY_MAP_DEMO_NOW,
+    productionMode ? (visit.startedAt || currentClinicalBodyAtlasIso()) : BODY_MAP_DEMO_NOW,
   );
   const profileLabel = bodyMapProfileLabel(profile);
   const atlasSource = clinicalBodyAtlasSource();
@@ -4651,6 +4652,8 @@ function BodyMapTab({
       label: draftLabel.trim() || "Новый очаг",
       status: draftStatus,
       bodyMap: {
+        atlasSource,
+        atlasProfileId: clinicalBodyProfileAssetName(profile),
         view: pending.view,
         x: pending.x,
         y: pending.y,

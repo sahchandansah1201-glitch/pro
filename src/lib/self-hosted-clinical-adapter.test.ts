@@ -82,6 +82,10 @@ describe("self-hosted clinical adapter", () => {
         riskLevel: null,
         bodyRegionId: "front-right-toes",
         bodyRegionDetailId: "digit-5",
+        bodyAtlasSource: "makehuman-cc0",
+        bodyAtlasProfileId: "adult_female_30",
+        bodyAtlasManifestSha256: "a".repeat(64),
+        bodyRegionMapSha256: "b".repeat(64),
         mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
         placementRevision: 1,
         createdAt: "2026-05-12T09:00:00.000Z",
@@ -94,6 +98,8 @@ describe("self-hosted clinical adapter", () => {
       bodyZone: "не указана",
       status: "archived",
       mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
+      bodyAtlasSource: "makehuman-cc0",
+      bodyAtlasProfileId: "adult_female_30",
     });
   });
 });

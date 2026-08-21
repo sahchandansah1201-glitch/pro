@@ -92,6 +92,10 @@ export function selfHostedLesionToDomain(dto: SelfHostedVisitLesionDTO, patientI
     status: selfHostedLesionStatusToDomain(dto.status),
     bodyRegionId: dto.bodyRegionId ?? null,
     bodyRegionDetailId: dto.bodyRegionDetailId ?? null,
+    bodyAtlasSource: dto.bodyAtlasSource ?? null,
+    bodyAtlasProfileId: dto.bodyAtlasProfileId ?? null,
+    bodyAtlasManifestSha256: dto.bodyAtlasManifestSha256 ?? null,
+    bodyRegionMapSha256: dto.bodyRegionMapSha256 ?? null,
     placementRevision: dto.placementRevision ?? 0,
   };
 }

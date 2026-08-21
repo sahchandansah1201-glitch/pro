@@ -40,9 +40,13 @@ test("buildCreateVisitLesionSql inserts from scoped visit", () => {
     status: "active",
     riskLevel: "moderate",
     bodyMap: {
+      atlasSource: "makehuman-cc0",
+      atlasProfileId: "adult_female_30",
+      atlasManifestSha256: "a".repeat(64),
+      bodyRegionMapSha256: "b".repeat(64),
       view: "front",
       x: 0.35083,
-      y: 0.99001,
+      y: 0.96001,
       regionId: "front-right-toes",
       detailId: "digit-5",
     },
@@ -58,6 +62,8 @@ test("buildCreateVisitLesionSql inserts from scoped visit", () => {
   assert.match(sql, /clinic_id, patient_id, visit_id/);
   assert.match(sql, /'moderate'/);
   assert.match(sql, /body_map_view, body_map_x, body_map_y, body_region_id/);
+  assert.match(sql, /body_atlas_source, body_atlas_profile_id/);
+  assert.match(sql, /body_atlas_manifest_sha256, body_region_map_sha256/);
   assert.match(sql, /creation_idempotency_key, creation_request_hash/);
   assert.match(sql, /insert into audit_log/);
   assert.match(sql, /'lesion\.create'/);
@@ -70,7 +76,17 @@ test("lesion update and archive use soft archive constraints", () => {
       label: "L2",
       riskLevel: null,
       expectedPlacementRevision: 1,
-      bodyMap: { view: "back", x: 0.45, y: 0.84, regionId: "back-left-calf", detailId: null },
+      bodyMap: {
+        atlasSource: "makehuman-cc0",
+        atlasProfileId: "adult_female_30",
+        atlasManifestSha256: "a".repeat(64),
+        bodyRegionMapSha256: "b".repeat(64),
+        view: "back",
+        x: 0.45,
+        y: 0.84,
+        regionId: "back-left-calf",
+        detailId: null,
+      },
     },
     clinicIds: [CLINIC_ID],
     auditEvent: {
@@ -83,6 +99,8 @@ test("lesion update and archive use soft archive constraints", () => {
   assert.match(update, /and l\.deleted_at is null/);
   assert.match(update, /risk_level = null/);
   assert.match(update, /placement_revision = l\.placement_revision \+ 1/);
+  assert.match(update, /body_atlas_profile_id = 'adult_female_30'/);
+  assert.match(update, /body_region_map_sha256 = '[b]{64}'/);
   assert.match(update, /and l\.placement_revision = 1/);
   assert.match(update, /true as "placementConflict"/);
   assert.match(update, /insert into audit_log/);
@@ -115,7 +133,17 @@ test("repository exposes an optimistic placement conflict instead of a false not
       lesionId: LESION_ID,
       changes: {
         expectedPlacementRevision: 1,
-        bodyMap: { view: "front", x: 0.4, y: 0.6, regionId: "front-face", detailId: null },
+        bodyMap: {
+          atlasSource: "makehuman-cc0",
+          atlasProfileId: "adult_female_30",
+          atlasManifestSha256: "a".repeat(64),
+          bodyRegionMapSha256: "b".repeat(64),
+          view: "front",
+          x: 0.4,
+          y: 0.6,
+          regionId: "front-face",
+          detailId: null,
+        },
       },
     }),
     LesionPlacementConflictError,

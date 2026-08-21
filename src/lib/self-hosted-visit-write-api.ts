@@ -35,6 +35,8 @@ export interface VisitLesionPayload {
   status?: string;
   riskLevel?: "low" | "moderate" | "high" | "urgent" | null;
   bodyMap?: {
+    atlasSource: "makehuman-cc0" | "daz-hires-local";
+    atlasProfileId: string;
     view: "front" | "back" | "left" | "right" | "scalp";
     x: number;
     y: number;
@@ -236,6 +238,12 @@ function toLesion(input: Record<string, unknown>): SelfHostedVisitLesionDTO {
     riskLevel,
     bodyRegionId: input.bodyRegionId == null ? null : String(input.bodyRegionId),
     bodyRegionDetailId: input.bodyRegionDetailId == null ? null : String(input.bodyRegionDetailId),
+    bodyAtlasSource: input.bodyAtlasSource === "makehuman-cc0" || input.bodyAtlasSource === "daz-hires-local"
+      ? input.bodyAtlasSource
+      : null,
+    bodyAtlasProfileId: input.bodyAtlasProfileId == null ? null : String(input.bodyAtlasProfileId),
+    bodyAtlasManifestSha256: input.bodyAtlasManifestSha256 == null ? null : String(input.bodyAtlasManifestSha256),
+    bodyRegionMapSha256: input.bodyRegionMapSha256 == null ? null : String(input.bodyRegionMapSha256),
     mapPoint: isRecord(input.mapPoint)
       ? {
           view: String(input.mapPoint.view ?? "front") as NonNullable<SelfHostedVisitLesionDTO["mapPoint"]>["view"],

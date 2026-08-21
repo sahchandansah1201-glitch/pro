@@ -1,3 +1,5 @@
+import { STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 } from "./clinical-body-region-contract.mjs";
+
 const DEFAULT_PORT = 3001;
 const DEFAULT_CORS_ORIGINS = ["http://localhost:8080", "http://127.0.0.1:8080"];
 const DEFAULT_JWT_EXPIRES_IN_SECONDS = 60 * 60;
@@ -25,6 +27,7 @@ function parsePositiveInteger(value, fallback) {
 }
 
 export function readSelfHostedConfig(env = process.env) {
+  const clinicalBodyAtlasSource = env.CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
   return {
     serviceName: "dermatolog-pro-backend",
     deploymentMode: "self-hosted",
@@ -41,6 +44,13 @@ export function readSelfHostedConfig(env = process.env) {
       DEFAULT_JWT_EXPIRES_IN_SECONDS,
     ),
     corsOrigins: parseOrigins(env.CORS_ORIGINS),
+    clinicalBodyAtlasSource,
+    clinicalBodyAtlasDir: env.CLINICAL_BODY_ATLAS_DIR || "",
+    clinicalBodyAtlasManifestSha256:
+      env.CLINICAL_BODY_ATLAS_MANIFEST_SHA256
+      || (clinicalBodyAtlasSource === "makehuman-cc0"
+        ? STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256
+        : ""),
   };
 }
 
@@ -91,6 +101,8 @@ export function publicConfig(config) {
     jwtIssuer: config.jwtIssuer,
     jwtExpiresInSeconds: config.jwtExpiresInSeconds,
     corsOrigins: config.corsOrigins,
+    clinicalBodyAtlasSource: config.clinicalBodyAtlasSource,
+    clinicalBodyAtlasManifestSha256: config.clinicalBodyAtlasManifestSha256,
     dependencies: dependencyStatus(config),
   };
 }

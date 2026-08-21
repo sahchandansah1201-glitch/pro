@@ -120,6 +120,11 @@ export interface Lesion {
   bodyRegionId?: string | null;
   /** Optional doctor-confirmed digit detail. */
   bodyRegionDetailId?: string | null;
+  /** Server-validated atlas package and exact profile used for the placement. */
+  bodyAtlasSource?: "makehuman-cc0" | "daz-hires-local" | null;
+  bodyAtlasProfileId?: string | null;
+  bodyAtlasManifestSha256?: string | null;
+  bodyRegionMapSha256?: string | null;
   /** Optimistic-concurrency revision; 0 means no confirmed server placement. */
   placementRevision?: number;
 }

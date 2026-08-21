@@ -17,6 +17,19 @@ export function selfHostedPublicErrorText(
   if (error.code === "idempotency_conflict") {
     return "Этот запрос уже использован для другой точки. Обновите карту и повторите добавление.";
   }
+  const fields = new Set(error.details?.map((item) => item.field).filter(Boolean));
+  if (fields.has("bodyMap.regionId")) {
+    return "Точка находится вне выбранной области. Выберите область на модели и поставьте точку заново.";
+  }
+  if (
+    fields.has("bodyMap.atlasSource")
+    || fields.has("bodyMap.atlasProfileId")
+    || fields.has("bodyMap")
+    || fields.has("bodyMap.view")
+    || fields.has("bodyRegionId")
+  ) {
+    return "Модель тела не совпадает с данными пациента или настройками системы. Обновите страницу и поставьте точку заново.";
+  }
   if (error.details?.length) return error.details.map((item) => item.message).join(" ");
   if (isSelfHostedSessionExpiredError(error)) return "Сессия истекла. Выйдите и войдите в систему заново.";
   if (error.status === 404 || /not_found$/.test(error.code)) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ForbiddenError } from "./rbac.mjs";
+import { createClinicalBodyAtlasContract } from "./clinical-body-region-contract.mjs";
 import {
   createVisitWorkspaceWriteService,
   normalizeCreateLesionPayload,
@@ -15,6 +16,30 @@ const VISIT_ID = "10000000-0000-4000-8000-000000000301";
 const LESION_ID = "10000000-0000-4000-8000-000000000401";
 const CLINIC_ID = "10000000-0000-4000-8000-000000000001";
 const USER_ID = "10000000-0000-4000-8000-000000000101";
+const VISIT_CONTEXT = {
+  id: VISIT_ID,
+  startedAt: "2026-08-21T12:00:00.000Z",
+  createdAt: "2026-08-21T11:00:00.000Z",
+  patient: {
+    id: "10000000-0000-4000-8000-000000000201",
+    sex: "female",
+    birthDate: "1990-01-01",
+  },
+  clinic: { id: CLINIC_ID },
+};
+const BODY_MAP = {
+  atlasSource: "makehuman-cc0",
+  atlasProfileId: "adult_female_30",
+  view: "front",
+  x: 0.35,
+  y: 0.96,
+  regionId: "front-right-toes",
+  detailId: "digit-5",
+};
+const NORMALIZE_CONTEXT = {
+  clinicalBodyAtlasContract: createClinicalBodyAtlasContract(),
+  visitContext: VISIT_CONTEXT,
+};
 
 const authContext = {
   userId: USER_ID,
@@ -43,11 +68,10 @@ function createService({ auditEvents = [], repo = {} } = {}) {
   return createVisitWorkspaceWriteService({
     visitWorkspaceRepository: {
       async getVisit() {
-        return {
-          id: VISIT_ID,
-          patient: { id: "10000000-0000-4000-8000-000000000201" },
-          clinic: { id: CLINIC_ID },
-        };
+        return VISIT_CONTEXT;
+      },
+      async getLesionContext() {
+        return VISIT_CONTEXT;
       },
     },
     visitWorkspaceWriteRepository: { ...defaults, ...repo },
@@ -74,13 +98,15 @@ test("body-map payload is canonicalized from the registered region and keeps fiv
       label: "Очаг на мизинце",
       bodyZone: "произвольный текст клиента",
       bodyMap: {
+        atlasSource: "makehuman-cc0",
+        atlasProfileId: "adult_female_30",
         view: "front",
         x: 0.3508319,
-        y: 0.990014,
+        y: 0.960014,
         regionId: "front-right-toes",
         detailId: "digit-5",
       },
-    }),
+    }, NORMALIZE_CONTEXT),
     {
       label: "Очаг на мизинце",
       bodyZone: "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
@@ -88,24 +114,28 @@ test("body-map payload is canonicalized from the registered region and keeps fiv
       status: "active",
       riskLevel: null,
       bodyMap: {
+        atlasSource: "makehuman-cc0",
+        atlasProfileId: "adult_female_30",
+        atlasManifestSha256: "e485f8cc56c2670f0dd052514d445f9f7692db2e1ed3ddca9075192752fd0a61",
+        bodyRegionMapSha256: "7ca70b005832ff347c6eab0a8d6359af1b54ee232951b027d7e8f36e92e4a11c",
         view: "front",
         x: 0.35083,
-        y: 0.99001,
+        y: 0.96001,
         regionId: "front-right-toes",
         detailId: "digit-5",
       },
     },
   );
   assert.throws(
-    () => normalizeUpdateLesionPayload({ bodyMap: { view: "front", x: 0.5, y: 0.5, regionId: "front-face" } }),
+    () => normalizeUpdateLesionPayload({ bodyMap: BODY_MAP }, NORMALIZE_CONTEXT),
     (error) => error instanceof VisitWorkspaceValidationError
       && error.publicDetails.some((detail) => detail.field === "expectedPlacementRevision"),
   );
   assert.equal(
     normalizeUpdateLesionPayload({
       expectedPlacementRevision: 0,
-      bodyMap: { view: "front", x: 0.5, y: 0.5, regionId: "front-face" },
-    }).expectedPlacementRevision,
+      bodyMap: BODY_MAP,
+    }, NORMALIZE_CONTEXT).expectedPlacementRevision,
     0,
   );
 });
@@ -132,7 +162,7 @@ test("body-map create requires an idempotency key and audits only a new placemen
       },
     },
   });
-  const bodyMap = { view: "front", x: 0.35, y: 0.99, regionId: "front-right-toes", detailId: "digit-5" };
+  const bodyMap = BODY_MAP;
 
   await assert.rejects(
     () => service.createLesion(VISIT_ID, { label: "L1", bodyMap }, authContext, { correlationId: "c-map" }),
@@ -150,13 +180,80 @@ test("body-map create requires an idempotency key and audits only a new placemen
   assert.equal(result.replayed, false);
   assert.equal(calls[0].idempotencyKey, "019ffbca-f316-7f81-80db-9e1792daa4d5");
   assert.match(calls[0].requestHash, /^[a-f0-9]{64}$/);
+  assert.equal(calls[0].bodyMap.atlasProfileId, "adult_female_30");
+  assert.match(calls[0].bodyMap.atlasManifestSha256, /^[a-f0-9]{64}$/);
+  assert.match(calls[0].bodyMap.bodyRegionMapSha256, /^[a-f0-9]{64}$/);
   assert.deepEqual(auditEvents.at(-1).metadata, {
     visitId: VISIT_ID,
     changedFields: ["label", "bodyZone", "bodySurface", "status", "riskLevel", "bodyMap"],
     bodyRegionId: "front-right-toes",
     bodyMapView: "front",
+    atlasSource: "makehuman-cc0",
+    atlasProfileId: "adult_female_30",
     placementRevision: 1,
   });
+});
+
+test("body-map service rejects source/profile/geometry mismatch before repository mutation", async () => {
+  let writes = 0;
+  const service = createService({
+    repo: {
+      async createLesion() {
+        writes += 1;
+        return null;
+      },
+    },
+  });
+  const options = { correlationId: "c-map", idempotencyKey: "019ffbca-f316-7f81-80db-9e1792daa4d5" };
+
+  await assert.rejects(
+    () => service.createLesion(VISIT_ID, { label: "L1", bodyMap: { ...BODY_MAP, atlasSource: "daz-hires-local" } }, authContext, options),
+    (error) => error instanceof VisitWorkspaceValidationError
+      && error.publicDetails.some((detail) => detail.field === "bodyMap.atlasSource"),
+  );
+  await assert.rejects(
+    () => service.createLesion(VISIT_ID, { label: "L1", bodyMap: { ...BODY_MAP, atlasProfileId: "adult_male_30" } }, authContext, options),
+    (error) => error instanceof VisitWorkspaceValidationError
+      && error.publicDetails.some((detail) => detail.field === "bodyMap.atlasProfileId"),
+  );
+  await assert.rejects(
+    () => service.createLesion(VISIT_ID, { label: "L1", bodyMap: { ...BODY_MAP, y: 0.5 } }, authContext, options),
+    (error) => error instanceof VisitWorkspaceValidationError
+      && error.publicDetails.some((detail) => detail.field === "bodyMap.regionId"),
+  );
+  assert.equal(writes, 0);
+});
+
+test("body-map correction revalidates the lesion visit context and forwards server-derived hashes", async () => {
+  const calls = [];
+  const service = createService({
+    repo: {
+      async updateLesion(input) {
+        calls.push(input);
+        return {
+          lesion: {
+            id: LESION_ID,
+            clinicId: CLINIC_ID,
+            visitId: VISIT_ID,
+            bodyRegionId: input.changes.bodyMap.regionId,
+            placementRevision: 2,
+          },
+          auditPersisted: true,
+        };
+      },
+    },
+  });
+  const result = await service.updateLesion(
+    LESION_ID,
+    { bodyMap: BODY_MAP, expectedPlacementRevision: 1 },
+    authContext,
+    { correlationId: "c-correct" },
+  );
+
+  assert.equal(result.lesion.placementRevision, 2);
+  assert.equal(calls[0].changes.bodyMap.atlasProfileId, "adult_female_30");
+  assert.match(calls[0].changes.bodyMap.atlasManifestSha256, /^[a-f0-9]{64}$/);
+  assert.match(calls[0].changes.bodyMap.bodyRegionMapSha256, /^[a-f0-9]{64}$/);
 });
 
 test("service updates visit, lesion, archive and report with audit events", async () => {

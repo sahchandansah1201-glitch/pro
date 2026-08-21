@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import {
   ClinicalBodyRegionValidationError,
+  createClinicalBodyAtlasContract,
   normalizeClinicalBodyPlacement,
 } from "./clinical-body-region-contract.mjs";
 import { ForbiddenError, visitWriteScope } from "./rbac.mjs";
@@ -68,9 +69,11 @@ function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
-function normalizeBodyMap(input) {
+function normalizeBodyMap(input, { clinicalBodyAtlasContract, visitContext } = {}) {
   try {
-    return normalizeClinicalBodyPlacement(input);
+    return clinicalBodyAtlasContract
+      ? clinicalBodyAtlasContract.normalizePlacement(input, visitContext)
+      : normalizeClinicalBodyPlacement(input, visitContext);
   } catch (error) {
     if (error instanceof ClinicalBodyRegionValidationError) {
       throw new VisitWorkspaceValidationError([{ field: error.field, message: error.message }]);
@@ -131,13 +134,13 @@ export function normalizeUpdateVisitPayload(input = {}) {
   return payload;
 }
 
-export function normalizeCreateLesionPayload(input = {}) {
+export function normalizeCreateLesionPayload(input = {}, bodyMapContext = {}) {
   if (!isPlainObject(input)) {
     throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
   }
   const details = [];
   const label = cleanString(input.label);
-  const bodyMap = hasOwn(input, "bodyMap") ? normalizeBodyMap(input.bodyMap) : null;
+  const bodyMap = hasOwn(input, "bodyMap") ? normalizeBodyMap(input.bodyMap, bodyMapContext) : null;
   const bodyZone = bodyMap?.regionLabel ?? cleanString(input.bodyZone);
   const bodySurface = bodyMap?.bodySurface ?? cleanString(input.bodySurface);
   const status = cleanString(input.status) || "active";
@@ -165,6 +168,10 @@ export function normalizeCreateLesionPayload(input = {}) {
     ...(bodyMap
       ? {
           bodyMap: {
+            atlasSource: bodyMap.atlasSource,
+            atlasProfileId: bodyMap.atlasProfileId,
+            atlasManifestSha256: bodyMap.atlasManifestSha256,
+            bodyRegionMapSha256: bodyMap.bodyRegionMapSha256,
             view: bodyMap.view,
             x: bodyMap.x,
             y: bodyMap.y,
@@ -176,7 +183,7 @@ export function normalizeCreateLesionPayload(input = {}) {
   };
 }
 
-export function normalizeUpdateLesionPayload(input = {}) {
+export function normalizeUpdateLesionPayload(input = {}, bodyMapContext = {}) {
   if (!isPlainObject(input)) {
     throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
   }
@@ -207,7 +214,7 @@ export function normalizeUpdateLesionPayload(input = {}) {
     }
   }
   if (hasOwn(input, "bodyMap")) {
-    const bodyMap = normalizeBodyMap(input.bodyMap);
+    const bodyMap = normalizeBodyMap(input.bodyMap, bodyMapContext);
     if (!Number.isInteger(input.expectedPlacementRevision) || input.expectedPlacementRevision < 0) {
       details.push({
         field: "expectedPlacementRevision",
@@ -217,6 +224,10 @@ export function normalizeUpdateLesionPayload(input = {}) {
       payload.expectedPlacementRevision = input.expectedPlacementRevision;
     }
     payload.bodyMap = {
+      atlasSource: bodyMap.atlasSource,
+      atlasProfileId: bodyMap.atlasProfileId,
+      atlasManifestSha256: bodyMap.atlasManifestSha256,
+      bodyRegionMapSha256: bodyMap.bodyRegionMapSha256,
       view: bodyMap.view,
       x: bodyMap.x,
       y: bodyMap.y,
@@ -291,7 +302,13 @@ export function createVisitWorkspaceWriteService({
   visitWorkspaceRepository,
   visitWorkspaceWriteRepository,
   auditRepository,
-} = {}) {
+  clinicalBodyAtlasContract,
+} = {}, runtimeConfig = {}) {
+  const bodyAtlasContract = clinicalBodyAtlasContract || createClinicalBodyAtlasContract({
+    atlasSource: runtimeConfig.clinicalBodyAtlasSource,
+    atlasDir: runtimeConfig.clinicalBodyAtlasDir || undefined,
+    expectedManifestSha256: runtimeConfig.clinicalBodyAtlasManifestSha256,
+  });
   return {
     async updateVisit(visitId, input, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
@@ -319,8 +336,6 @@ export function createVisitWorkspaceWriteService({
     async createLesion(visitId, input, authContext, { correlationId, idempotencyKey } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
       const scope = visitWriteScope(authContext);
-      const payload = normalizeCreateLesionPayload(input);
-      const safeIdempotencyKey = normalizeIdempotencyKey(idempotencyKey, Boolean(payload.bodyMap));
       const visit = await visitWorkspaceRepository.getVisit({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,
@@ -328,6 +343,11 @@ export function createVisitWorkspaceWriteService({
       });
       if (!visit) throw new VisitWorkspaceNotFoundError("Visit was not found in the allowed clinic scope.");
       ensureScopeAllowsClinic(scope, visit.clinic.id);
+      const payload = normalizeCreateLesionPayload(input, {
+        clinicalBodyAtlasContract: bodyAtlasContract,
+        visitContext: visit,
+      });
+      const safeIdempotencyKey = normalizeIdempotencyKey(idempotencyKey, Boolean(payload.bodyMap));
       const writeResult = await visitWorkspaceWriteRepository.createLesion({
         visitId: safeVisitId,
         patientId: visit.patient.id,
@@ -343,6 +363,8 @@ export function createVisitWorkspaceWriteService({
                 changedFields: changedFields(payload),
                 bodyRegionId: payload.bodyMap.regionId,
                 bodyMapView: payload.bodyMap.view,
+                atlasSource: payload.bodyMap.atlasSource,
+                atlasProfileId: payload.bodyMap.atlasProfileId,
                 placementRevision: 1,
               },
             }
@@ -367,6 +389,8 @@ export function createVisitWorkspaceWriteService({
               ? {
                   bodyRegionId: payload.bodyMap.regionId,
                   bodyMapView: payload.bodyMap.view,
+                  atlasSource: payload.bodyMap.atlasSource,
+                  atlasProfileId: payload.bodyMap.atlasProfileId,
                   placementRevision: lesion.placementRevision,
                 }
               : {}),
@@ -379,7 +403,21 @@ export function createVisitWorkspaceWriteService({
     async updateLesion(lesionId, input, authContext, { correlationId } = {}) {
       const safeLesionId = assertUuid(lesionId, "lesionId");
       const scope = visitWriteScope(authContext);
-      const payload = normalizeUpdateLesionPayload(input);
+      const changesBodyMap = hasOwn(input, "bodyMap");
+      const lesionContext = changesBodyMap
+        ? await visitWorkspaceRepository.getLesionContext({
+            lesionId: safeLesionId,
+            clinicIds: scope.clinicIds,
+            allClinics: scope.allClinics,
+          })
+        : null;
+      if (changesBodyMap && !lesionContext) {
+        throw new VisitWorkspaceNotFoundError("Lesion was not found in the allowed clinic scope.");
+      }
+      const payload = normalizeUpdateLesionPayload(input, {
+        clinicalBodyAtlasContract: bodyAtlasContract,
+        visitContext: lesionContext,
+      });
       const writeResult = await visitWorkspaceWriteRepository.updateLesion({
         lesionId: safeLesionId,
         changes: payload,
@@ -393,6 +431,8 @@ export function createVisitWorkspaceWriteService({
                 changedFields: changedFields(payload),
                 bodyRegionId: payload.bodyMap.regionId,
                 bodyMapView: payload.bodyMap.view,
+                atlasSource: payload.bodyMap.atlasSource,
+                atlasProfileId: payload.bodyMap.atlasProfileId,
                 placementRevision: payload.expectedPlacementRevision + 1,
               },
             }
@@ -413,6 +453,8 @@ export function createVisitWorkspaceWriteService({
             ? {
                 bodyRegionId: payload.bodyMap.regionId,
                 bodyMapView: payload.bodyMap.view,
+                atlasSource: payload.bodyMap.atlasSource,
+                atlasProfileId: payload.bodyMap.atlasProfileId,
                 placementRevision: lesion.placementRevision,
               }
             : {}),

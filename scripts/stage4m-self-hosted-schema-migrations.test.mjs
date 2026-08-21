@@ -44,6 +44,7 @@ const COMPLETE_SCHEMA = {
   publicAnalysisLinksTable: true,
   publicAnalysisLinksRequiredColumns: true,
   lesionBodyMapRequiredColumns: true,
+  lesionBodyAtlasRequiredColumns: true,
   lesionBodyMapIdempotencyIndex: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
@@ -82,6 +83,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /0092_stage6_admin_integrations_bot\.sql/);
   assert.match(out, /0093_stage6_public_analysis_links\.sql/);
   assert.match(out, /0094_stage4l_body_map_persistence\.sql/);
+  assert.match(out, /0095_stage4l_body_atlas_contract\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
   assert.match(out, /patient portal role\/ownership\/write tables/);
@@ -92,6 +94,7 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /bot settings table/);
   assert.match(out, /public analysis links table/);
   assert.match(out, /precise lesion body-map columns\/idempotency index/);
+  assert.match(out, /body-atlas source\/profile\/manifest\/map metadata/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -147,6 +150,8 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[18].input.includes("token_hash"));
   assert.ok(calls[19].input.includes("body_region_detail_id"));
   assert.ok(calls[19].input.includes("lesions_creation_idempotency_idx"));
+  assert.ok(calls[20].input.includes("body_atlas_profile_id"));
+  assert.ok(calls[20].input.includes("body_region_map_sha256"));
   assert.ok(calls.at(-1).args.includes("--command"));
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
@@ -170,6 +175,24 @@ test("Stage 4M schema migration runner fails when verification reports missing a
         },
       ),
     /clinics\.address column/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when body-atlas metadata columns are missing", () => {
+  assert.throws(
+    () => runStage4MSelfHostedSchemaMigrations(
+      { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+      {
+        spawn() {
+          return {
+            status: 0,
+            stdout: JSON.stringify({ ...COMPLETE_SCHEMA, lesionBodyAtlasRequiredColumns: false }),
+            stderr: "",
+          };
+        },
+      },
+    ),
+    /lesions body-atlas metadata columns/,
   );
 });
 

@@ -96,6 +96,10 @@ function lesionColumns(alias = "l") {
     ${alias}.body_map_y::float8 as "bodyMapY",
     ${alias}.body_region_id as "bodyRegionId",
     ${alias}.body_region_detail_id as "bodyRegionDetailId",
+    ${alias}.body_atlas_source as "bodyAtlasSource",
+    ${alias}.body_atlas_profile_id as "bodyAtlasProfileId",
+    ${alias}.body_atlas_manifest_sha256 as "bodyAtlasManifestSha256",
+    ${alias}.body_region_map_sha256 as "bodyRegionMapSha256",
     ${alias}.placement_revision as "placementRevision",
     ${alias}.created_at as "createdAt",
     ${alias}.updated_at as "updatedAt",
@@ -165,6 +169,7 @@ with inserted as (
   insert into lesions (
       clinic_id, patient_id, visit_id, label, body_zone, body_surface, status, risk_level,
       body_map_view, body_map_x, body_map_y, body_region_id, body_region_detail_id,
+      body_atlas_source, body_atlas_profile_id, body_atlas_manifest_sha256, body_region_map_sha256,
       placement_revision, creation_idempotency_key, creation_request_hash
   )
   values (
@@ -181,6 +186,10 @@ with inserted as (
       ${sqlNullableNumber(bodyMap?.y)},
       ${sqlNullableText(bodyMap?.regionId)},
       ${sqlNullableText(bodyMap?.detailId)},
+      ${sqlNullableText(bodyMap?.atlasSource)},
+      ${sqlNullableText(bodyMap?.atlasProfileId)},
+      ${sqlNullableText(bodyMap?.atlasManifestSha256)},
+      ${sqlNullableText(bodyMap?.bodyRegionMapSha256)},
       ${bodyMap ? 1 : 0},
       ${sqlNullableText(idempotencyKey)},
       ${sqlNullableText(requestHash)}
@@ -211,6 +220,10 @@ function lesionUpdateSet(changes = {}) {
     clauses.push(`body_map_y = ${sqlNullableNumber(changes.bodyMap.y)}`);
     clauses.push(`body_region_id = ${sqlNullableText(changes.bodyMap.regionId)}`);
     clauses.push(`body_region_detail_id = ${sqlNullableText(changes.bodyMap.detailId)}`);
+    clauses.push(`body_atlas_source = ${sqlNullableText(changes.bodyMap.atlasSource)}`);
+    clauses.push(`body_atlas_profile_id = ${sqlNullableText(changes.bodyMap.atlasProfileId)}`);
+    clauses.push(`body_atlas_manifest_sha256 = ${sqlNullableText(changes.bodyMap.atlasManifestSha256)}`);
+    clauses.push(`body_region_map_sha256 = ${sqlNullableText(changes.bodyMap.bodyRegionMapSha256)}`);
     clauses.push("placement_revision = l.placement_revision + 1");
   }
   return [...clauses, "updated_at = now()"].join(",\n      ");
@@ -367,6 +380,10 @@ function normalizeLesion(row) {
     riskLevel: row.riskLevel ?? null,
     bodyRegionId: row.bodyRegionId ?? null,
     bodyRegionDetailId: row.bodyRegionDetailId ?? null,
+    bodyAtlasSource: row.bodyAtlasSource ?? null,
+    bodyAtlasProfileId: row.bodyAtlasProfileId ?? null,
+    bodyAtlasManifestSha256: row.bodyAtlasManifestSha256 ?? null,
+    bodyRegionMapSha256: row.bodyRegionMapSha256 ?? null,
     mapPoint: row.bodyMapView == null || row.bodyMapX == null || row.bodyMapY == null
       ? null
       : {

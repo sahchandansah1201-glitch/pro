@@ -162,6 +162,10 @@ describe("self-hosted visit api client", () => {
             riskLevel: "moderate",
             bodyRegionId: "front-right-toes",
             bodyRegionDetailId: "digit-5",
+            bodyAtlasSource: "makehuman-cc0",
+            bodyAtlasProfileId: "adult_female_30",
+            bodyAtlasManifestSha256: "a".repeat(64),
+            bodyRegionMapSha256: "b".repeat(64),
             mapPoint: { view: "front", x: 0.35083, y: 0.99001 },
             placementRevision: 1,
           },
@@ -178,6 +182,8 @@ describe("self-hosted visit api client", () => {
     expect(res.value?.[0]?.riskLevel).toBe("moderate");
     expect(res.value?.[0]?.mapPoint).toEqual({ view: "front", x: 0.35083, y: 0.99001 });
     expect(res.value?.[0]?.bodyRegionDetailId).toBe("digit-5");
+    expect(res.value?.[0]?.bodyAtlasProfileId).toBe("adult_female_30");
+    expect(res.value?.[0]?.bodyRegionMapSha256).toBe("b".repeat(64));
     expect(res.value?.[1]?.riskLevel).toBeNull();
   });
 

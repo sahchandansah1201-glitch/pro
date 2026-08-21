@@ -61,6 +61,10 @@ describe("self-hosted-visit-write-api", () => {
         label: "L2",
         riskLevel: "moderate",
         bodyRegionId: "back-left-calf",
+        bodyAtlasSource: "makehuman-cc0",
+        bodyAtlasProfileId: "adult_female_30",
+        bodyAtlasManifestSha256: "a".repeat(64),
+        bodyRegionMapSha256: "b".repeat(64),
         mapPoint: { view: "back", x: 0.44, y: 0.84 },
         placementRevision: 2,
       } })))
@@ -74,6 +78,8 @@ describe("self-hosted-visit-write-api", () => {
       payload: {
         label: "L1",
         bodyMap: {
+          atlasSource: "makehuman-cc0",
+          atlasProfileId: "adult_female_30",
           view: "front",
           x: 0.35083,
           y: 0.99001,
@@ -90,7 +96,14 @@ describe("self-hosted-visit-write-api", () => {
         label: "L2",
         riskLevel: "moderate",
         expectedPlacementRevision: 1,
-        bodyMap: { view: "back", x: 0.44, y: 0.84, regionId: "back-left-calf" },
+        bodyMap: {
+          atlasSource: "makehuman-cc0",
+          atlasProfileId: "adult_female_30",
+          view: "back",
+          x: 0.44,
+          y: 0.84,
+          regionId: "back-left-calf",
+        },
       },
     });
     const archived = await archiveSelfHostedVisitLesion({
@@ -104,6 +117,8 @@ describe("self-hosted-visit-write-api", () => {
     expect(updated.value?.riskLevel).toBe("moderate");
     expect(updated.value?.mapPoint).toEqual({ view: "back", x: 0.44, y: 0.84 });
     expect(updated.value?.placementRevision).toBe(2);
+    expect(updated.value?.bodyAtlasProfileId).toBe("adult_female_30");
+    expect(updated.value?.bodyRegionMapSha256).toBe("b".repeat(64));
     expect(archived.value?.status).toBe("archived");
     expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url))).toEqual([
       `http://localhost:8080/api/v1/visits/${VISIT_ID}/lesions`,

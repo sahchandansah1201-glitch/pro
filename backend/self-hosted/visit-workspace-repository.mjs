@@ -91,6 +91,35 @@ from (
 `.trim();
 }
 
+export function buildGetLesionContextSql({
+  lesionId,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    l.id::text as "lesionId",
+    v.id::text as "visitId",
+    v.started_at as "startedAt",
+    v.created_at as "createdAt",
+    p.id::text as "patientId",
+    p.birth_date as "patientBirthDate",
+    p.sex as "patientSex",
+    c.id::text as "clinicId"
+  from lesions l
+  join visits v on v.id = l.visit_id
+  join patients p on p.id = l.patient_id
+  join clinics c on c.id = l.clinic_id
+  where l.id = ${sqlUuid(lesionId)}
+    and l.deleted_at is null
+    ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+  limit 1
+) result;
+`.trim();
+}
+
 export function buildListVisitLesionsSql({
   visitId,
   clinicIds = [],
@@ -114,6 +143,10 @@ from (
     l.body_map_y::float8 as "bodyMapY",
     l.body_region_id as "bodyRegionId",
     l.body_region_detail_id as "bodyRegionDetailId",
+    l.body_atlas_source as "bodyAtlasSource",
+    l.body_atlas_profile_id as "bodyAtlasProfileId",
+    l.body_atlas_manifest_sha256 as "bodyAtlasManifestSha256",
+    l.body_region_map_sha256 as "bodyRegionMapSha256",
     l.placement_revision as "placementRevision",
     l.created_at as "createdAt",
     l.updated_at as "updatedAt"
@@ -125,6 +158,21 @@ from (
   limit 500
 ) result;
 `.trim();
+}
+
+function normalizeLesionContext(row) {
+  return {
+    id: row.visitId ? String(row.visitId) : null,
+    startedAt: row.startedAt ?? null,
+    createdAt: row.createdAt ?? null,
+    patient: {
+      id: row.patientId ? String(row.patientId) : null,
+      birthDate: row.patientBirthDate ?? null,
+      sex: row.patientSex ?? null,
+    },
+    clinic: { id: row.clinicId ? String(row.clinicId) : null },
+    lesionId: row.lesionId ? String(row.lesionId) : null,
+  };
 }
 
 export function buildListVisitAssetsSql({
@@ -206,6 +254,10 @@ function normalizeLesion(row) {
     riskLevel: row.riskLevel ?? null,
     bodyRegionId: row.bodyRegionId ?? null,
     bodyRegionDetailId: row.bodyRegionDetailId ?? null,
+    bodyAtlasSource: row.bodyAtlasSource ?? null,
+    bodyAtlasProfileId: row.bodyAtlasProfileId ?? null,
+    bodyAtlasManifestSha256: row.bodyAtlasManifestSha256 ?? null,
+    bodyRegionMapSha256: row.bodyRegionMapSha256 ?? null,
     mapPoint: row.bodyMapView == null || row.bodyMapX == null || row.bodyMapY == null
       ? null
       : {
@@ -245,6 +297,10 @@ export function createVisitWorkspaceRepository(dbClient) {
     async getVisit(params) {
       const rows = await dbClient.queryJson(buildGetVisitSql(params));
       return Array.isArray(rows) && rows[0] ? normalizeVisitDetail(rows[0]) : null;
+    },
+    async getLesionContext(params) {
+      const rows = await dbClient.queryJson(buildGetLesionContextSql(params));
+      return Array.isArray(rows) && rows[0] ? normalizeLesionContext(rows[0]) : null;
     },
     async listVisitLesions(params) {
       const rows = await dbClient.queryJson(buildListVisitLesionsSql(params));

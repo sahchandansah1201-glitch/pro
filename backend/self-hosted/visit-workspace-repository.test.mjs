@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildListVisitsByPatientSql,
+  buildGetLesionContextSql,
   buildGetVisitSql,
   buildListVisitLesionsSql,
   buildListVisitAssetsSql,
@@ -53,8 +54,21 @@ test("buildListVisitLesionsSql filters by visit id", () => {
   assert.doesNotMatch(sql, /and l\.clinic_id in/);
   assert.match(sql, /l\.body_region_id as "bodyRegionId"/);
   assert.match(sql, /l\.body_map_x::float8 as "bodyMapX"/);
+  assert.match(sql, /l\.body_atlas_source as "bodyAtlasSource"/);
+  assert.match(sql, /l\.body_region_map_sha256 as "bodyRegionMapSha256"/);
   assert.match(sql, /and l\.deleted_at is null/);
   assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."createdAt" asc\)/);
+});
+
+test("buildGetLesionContextSql derives the scoped patient profile at visit time", () => {
+  const sql = buildGetLesionContextSql({ lesionId: "10000000-0000-4000-8000-000000000401", clinicIds: [CLINIC_ID] });
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /join visits v on v\.id = l\.visit_id/);
+  assert.match(sql, /join patients p on p\.id = l\.patient_id/);
+  assert.match(sql, /p\.birth_date as "patientBirthDate"/);
+  assert.match(sql, /p\.sex as "patientSex"/);
+  assert.match(sql, /v\.started_at as "startedAt"/);
+  assert.match(sql, /and l\.clinic_id in/);
 });
 
 test("buildListVisitAssetsSql exposes only metadata, never object paths", () => {
@@ -133,6 +147,10 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
             bodyMapY: 0.99001,
             bodyRegionId: "front-right-toes",
             bodyRegionDetailId: "digit-5",
+            bodyAtlasSource: "makehuman-cc0",
+            bodyAtlasProfileId: "adult_female_30",
+            bodyAtlasManifestSha256: "a".repeat(64),
+            bodyRegionMapSha256: "b".repeat(64),
             placementRevision: 1,
             createdAt: "2026-05-12T09:00:00.000Z",
             updatedAt: "2026-05-12T09:00:00.000Z",
@@ -177,6 +195,10 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
   assert.equal(lesions[0].riskLevel, "moderate");
   assert.deepEqual(lesions[0].mapPoint, { view: "front", x: 0.35083, y: 0.99001 });
   assert.equal(lesions[0].bodyRegionDetailId, "digit-5");
+  assert.equal(lesions[0].bodyAtlasSource, "makehuman-cc0");
+  assert.equal(lesions[0].bodyAtlasProfileId, "adult_female_30");
+  assert.equal(lesions[0].bodyAtlasManifestSha256, "a".repeat(64));
+  assert.equal(lesions[0].bodyRegionMapSha256, "b".repeat(64));
 
   const assets = await repo.listVisitAssets({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.equal(assets[0].kind, "dermoscopy");

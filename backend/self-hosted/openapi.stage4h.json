@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dermatolog Pro Self-hosted API",
-    "version": "4L-Q3-body-map-persistence",
-    "summary": "Self-hosted visit writes with precise body-map persistence",
-    "description": "RBAC-protected doctor visit writes. Body-map lesion creation stores a registered region, projection and relative coordinates; it requires Idempotency-Key. Placement correction uses expectedPlacementRevision. Archive remains a soft delete. Only system_admin and doctor roles may write."
+    "version": "4L-Q4-body-atlas-geometry",
+    "summary": "Self-hosted visit writes with versioned body-atlas geometry validation",
+    "description": "RBAC-protected doctor visit writes. Body-map lesion creation stores a registered region, projection, relative coordinates and server-derived atlas hashes; it requires Idempotency-Key. The backend derives the patient profile at visit time and rejects source/profile/point mismatches. Placement correction uses expectedPlacementRevision. Archive remains a soft delete. Only system_admin and doctor roles may write."
   },
   "servers": [{ "url": "http://localhost:8080", "description": "Self-hosted reverse proxy" }],
   "security": [{ "bearerAuth": [] }],
@@ -162,8 +162,10 @@
       },
       "BodyMapPlacementRequest": {
         "type": "object",
-        "required": ["view", "x", "y", "regionId"],
+        "required": ["atlasSource", "atlasProfileId", "view", "x", "y", "regionId"],
         "properties": {
+          "atlasSource": { "type": "string", "enum": ["makehuman-cc0", "daz-hires-local"], "description": "Client atlas package; must match the backend-configured pinned package." },
+          "atlasProfileId": { "type": "string", "description": "Stable age/sex profile id derived from the patient and visit reference time." },
           "view": { "type": "string", "enum": ["front", "back", "left", "right", "scalp"] },
           "x": { "type": "number", "minimum": 0, "maximum": 1 },
           "y": { "type": "number", "minimum": 0, "maximum": 1 },

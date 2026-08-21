@@ -7,7 +7,7 @@ import { collectStage4HChecks } from "./check-stage4h-self-hosted-visit-workspac
 test("Stage 4H visit workspace write guard passes in the repository", () => {
   const result = collectStage4HChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 17);
+  assert.equal(result.checkedFiles, 19);
 });
 
 test("Stage 4H visit workspace write guard CLI exits zero", () => {

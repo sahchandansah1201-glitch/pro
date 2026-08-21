@@ -36,6 +36,7 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0092_stage6_admin_integrations_bot.sql",
   "backend/self-hosted/db/migrations/0093_stage6_public_analysis_links.sql",
   "backend/self-hosted/db/migrations/0094_stage4l_body_map_persistence.sql",
+  "backend/self-hosted/db/migrations/0095_stage4l_body_atlas_contract.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -355,6 +356,18 @@ select json_build_object(
       and tablename = 'lesions'
       and indexname = 'lesions_creation_idempotency_idx'
   ),
+  'lesionBodyAtlasRequiredColumns', (
+    select count(*) = 4
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'lesions'
+      and column_name in (
+        'body_atlas_source',
+        'body_atlas_profile_id',
+        'body_atlas_manifest_sha256',
+        'body_region_map_sha256'
+      )
+  ),
   'clinicalFollowUpTasksTable', exists (
     select 1
     from information_schema.tables
@@ -504,7 +517,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, patient portal role/ownership/write tables, clinical follow-up communication tables, precise lesion body-map columns/idempotency index, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, patient portal role/ownership/write tables, clinical follow-up communication tables, precise lesion body-map columns/idempotency index, body-atlas source/profile/manifest/map metadata, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -587,6 +600,7 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.publicAnalysisLinksRequiredColumns !== true) missing.push("public_analysis_links columns");
   if (verification.lesionBodyMapRequiredColumns !== true) missing.push("lesions body-map columns");
   if (verification.lesionBodyMapIdempotencyIndex !== true) missing.push("lesions body-map idempotency index");
+  if (verification.lesionBodyAtlasRequiredColumns !== true) missing.push("lesions body-atlas metadata columns");
   if (verification.clinicalFollowUpTasksTable !== true) missing.push("clinical_follow_up_tasks table");
   if (verification.clinicalFollowUpTasksRequiredColumns !== true) missing.push("clinical_follow_up_tasks columns");
   if (verification.clinicalFollowUpMessagesTable !== true) missing.push("clinical_follow_up_messages table");

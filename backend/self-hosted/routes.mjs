@@ -458,7 +458,7 @@ function getRuntime(config, runtime = {}) {
       visitWorkspaceRepository,
       visitWorkspaceWriteRepository,
       auditRepository,
-    });
+    }, config);
   const clinicalWorkspaceRepository =
     runtime.clinicalWorkspaceRepository || createClinicalWorkspaceRepository(dbClient);
   const clinicalWorkspaceService =
@@ -1698,7 +1698,7 @@ export async function handleSelfHostedRequest(
       return jsonResponse(
         result.replayed ? 200 : 201,
         {
-          stage: result.lesion?.mapPoint ? "4L-Q3" : "4H",
+          stage: result.lesion?.mapPoint ? "4L-Q4" : "4H",
           source: "postgres", replayed: result.replayed,
           item: result.lesion,
           auth: {
