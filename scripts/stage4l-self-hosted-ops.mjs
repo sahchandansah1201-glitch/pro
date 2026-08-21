@@ -39,10 +39,6 @@ const REQUIRED_ENV_KEYS = [
 
 const PLACEHOLDER_PATTERN = /(change-me|replace-me|example|local_password|password_here|secret_here)/i;
 
-function npmCmd() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
-}
-
 function timestamp() {
   return new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
 }
@@ -425,7 +421,7 @@ export function buildRestorePlan(options = {}) {
       {
         label: "Start PostgreSQL to initialize schema",
         cmd: "docker",
-        args: dockerComposeArgs(config.composeFiles || config.composeFile, config.projectName, ["up", "-d", "postgres"], config.composeEnvFile),
+        args: dockerComposeArgs(config.composeFiles || config.composeFile, config.projectName, ["up", "-d", "--wait", "postgres"], config.composeEnvFile),
       },
       {
         label: "Restore PostgreSQL dump",
@@ -484,9 +480,9 @@ export function buildRestorePlan(options = {}) {
         args: dockerComposeArgs(config.composeFiles || config.composeFile, config.projectName, ["up", "-d", "--build"], config.composeEnvFile),
       },
       {
-        label: "Run post-restore Stage 4K smoke",
-        cmd: npmCmd(),
-        args: ["run", "smoke:stage4k", "--", "--skip-build"],
+        label: "Verify restored application without mutating it",
+        cmd: "verify-restored-app",
+        args: [],
       },
     ],
   };
@@ -824,8 +820,21 @@ export function runRestore(options = {}, io = {}) {
     if (!existsSync(file)) throw new Error(`Missing backup file: ${file}`);
   }
   const backupSet = verifyBackupSetSeal(plan);
-  for (const step of plan.steps) runStep(step, io);
-  return { ok: true, dryRun: false, plan, backupSet };
+  if (typeof io.verifyRestoredApp !== "function") {
+    throw new Error("a restored-application verifier is required before restore execution.");
+  }
+  let restoredApplication;
+  for (const step of plan.steps) {
+    if (step.cmd === "verify-restored-app") {
+      restoredApplication = io.verifyRestoredApp({ plan, backupSet });
+      if (restoredApplication?.ok !== true) {
+        throw new Error("restored-application verification did not pass.");
+      }
+      continue;
+    }
+    runStep(step, io);
+  }
+  return { ok: true, dryRun: false, plan, backupSet, restoredApplication };
 }
 
 export function runVerifyEnv(options = {}) {

@@ -229,7 +229,8 @@ test("Stage 4L restore plan is explicit, destructive, and requires confirmation 
   );
   assert.match(out, /minio-object-storage\.tgz/);
   assert.match(out, /pg_restore/);
-  assert.match(out, /smoke:stage4k/);
+  assert.match(out, /verify-restored-app/);
+  assert.doesNotMatch(out, /smoke:stage4k/);
   assert.throws(
     () => runRestore({ command: "restore", backupDir: "backups/self-hosted/test-run" }),
     /requires --confirm=RESTORE_SELF_HOSTED_DATA/,
@@ -721,6 +722,37 @@ test("Stage 4L restore rejects an unsealed manifest v2 before any destructive co
   }
 });
 
+test("Stage 4L restore fails closed without a restored-application verifier", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-restore-verifier-required-"));
+  try {
+    for (const name of ["postgres.dump", "object-storage.tgz", "minio-object-storage.tgz", "SHA256SUMS"]) {
+      writeFileSync(join(root, name), name);
+    }
+    writeFileSync(join(root, "stage4l-backup-manifest.json"), "{}");
+    const calls = [];
+    assert.throws(
+      () => runRestore(
+        {
+          command: "restore",
+          backupDir: root,
+          projectName: "demo-project",
+          confirm: "RESTORE_SELF_HOSTED_DATA",
+        },
+        {
+          spawn(cmd, args) {
+            calls.push(`${cmd} ${args.join(" ")}`);
+            return { status: 0, stdout: "", stderr: "" };
+          },
+        },
+      ),
+      /restored-application verifier is required/i,
+    );
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("Stage 4L restore accepts a matching v2 seal and still verifies checksums before Docker", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4l-sealed-restore-"));
   try {
@@ -751,6 +783,9 @@ test("Stage 4L restore accepts a matching v2 seal and still verifies checksums b
           confirm: "RESTORE_SELF_HOSTED_DATA",
         },
         {
+          verifyRestoredApp() {
+            return { ok: true };
+          },
           spawn(cmd, args) {
             calls.push(`${cmd} ${args.join(" ")}`);
             return { status: 1, stdout: "", stderr: "checksum mismatch" };
@@ -787,6 +822,9 @@ test("Stage 4L restore verifies checksums before stopping the stack", () => {
           confirm: "RESTORE_SELF_HOSTED_DATA",
         },
         {
+          verifyRestoredApp() {
+            return { ok: true };
+          },
           spawn(cmd, args) {
             calls.push(`${cmd} ${args.join(" ")}`);
             if (cmd === "sha256sum") {

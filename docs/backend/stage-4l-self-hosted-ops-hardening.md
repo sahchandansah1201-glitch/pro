@@ -179,7 +179,58 @@ The restore plan:
 7. Restores `object-storage.tgz` into the backend-owned object-storage volume.
 8. Restores `minio-object-storage.tgz` into the MinIO data volume.
 9. Starts the full stack.
-10. Runs the Stage 4K smoke as a post-restore verification.
+10. Requires an injected restored-application verifier and fails closed if it
+    is missing. The verifier must target this restore Compose project; the
+    generic Stage 4K smoke is not accepted because its defaults can address a
+    different project.
+
+## Q2 disposable synthetic gate
+
+Q2 is a local-only, disposable proof of the concrete Q1 adapter. Its default is
+a mutation-free dry run:
+
+```bash
+npm run ops:stage4l:q2:dry-run
+```
+
+Live execution requires both an explicit `--execute` flag and a unique
+`skindoctor-q2-*` gate id. It accepts only the fixed Stage 4A Compose file and
+four unique loopback ports. Production-like ids, the production server address,
+the approved production backup id, pre-existing disposable resources, dirty Git
+state, or ports already in use all fail before stack creation.
+
+The acceptance contract is:
+
+1. Start a source Compose project with synthetic seed data only.
+2. Run a concurrent synthetic upload writer in a separate process.
+3. Prove a successful write before quiescence, a rejected write fully inside
+   the quiescence fence, and a successful write after resume.
+4. Prove that PostgreSQL contains zero clinical-asset rows created inside the
+   fence.
+5. Reconcile database metadata, payloads, sidecars, checksums, and byte sizes
+   with all five defect counters at zero.
+6. Restore into a different disposable Compose project from a sealed backup.
+7. Perform read-only verification of the restored application through its own
+   loopback route: `healthz`, `readyz`, authenticated download, and exact seed
+   SHA-256.
+8. Match the reconciled source and restored database asset counts.
+9. Remove both exact Compose projects, their volumes, networks and local images,
+   plus the exact backup directory, then prove zero Q2 residue and no drift in
+   protected non-Q2 Docker resources.
+
+The live form is intentionally not exposed as a no-argument package script:
+
+```bash
+node scripts/stage4l-q2-disposable.mjs \
+  --execute \
+  --gate-id=skindoctor-q2-<unique-id> \
+  --source-port=<unused-loopback-port> \
+  --source-minio-port=<unused-loopback-port> \
+  --restore-port=<unused-loopback-port> \
+  --restore-minio-port=<unused-loopback-port>
+```
+
+Q2 does not target, inspect, stop, restore, or otherwise mutate production.
 
 ## CI and local preflight
 
@@ -199,4 +250,4 @@ Stage 4L remains self-hosted only:
 - No Supabase runtime coupling.
 - No `api-read`, `api-write`, edge function, or `SUPABASE_*` dependency.
 - Backups are created from local Docker volumes and PostgreSQL.
-- Restore verification uses the existing Stage 4K self-hosted smoke.
+- Restore execution requires a target-bound, read-only application verifier.
