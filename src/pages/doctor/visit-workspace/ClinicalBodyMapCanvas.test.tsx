@@ -63,4 +63,50 @@ describe("ClinicalBodyMapCanvas", () => {
       }),
     );
   });
+
+  it("keeps native-resolution coordinate precision and marker size while zoomed", () => {
+    const onPlace = vi.fn();
+    render(
+      <ClinicalBodyMapCanvas
+        profile={profile}
+        view="front"
+        points={[]}
+        demoPoints={[{
+          id: "local-lesion-1",
+          num: 1,
+          x: 0.12345,
+          y: 0.23456,
+          selected: false,
+          label: "Учебный очаг",
+          onSelect: vi.fn(),
+        }]}
+        pending={null}
+        zoom={8}
+        onPlace={onPlace}
+      />,
+    );
+
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
+    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 2400, bottom: 4000, width: 2400, height: 4000, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+
+    fireEvent.click(screen.getByTestId("region-front-right-thigh"), {
+      clientX: 842.184,
+      clientY: 2641.96,
+    });
+    expect(onPlace).toHaveBeenCalledWith(expect.objectContaining({
+      x: 0.35083,
+      y: 0.66025,
+    }));
+    expect(document.querySelector('[data-local-marker-id="local-lesion-1"]')).toHaveAttribute(
+      "transform",
+      "translate(29.628 93.824) scale(0.125) translate(-29.628 -93.824)",
+    );
+    fireEvent.pointerEnter(screen.getByTestId("region-front-right-thigh"));
+    expect(screen.getByTestId("region-front-right-thigh")).toHaveAttribute(
+      "fill-opacity",
+      "0.001",
+    );
+    expect(screen.getByText(/На увеличении контур области скрыт/)).toBeInTheDocument();
+  });
 });

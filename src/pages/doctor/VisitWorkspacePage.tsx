@@ -26,7 +26,11 @@ import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanne
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
-import { currentClinicalBodyAtlasIso } from "@/lib/clinical-body-atlas";
+import {
+  clinicalBodyAtlasSource,
+  currentClinicalBodyAtlasIso,
+} from "@/lib/clinical-body-atlas";
+import { clinicalBodyRegionDetailOptions } from "@/lib/clinical-body-regions";
 import {
   TimelineQaGroupHeader,
   TimelineQaGroupNav,
@@ -4426,6 +4430,20 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 
 type View = BodyMapPoint["view"];
 
+const BODY_MAP_STANDARD_ZOOM_LEVELS = [0.6, 0.8, 1, 1.5, 2] as const;
+const BODY_MAP_HIRES_ZOOM_LEVELS = [0.6, 0.8, 1, 1.5, 2, 3, 4, 6, 8] as const;
+
+function bodyMapZoomLevels() {
+  return clinicalBodyAtlasSource() === "daz-hires-local"
+    ? BODY_MAP_HIRES_ZOOM_LEVELS
+    : BODY_MAP_STANDARD_ZOOM_LEVELS;
+}
+
+function bodyMapStepZoom(current: number, direction: -1 | 1, levels: readonly number[]) {
+  if (direction > 0) return levels.find((level) => level > current) ?? levels.at(-1) ?? current;
+  return [...levels].reverse().find((level) => level < current) ?? levels[0] ?? current;
+}
+
 interface PendingPoint {
   view: View;
   x: number;
@@ -4469,6 +4487,10 @@ function BodyMapTab({
     productionMode ? currentClinicalBodyAtlasIso() : BODY_MAP_DEMO_NOW,
   );
   const profileLabel = bodyMapProfileLabel(profile);
+  const atlasSource = clinicalBodyAtlasSource();
+  const zoomLevels = bodyMapZoomLevels();
+  const minZoom = zoomLevels[0];
+  const maxZoom = zoomLevels[zoomLevels.length - 1];
 
   const placedLesions = useMemo(() => {
     return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
@@ -4488,6 +4510,7 @@ function BodyMapTab({
   const [draftStatus, setDraftStatus] = useState<Lesion["status"]>("active");
   const [draftNote, setDraftNote] = useState("");
   const [zoneDraft, setZoneDraft] = useState("");
+  const [anatomyDetailDraft, setAnatomyDetailDraft] = useState("");
   const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
   const [productionPlacementNotice, setProductionPlacementNotice] = useState("");
 
@@ -4549,6 +4572,7 @@ function BodyMapTab({
       zone: np.regionLabel,
     });
     setZoneDraft(np.regionLabel);
+    setAnatomyDetailDraft("");
     setDraftLabel("Новый очаг");
     setDraftStatus("active");
     setDraftNote("");
@@ -4557,6 +4581,7 @@ function BodyMapTab({
   const cancelPending = () => {
     setPending(null);
     setDraftNote("");
+    setAnatomyDetailDraft("");
   };
 
   const addLocalDraft = () => {
@@ -4576,9 +4601,16 @@ function BodyMapTab({
     setSelected(id);
     setPending(null);
     setDraftNote("");
+    setAnatomyDetailDraft("");
   };
 
   const localDraftsForView = localDrafts.filter((d) => d.mapPoint.view === view);
+  const anatomyDetailOptions = pending
+    ? clinicalBodyRegionDetailOptions(pending.regionId)
+    : [];
+  const anatomyDetailLabel = pending?.regionId.endsWith("-toes")
+    ? "Уточнить палец стопы"
+    : "Уточнить палец кисти";
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12">
@@ -4607,13 +4639,32 @@ function BodyMapTab({
               </button>
             ))}
           </div>
-          <div className="text-[11px] text-muted-foreground">Профиль карты: {profileLabel}</div>
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
+          <div className="text-[11px] text-muted-foreground">
+            <div>Профиль карты: {profileLabel}</div>
+            <div>
+              Исходник {atlasSource === "daz-hires-local" ? "2880×4320" : "720×1200"} · без апскейла до {Math.round(maxZoom * 100)}%
+            </div>
+          </div>
+          <div className="flex items-center gap-1" role="group" aria-label="Масштаб карты тела">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-11 w-11 p-0"
+              onClick={() => setZoom((current) => bodyMapStepZoom(current, -1, zoomLevels))}
+              aria-label="Уменьшить карту тела"
+              disabled={zoom <= minZoom}
+            >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
-            <span className="w-10 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(2)))} aria-label="Увеличить">
+            <span className="w-12 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-11 w-11 p-0"
+              onClick={() => setZoom((current) => bodyMapStepZoom(current, 1, zoomLevels))}
+              aria-label="Увеличить карту тела"
+              disabled={zoom >= maxZoom}
+            >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
             <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
@@ -4633,7 +4684,7 @@ function BodyMapTab({
           </span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
-          <div className="mx-auto" style={{ width: `${320 * zoom}px` }}>
+          <div data-testid="body-map-zoom-surface" className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <ClinicalBodyMapCanvas
               profile={profile}
               view={view}
@@ -4647,6 +4698,7 @@ function BodyMapTab({
                 label: p.lesion.label,
               }))}
               pending={pending && pending.view === view ? { x: pending.x, y: pending.y } : null}
+              zoom={zoom}
               demoPoints={localDraftsForView.map((d, i) => ({
                 id: d.id,
                 num: i + 1,
@@ -4796,11 +4848,38 @@ function BodyMapTab({
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
               <Stat term="Позиция" value={formatBodyMapPosition(pending)} />
             </dl>
+            {anatomyDetailOptions.length > 0 && (
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                {anatomyDetailLabel}
+                <select
+                  aria-label={anatomyDetailLabel}
+                  value={anatomyDetailDraft}
+                  onChange={(event) => {
+                    const detailId = event.target.value;
+                    const detail = anatomyDetailOptions.find((option) => option.id === detailId);
+                    setAnatomyDetailDraft(detailId);
+                    setZoneDraft(detail?.label ?? pending.zone);
+                  }}
+                  className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-[12px] text-foreground"
+                >
+                  <option value="">Не уточнять</option>
+                  {anatomyDetailOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+                <span className="mt-1 block">
+                  Система не определяет конкретный палец автоматически — уточнение подтверждает врач.
+                </span>
+              </label>
+            )}
             <label className="mt-2 block text-[11px] text-muted-foreground">
               Анатомическая область
               <Input
                 value={zoneDraft}
-                onChange={(e) => setZoneDraft(e.target.value)}
+                onChange={(e) => {
+                  setZoneDraft(e.target.value);
+                  setAnatomyDetailDraft("");
+                }}
                 className="mt-1 min-h-11 text-[12px]"
               />
             </label>

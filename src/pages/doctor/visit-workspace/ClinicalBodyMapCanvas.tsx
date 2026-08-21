@@ -42,6 +42,7 @@ interface ClinicalBodyMapCanvasProps {
   points: BodyMapCanvasPoint[];
   pending: { x: number; y: number } | null;
   demoPoints: BodyMapCanvasPoint[];
+  zoom?: number;
   onPlace: (placement: ClinicalBodyRegionPlacement) => void;
 }
 
@@ -66,6 +67,7 @@ export function ClinicalBodyMapCanvas({
   points,
   pending,
   demoPoints,
+  zoom = 1,
   onPlace,
 }: ClinicalBodyMapCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -85,8 +87,8 @@ export function ClinicalBodyMapCanvas({
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
     onPlace({
       view,
-      x: +x.toFixed(3),
-      y: +y.toFixed(3),
+      x: +x.toFixed(5),
+      y: +y.toFixed(5),
       regionId: region.id,
       regionLabel: region.label,
     });
@@ -124,7 +126,7 @@ export function ClinicalBodyMapCanvas({
               "data-region-id": region.id,
               "data-region-label": region.label,
               fill: "hsl(var(--primary))",
-              fillOpacity: hoveredRegion?.id === region.id ? 0.16 : 0.001,
+              fillOpacity: hoveredRegion?.id === region.id && zoom <= 2 ? 0.16 : 0.001,
               pointerEvents: "all" as const,
               onPointerEnter: () => setHoveredRegion(region),
               onClick: (event: React.MouseEvent<SVGElement>) => placeAtPointer(region, event),
@@ -140,7 +142,7 @@ export function ClinicalBodyMapCanvas({
           })}
         </g>
 
-        <g pointerEvents="none">
+        <g pointerEvents="none" transform={`scale(${1 / zoom})`}>
           <rect
             x={4}
             y={4}
@@ -167,6 +169,8 @@ export function ClinicalBodyMapCanvas({
         {demoPoints.map((point) => (
           <g
             key={`demo-${point.id}`}
+            data-local-marker-id={point.id}
+            transform={`translate(${point.x * CLINICAL_BODY_ATLAS_WIDTH} ${point.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-point.x * CLINICAL_BODY_ATLAS_WIDTH} ${-point.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
             onClick={(event) => { event.stopPropagation(); point.onSelect(); }}
             style={{ cursor: "pointer" }}
           >
@@ -198,6 +202,7 @@ export function ClinicalBodyMapCanvas({
           <g
             key={point.id}
             data-marker-id={point.id}
+            transform={`translate(${point.x * CLINICAL_BODY_ATLAS_WIDTH} ${point.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-point.x * CLINICAL_BODY_ATLAS_WIDTH} ${-point.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
             onClick={(event) => { event.stopPropagation(); point.onSelect(); }}
             style={{ cursor: "pointer" }}
           >
@@ -224,7 +229,10 @@ export function ClinicalBodyMapCanvas({
         ))}
 
         {pending && (
-          <g pointerEvents="none">
+          <g
+            pointerEvents="none"
+            transform={`translate(${pending.x * CLINICAL_BODY_ATLAS_WIDTH} ${pending.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-pending.x * CLINICAL_BODY_ATLAS_WIDTH} ${-pending.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
+          >
             <circle
               cx={pending.x * CLINICAL_BODY_ATLAS_WIDTH}
               cy={pending.y * CLINICAL_BODY_ATLAS_HEIGHT}
@@ -272,6 +280,7 @@ export function ClinicalBodyMapCanvas({
         </select>
       </label>
       <p className="text-[11px] text-muted-foreground">
+        {zoom > 2 && "На увеличении контур области скрыт, чтобы не перекрывать точное место метки. "}
         Названия областей — технический анатомический справочник. Врачебная проверка границ ещё не выполнена.
       </p>
     </div>

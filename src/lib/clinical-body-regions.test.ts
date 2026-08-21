@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLINICAL_BODY_REGIONS,
   clinicalBodyRegionById,
+  clinicalBodyRegionDetailOptions,
   clinicalBodyRegionsForView,
   type ClinicalBodyRegion,
 } from "@/lib/clinical-body-regions";
@@ -57,5 +58,17 @@ describe("clinical body region vocabulary", () => {
     assertView("left");
     assertView("right");
     assertView("scalp");
+  });
+
+  it("offers doctor-confirmed labels for individual fingers and toes", () => {
+    expect(clinicalBodyRegionDetailOptions("front-right-toes")).toContainEqual({
+      id: "digit-5",
+      label: "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
+    });
+    expect(clinicalBodyRegionDetailOptions("front-left-fingers")).toContainEqual({
+      id: "digit-2",
+      label: "Ладонная поверхность 2-го пальца (указательного) левой кисти",
+    });
+    expect(clinicalBodyRegionDetailOptions("front-right-palm")).toEqual([]);
   });
 });

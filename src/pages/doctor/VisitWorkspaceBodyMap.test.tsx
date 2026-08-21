@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import VisitWorkspacePage from "./VisitWorkspacePage";
@@ -24,6 +24,10 @@ const renderAt = (path: string) =>
       </Routes>
     </MemoryRouter>,
   );
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function openBodyMap() {
   const tab = screen.getByRole("tab", { name: /карта тела/i });
@@ -99,5 +103,65 @@ describe("VisitWorkspacePage · Карта тела", () => {
     openBodyMap();
     for (const token of FORBIDDEN) expect(container.innerHTML).not.toContain(token);
     expect(container.innerHTML.toLowerCase()).not.toContain("placeholder");
+  });
+
+  it("lets a doctor inspect a high-resolution model at native-safe 800%", () => {
+    vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+
+    const zoomIn = screen.getByRole("button", { name: "Увеличить карту тела" });
+    for (let step = 0; step < 6; step += 1) fireEvent.click(zoomIn);
+
+    expect(screen.getByText("800%", { selector: "span" })).toBeInTheDocument();
+    expect(zoomIn).toBeDisabled();
+    expect(screen.getByText(/Исходник 2880×4320/)).toBeInTheDocument();
+    expect(screen.getByTestId("body-map-zoom-surface")).toHaveStyle({ width: "2560px" });
+  });
+
+  it("lets the doctor refine a toe placement to the right little toe", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
+    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 240, bottom: 400, width: 240, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    fireEvent.click(screen.getByTestId("region-front-right-toes"), {
+      clientX: 88,
+      clientY: 314,
+    });
+
+    fireEvent.change(screen.getByLabelText("Уточнить палец стопы"), {
+      target: { value: "digit-5" },
+    });
+    expect(screen.getByLabelText("Анатомическая область")).toHaveValue(
+      "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    expect(document.querySelector('[data-body-region-id="front-right-toes"]')).toHaveTextContent(
+      "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
+    );
+  });
+
+  it("stores two coordinate-distinct local lesions on the same hand", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
+    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 240, bottom: 400, width: 240, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    const palm = screen.getByTestId("region-front-right-palm");
+
+    fireEvent.click(palm, { clientX: 19.2, clientY: 186.4 });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(palm, { clientX: 21.6, clientY: 190.8 });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+
+    expect(screen.getByText("Локальные учебные очаги (2)")).toBeInTheDocument();
+    const first = document.querySelector('[data-local-marker-id="local-lesion-1"]');
+    const second = document.querySelector('[data-local-marker-id="local-lesion-2"]');
+    expect(first).toBeInTheDocument();
+    expect(second).toBeInTheDocument();
+    expect(first?.getAttribute("transform")).not.toBe(second?.getAttribute("transform"));
   });
 });

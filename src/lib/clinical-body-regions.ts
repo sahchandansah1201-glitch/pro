@@ -20,6 +20,11 @@ export interface ClinicalBodyRegion {
   terminologyStatus: "technical_review_required";
 }
 
+export interface ClinicalBodyRegionDetailOption {
+  id: `digit-${1 | 2 | 3 | 4 | 5}`;
+  label: string;
+}
+
 type RegionSeed = Omit<
   ClinicalBodyRegion,
   "code" | "terminologySource" | "terminologyStatus"
@@ -167,4 +172,51 @@ export function clinicalBodyRegionById(id: string): ClinicalBodyRegion | null {
 
 export function clinicalBodyRegionsForView(view: ClinicalBodyView): ClinicalBodyRegion[] {
   return CLINICAL_BODY_REGIONS.filter((region) => region.view === view);
+}
+
+const HAND_DIGITS = [
+  [1, "большого"],
+  [2, "указательного"],
+  [3, "среднего"],
+  [4, "безымянного"],
+  [5, "мизинца"],
+] as const;
+
+const FOOT_DIGITS = [
+  [1, "большого"],
+  [2, null],
+  [3, null],
+  [4, null],
+  [5, "мизинца"],
+] as const;
+
+export function clinicalBodyRegionDetailOptions(
+  regionId: string,
+): ClinicalBodyRegionDetailOption[] {
+  const region = clinicalBodyRegionById(regionId);
+  if (!region) return [];
+
+  const side = region.side === "left" ? "левой" : region.side === "right" ? "правой" : null;
+  if (!side) return [];
+
+  if (regionId.endsWith("-fingers")) {
+    const surface = region.view === "front"
+      ? "Ладонная"
+      : region.view === "back"
+        ? "Тыльная"
+        : "Боковая";
+    return HAND_DIGITS.map(([number, commonName]) => ({
+      id: `digit-${number}`,
+      label: `${surface} поверхность ${number}-го пальца (${commonName}) ${side} кисти`,
+    }));
+  }
+
+  if (regionId.startsWith("front-") && regionId.endsWith("-toes")) {
+    return FOOT_DIGITS.map(([number, commonName]) => ({
+      id: `digit-${number}`,
+      label: `Тыльная поверхность ${number}-го пальца${commonName ? ` (${commonName})` : ""} ${side} стопы`,
+    }));
+  }
+
+  return [];
 }
