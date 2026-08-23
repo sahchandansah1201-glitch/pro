@@ -7,6 +7,7 @@ import {
   clinicalBodyRegionsForView,
   type ClinicalBodyRegion,
 } from "@/lib/clinical-body-regions";
+import atlasManifest from "../../public/clinical-body-atlas-regions/manifest.json";
 
 describe("clinical body region vocabulary", () => {
   it("has stable unique ids and single-channel mask codes", () => {
@@ -43,6 +44,37 @@ describe("clinical body region vocabulary", () => {
     );
     expect(clinicalBodyRegionById("back-right-calf")?.label).toBe(
       "Задняя поверхность правой голени",
+    );
+  });
+
+  it("uses the correct Russian genitive case in lateral region labels", () => {
+    const expected = {
+      "left-upper-arm": "Боковая поверхность левого плеча",
+      "left-elbow": "Боковая область левого локтя",
+      "left-forearm": "Боковая поверхность левого предплечья",
+      "left-wrist": "Боковая область левого запястья",
+      "left-thigh": "Боковая поверхность левого бедра",
+      "left-knee": "Боковая область левого колена",
+      "left-ankle": "Боковая область левого голеностопного сустава",
+      "right-upper-arm": "Боковая поверхность правого плеча",
+      "right-elbow": "Боковая область правого локтя",
+      "right-forearm": "Боковая поверхность правого предплечья",
+      "right-wrist": "Боковая область правого запястья",
+      "right-thigh": "Боковая поверхность правого бедра",
+      "right-knee": "Боковая область правого колена",
+      "right-ankle": "Боковая область правого голеностопного сустава",
+    } as const;
+
+    for (const [regionId, label] of Object.entries(expected)) {
+      expect(clinicalBodyRegionById(regionId)?.label).toBe(label);
+    }
+  });
+
+  it("keeps the distributed atlas manifest vocabulary synchronized", () => {
+    expect(
+      atlasManifest.regions.map(({ id, label }) => ({ id, label })),
+    ).toEqual(
+      CLINICAL_BODY_REGIONS.map(({ id, label }) => ({ id, label })),
     );
   });
 

@@ -9,7 +9,7 @@ import {
   createClinicalBodyAtlasContract,
 } from "./clinical-body-region-contract.mjs";
 
-const STANDARD_MANIFEST_SHA256 = "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6";
+const STANDARD_MANIFEST_SHA256 = "491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024";
 const ADULT_FEMALE_FRONT_SHA256 = "7ca70b005832ff347c6eab0a8d6359af1b54ee232951b027d7e8f36e92e4a11c";
 const visitContext = {
   startedAt: "2026-08-21T12:00:00.000Z",

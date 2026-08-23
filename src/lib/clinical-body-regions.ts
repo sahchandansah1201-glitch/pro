@@ -111,7 +111,8 @@ const back: RegionSeed[] = [
 const lateral = (side: "left" | "right"): RegionSeed[] => {
   const view = side;
   const surface = side === "left" ? "left_lateral" : "right_lateral";
-  const possessive = side === "left" ? "левой" : "правой";
+  const femininePossessive = side === "left" ? "левой" : "правой";
+  const masculineOrNeuterPossessive = side === "left" ? "левого" : "правого";
   const adjective = side === "left" ? "Левая" : "Правая";
   const entries: Array<[string, string, number, number]> = [
     ["head", `${adjective} боковая область головы`, 0.5, 0.09],
@@ -121,17 +122,17 @@ const lateral = (side: "left" | "right"): RegionSeed[] => {
     ["thorax", `${adjective} боковая область грудной клетки`, 0.5, 0.3],
     ["abdomen", `${adjective} боковая область живота`, 0.5, 0.43],
     ["hip", `${adjective} боковая область таза`, 0.5, 0.55],
-    ["upper-arm", `Боковая поверхность ${possessive} плеча`, 0.65, 0.31],
-    ["elbow", `Боковая область ${possessive} локтя`, 0.69, 0.36],
-    ["forearm", `Боковая поверхность ${possessive} предплечья`, 0.72, 0.4],
-    ["wrist", `Боковая область ${possessive} запястья`, 0.75, 0.44],
-    ["hand", `Боковая поверхность ${possessive} кисти`, 0.78, 0.47],
-    ["fingers", `Боковая поверхность пальцев ${possessive} кисти`, 0.81, 0.49],
-    ["thigh", `Боковая поверхность ${possessive} бедра`, 0.52, 0.66],
-    ["knee", `Боковая область ${possessive} колена`, 0.52, 0.76],
-    ["leg", `Боковая поверхность ${possessive} голени`, 0.52, 0.85],
-    ["ankle", `Боковая область ${possessive} голеностопного сустава`, 0.52, 0.94],
-    ["foot", `Боковая поверхность ${possessive} стопы`, 0.56, 0.98],
+    ["upper-arm", `Боковая поверхность ${masculineOrNeuterPossessive} плеча`, 0.65, 0.31],
+    ["elbow", `Боковая область ${masculineOrNeuterPossessive} локтя`, 0.69, 0.36],
+    ["forearm", `Боковая поверхность ${masculineOrNeuterPossessive} предплечья`, 0.72, 0.4],
+    ["wrist", `Боковая область ${masculineOrNeuterPossessive} запястья`, 0.75, 0.44],
+    ["hand", `Боковая поверхность ${femininePossessive} кисти`, 0.78, 0.47],
+    ["fingers", `Боковая поверхность пальцев ${femininePossessive} кисти`, 0.81, 0.49],
+    ["thigh", `Боковая поверхность ${masculineOrNeuterPossessive} бедра`, 0.52, 0.66],
+    ["knee", `Боковая область ${masculineOrNeuterPossessive} колена`, 0.52, 0.76],
+    ["leg", `Боковая поверхность ${femininePossessive} голени`, 0.52, 0.85],
+    ["ankle", `Боковая область ${masculineOrNeuterPossessive} голеностопного сустава`, 0.52, 0.94],
+    ["foot", `Боковая поверхность ${femininePossessive} стопы`, 0.56, 0.98],
   ];
   return entries.map(([key, label, x, y]) => ({
     id: `${view}-${key}`,

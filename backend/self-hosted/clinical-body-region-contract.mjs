@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 =
-  "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6";
+  "491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WIDTH = 240;

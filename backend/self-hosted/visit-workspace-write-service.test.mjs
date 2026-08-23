@@ -116,7 +116,7 @@ test("body-map payload is canonicalized from the registered region and keeps fiv
       bodyMap: {
         atlasSource: "makehuman-cc0",
         atlasProfileId: "adult_female_30",
-        atlasManifestSha256: "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6",
+        atlasManifestSha256: "491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024",
         bodyRegionMapSha256: "7ca70b005832ff347c6eab0a8d6359af1b54ee232951b027d7e8f36e92e4a11c",
         view: "front",
         x: 0.35083,
