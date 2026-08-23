@@ -256,6 +256,45 @@ test("Stage 4M production frontend build injects required Vite env from env file
   }
 });
 
+test("Stage 4M production build rejects a selected DAZ atlas that is not provisioned", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-daz-env-"));
+  try {
+    const envFile = join(root, ".env.production");
+    writeFileSync(
+      envFile,
+      [
+        "VITE_APP_MODE=production",
+        "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+        "VITE_CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        "CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        `CLINICAL_BODY_ATLAS_MANIFEST_SHA256=${"a".repeat(64)}`,
+      ].join("\n"),
+    );
+
+    assert.throws(
+      () => runStage4M(
+        {
+          command: "first-boot",
+          summaryPath: join(root, "summary.md"),
+          receiptPath: join(root, "receipt.json"),
+          projectName: "prod",
+          appPort: "8080",
+          envFile,
+          cwd: root,
+        },
+        {
+          spawn() {
+            return { status: 0, stdout: "ok", stderr: "" };
+          },
+        },
+      ),
+      /Selected DAZ atlas manifest is missing/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("Stage 4M safe frontend build rejects a missing clinical body atlas asset", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-atlas-build-"));
   try {

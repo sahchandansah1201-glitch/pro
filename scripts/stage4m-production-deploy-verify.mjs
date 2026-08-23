@@ -4,6 +4,7 @@
 // and rollback-drill checks for the self-hosted product.
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -240,7 +241,7 @@ function readEnvFile(envFile) {
   return parseEnvText(readFileSync(envFile, "utf8"));
 }
 
-function productionBuildEnv(envFile) {
+function productionBuildEnv(envFile, { cwd = process.cwd() } = {}) {
   const entries = readEnvFile(envFile);
   const missing = REQUIRED_PRODUCTION_FRONTEND_KEYS.filter((key) => !entries[key]);
   if (missing.length) {
@@ -253,6 +254,25 @@ function productionBuildEnv(envFile) {
   }
   if (!/^https?:\/\//i.test(entries.VITE_SELF_HOSTED_API_BASE_URL)) {
     throw new Error("VITE_SELF_HOSTED_API_BASE_URL must start with http:// or https://.");
+  }
+  const frontendAtlasSource = entries.VITE_CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
+  const backendAtlasSource = entries.CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
+  if (frontendAtlasSource === "daz-hires-local" || backendAtlasSource === "daz-hires-local") {
+    if (frontendAtlasSource !== "daz-hires-local" || backendAtlasSource !== "daz-hires-local") {
+      throw new Error("Frontend and backend clinical body atlas sources must both select daz-hires-local.");
+    }
+    const expectedManifestSha256 = entries.CLINICAL_BODY_ATLAS_MANIFEST_SHA256 || "";
+    if (!/^[a-f0-9]{64}$/.test(expectedManifestSha256)) {
+      throw new Error("Selected DAZ atlas requires CLINICAL_BODY_ATLAS_MANIFEST_SHA256.");
+    }
+    const manifestPath = join(cwd, "public", "clinical-body-atlas-daz-local", "manifest.json");
+    if (!existsSync(manifestPath)) {
+      throw new Error(`Selected DAZ atlas manifest is missing: ${manifestPath}`);
+    }
+    const actualManifestSha256 = createHash("sha256").update(readFileSync(manifestPath)).digest("hex");
+    if (actualManifestSha256 !== expectedManifestSha256) {
+      throw new Error("Selected DAZ atlas manifest SHA-256 does not match production env.");
+    }
   }
   return { ...process.env, ...entries };
 }
@@ -599,8 +619,8 @@ export function renderStage4MPlan(options = {}) {
 
 function runStep([label, cmd, args, meta], { spawn = spawnSync } = {}) {
   console.log(`[stage4m-deploy] START — ${label}`);
-  const env = meta?.envFromFile ? productionBuildEnv(meta.envFromFile) : process.env;
   const cwd = meta?.cwd || process.cwd();
+  const env = meta?.envFromFile ? productionBuildEnv(meta.envFromFile, { cwd }) : process.env;
   const result = meta?.safeFrontendBuild
     ? runSafeFrontendBuildStep({ label, cmd, args, cwd, env, spawn })
     : spawn(cmd, args, {

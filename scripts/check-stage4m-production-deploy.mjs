@@ -1358,7 +1358,7 @@ export function validateDoctorVisitPatientProjection(errors, root) {
 export function validateClinicalBodyAtlasAssets(errors, root) {
   const requiredMarkers = {
     "src/components/clinical/ClinicalBodyAtlas.tsx": [
-      'data-source="makehuman-cc0-clinical-line-art"',
+      "data-source={clinicalBodyAtlasSource()}",
       "clinicalBodyAtlasAssetPath(profile, view)",
     ],
     "scripts/render-clinical-body-line-atlas.py": [
@@ -1402,6 +1402,22 @@ export function validateClinicalBodyAtlasAssets(errors, root) {
     } else if (statSync(absolutePath).size < 1024) {
       errors.push(`Clinical body atlas asset is unexpectedly small: ${file}`);
     }
+  }
+}
+
+export function validateClinicalBodyAtlasRuntimeMount(errors, root) {
+  const file = "deploy/self-hosted/docker-compose.stage4a.yml";
+  if (!existsSync(join(root, file))) {
+    errors.push(`Missing required file: ${file}`);
+    return;
+  }
+
+  const content = read(root, file);
+  const mount = "../../public/clinical-body-atlas-daz-local:/app/public/clinical-body-atlas-daz-local:ro";
+  if (!content.includes(mount)) {
+    errors.push(
+      "Production compose does not mount public/clinical-body-atlas-daz-local read-only into the backend container.",
+    );
   }
 }
 
@@ -1524,6 +1540,7 @@ export function collectStage4MChecks({ root = process.cwd() } = {}) {
   validateStage4MDbSmokeContract(errors, root);
   validateDoctorVisitPatientProjection(errors, root);
   validateClinicalBodyAtlasAssets(errors, root);
+  validateClinicalBodyAtlasRuntimeMount(errors, root);
   validateDoctorVisitActionTapTargets(errors, root);
   validateDoctorVisitWorkspacePriority(errors, root);
   validatePackageScripts(errors, root);

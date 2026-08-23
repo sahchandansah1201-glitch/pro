@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   collectStage4MChecks,
   validateClinicalBodyAtlasAssets,
+  validateClinicalBodyAtlasRuntimeMount,
   validateDoctorVisitActionTapTargets,
   validateDoctorVisitPatientProjection,
   validateDoctorVisitWorkspacePriority,
@@ -32,7 +33,7 @@ test("Stage 4M guard requires the complete clinical body atlas", () => {
 
   writeFileSync(
     join(root, "src", "components", "clinical", "ClinicalBodyAtlas.tsx"),
-    'data-source="makehuman-cc0-clinical-line-art"\nclinicalBodyAtlasAssetPath(profile, view)',
+    "data-source={clinicalBodyAtlasSource()}\nclinicalBodyAtlasAssetPath(profile, view)",
   );
   writeFileSync(
     join(root, "scripts", "render-clinical-body-line-atlas.py"),
@@ -66,6 +67,27 @@ test("Stage 4M guard requires the complete clinical body atlas", () => {
 
   assert.deepEqual(errors, [
     `Missing clinical body atlas asset: public/${CLINICAL_BODY_ATLAS_ASSET_PATHS[0]}`,
+  ]);
+});
+
+test("Stage 4M guard requires the provisioned DAZ atlas inside the backend container", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-daz-runtime-mount-"));
+  mkdirSync(join(root, "deploy", "self-hosted"), { recursive: true });
+  writeFileSync(
+    join(root, "deploy", "self-hosted", "docker-compose.stage4a.yml"),
+    [
+      "services:",
+      "  backend:",
+      "    volumes:",
+      "      - backend-object-storage:/var/lib/dermatolog-pro/object-storage",
+    ].join("\n"),
+  );
+
+  const errors = [];
+  validateClinicalBodyAtlasRuntimeMount(errors, root);
+
+  assert.deepEqual(errors, [
+    "Production compose does not mount public/clinical-body-atlas-daz-local read-only into the backend container.",
   ]);
 });
 

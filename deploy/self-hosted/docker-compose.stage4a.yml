@@ -34,6 +34,7 @@ services:
       - object-storage
     volumes:
       - backend-object-storage:/var/lib/dermatolog-pro/object-storage
+      - ../../public/clinical-body-atlas-daz-local:/app/public/clinical-body-atlas-daz-local:ro
 
   postgres:
     image: postgres:16-alpine
