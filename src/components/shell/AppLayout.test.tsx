@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
@@ -43,6 +43,7 @@ function renderLayout(initialEntry = "/") {
 
 beforeEach(() => {
   vi.unstubAllEnvs();
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
   window.localStorage.removeItem(SELF_HOSTED_API_BASE_URL_KEY);
   window.localStorage.removeItem(SELF_HOSTED_API_TOKEN_KEY);
   window.localStorage.removeItem(SELF_HOSTED_API_USER_KEY);
@@ -159,5 +160,32 @@ describe("AppLayout production mode", () => {
     expect(screen.queryByRole("combobox", { name: /учебный режим/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("production-session-chip")).toHaveTextContent("Production Doctor");
     expect(screen.getByRole("button", { name: "Выйти из рабочей системы" })).toBeInTheDocument();
+  });
+
+  it("does not expose the demo body map route in production navigation", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt-production");
+    window.localStorage.setItem(
+      SELF_HOSTED_API_USER_KEY,
+      JSON.stringify({ id: "u-1", displayName: "Production Doctor", roles: ["doctor"] }),
+    );
+
+    renderLayout();
+
+    expect(screen.queryByRole("link", { name: /Карта тела/ })).not.toBeInTheDocument();
+  });
+
+  it("closes the mobile navigation after a route is selected", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    renderLayout();
+
+    fireEvent.click(screen.getByRole("button", { name: "Переключить боковую панель" }));
+    const dialog = await screen.findByRole("dialog", { name: "Основная навигация" });
+    fireEvent.click(within(dialog).getByRole("link", { name: "Пациенты" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Основная навигация" })).not.toBeInTheDocument(),
+    );
   });
 });

@@ -75,7 +75,9 @@ describe("VisitWorkspaceLiveActions", () => {
 
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
 
-    expect(screen.getByRole("region", { name: "Операционный контроль" })).toBeInTheDocument();
+    const operations = screen.getByRole("region", { name: "Операционный контроль" });
+    expect(operations).toBeInTheDocument();
+    expect(operations).not.toHaveAttribute("open");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -970,6 +972,7 @@ describe("VisitWorkspaceLiveActions", () => {
 
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
     await waitFor(() => expect(screen.getByRole("region", { name: "Операционный контроль" })).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Показать операционный контроль"));
     fireEvent.click(screen.getByRole("button", { name: "Обновить очередь" }));
     await waitFor(() => expect(screen.getByText("Контроль после визита")).toBeInTheDocument());
 

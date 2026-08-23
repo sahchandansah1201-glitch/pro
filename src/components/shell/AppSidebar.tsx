@@ -212,7 +212,7 @@ const mergeGroupsByLabel = (groups: NavGroup[]): NavGroup[] => {
 };
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
   const { role } = useRole();
@@ -223,7 +223,15 @@ export function AppSidebar() {
   const roleGroups = productionMode
     ? productionRoles.flatMap((r) => PRODUCTION_NAV_BY_ROLE[r] ?? NAV_BY_ROLE[r])
     : NAV_BY_ROLE[role];
-  const groups = mergeGroupsByLabel([...roleGroups, SHARED]);
+  const safeRoleGroups = productionMode
+    ? roleGroups.map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) => item.url !== "/patients/p-004/visits/v-005?tab=bodymap",
+        ),
+      }))
+    : roleGroups;
+  const groups = mergeGroupsByLabel([...safeRoleGroups, SHARED]);
   // Keep the user's current location unambiguous: on deep links like
   // /admin/governance or Body Map, highlight only the most specific sidebar item,
   // not both the parent section and the child screen.
@@ -252,7 +260,14 @@ export function AppSidebar() {
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={item.url === activeUrl} tooltip={item.title}>
-                      <NavLink to={item.url} end={item.url === "/"} className="flex items-center gap-2">
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className="flex items-center gap-2"
+                        onClick={() => {
+                          if (isMobile) setOpenMobile(false);
+                        }}
+                      >
                         <item.icon className="h-4 w-4" />
                         {!collapsed && <span className="text-[13px]">{item.title}</span>}
                       </NavLink>

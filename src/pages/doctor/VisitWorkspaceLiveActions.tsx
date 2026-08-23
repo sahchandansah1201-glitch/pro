@@ -1555,10 +1555,18 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </form>
       </div>
 
-      <section
+      <details
+        role="region"
         aria-label="Операционный контроль"
         className="mt-3 rounded-md border border-border bg-background p-3"
       >
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-[13px] font-semibold">
+          <span>Показать операционный контроль</span>
+          <span className="font-normal text-muted-foreground">
+            Открыто: {operationsSummary.totalOpen}
+          </span>
+        </summary>
+        <div className="mt-3 border-t border-border pt-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="h-section text-[14px]">Операционный контроль</h3>
@@ -3245,7 +3253,8 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             </article>
           ))}
         </div>
-      </section>
+        </div>
+      </details>
     </section>
   );
 }
