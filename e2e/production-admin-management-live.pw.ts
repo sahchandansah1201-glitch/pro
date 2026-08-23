@@ -689,7 +689,7 @@ test.describe("Live production admin management journey", () => {
       "Врачи и ассистенты",
       "Услуги",
       "Интеграции",
-      "Бот",
+      "Помощник записи",
       "Аналитика",
       "Управление доступом",
       "Справка",
@@ -1089,13 +1089,13 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminBotListResponsePromise = page.waitForResponse((response) =>
       isAdminBotResponse(response, "GET", /^\/api\/v1\/admin\/bot-settings$/),
     );
-    await sidebarLink(page, "Бот").click();
+    await sidebarLink(page, "Помощник записи").click();
     const clinicAdminBotListResponse = await clinicAdminBotListResponsePromise;
     expect(clinicAdminBotListResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminBotListResponse.status()).toBeLessThan(300);
-    await expect(page.getByRole("heading", { level: 1, name: "Бот" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Помощник записи" })).toBeVisible();
     await expect(mainText(page, "Рабочий режим: настройки сохраняются в базе клиники. Пробная проверка не отправляет сообщения пациентам.")).toBeVisible();
-    await page.getByLabel("Клиника бота").selectOption({ label: clinicAdminClinicName });
+    await page.getByLabel("Клиника помощника записи").selectOption({ label: clinicAdminClinicName });
     await page.getByLabel("Приветствие").fill(clinicAdminBotGreeting);
     const clinicAdminBotUpdateResponsePromise = page.waitForResponse((response) =>
       isAdminBotResponse(response, "PATCH", /^\/api\/v1\/admin\/bot-settings$/),
@@ -1104,7 +1104,7 @@ test.describe("Live production admin management journey", () => {
     const clinicAdminBotUpdateResponse = await clinicAdminBotUpdateResponsePromise;
     expect(clinicAdminBotUpdateResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminBotUpdateResponse.status()).toBeLessThan(300);
-    await expect(mainText(page, `Настройки бота сохранены: ${clinicAdminClinicName}`)).toBeVisible();
+    await expect(mainText(page, `Настройки помощника записи сохранены: ${clinicAdminClinicName}`)).toBeVisible();
     const clinicAdminBotDryRunResponsePromise = page.waitForResponse((response) =>
       isAdminBotResponse(response, "POST", /^\/api\/v1\/admin\/bot-settings\/dry-run$/),
     );
@@ -1120,7 +1120,7 @@ test.describe("Live production admin management journey", () => {
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-bot-desktop-1280.png"), fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByRole("heading", { level: 1, name: "Бот" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Помощник записи" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectMainTapTargets(page);
     await page.screenshot({ path: testInfo.outputPath("live-clinic-admin-bot-mobile-390.png"), fullPage: true });
