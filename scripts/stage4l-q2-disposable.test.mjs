@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
 import {
+  acceptsStage4LQ1Baseline,
   analyzeWriterFence,
   buildStage4LQ2Plan,
   parseStage4LQ2Args,
@@ -16,6 +17,15 @@ import {
 } from "./stage4l-q2-disposable.mjs";
 
 const GATE_ID = "skindoctor-q2-20260821-a";
+
+test("Stage 4L Q2 accepts only the two audited equivalent Q1 baselines", () => {
+  const originalQ1 = "3b7e27da1cc9800ce84c6c5c5d299bcf001afbe4";
+  const integratedQ1 = "27c54157c87f815cd917ac63a380ea8a75c63695";
+
+  assert.equal(acceptsStage4LQ1Baseline((sha) => sha === originalQ1), true);
+  assert.equal(acceptsStage4LQ1Baseline((sha) => sha === integratedQ1), true);
+  assert.equal(acceptsStage4LQ1Baseline(() => false), false);
+});
 
 test("Stage 4L Q2 plan binds two unique disposable projects and exact cleanup", () => {
   const options = parseStage4LQ2Args([

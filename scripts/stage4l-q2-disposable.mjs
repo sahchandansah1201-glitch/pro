@@ -160,8 +160,15 @@ export function renderStage4LQ2DryRun(plan) {
 }
 
 const PRODUCT_BASELINE_SHA = "59b49740feaea3667a75ca95b316965933152832";
-const Q1_STAGE4L_SHA = "3b7e27da1cc9800ce84c6c5c5d299bcf001afbe4";
+const Q1_STAGE4L_SHAS = Object.freeze([
+  "3b7e27da1cc9800ce84c6c5c5d299bcf001afbe4",
+  "27c54157c87f815cd917ac63a380ea8a75c63695",
+]);
 const RESTORE_CONFIRMATION = "RESTORE_SELF_HOSTED_DATA";
+
+export function acceptsStage4LQ1Baseline(isAncestor) {
+  return Q1_STAGE4L_SHAS.some((sha) => isAncestor(sha));
+}
 
 function redact(value) {
   return String(value || "")
@@ -658,7 +665,12 @@ async function stopChild(child) {
 }
 
 function assertGitBaseline() {
-  runCommand("git", ["merge-base", "--is-ancestor", Q1_STAGE4L_SHA, "HEAD"]);
+  const accepted = acceptsStage4LQ1Baseline((sha) => (
+    runCommandAllowFailure("git", ["merge-base", "--is-ancestor", sha, "HEAD"])
+  ));
+  if (!accepted) {
+    throw new Error("Q2 live execution requires an audited Stage 4L Q1 baseline.");
+  }
   const status = String(runCommand("git", ["status", "--porcelain"])).trim();
   if (status) throw new Error("Q2 live execution requires a clean worktree.");
   const head = String(runCommand("git", ["rev-parse", "HEAD"])).trim();
