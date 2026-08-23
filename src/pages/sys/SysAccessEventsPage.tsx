@@ -2044,7 +2044,7 @@ export default function SysAccessEventsPage() {
                         variant="outline"
                         className="h-8 gap-1 text-[12px]"
                         onClick={() => setSelectedRow(row)}
-                        aria-label={`Подробнее о событии ${row.id}`}
+                        aria-label={`Подробнее: ${actionLabel(row.action)}`}
                       >
                         <Eye className="h-3.5 w-3.5" aria-hidden />
                         Подробнее
@@ -2093,7 +2093,7 @@ export default function SysAccessEventsPage() {
                   variant="outline"
                   className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
                   onClick={() => setSelectedRow(row)}
-                  aria-label={`Подробнее о событии ${row.id}`}
+                  aria-label={`Подробнее: ${actionLabel(row.action)}`}
                 >
                   <Eye className="h-3.5 w-3.5" aria-hidden />
                   Подробнее

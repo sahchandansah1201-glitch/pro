@@ -11,9 +11,9 @@ import {
 
 import PatientsPage from "./PatientsPage";
 
-function renderPage() {
+function renderPage(initialEntries = ["/patients"]) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <PatientsPage />
     </MemoryRouter>,
   );
@@ -71,6 +71,20 @@ describe("PatientsPage", () => {
     expect(
       screen.getByRole("button", { name: /Новый пациент/i }),
     ).toBeInTheDocument();
+  });
+
+  it("applies the global search query from the patients URL", () => {
+    renderPage(["/patients?search=Иванова%20Наталья"]);
+
+    expect(screen.getByRole("textbox", { name: "Поиск пациента" })).toHaveValue(
+      "Иванова Наталья",
+    );
+    expect(
+      screen.getByRole("link", { name: "Иванова Наталья Олеговна" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Кузнецов Павел Андреевич" }),
+    ).not.toBeInTheDocument();
   });
 
   it("surfaces the demo-only patient action gate", () => {

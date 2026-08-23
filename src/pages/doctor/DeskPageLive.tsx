@@ -751,7 +751,7 @@ function VisitLink({ visit }: { visit: SelfHostedDashboardVisit }) {
   return visit.patientId ? (
     <RowLink
       to={`/patients/${visit.patientId}/visits/${visit.id}`}
-      label={`Открыть визит ${visit.id}`}
+      label={`Открыть визит пациента ${visit.patientFullName || "из списка"}`}
     />
   ) : (
     <span />
@@ -781,7 +781,7 @@ function RecentPatientRow({
       </span>
       <RowLink
         to={`/patients/${patient.id}`}
-        label={`Открыть карточку ${patient.fullName || patient.id}`}
+        label={`Открыть карточку пациента ${patient.fullName || "из списка"}`}
       />
     </li>
   );
@@ -805,7 +805,7 @@ function AssetIssueRow({ issue }: { issue: SelfHostedDashboardAssetIssue }) {
       {issue.patientId && issue.visitId ? (
         <RowLink
           to={`/patients/${issue.patientId}/visits/${issue.visitId}`}
-          label={`Открыть визит ${issue.visitId}`}
+          label={`Открыть визит пациента ${issue.patientFullName || "из списка"}`}
         />
       ) : (
         <span />
@@ -969,7 +969,7 @@ function AppointmentRow({
       {patientId ? (
         <RowLink
           to={`/patients/${patientId}/visits/${appointment.visitId}`}
-          label={`Открыть запись ${appointment.id}`}
+          label={`Открыть запись пациента ${appointment.patient.fullName || "из списка"}`}
         />
       ) : (
         <span />

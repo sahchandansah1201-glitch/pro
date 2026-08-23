@@ -1,4 +1,5 @@
-import { Outlet } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import { LogOut, Search, ShieldCheck } from "lucide-react";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -14,7 +15,7 @@ import {
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import { isProductionAppMode } from "@/lib/app-mode";
-import { selfHostedRoleLabel } from "@/lib/self-hosted-role";
+import { selfHostedRoleLabel, selfHostedRoles } from "@/lib/self-hosted-role";
 
 /**
  * AppShell — каркас рабочего места врача.
@@ -22,11 +23,25 @@ import { selfHostedRoleLabel } from "@/lib/self-hosted-role";
  */
 export function AppLayout() {
   const { label } = useRole();
+  const navigate = useNavigate();
   const productionMode = isProductionAppMode();
   const selfHostedSession = useSelfHostedApiSession();
+  const [globalSearch, setGlobalSearch] = useState("");
   const productionLabel = isSelfHostedApiConfigured(selfHostedSession)
     ? selfHostedRoleLabel(selfHostedSession)
     : "Нужен рабочий вход";
+  const canSearchPatients =
+    !productionMode ||
+    selfHostedRoles(selfHostedSession).some((role) =>
+      ["doctor", "private_doctor", "assistant"].includes(role),
+    );
+
+  const handleGlobalSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = globalSearch.trim();
+    if (!query) return;
+    navigate(`/patients?search=${encodeURIComponent(query)}`);
+  };
 
   return (
     <SidebarProvider>
@@ -44,16 +59,26 @@ export function AppLayout() {
               <span className="text-foreground">{productionMode ? productionLabel : label}</span>
             </div>
 
-            <div className="ml-3 hidden max-w-md flex-1 md:flex">
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Поиск пациента, визита, заявки…"
-                  className="h-11 pl-7 text-[13px]"
-                  aria-label="Глобальный поиск"
-                />
-              </div>
-            </div>
+            {canSearchPatients ? (
+              <form
+                role="search"
+                aria-label="Глобальный поиск"
+                className="ml-3 hidden max-w-md flex-1 md:flex"
+                onSubmit={handleGlobalSearch}
+              >
+                <div className="relative w-full">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Поиск пациента, визита, заявки…"
+                    className="h-11 pl-7 text-[13px]"
+                    aria-label="Глобальный поиск"
+                    value={globalSearch}
+                    onChange={(event) => setGlobalSearch(event.target.value)}
+                  />
+                </div>
+              </form>
+            ) : null}
 
             <div className="ml-auto flex items-center gap-2">
               {productionMode ? (

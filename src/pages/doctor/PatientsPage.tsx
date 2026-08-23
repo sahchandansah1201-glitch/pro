@@ -5,7 +5,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronDown,
   ChevronRight,
@@ -275,13 +275,15 @@ function patientApiErrorText(
 
 export default function PatientsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const globalSearchQuery = searchParams.get("search")?.trim() ?? "";
   const selfHostedSession = useSelfHostedApiSession();
   const productionMode = isProductionAppMode();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
   const [patients, setPatients] = useState<Patient[]>(() =>
     productionMode ? [] : PATIENTS,
   );
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(globalSearchQuery);
   const [advancedSearch, setAdvancedSearch] = useState<AdvancedSearchState>({
     code: "",
     name: "",
@@ -312,6 +314,11 @@ export default function PatientsPage() {
     useState<BackendLoadState>("idle");
   const [saving, setSaving] = useState(false);
   const [busyPatientId, setBusyPatientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setQuery(globalSearchQuery);
+    setPage(1);
+  }, [globalSearchQuery]);
 
   useEffect(() => {
     if (!liveBackend) {

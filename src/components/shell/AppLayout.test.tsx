@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
@@ -32,13 +32,18 @@ function renderLayout(initialEntry = "/") {
         <RoleProvider>
           <Routes>
             <Route element={<AppLayout />}>
-              <Route path="*" element={<div data-testid="content">content</div>} />
+              <Route path="*" element={<LocationProbe />} />
             </Route>
           </Routes>
         </RoleProvider>
       </AuthContext.Provider>
     </MemoryRouter>,
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="content">{location.pathname + location.search}</div>;
 }
 
 beforeEach(() => {
@@ -93,6 +98,10 @@ describe("AppLayout production mode", () => {
       "/admin/governance",
     );
     expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Помощник записи" })).toHaveAttribute(
+      "href",
+      "/admin/bot",
+    );
   });
 
   it("merges the operator support group with shared help instead of duplicating it", () => {
@@ -174,6 +183,26 @@ describe("AppLayout production mode", () => {
     renderLayout();
 
     expect(screen.queryByRole("link", { name: /Карта тела/ })).not.toBeInTheDocument();
+  });
+
+  it("routes a production doctor global search into the patient list", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt-production");
+    window.localStorage.setItem(
+      SELF_HOSTED_API_USER_KEY,
+      JSON.stringify({ id: "u-1", displayName: "Production Doctor", roles: ["doctor"] }),
+    );
+    renderLayout("/desk");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Глобальный поиск" }), {
+      target: { value: "Тестовый пациент" },
+    });
+    fireEvent.submit(screen.getByRole("search", { name: "Глобальный поиск" }));
+
+    expect(screen.getByTestId("content")).toHaveTextContent(
+      "/patients?search=%D0%A2%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D1%8B%D0%B9%20%D0%BF%D0%B0%D1%86%D0%B8%D0%B5%D0%BD%D1%82",
+    );
   });
 
   it("closes the mobile navigation after a route is selected", async () => {

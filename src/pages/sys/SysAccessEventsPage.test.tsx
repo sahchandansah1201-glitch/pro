@@ -455,7 +455,14 @@ describe("SysAccessEventsPage", () => {
   it("opens a safe row details drawer without sensitive fields", () => {
     const { container } = renderPage();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Подробнее о событии al-005/i })[0]);
+    expect(
+      screen.queryByRole("button", { name: /al-005/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: "Подробнее: Отчёт открыт по ссылке",
+      })[0],
+    );
 
     expect(screen.getByRole("heading", { name: "Детали события" })).toBeInTheDocument();
     expect(screen.queryByText("al-005")).not.toBeInTheDocument();

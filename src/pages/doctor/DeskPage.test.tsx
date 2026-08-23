@@ -289,6 +289,12 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     ).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1/1")).toBeInTheDocument();
     expect(screen.getByText("Дерматоскоп рабочий")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Открыть запись пациента Пациент клиники" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /10000000-0000-4000-8000-000000000301/ }),
+    ).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Иванова Наталья Олеговна");
     expect(document.body.textContent).not.toContain("Демо-режим");
     expect(document.body.textContent).not.toContain("DP-LIVE-1");
