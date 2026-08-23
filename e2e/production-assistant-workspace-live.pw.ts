@@ -284,10 +284,11 @@ test.describe("Live production assistant capture journey", () => {
       /Учебный режим|учебная роль|демо|mock|system_admin|clinic_admin|doctor|private_doctor|operator|patient|backend|self-hosted|PostgreSQL|diagnosis|risk|prognosis|treatment|measurement|dynamicConclusion|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
 
-    for (const name of ["Захват фото", "Карта тела", "Пациенты", "Справка"]) {
+    for (const name of ["Захват фото", "Пациенты", "Справка"]) {
       await expect(sidebarLinks(page, name), `assistant sidebar should include ${name}`).toHaveCount(1);
     }
     for (const name of [
+      "Карта тела",
       "Клиники и кабинеты",
       "Сотрудники и доступ",
       "Врачи и ассистенты",
