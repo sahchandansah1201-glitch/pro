@@ -326,6 +326,7 @@ def main() -> None:
             "mask": mask_path.name,
             "hitMap": hit_map_path.name,
             "maskSha256": sha256(mask_path),
+            "hitMapSha256": sha256(hit_map_path),
             "bodyPixels": body_pixels,
             "coveredPixels": covered_pixels,
             "coveragePercent": round(covered_pixels * 100 / body_pixels, 4),

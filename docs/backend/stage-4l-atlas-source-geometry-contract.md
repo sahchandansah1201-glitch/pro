@@ -19,8 +19,9 @@ The backend owns the trust decision. It derives the expected profile from the
 patient sex and age at `visit.startedAt` (falling back to immutable
 `visit.createdAt`), requires the request source to match its configured source,
 verifies the configured manifest SHA-256, loads the exact profile/view hit map,
-and rejects a point outside the claimed region. Request-provided hashes are not
-accepted.
+requires its SHA-256 to match the manifest record, requires the complete region
+set for that view, and rejects a point outside the claimed region.
+Request-provided hashes are not accepted.
 
 Successful writes persist the server-derived source, profile id, manifest hash
 and region-map hash beside the placement. Historical rows remain readable with
@@ -35,6 +36,11 @@ is accepted only when an operator explicitly provides a local atlas directory
 and the expected manifest SHA-256. This contract does not grant distribution
 rights and does not copy, commit, publish or deploy DAZ assets.
 
+Each generated manifest record binds the source image, pixel mask and SVG hit
+map by SHA-256. The package validator rejects missing or mismatched source,
+mask and hit-map bytes before release; the backend independently checks the
+exact hit-map hash before accepting a placement.
+
 ## Geometry rules
 
 - Hit maps use the owned generator grammar of integer one-pixel horizontal runs
@@ -42,6 +48,7 @@ rights and does not copy, commit, publish or deploy DAZ assets.
 - Coordinates are rounded to five decimals for persistence, then mapped to the
   corresponding zero-based atlas pixel for validation.
 - The claimed `regionId` path must cover that pixel.
+- Every non-scalp hit map must contain the full exact region set for its view.
 - Scalp regions use the same clipped ellipse and five rectangles rendered by the
   UI; their canonical geometry string is hashed as the map version.
 - Missing, malformed, unpinned or source/profile-mismatched maps fail closed.

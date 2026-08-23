@@ -1,7 +1,17 @@
 import { createHash } from "node:crypto";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+async function verifyFileSha256(path, expected, label, errors) {
+  try {
+    const bytes = await readFile(path);
+    const actual = createHash("sha256").update(bytes).digest("hex");
+    if (actual !== expected) errors.push(`${label} SHA-256 mismatch`);
+  } catch {
+    errors.push(`${label} SHA-256 unavailable`);
+  }
+}
 
 export async function checkClinicalBodyRegionMaps(directory) {
   const root = resolve(directory);
@@ -34,24 +44,15 @@ export async function checkClinicalBodyRegionMaps(directory) {
         errors.push(`${record.profile}/${record.view}: empty region code ${code}`);
       }
     }
-    for (const file of [record.mask, record.hitMap]) {
-      try {
-        await access(resolve(root, file));
-      } catch {
-        errors.push(`${record.profile}/${record.view}: missing ${file}`);
-      }
-    }
-    if (record.asset) {
-      try {
-        const assetBytes = await readFile(resolve(root, record.asset));
-        const assetSha256 = createHash("sha256").update(assetBytes).digest("hex");
-        if (assetSha256 !== record.sourceSha256) {
-          errors.push(`${record.profile}/${record.view}: source asset SHA-256 mismatch`);
-        }
-      } catch {
-        errors.push(`${record.profile}/${record.view}: missing ${record.asset}`);
-      }
-    }
+    const label = `${record.profile}/${record.view}`;
+    await verifyFileSha256(resolve(root, record.mask), record.maskSha256, `${label}: mask`, errors);
+    await verifyFileSha256(resolve(root, record.hitMap), record.hitMapSha256, `${label}: hit-map`, errors);
+    const sourcePath = record.asset
+      ? resolve(root, record.asset)
+      : record.sourcePath
+        ? resolve(record.sourcePath)
+        : null;
+    await verifyFileSha256(sourcePath, record.sourceSha256, `${label}: source asset`, errors);
   }
 
   if (errors.length) throw new Error(`Clinical body region map check failed: ${errors.join(", ")}`);

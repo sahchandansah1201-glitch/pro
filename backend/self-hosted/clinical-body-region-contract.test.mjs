@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -8,7 +9,7 @@ import {
   createClinicalBodyAtlasContract,
 } from "./clinical-body-region-contract.mjs";
 
-const STANDARD_MANIFEST_SHA256 = "e485f8cc56c2670f0dd052514d445f9f7692db2e1ed3ddca9075192752fd0a61";
+const STANDARD_MANIFEST_SHA256 = "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6";
 const ADULT_FEMALE_FRONT_SHA256 = "7ca70b005832ff347c6eab0a8d6359af1b54ee232951b027d7e8f36e92e4a11c";
 const visitContext = {
   startedAt: "2026-08-21T12:00:00.000Z",
@@ -34,6 +35,10 @@ function placement(overrides = {}) {
     detailId: "digit-5",
     ...overrides,
   };
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 test("accepts only a point covered by the exact source/profile/view region map", () => {
@@ -170,18 +175,75 @@ test("fails closed when the pinned package is missing or has malformed hit-map g
       (error) => error.field === "bodyMap" && /could not be loaded/i.test(error.message),
     );
 
-    writeFileSync(
-      join(atlasDir, "adult_female_30-front.hitmap.svg"),
-      '<svg viewBox="0 0 240 400"><path id="region-front-right-toes" d="M69 381L90 382z"/></svg>',
+    const malformedHitMap = '<svg viewBox="0 0 240 400"><path id="region-front-right-toes" d="M69 381L90 382z"/></svg>';
+    writeFileSync(join(atlasDir, "adult_female_30-front.hitmap.svg"), malformedHitMap);
+    const manifest = JSON.parse(readFileSync(join(atlasDir, "manifest.json"), "utf8"));
+    const record = manifest.records.find(
+      (item) => item.profile === "adult_female_30" && item.view === "front",
     );
+    record.hitMapSha256 = sha256(malformedHitMap);
+    const manifestBytes = `${JSON.stringify(manifest, null, 2)}\n`;
+    writeFileSync(join(atlasDir, "manifest.json"), manifestBytes);
     const malformedMap = createClinicalBodyAtlasContract({
       atlasSource: "makehuman-cc0",
       atlasDir,
-      expectedManifestSha256: STANDARD_MANIFEST_SHA256,
+      expectedManifestSha256: sha256(manifestBytes),
     });
     assert.throws(
       () => malformedMap.normalizePlacement(placement(), visitContext),
       (error) => error.field === "bodyMap" && /unsupported geometry grammar/i.test(error.message),
+    );
+  } finally {
+    rmSync(atlasDir, { recursive: true, force: true });
+  }
+});
+
+test("rejects a well-formed hit map that is not bound to the pinned manifest", () => {
+  const atlasDir = mkdtempSync(join(tmpdir(), "skindoctor-atlas-integrity-"));
+  try {
+    cpSync("public/clinical-body-atlas-regions/manifest.json", join(atlasDir, "manifest.json"));
+    writeFileSync(
+      join(atlasDir, "adult_female_30-front.hitmap.svg"),
+      '<svg viewBox="0 0 240 400"><path id="region-front-right-toes" d="M84 384h1v1H84z"/></svg>',
+    );
+    const contract = createClinicalBodyAtlasContract({
+      atlasSource: "makehuman-cc0",
+      atlasDir,
+      expectedManifestSha256: STANDARD_MANIFEST_SHA256,
+    });
+
+    assert.throws(
+      () => contract.normalizePlacement(placement(), visitContext),
+      (error) => error.field === "bodyMap" && /hit-map SHA-256/i.test(error.message),
+    );
+  } finally {
+    rmSync(atlasDir, { recursive: true, force: true });
+  }
+});
+
+test("rejects a manifest-pinned hit map with an incomplete region set", () => {
+  const atlasDir = mkdtempSync(join(tmpdir(), "skindoctor-atlas-regions-"));
+  try {
+    const manifest = JSON.parse(
+      readFileSync("public/clinical-body-atlas-regions/manifest.json", "utf8"),
+    );
+    const hitMap = '<svg viewBox="0 0 240 400"><path id="region-front-right-toes" d="M84 384h1v1H84z"/></svg>';
+    const record = manifest.records.find(
+      (item) => item.profile === "adult_female_30" && item.view === "front",
+    );
+    record.hitMapSha256 = sha256(hitMap);
+    const manifestBytes = `${JSON.stringify(manifest, null, 2)}\n`;
+    writeFileSync(join(atlasDir, "manifest.json"), manifestBytes);
+    writeFileSync(join(atlasDir, record.hitMap), hitMap);
+    const contract = createClinicalBodyAtlasContract({
+      atlasSource: "makehuman-cc0",
+      atlasDir,
+      expectedManifestSha256: sha256(manifestBytes),
+    });
+
+    assert.throws(
+      () => contract.normalizePlacement(placement(), visitContext),
+      (error) => error.field === "bodyMap" && /complete region set/i.test(error.message),
     );
   } finally {
     rmSync(atlasDir, { recursive: true, force: true });

@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 =
-  "e485f8cc56c2670f0dd052514d445f9f7692db2e1ed3ddca9075192752fd0a61";
+  "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WIDTH = 240;
@@ -171,6 +171,15 @@ function parseHitMap(svg, manifestRegions, expectedView) {
     regions.set(regionId, parseRunPath(pathData));
   }
   if (regions.size === 0) invalid("bodyMap", "Configured body-region map has no region paths.");
+  const expectedRegionIds = [...manifestRegions.values()]
+    .filter((region) => region.view === expectedView)
+    .map((region) => region.id);
+  if (
+    regions.size !== expectedRegionIds.length
+    || expectedRegionIds.some((regionId) => !regions.has(regionId))
+  ) {
+    invalid("bodyMap", "Configured body-region map does not contain the complete region set.");
+  }
   return regions;
 }
 
@@ -214,6 +223,7 @@ function readAtlasManifest(atlasDir, expectedManifestSha256, sourcePackage) {
     || manifest.height !== HEIGHT
     || !Array.isArray(manifest.profiles)
     || !Array.isArray(manifest.regions)
+    || !Array.isArray(manifest.records)
   ) {
     throw new Error("Clinical atlas manifest does not satisfy the deployable schema contract.");
   }
@@ -235,6 +245,9 @@ export function createClinicalBodyAtlasContract({
   const { manifest, manifestSha256 } = readAtlasManifest(resolvedDir, manifestPin, sourcePackage);
   const profiles = new Set(manifest.profiles.map(String));
   const regionsById = new Map(manifest.regions.map((region) => [region.id, region]));
+  const recordsByKey = new Map(
+    manifest.records.map((record) => [`${record.profile}-${record.view}`, record]),
+  );
   const mapCache = new Map();
   const scalpMapSha256 = sha256(SCALP_CANONICAL_GEOMETRY);
 
@@ -244,15 +257,27 @@ export function createClinicalBodyAtlasContract({
     }
     const key = `${profileId}-${view}`;
     if (mapCache.has(key)) return mapCache.get(key);
+    const record = recordsByKey.get(key);
+    if (
+      !record
+      || record.hitMap !== `${key}.hitmap.svg`
+      || !SHA256_PATTERN.test(String(record.hitMapSha256 ?? ""))
+    ) {
+      invalid("bodyMap", "Configured body-region map is not bound to the pinned manifest.");
+    }
     let bytes;
     try {
       bytes = readFileSync(resolve(resolvedDir, `${key}.hitmap.svg`));
     } catch {
       invalid("bodyMap", "Configured body-region map could not be loaded.");
     }
+    const mapSha256 = sha256(bytes);
+    if (mapSha256 !== record.hitMapSha256) {
+      invalid("bodyMap", "Configured body-region hit-map SHA-256 does not match the pinned manifest.");
+    }
     const parsed = parseHitMap(bytes.toString("utf8"), regionsById, view);
     const result = {
-      sha256: sha256(bytes),
+      sha256: mapSha256,
       contains: (regionId, x, y) => runMapContains(parsed, regionId, x, y),
     };
     mapCache.set(key, result);

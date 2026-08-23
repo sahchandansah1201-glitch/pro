@@ -106,7 +106,7 @@ test("body-map backend config pins the committed atlas and requires an explicit 
   assert.equal(config.clinicalBodyAtlasSource, "makehuman-cc0");
   assert.equal(
     config.clinicalBodyAtlasManifestSha256,
-    "e485f8cc56c2670f0dd052514d445f9f7692db2e1ed3ddca9075192752fd0a61",
+    "cf6838d134b41b6f6862e2d86a54daaeb54b87da5952aa9e3c66c36a22099da6",
   );
   const localDaz = readSelfHostedConfig({
     CLINICAL_BODY_ATLAS_SOURCE: "daz-hires-local",
