@@ -643,18 +643,26 @@ const OBJECT_STORAGE_INVENTORY_SCRIPT = [
   'process.stdout.write(JSON.stringify(result));',
 ].join(" ");
 
+function productionHttpPort(value, verifier) {
+  const raw = String(value || "8080").trim();
+  const match = raw.match(/(?:^|:)(\d{2,5})$/);
+  const port = Number(match?.[1]);
+  if (!match || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`production ${verifier} verifier requires a valid APP_PORT.`);
+  }
+  return match[1];
+}
+
 export function createProductionBackupIo(options = {}, dependencies = {}) {
   const spawn = dependencies.spawn || spawnSync;
   const now = dependencies.now || (() => new Date().toISOString());
   const allowedServices = new Set(["backend", "object-storage", "postgres", "reverse-proxy"]);
   const envFile = options.composeEnvFile || options.envFile;
-  let appPort = "8080";
+  let appPortValue = "8080";
   if (envFile && existsSync(envFile)) {
-    appPort = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPort;
+    appPortValue = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPortValue;
   }
-  if (!/^\d{2,5}$/.test(String(appPort))) {
-    throw new Error("production backup verifier requires a valid APP_PORT.");
-  }
+  const appPort = productionHttpPort(appPortValue, "backup");
   let latestInventory = null;
 
   function composeOutput(label, args) {
@@ -804,13 +812,11 @@ export function createProductionBackupIo(options = {}, dependencies = {}) {
 export function createProductionRestoreIo(options = {}, dependencies = {}) {
   const spawn = dependencies.spawn || spawnSync;
   const envFile = options.composeEnvFile || options.envFile;
-  let appPort = "8080";
+  let appPortValue = "8080";
   if (envFile && existsSync(envFile)) {
-    appPort = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPort;
+    appPortValue = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPortValue;
   }
-  if (!/^\d{2,5}$/.test(String(appPort))) {
-    throw new Error("production restore verifier requires a valid APP_PORT.");
-  }
+  const appPort = productionHttpPort(appPortValue, "restore");
   return {
     spawn,
     verifyRestoredApp() {

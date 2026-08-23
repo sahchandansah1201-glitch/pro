@@ -907,7 +907,7 @@ test("Stage 4L production restore verifier checks live health and readiness", ()
   const root = mkdtempSync(join(tmpdir(), "stage4l-production-restore-verify-"));
   try {
     const envFile = join(root, ".env.production");
-    writeFileSync(envFile, "APP_PORT=8123\n");
+    writeFileSync(envFile, "APP_PORT=127.0.0.1:8123\n");
     const calls = [];
     const io = createProductionRestoreIo(
       { composeEnvFile: envFile },
