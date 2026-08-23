@@ -227,7 +227,9 @@ export function AppSidebar() {
     ? roleGroups.map((group) => ({
         ...group,
         items: group.items.filter(
-          (item) => item.url !== "/patients/p-004/visits/v-005?tab=bodymap",
+          (item) =>
+            item.url !== "/patients/p-004/visits/v-005?tab=bodymap" &&
+            item.url !== "/cockpit",
         ),
       }))
     : roleGroups;

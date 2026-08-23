@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Camera,
   ChevronRight,
@@ -17,6 +18,7 @@ import {
 
 import { useRole } from "@/context/role-context";
 import { Button } from "@/components/ui/button";
+import { isProductionAppMode } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 
 import {
@@ -670,6 +672,13 @@ function BusinessStrip() {
 // ---------- Page ----------
 
 export default function CockpitPage() {
+  if (isProductionAppMode()) {
+    return <Navigate to="/desk" replace />;
+  }
+  return <CockpitPageDemo />;
+}
+
+function CockpitPageDemo() {
   const { role } = useRole();
   const [selectedId, setSelectedId] = useState<string>(defaultVisit.id);
 

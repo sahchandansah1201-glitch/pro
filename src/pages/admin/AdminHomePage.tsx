@@ -521,7 +521,7 @@ function AdminHomePageLive() {
             <QuickLink to="/admin/services" label="Услуги" hint="цены и длительность" Icon={FileText} />
             <QuickLink to="/admin/clinics" label="Клиники и кабинеты" hint="статус и адрес" Icon={Building2} />
             <QuickLink to="/admin/integrations" label="Интеграции" hint="подключения клиники" Icon={Plug} />
-            <QuickLink to="/admin/bot" label="Бот" hint="заявки и передача" Icon={Bot} />
+            <QuickLink to="/admin/bot" label="Помощник записи" hint="заявки и передача" Icon={Bot} />
             <QuickLink to="/admin/analytics" label="Аналитика" hint="агрегаты" Icon={BarChart3} />
           </div>
         </SectionCard>

@@ -91,6 +91,7 @@ function renderControlled() {
 }
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   navigateMock.mockReset();
   try {
     window.localStorage.removeItem(ROLE_STORAGE_KEY);
@@ -100,6 +101,17 @@ beforeEach(() => {
 });
 
 describe("LoginPage", () => {
+  it("redirects the production entry point to self-hosted login without showing demo roles", async () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/self-hosted/login", { replace: true }),
+    );
+    expect(screen.queryByText(/Выбрать учебную роль/)).not.toBeInTheDocument();
+  });
+
   it("demo role picker still works and navigates for the selected role", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Ассистент/ }));

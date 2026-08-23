@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
 import CockpitPage from "@/pages/doctor/CockpitPage";
@@ -13,6 +14,28 @@ function renderCockpit() {
 }
 
 describe("CockpitPage", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("redirects the production route to the real doctor desk", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+
+    render(
+      <MemoryRouter initialEntries={["/cockpit"]}>
+        <RoleProvider>
+          <Routes>
+            <Route path="/cockpit" element={<CockpitPage />} />
+            <Route path="/desk" element={<div>Рабочий стол врача</div>} />
+          </Routes>
+        </RoleProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Рабочий стол врача")).toBeInTheDocument();
+    expect(screen.queryByText(/Учебный экран/)).not.toBeInTheDocument();
+  });
+
   it("uses compact report status copy that fits the right status rail", () => {
     renderCockpit();
 

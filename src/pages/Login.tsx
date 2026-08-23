@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { roleFromAuthUser } from "@/lib/auth-role";
 import { canRoleAccess } from "@/lib/access";
+import { isProductionAppMode } from "@/lib/app-mode";
 
 /** Accept only same-origin absolute paths starting with a single "/". */
 function safeFromPath(value: unknown): string | null {
@@ -32,6 +33,7 @@ export default function LoginPage() {
   const location = useLocation();
   const { setRole } = useRole();
   const { status, user } = useAuth();
+  const productionMode = isProductionAppMode();
 
   const pick = (r: Role) => {
     setRole(r);
@@ -43,6 +45,10 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
+    if (productionMode) {
+      navigate("/self-hosted/login", { replace: true });
+      return;
+    }
     if (status !== "authenticated") return;
     const mapped = roleFromAuthUser(user);
     setRole(mapped);
@@ -51,7 +57,9 @@ export default function LoginPage() {
     const target =
       from && canRoleAccess(mapped, from) ? from : ROLE_BY_ID[mapped].home;
     navigate(target, { replace: true });
-  }, [status, user, setRole, navigate, location.state]);
+  }, [productionMode, status, user, setRole, navigate, location.state]);
+
+  if (productionMode) return null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-muted p-6">

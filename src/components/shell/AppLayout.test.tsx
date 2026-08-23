@@ -171,7 +171,7 @@ describe("AppLayout production mode", () => {
     expect(screen.getByRole("button", { name: "Выйти из рабочей системы" })).toBeInTheDocument();
   });
 
-  it("does not expose the demo body map route in production navigation", () => {
+  it("does not expose demo doctor routes in production navigation", () => {
     vi.stubEnv("VITE_APP_MODE", "production");
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt-production");
@@ -183,6 +183,7 @@ describe("AppLayout production mode", () => {
     renderLayout();
 
     expect(screen.queryByRole("link", { name: /Карта тела/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Рабочее место врача/ })).not.toBeInTheDocument();
   });
 
   it("routes a production doctor global search into the patient list", () => {

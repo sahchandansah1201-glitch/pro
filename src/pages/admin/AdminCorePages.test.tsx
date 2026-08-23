@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminHomePage from "./AdminHomePage";
@@ -24,6 +24,10 @@ const FORBIDDEN = [
 
 const renderRouted = (ui: React.ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("Admin clinic core pages — render & safety", () => {
   it("AdminHomePage renders the admin operating dashboard, action queue and quick links", () => {
@@ -107,6 +111,17 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.getAllByRole("button", { name: /Передать оператору/ })[0],
     ).toBeInTheDocument();
+  });
+
+  it("uses the native Russian assistant name on the production settings screen", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+
+    renderRouted(<AdminBotSettingsPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Помощник записи" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Бот" })).not.toBeInTheDocument();
   });
 
   it("AdminBotSettingsPage records local retake and operator handoff actions without sending messages", () => {

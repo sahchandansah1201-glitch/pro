@@ -290,7 +290,7 @@ function AdminBotSettingsPageLive() {
       setNote(adminApiErrorText(result.error));
       return;
     }
-    setNote(`Настройки бота сохранены: ${result.value?.clinicName ?? selected.clinicName}`);
+    setNote(`Настройки помощника записи сохранены: ${result.value?.clinicName ?? selected.clinicName}`);
     await load();
   }
 
@@ -316,7 +316,7 @@ function AdminBotSettingsPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Бот" subtitle="Сценарий сбора обращения, записи и передачи оператору." />
+      <PageHeader title="Помощник записи" subtitle="Сценарий сбора обращения, записи и передачи оператору." />
       <div className="space-y-3 p-3 sm:p-4">
         <div role="status" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           Рабочий режим: настройки сохраняются в базе клиники. Пробная проверка не отправляет сообщения пациентам.
@@ -347,7 +347,7 @@ function AdminBotSettingsPageLive() {
           </div>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
             <select
-              aria-label="Клиника бота"
+              aria-label="Клиника помощника записи"
               value={selectedClinicId}
               onChange={(event) => setSelectedClinicId(event.target.value)}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-[14px]"
@@ -361,7 +361,7 @@ function AdminBotSettingsPageLive() {
             </select>
             <label className="flex min-h-11 items-center gap-2 text-[13px]">
               <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-              Бот включён для клиники
+              Помощник записи включён для клиники
             </label>
             <Input aria-label="Название выбранной клиники" value={selected?.clinicName ?? ""} readOnly className="h-11" />
           </div>
