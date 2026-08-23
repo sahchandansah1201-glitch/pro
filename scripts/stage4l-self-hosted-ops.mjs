@@ -647,6 +647,14 @@ export function createProductionBackupIo(options = {}, dependencies = {}) {
   const spawn = dependencies.spawn || spawnSync;
   const now = dependencies.now || (() => new Date().toISOString());
   const allowedServices = new Set(["backend", "object-storage", "postgres", "reverse-proxy"]);
+  const envFile = options.composeEnvFile || options.envFile;
+  let appPort = "8080";
+  if (envFile && existsSync(envFile)) {
+    appPort = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPort;
+  }
+  if (!/^\d{2,5}$/.test(String(appPort))) {
+    throw new Error("production backup verifier requires a valid APP_PORT.");
+  }
   let latestInventory = null;
 
   function composeOutput(label, args) {
@@ -677,11 +685,13 @@ export function createProductionBackupIo(options = {}, dependencies = {}) {
       ]).split(/\r?\n/).filter(Boolean);
       const backend = serviceState("backend");
       const objectStorage = serviceState("object-storage");
+      const reverseProxy = serviceState("reverse-proxy");
       latestInventory = {
         writers: [{ id: "backend", kind: "compose", wasRunning: backend.running }],
         unknownCount: runningServices.filter((service) => !allowedServices.has(service)).length,
         backend,
         objectStorage,
+        reverseProxy,
       };
       return latestInventory;
     },
@@ -718,7 +728,30 @@ export function createProductionBackupIo(options = {}, dependencies = {}) {
         composeOutput("Resume production writers", ["start", ...services]);
       }
       const states = services.map(serviceState);
-      return { ok: states.every((service) => service.running), resumedAt: now() };
+      if (!states.every((service) => service.running)) {
+        return { ok: false, resumedAt: now() };
+      }
+      if (latestInventory.reverseProxy?.running) {
+        composeOutput("Validate reverse proxy after writer resume", ["exec", "-T", "reverse-proxy", "nginx", "-t"]);
+        composeOutput("Reload reverse proxy after writer resume", ["exec", "-T", "reverse-proxy", "nginx", "-s", "reload"]);
+      }
+      for (const path of ["healthz", "readyz"]) {
+        checkedOutput(
+          `Verify resumed application ${path}`,
+          "curl",
+          [
+            "--retry", "12",
+            "--retry-all-errors",
+            "--retry-delay", "2",
+            "--connect-timeout", "2",
+            "--max-time", "5",
+            "-fsS",
+            `http://127.0.0.1:${appPort}/${path}`,
+          ],
+          { spawn },
+        );
+      }
+      return { ok: true, resumedAt: now() };
     },
   };
 

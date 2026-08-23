@@ -266,6 +266,7 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
   const calls = [];
   let backendRunning = true;
   let minioRunning = true;
+  const proxyRunning = true;
   const checksum = createHash("sha256").update("abc").digest("hex");
   const spawn = (cmd, args) => {
     const call = `${cmd} ${args.join(" ")}`;
@@ -279,6 +280,9 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
     if (call.includes("ps -q --all object-storage")) {
       return { status: 0, stdout: "minio-container\n", stderr: "" };
     }
+    if (call.includes("ps -q --all reverse-proxy")) {
+      return { status: 0, stdout: "proxy-container\n", stderr: "" };
+    }
     if (call.includes("inspect --format") && call.endsWith("backend-container")) {
       return {
         status: 0,
@@ -290,6 +294,13 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
       return {
         status: 0,
         stdout: `${minioRunning}\t${minioRunning ? 0 : 0}\tsha256:minio-image\n`,
+        stderr: "",
+      };
+    }
+    if (call.includes("inspect --format") && call.endsWith("proxy-container")) {
+      return {
+        status: 0,
+        stdout: `${proxyRunning}\t${proxyRunning ? 0 : 0}\tsha256:proxy-image\n`,
         stderr: "",
       };
     }
@@ -355,7 +366,48 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
   assert.equal(minioRunning, true);
   assert.ok(calls.some((call) => call.includes("stop -t 30 backend object-storage")));
   assert.ok(calls.some((call) => call.includes("start backend object-storage")));
+  assert.ok(calls.some((call) => call.includes("exec -T reverse-proxy nginx -t")));
+  assert.ok(calls.some((call) => call.includes("exec -T reverse-proxy nginx -s reload")));
+  assert.ok(calls.some((call) => call.includes("http://127.0.0.1:8080/healthz")));
+  assert.ok(calls.some((call) => call.includes("http://127.0.0.1:8080/readyz")));
   assert.equal(calls.some((call) => call.includes("up -d --no-build")), false);
+});
+
+test("Stage 4L production adapter refuses to seal a backup when resumed health fails", () => {
+  const spawn = (cmd, args) => {
+    const call = `${cmd} ${args.join(" ")}`;
+    if (call.includes("ps --services --status running")) {
+      return { status: 0, stdout: "backend\nreverse-proxy\n", stderr: "" };
+    }
+    if (call.includes("ps -q --all backend")) {
+      return { status: 0, stdout: "backend-container\n", stderr: "" };
+    }
+    if (call.includes("ps -q --all reverse-proxy")) {
+      return { status: 0, stdout: "proxy-container\n", stderr: "" };
+    }
+    if (call.includes("ps -q --all object-storage")) {
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (call.includes("inspect --format")) {
+      return { status: 0, stdout: "true\t0\tsha256:test-image\n", stderr: "" };
+    }
+    if (cmd === "curl" && call.includes("/healthz")) {
+      return { status: 22, stdout: "", stderr: "HTTP 502" };
+    }
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  const io = createProductionBackupIo(
+    {
+      command: "backup",
+      projectName: "demo-project",
+      composeFiles: ["compose.yml"],
+      composeEnvFile: ".env.production",
+    },
+    { spawn, now: () => "2026-08-23T14:30:00.000Z" },
+  );
+
+  io.lifecycle.inventory();
+  assert.throws(() => io.lifecycle.resume(), /Verify resumed application healthz failed/);
 });
 
 test("Stage 4L backup quiesces known writers and MinIO before capture, then resumes", () => {
