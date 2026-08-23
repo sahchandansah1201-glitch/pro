@@ -437,7 +437,7 @@ test.describe("Live production doctor workspace journey", () => {
     const visitResponsePromise = page.waitForResponse((response) =>
       isResponse(response, "GET", new RegExp(`^/api/v1/visits/${createdVisitId}$`)),
     );
-    await mainLink(page, `Открыть запись ${createdVisitId}`).click();
+    await mainLink(page, `Открыть запись пациента ${patientFullName}`).click();
     const visitResponse = await visitResponsePromise;
     expect(visitResponse.status()).toBeGreaterThanOrEqual(200);
     expect(visitResponse.status()).toBeLessThan(300);
