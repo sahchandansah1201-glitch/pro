@@ -14,7 +14,7 @@ import {
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertReconciliationClean } from "./stage4l-backup-consistency.mjs";
+import { assertReconciliationClean, reconcileClinicalAssets } from "./stage4l-backup-consistency.mjs";
 
 const DEFAULT_COMPOSE_FILE = "deploy/self-hosted/docker-compose.stage4a.yml";
 const DEFAULT_PROJECT_NAME = "dermatolog-pro-stage4l-ops";
@@ -575,6 +575,225 @@ function runStep(step, { spawn = spawnSync } = {}) {
   if (step.stdoutFile) writeFileSync(step.stdoutFile, result.stdout);
 }
 
+function checkedOutput(label, cmd, args, { spawn = spawnSync } = {}) {
+  const result = spawn(cmd, args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(redact(`${label} failed: ${result.stderr || result.error?.message || `exit ${result.status}`}`));
+  }
+  return Buffer.isBuffer(result.stdout) ? result.stdout.toString("utf8") : String(result.stdout || "");
+}
+
+function productionComposeArgs(options, args) {
+  return dockerComposeArgs(
+    options.composeFiles || options.composeFile,
+    options.projectName,
+    args,
+    options.composeEnvFile,
+  );
+}
+
+function parseServiceState(value, id) {
+  const [running, exitCode, image] = String(value || "").trim().split("\t");
+  return {
+    id,
+    running: running === "true",
+    exitCode: Number.isInteger(Number(exitCode)) ? Number(exitCode) : null,
+    image: String(image || "").trim(),
+  };
+}
+
+function parseClinicalAssetsTsv(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [objectBucket, objectKey, checksumSha256, byteSize] = line.split("\t");
+      if (!objectBucket || !objectKey) throw new Error("clinical asset inventory contains an invalid object identity.");
+      return {
+        objectBucket,
+        objectKey,
+        checksumSha256: checksumSha256 || null,
+        byteSize: byteSize === "" || byteSize == null ? null : Number(byteSize),
+      };
+    });
+}
+
+const OBJECT_STORAGE_INVENTORY_SCRIPT = [
+  'const { createHash } = require("node:crypto");',
+  'const { readdirSync, readFileSync, statSync } = require("node:fs");',
+  'const { join, relative, sep } = require("node:path");',
+  'const root = "/data";',
+  'const files = [];',
+  'function walk(dir) { for (const item of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, item.name); if (item.isDirectory()) walk(path); else if (item.isFile()) files.push(path); } }',
+  'walk(root);',
+  'const result = files.sort().map((path) => {',
+  '  const rel = relative(root, path).split(sep).join("/");',
+  '  const sidecar = rel.endsWith(".metadata.json");',
+  '  const identity = sidecar ? rel.slice(0, -".metadata.json".length) : rel;',
+  '  const slash = identity.indexOf("/");',
+  '  if (slash < 1 || slash === identity.length - 1) throw new Error("invalid stored object identity");',
+  '  const entry = { kind: sidecar ? "sidecar" : "payload", objectBucket: identity.slice(0, slash), objectKey: identity.slice(slash + 1) };',
+  '  if (!sidecar) { const bytes = readFileSync(path); entry.byteSize = statSync(path).size; entry.checksumSha256 = createHash("sha256").update(bytes).digest("hex"); }',
+  '  return entry;',
+  '});',
+  'process.stdout.write(JSON.stringify(result));',
+].join(" ");
+
+export function createProductionBackupIo(options = {}, dependencies = {}) {
+  const spawn = dependencies.spawn || spawnSync;
+  const now = dependencies.now || (() => new Date().toISOString());
+  const allowedServices = new Set(["backend", "object-storage", "postgres", "reverse-proxy"]);
+  let latestInventory = null;
+
+  function composeOutput(label, args) {
+    return checkedOutput(label, "docker", productionComposeArgs(options, args), { spawn });
+  }
+
+  function serviceState(service) {
+    const containerId = composeOutput(`Inspect ${service} container id`, ["ps", "-q", "--all", service]).trim();
+    if (!containerId) return { id: service, running: false, exitCode: null, image: "" };
+    return parseServiceState(
+      checkedOutput(
+        `Inspect ${service} state`,
+        "docker",
+        ["inspect", "--format", "{{.State.Running}}\t{{.State.ExitCode}}\t{{.Image}}", containerId],
+        { spawn },
+      ),
+      service,
+    );
+  }
+
+  const lifecycle = {
+    inventory() {
+      const runningServices = composeOutput("Inventory running compose services", [
+        "ps",
+        "--services",
+        "--status",
+        "running",
+      ]).split(/\r?\n/).filter(Boolean);
+      const backend = serviceState("backend");
+      const objectStorage = serviceState("object-storage");
+      latestInventory = {
+        writers: [{ id: "backend", kind: "compose", wasRunning: backend.running }],
+        unknownCount: runningServices.filter((service) => !allowedServices.has(service)).length,
+        backend,
+        objectStorage,
+      };
+      return latestInventory;
+    },
+    quiesce(inventory, { timeoutSeconds }) {
+      const services = [];
+      if (inventory.backend?.running) services.push("backend");
+      if (inventory.objectStorage?.running) services.push("object-storage");
+      if (services.length) {
+        composeOutput("Quiesce production writers", ["stop", "-t", String(timeoutSeconds), ...services]);
+      }
+      const backend = serviceState("backend");
+      const objectStorage = serviceState("object-storage");
+      return {
+        writers: inventory.writers.map((writer) => ({
+          ...writer,
+          stopped: writer.id === "backend" ? !backend.running : false,
+        })),
+        minio: {
+          id: "object-storage",
+          wasRunning: Boolean(inventory.objectStorage?.running),
+          stopped: !objectStorage.running,
+        },
+        unknownCount: inventory.unknownCount,
+        forcedTerminationCount: [backend, objectStorage].filter((service) => service.exitCode === 137).length,
+        quiescedAt: now(),
+      };
+    },
+    resume() {
+      if (!latestInventory) throw new Error("production writer inventory is missing before resume.");
+      const services = [];
+      if (latestInventory.backend?.running) services.push("backend");
+      if (latestInventory.objectStorage?.running) services.push("object-storage");
+      if (services.length) {
+        composeOutput("Resume production writers", ["up", "-d", "--no-build", ...services]);
+      }
+      const states = services.map(serviceState);
+      return { ok: states.every((service) => service.running), resumedAt: now() };
+    },
+  };
+
+  function reconcile() {
+    if (!latestInventory?.backend?.image) {
+      throw new Error("backend image is required for object-storage reconciliation.");
+    }
+    const assets = parseClinicalAssetsTsv(composeOutput("Inventory clinical asset references", [
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "dermatolog",
+      "-d",
+      "dermatolog_pro",
+      "-At",
+      "-F",
+      "\t",
+      "-c",
+      "select object_bucket, object_key, coalesce(checksum_sha256, ''), coalesce(byte_size::text, '') from clinical_assets order by object_bucket, object_key",
+    ]));
+    const filesOutput = checkedOutput(
+      "Inventory backend object-storage files",
+      "docker",
+      [
+        "run",
+        "--rm",
+        "-v",
+        `${options.projectName}_backend-object-storage:/data:ro`,
+        latestInventory.backend.image,
+        "node",
+        "-e",
+        OBJECT_STORAGE_INVENTORY_SCRIPT,
+      ],
+      { spawn },
+    );
+    let files;
+    try {
+      files = JSON.parse(filesOutput || "[]");
+    } catch {
+      throw new Error("object-storage inventory is not valid JSON.");
+    }
+    return reconcileClinicalAssets({ assets, files });
+  }
+
+  return { spawn, lifecycle, reconcile, now };
+}
+
+export function createProductionRestoreIo(options = {}, dependencies = {}) {
+  const spawn = dependencies.spawn || spawnSync;
+  const envFile = options.composeEnvFile || options.envFile;
+  let appPort = "8080";
+  if (envFile && existsSync(envFile)) {
+    appPort = parseEnvFile(readFileSync(envFile, "utf8")).get("APP_PORT") || appPort;
+  }
+  if (!/^\d{2,5}$/.test(String(appPort))) {
+    throw new Error("production restore verifier requires a valid APP_PORT.");
+  }
+  return {
+    spawn,
+    verifyRestoredApp() {
+      for (const path of ["healthz", "readyz"]) {
+        checkedOutput(
+          `Verify restored application ${path}`,
+          "curl",
+          ["--retry", "24", "--retry-all-errors", "--retry-delay", "5", "-fsS", `http://127.0.0.1:${appPort}/${path}`],
+          { spawn },
+        );
+      }
+      return { ok: true };
+    },
+  };
+}
+
 function writeManifest(plan, { inventory, evidence, reconciliation, startedAt, captureFinishedAt }) {
   const manifestPath = plan.files.manifest;
   mkdirSync(dirname(manifestPath), { recursive: true });
@@ -880,12 +1099,21 @@ export function main(argv = process.argv.slice(2)) {
       return 0;
     }
     if (options.command === "backup") {
-      const result = runBackup(options);
+      if (!options.dryRun) {
+        const headResult = spawnSync("git", ["rev-parse", "HEAD"], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        const currentGitSha = headResult.status === 0 ? String(headResult.stdout || "").trim() : "";
+        options.productGitSha ||= currentGitSha;
+        options.stage4lGitSha ||= currentGitSha;
+      }
+      const result = runBackup(options, options.dryRun ? {} : createProductionBackupIo(options));
       console.log(result.dryRun ? result.output : `[stage4l-ops] backup OK: ${result.plan.backupDir}`);
       return 0;
     }
     if (options.command === "restore") {
-      const result = runRestore(options);
+      const result = runRestore(options, options.dryRun ? {} : createProductionRestoreIo(options));
       console.log(result.dryRun ? result.output : `[stage4l-ops] restore OK: ${result.plan.backupDir}`);
       return 0;
     }

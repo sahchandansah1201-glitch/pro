@@ -22,6 +22,7 @@ const PROD_COMPOSE = "deploy/self-hosted/docker-compose.production.example.yml";
 const DIST_DIR = "dist";
 const SAFE_BUILD_OUT_DIR = ".stage4m-build/frontend-next";
 const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
+const STAGE4L_RESTORE_CONFIRM = "RESTORE_SELF_HOSTED_DATA";
 const REQUIRED_PRODUCTION_BUILD_ENV = {
   VITE_APP_MODE: "production",
 };
@@ -579,7 +580,7 @@ function rollbackDrillSteps(options) {
       options.envFile,
       "--backup-dir",
       options.backupDir,
-      `--confirm=${ROLLBACK_CONFIRM}`,
+      `--confirm=${STAGE4L_RESTORE_CONFIRM}`,
     ]],
   ];
 }

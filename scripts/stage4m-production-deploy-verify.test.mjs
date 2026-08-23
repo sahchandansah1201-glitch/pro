@@ -118,6 +118,11 @@ test("Stage 4M all plan includes post-deploy smoke and backup after deploy", () 
 });
 
 test("Stage 4M rollback drill is dry-run first and requires confirmation to execute", () => {
+  const plan = buildStage4MPlan({
+    command: "rollback-drill",
+    backupDir: "backups/self-hosted/latest",
+  });
+  assert.ok(plan.steps[1][2].includes("--confirm=RESTORE_SELF_HOSTED_DATA"));
   const out = renderStage4MPlan({
     command: "rollback-drill",
     dryRun: true,

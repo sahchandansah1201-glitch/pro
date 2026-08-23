@@ -10,6 +10,8 @@ import { reconcileClinicalAssets } from "./stage4l-backup-consistency.mjs";
 import {
   buildBackupPlan,
   buildRestorePlan,
+  createProductionBackupIo,
+  createProductionRestoreIo,
   parseStage4LOpsArgs,
   renderPlan,
   runBackup,
@@ -258,6 +260,101 @@ test("Stage 4L backup execution fails closed without a quiescence lifecycle adap
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("Stage 4L production adapter quiesces the live writers and reconciles stored assets", () => {
+  const calls = [];
+  let backendRunning = true;
+  let minioRunning = true;
+  const checksum = createHash("sha256").update("abc").digest("hex");
+  const spawn = (cmd, args) => {
+    const call = `${cmd} ${args.join(" ")}`;
+    calls.push(call);
+    if (call.includes("ps --services --status running")) {
+      return { status: 0, stdout: "backend\nobject-storage\npostgres\nreverse-proxy\n", stderr: "" };
+    }
+    if (call.includes("ps -q --all backend")) {
+      return { status: 0, stdout: "backend-container\n", stderr: "" };
+    }
+    if (call.includes("ps -q --all object-storage")) {
+      return { status: 0, stdout: "minio-container\n", stderr: "" };
+    }
+    if (call.includes("inspect --format") && call.endsWith("backend-container")) {
+      return {
+        status: 0,
+        stdout: `${backendRunning}\t${backendRunning ? 0 : 0}\tsha256:backend-image\n`,
+        stderr: "",
+      };
+    }
+    if (call.includes("inspect --format") && call.endsWith("minio-container")) {
+      return {
+        status: 0,
+        stdout: `${minioRunning}\t${minioRunning ? 0 : 0}\tsha256:minio-image\n`,
+        stderr: "",
+      };
+    }
+    if (call.includes("compose") && call.includes("stop -t 30")) {
+      backendRunning = false;
+      minioRunning = false;
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (call.includes("compose") && call.includes("up -d --no-build")) {
+      backendRunning = true;
+      minioRunning = true;
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (call.includes("select object_bucket")) {
+      return {
+        status: 0,
+        stdout: `clinical-assets\tclinics/demo/asset.jpg\t${checksum}\t3\n`,
+        stderr: "",
+      };
+    }
+    if (call.includes("sha256:backend-image node -e")) {
+      return {
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            kind: "payload",
+            objectBucket: "clinical-assets",
+            objectKey: "clinics/demo/asset.jpg",
+            checksumSha256: checksum,
+            byteSize: 3,
+          },
+          {
+            kind: "sidecar",
+            objectBucket: "clinical-assets",
+            objectKey: "clinics/demo/asset.jpg",
+          },
+        ]),
+        stderr: "",
+      };
+    }
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  const io = createProductionBackupIo(
+    {
+      command: "backup",
+      projectName: "demo-project",
+      composeFiles: ["compose.yml"],
+      composeEnvFile: ".env.production",
+    },
+    { spawn, now: () => "2026-08-23T14:30:00.000Z" },
+  );
+
+  const inventory = io.lifecycle.inventory();
+  assert.equal(inventory.unknownCount, 0);
+  assert.deepEqual(inventory.writers.map((writer) => writer.id), ["backend"]);
+  const evidence = io.lifecycle.quiesce(inventory, { timeoutSeconds: 30 });
+  assert.equal(evidence.forcedTerminationCount, 0);
+  assert.equal(backendRunning, false);
+  assert.equal(minioRunning, false);
+  assert.deepEqual(io.reconcile(), cleanReconciliation());
+  assert.equal(io.lifecycle.resume().ok, true);
+  assert.equal(backendRunning, true);
+  assert.equal(minioRunning, true);
+  assert.ok(calls.some((call) => call.includes("stop -t 30 backend object-storage")));
+  assert.ok(calls.some((call) => call.includes("up -d --no-build backend object-storage")));
 });
 
 test("Stage 4L backup quiesces known writers and MinIO before capture, then resumes", () => {
@@ -748,6 +845,29 @@ test("Stage 4L restore fails closed without a restored-application verifier", ()
       /restored-application verifier is required/i,
     );
     assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4L production restore verifier checks live health and readiness", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4l-production-restore-verify-"));
+  try {
+    const envFile = join(root, ".env.production");
+    writeFileSync(envFile, "APP_PORT=8123\n");
+    const calls = [];
+    const io = createProductionRestoreIo(
+      { composeEnvFile: envFile },
+      {
+        spawn(cmd, args) {
+          calls.push(`${cmd} ${args.join(" ")}`);
+          return { status: 0, stdout: "ok", stderr: "" };
+        },
+      },
+    );
+    assert.deepEqual(io.verifyRestoredApp(), { ok: true });
+    assert.ok(calls.some((call) => call.includes("http://127.0.0.1:8123/healthz")));
+    assert.ok(calls.some((call) => call.includes("http://127.0.0.1:8123/readyz")));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
