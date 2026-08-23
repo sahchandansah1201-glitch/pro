@@ -298,7 +298,7 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
       minioRunning = false;
       return { status: 0, stdout: "", stderr: "" };
     }
-    if (call.includes("compose") && call.includes("up -d --no-build")) {
+    if (call.includes("compose") && call.includes("start backend object-storage")) {
       backendRunning = true;
       minioRunning = true;
       return { status: 0, stdout: "", stderr: "" };
@@ -354,7 +354,8 @@ test("Stage 4L production adapter quiesces the live writers and reconciles store
   assert.equal(backendRunning, true);
   assert.equal(minioRunning, true);
   assert.ok(calls.some((call) => call.includes("stop -t 30 backend object-storage")));
-  assert.ok(calls.some((call) => call.includes("up -d --no-build backend object-storage")));
+  assert.ok(calls.some((call) => call.includes("start backend object-storage")));
+  assert.equal(calls.some((call) => call.includes("up -d --no-build")), false);
 });
 
 test("Stage 4L backup quiesces known writers and MinIO before capture, then resumes", () => {

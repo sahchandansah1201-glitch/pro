@@ -715,7 +715,7 @@ export function createProductionBackupIo(options = {}, dependencies = {}) {
       if (latestInventory.backend?.running) services.push("backend");
       if (latestInventory.objectStorage?.running) services.push("object-storage");
       if (services.length) {
-        composeOutput("Resume production writers", ["up", "-d", "--no-build", ...services]);
+        composeOutput("Resume production writers", ["start", ...services]);
       }
       const states = services.map(serviceState);
       return { ok: states.every((service) => service.running), resumedAt: now() };
