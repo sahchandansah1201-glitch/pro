@@ -471,7 +471,13 @@ test.describe("Live production admin management journey", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await sidebarLink(page, "Готовность публикации").click();
     await expect(page.getByRole("heading", { level: 1, name: "Готовность публикации" })).toBeVisible();
-    await expect(mainText(page, /Рабочий режим: готовность публикации/)).toBeVisible();
+    await expect(
+      page.getByRole("alert", { name: "Текущий статус публикации не подтверждён" }),
+    ).toContainText(/не подключён к текущему состоянию сервера/i);
+    await expect(page.getByRole("link", { name: "Доступность сервера" })).toHaveAttribute("href", "/healthz");
+    await expect(
+      page.getByRole("link", { name: "Готовность базы данных и зависимостей" }),
+    ).toHaveAttribute("href", "/readyz");
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|учебная роль|system_admin|backend|self-hosted|payload|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
