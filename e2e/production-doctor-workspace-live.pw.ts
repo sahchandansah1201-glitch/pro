@@ -336,18 +336,18 @@ test.describe("Live production doctor workspace journey", () => {
     );
 
     for (const name of [
-      "Рабочее место врача",
       "Рабочий стол",
       "Пациенты",
       "Визиты",
       "Отчёты",
-      "Карта тела",
       "Съёмка",
       "Справка",
     ]) {
       await expect(sidebarLinks(page, name), `doctor sidebar should include ${name}`).toHaveCount(1);
     }
     for (const name of [
+      "Рабочее место врача",
+      "Карта тела",
       "Клиники и кабинеты",
       "Сотрудники и доступ",
       "Устройства",
@@ -639,19 +639,17 @@ test.describe("Live production doctor workspace journey", () => {
 
     for (const name of [
       "Центр практики",
-      "Рабочее место врача",
       "Рабочий стол",
       "Пациенты",
       "Визиты",
       "Отчёты",
-      "Карта тела",
       "Съёмка",
       "Операционный центр",
       "Клиники и кабинеты",
       "Врачи и ассистенты",
       "Услуги",
       "Интеграции",
-      "Бот",
+      "Помощник записи",
       "Аналитика",
       "Управление доступом",
       "Справка",
@@ -659,6 +657,9 @@ test.describe("Live production doctor workspace journey", () => {
       await expect(sidebarLinks(page, name), `private doctor owner sidebar should include ${name}`).toHaveCount(1);
     }
     for (const name of [
+      "Рабочее место врача",
+      "Карта тела",
+      "Бот",
       "Сотрудники и доступ",
       "Устройства",
       "Аудит",
