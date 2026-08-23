@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
@@ -4542,6 +4542,28 @@ function BodyMapTab({
   const [pendingIdempotencyKey, setPendingIdempotencyKey] = useState("");
   const [savingPlacement, setSavingPlacement] = useState(false);
   const [editingLesionId, setEditingLesionId] = useState<string | null>(null);
+  const mapViewportRef = useRef<HTMLDivElement | null>(null);
+  const pendingZoomFocusRef = useRef<{ x: number; y: number } | null>(null);
+
+  const changeZoom = (nextZoom: number) => {
+    const viewport = mapViewportRef.current;
+    if (viewport) {
+      pendingZoomFocusRef.current = {
+        x: (viewport.scrollLeft + viewport.clientWidth / 2) / Math.max(viewport.scrollWidth, 1),
+        y: (viewport.scrollTop + viewport.clientHeight / 2) / Math.max(viewport.scrollHeight, 1),
+      };
+    }
+    setZoom(nextZoom);
+  };
+
+  useLayoutEffect(() => {
+    const viewport = mapViewportRef.current;
+    const focus = pendingZoomFocusRef.current;
+    if (!viewport || !focus) return;
+    viewport.scrollLeft = Math.max(0, focus.x * viewport.scrollWidth - viewport.clientWidth / 2);
+    viewport.scrollTop = Math.max(0, focus.y * viewport.scrollHeight - viewport.clientHeight / 2);
+    pendingZoomFocusRef.current = null;
+  }, [zoom]);
 
   const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
   const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
@@ -4758,7 +4780,7 @@ function BodyMapTab({
               size="sm"
               variant="ghost"
               className="h-11 w-11 p-0"
-              onClick={() => setZoom((current) => bodyMapStepZoom(current, -1, zoomLevels))}
+              onClick={() => changeZoom(bodyMapStepZoom(zoom, -1, zoomLevels))}
               aria-label="Уменьшить карту тела"
               disabled={zoom <= minZoom}
             >
@@ -4769,13 +4791,13 @@ function BodyMapTab({
               size="sm"
               variant="ghost"
               className="h-11 w-11 p-0"
-              onClick={() => setZoom((current) => bodyMapStepZoom(current, 1, zoomLevels))}
+              onClick={() => changeZoom(bodyMapStepZoom(zoom, 1, zoomLevels))}
               aria-label="Увеличить карту тела"
               disabled={zoom >= maxZoom}
             >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
+            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => changeZoom(1)} aria-label="Сбросить масштаб">
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -4791,7 +4813,11 @@ function BodyMapTab({
             {bodyMapSurfaceHint(view)}
           </span>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
+        <div
+          ref={mapViewportRef}
+          data-testid="body-map-viewport"
+          className="h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto bg-surface-muted p-3"
+        >
           <div data-testid="body-map-zoom-surface" className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <ClinicalBodyMapCanvas
               profile={profile}

@@ -118,6 +118,47 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(screen.getByTestId("body-map-zoom-surface")).toHaveStyle({ width: "2560px" });
   });
 
+  it("keeps the same map focus visible when the doctor changes zoom", () => {
+    vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+
+    const viewport = screen.getByTestId("body-map-viewport");
+    const surface = screen.getByTestId("body-map-zoom-surface");
+    let scrollLeft = 22;
+    let scrollTop = 128;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 300 },
+      clientHeight: { configurable: true, value: 300 },
+      scrollWidth: {
+        configurable: true,
+        get: () => Number.parseFloat(surface.style.width) + 24,
+      },
+      scrollHeight: {
+        configurable: true,
+        get: () => Number.parseFloat(surface.style.width) * (5 / 3) + 24,
+      },
+      scrollLeft: {
+        configurable: true,
+        get: () => scrollLeft,
+        set: (value: number) => { scrollLeft = value; },
+      },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => { scrollTop = value; },
+      },
+    });
+
+    const initialFocusX = (scrollLeft + 150) / (320 + 24);
+    const initialFocusY = (scrollTop + 150) / (320 * (5 / 3) + 24);
+    const zoomIn = screen.getByRole("button", { name: "Увеличить карту тела" });
+    for (let step = 0; step < 6; step += 1) fireEvent.click(zoomIn);
+
+    expect(screen.getByText("800%", { selector: "span" })).toBeInTheDocument();
+    expect((scrollLeft + 150) / (2560 + 24)).toBeCloseTo(initialFocusX);
+    expect((scrollTop + 150) / (2560 * (5 / 3) + 24)).toBeCloseTo(initialFocusY);
+  });
+
   it("lets the doctor refine a toe placement to the right little toe", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
@@ -163,5 +204,23 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(first).toBeInTheDocument();
     expect(second).toBeInTheDocument();
     expect(first?.getAttribute("transform")).not.toBe(second?.getAttribute("transform"));
+  });
+
+  it("keeps repeated keyboard placements selectable without hiding one marker", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+    const regionSelect = screen.getByLabelText("Выбрать анатомическую область");
+
+    fireEvent.change(regionSelect, { target: { value: "front-right-palm" } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.change(regionSelect, { target: { value: "front-right-palm" } });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+
+    const first = document.querySelector('[data-local-marker-id="local-lesion-1"]');
+    const second = document.querySelector('[data-local-marker-id="local-lesion-2"]');
+    expect(first).toBeInTheDocument();
+    expect(second).toBeInTheDocument();
+    expect(first?.getAttribute("transform")).not.toBe(second?.getAttribute("transform"));
+    expect(document.querySelectorAll("[data-marker-connector]")).toHaveLength(2);
   });
 });

@@ -61,6 +61,90 @@ function scalpShape(regionId: string) {
   }
 }
 
+function markerDisplayPosition(
+  point: BodyMapCanvasPoint,
+  allPoints: BodyMapCanvasPoint[],
+  zoom: number,
+) {
+  const cluster = allPoints
+    .filter((candidate) => candidate.x === point.x && candidate.y === point.y)
+    .sort((left, right) => left.id.localeCompare(right.id));
+  if (cluster.length < 2) return { x: point.x, y: point.y };
+
+  const index = cluster.findIndex((candidate) => candidate.id === point.id);
+  const angle = -Math.PI / 2 + (2 * Math.PI * index) / cluster.length;
+  const radius = 12 / zoom;
+  return {
+    x: point.x + (Math.cos(angle) * radius) / CLINICAL_BODY_ATLAS_WIDTH,
+    y: point.y + (Math.sin(angle) * radius) / CLINICAL_BODY_ATLAS_HEIGHT,
+  };
+}
+
+function BodyMapMarker({
+  point,
+  allPoints,
+  zoom,
+  local = false,
+}: {
+  point: BodyMapCanvasPoint;
+  allPoints: BodyMapCanvasPoint[];
+  zoom: number;
+  local?: boolean;
+}) {
+  const display = markerDisplayPosition(point, allPoints, zoom);
+  const markerId = local
+    ? { "data-local-marker-id": point.id }
+    : { "data-marker-id": point.id };
+  const primary = "hsl(var(--primary))";
+  const foreground = "hsl(var(--foreground))";
+
+  return (
+    <g>
+      {(display.x !== point.x || display.y !== point.y) && (
+        <line
+          data-marker-connector={point.id}
+          pointerEvents="none"
+          x1={point.x * CLINICAL_BODY_ATLAS_WIDTH}
+          y1={point.y * CLINICAL_BODY_ATLAS_HEIGHT}
+          x2={display.x * CLINICAL_BODY_ATLAS_WIDTH}
+          y2={display.y * CLINICAL_BODY_ATLAS_HEIGHT}
+          stroke={local ? primary : foreground}
+          strokeWidth={1 / zoom}
+          strokeDasharray={local ? `${2 / zoom} ${2 / zoom}` : undefined}
+        />
+      )}
+      <g
+        {...markerId}
+        transform={`translate(${display.x * CLINICAL_BODY_ATLAS_WIDTH} ${display.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-display.x * CLINICAL_BODY_ATLAS_WIDTH} ${-display.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
+        onClick={(event) => { event.stopPropagation(); point.onSelect(); }}
+        style={{ cursor: "pointer" }}
+      >
+        <title>{local ? `Локальный учебный очаг: ${point.label}` : `${point.num}. ${point.label}`}</title>
+        <circle
+          cx={display.x * CLINICAL_BODY_ATLAS_WIDTH}
+          cy={display.y * CLINICAL_BODY_ATLAS_HEIGHT}
+          r={point.selected ? 8 : 6}
+          fill={local || !point.selected ? "hsl(var(--surface))" : primary}
+          stroke={local || point.selected ? primary : foreground}
+          strokeDasharray={local ? "2 2" : undefined}
+          strokeWidth={local ? 1.4 : 1.2}
+          opacity={local ? 0.85 : undefined}
+        />
+        <text
+          x={display.x * CLINICAL_BODY_ATLAS_WIDTH}
+          y={display.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
+          textAnchor="middle"
+          fontSize={8}
+          fontWeight={local ? 700 : 600}
+          fill={local || !point.selected ? (local ? primary : foreground) : "hsl(var(--primary-foreground))"}
+        >
+          {point.num}
+        </text>
+      </g>
+    </g>
+  );
+}
+
 export function ClinicalBodyMapCanvas({
   profile,
   view,
@@ -77,6 +161,7 @@ export function ClinicalBodyMapCanvas({
   const ariaLabel = `Карта тела · ${clinicalBodyProfileLabel(profile)} · ${bodyMapSurfaceLabel(view)}`;
   const badge = bodyMapSurfaceBadge(view);
   const hitMapPath = view === "scalp" ? null : clinicalBodyRegionHitMapPath(profile, view);
+  const allPoints = [...points, ...demoPoints];
 
   const placeAtPointer = (region: ClinicalBodyRegion, event: React.MouseEvent<SVGElement>) => {
     event.stopPropagation();
@@ -182,65 +267,22 @@ export function ClinicalBodyMapCanvas({
         </g>
 
         {demoPoints.map((point) => (
-          <g
+          <BodyMapMarker
             key={`demo-${point.id}`}
-            data-local-marker-id={point.id}
-            transform={`translate(${point.x * CLINICAL_BODY_ATLAS_WIDTH} ${point.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-point.x * CLINICAL_BODY_ATLAS_WIDTH} ${-point.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
-            onClick={(event) => { event.stopPropagation(); point.onSelect(); }}
-            style={{ cursor: "pointer" }}
-          >
-            <title>{`Локальный учебный очаг: ${point.label}`}</title>
-            <circle
-              cx={point.x * CLINICAL_BODY_ATLAS_WIDTH}
-              cy={point.y * CLINICAL_BODY_ATLAS_HEIGHT}
-              r={point.selected ? 8 : 6}
-              fill="hsl(var(--surface))"
-              stroke="hsl(var(--primary))"
-              strokeDasharray="2 2"
-              strokeWidth={1.4}
-              opacity={0.85}
-            />
-            <text
-              x={point.x * CLINICAL_BODY_ATLAS_WIDTH}
-              y={point.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
-              textAnchor="middle"
-              fontSize={8}
-              fontWeight={700}
-              fill="hsl(var(--primary))"
-            >
-              {point.num}
-            </text>
-          </g>
+            point={point}
+            allPoints={allPoints}
+            zoom={zoom}
+            local
+          />
         ))}
 
         {points.map((point) => (
-          <g
+          <BodyMapMarker
             key={point.id}
-            data-marker-id={point.id}
-            transform={`translate(${point.x * CLINICAL_BODY_ATLAS_WIDTH} ${point.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-point.x * CLINICAL_BODY_ATLAS_WIDTH} ${-point.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
-            onClick={(event) => { event.stopPropagation(); point.onSelect(); }}
-            style={{ cursor: "pointer" }}
-          >
-            <title>{`${point.num}. ${point.label}`}</title>
-            <circle
-              cx={point.x * CLINICAL_BODY_ATLAS_WIDTH}
-              cy={point.y * CLINICAL_BODY_ATLAS_HEIGHT}
-              r={point.selected ? 8 : 6}
-              fill={point.selected ? "hsl(var(--primary))" : "hsl(var(--surface))"}
-              stroke={point.selected ? "hsl(var(--primary))" : "hsl(var(--foreground))"}
-              strokeWidth={1.2}
-            />
-            <text
-              x={point.x * CLINICAL_BODY_ATLAS_WIDTH}
-              y={point.y * CLINICAL_BODY_ATLAS_HEIGHT + 3}
-              textAnchor="middle"
-              fontSize={8}
-              fontWeight={600}
-              fill={point.selected ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))"}
-            >
-              {point.num}
-            </text>
-          </g>
+            point={point}
+            allPoints={allPoints}
+            zoom={zoom}
+          />
         ))}
 
         {pending && (
