@@ -9,6 +9,12 @@ import {
 
 import SysReleaseStatusPage from "./SysReleaseStatusPage";
 
+const appModeMock = vi.hoisted(() => ({ production: false }));
+
+vi.mock("@/lib/app-mode", () => ({
+  isProductionAppMode: () => appModeMock.production,
+}));
+
 function historyLine(
   currentSha: string,
   overallStatus: "ok" | "incomplete" | "fail",
@@ -30,6 +36,7 @@ function historyLine(
 
 describe("SysReleaseStatusPage", () => {
   beforeEach(() => {
+    appModeMock.production = false;
     window.localStorage.clear();
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -39,6 +46,27 @@ describe("SysReleaseStatusPage", () => {
       configurable: true,
       value: vi.fn(),
     });
+  });
+
+  it("fails closed in production when no live release source is connected", () => {
+    appModeMock.production = true;
+
+    const { container } = render(<SysReleaseStatusPage />);
+
+    expect(
+      screen.getByRole("alert", {
+        name: "Текущий статус публикации не подтверждён",
+      }),
+    ).toHaveTextContent(/не подключён к текущему состоянию сервера/i);
+    expect(
+      screen.getByRole("link", { name: "Открыть проверки GitHub" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/sahchandansah1201-glitch/pro/actions",
+    );
+    expect(container).not.toHaveTextContent("5ce9cf1");
+    expect(container).not.toHaveTextContent("9 из 9 пройдены");
+    expect(container).not.toHaveTextContent("Ссылку на отчёт можно публиковать");
   });
 
   afterEach(() => {

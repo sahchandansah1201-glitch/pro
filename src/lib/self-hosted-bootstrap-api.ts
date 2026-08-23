@@ -222,9 +222,9 @@ export function buildProductionBootstrapChecklist(
     },
     {
       key: "system-admin",
-      label: "Первый администратор создан",
-      status: "attention",
-      detail: "Создайте первого администратора перед рабочим входом.",
+      label: "Первый администратор",
+      status: "unknown",
+      detail: "Этот экран не проверяет наличие администратора. Если рабочий вход уже доступен, дополнительное действие не требуется.",
     },
   ];
 }

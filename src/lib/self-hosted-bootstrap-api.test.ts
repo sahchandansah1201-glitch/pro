@@ -80,7 +80,7 @@ describe("self-hosted-bootstrap-api", () => {
     ]);
     expect(checklist.filter((item) => item.status === "ready")).toHaveLength(4);
     expect(checklist.find((item) => item.key === "system-admin")?.detail).toContain(
-      "Создайте первого администратора",
+      "Этот экран не проверяет наличие администратора",
     );
   });
 
