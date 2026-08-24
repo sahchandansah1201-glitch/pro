@@ -616,6 +616,31 @@ test("project memory guard accepts absolute artifact links when present", () => 
   assert.equal(result.ok, true, result.errors.join("\n"));
 });
 
+test("project memory guard accepts a tracked policy link for ignored nightly output", () => {
+  const root = makeRoot();
+  mkdirSync(join(root, "docs/frontend"), { recursive: true });
+  writeFileSync(
+    join(root, "docs/frontend/stage-3l-nightly-artifacts-report.md"),
+    "# Nightly artifact policy\n",
+  );
+  writeMemory(root, {
+    "ARTIFACTS.md": `# ARTIFACTS
+
+## Stage 6 manifests
+
+- [nightly artifact policy](../frontend/stage-3l-nightly-artifacts-report.md)
+  documents the ignored runtime output at
+  \`test-results/e2e-nightly-full-artifact-summary.md\`.
+
+## Verification outputs
+
+- output
+`,
+  });
+  const result = collectProjectMemoryChecks({ root });
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
 test("project memory guard rejects missing required files", () => {
   const root = makeRoot();
   writeMemory(root, { "RISKS.md": "" });

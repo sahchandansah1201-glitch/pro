@@ -288,6 +288,10 @@ export default function SysReleaseStatusPage() {
     return <ProductionReleaseStatusUnavailable />;
   }
 
+  return <SysReleaseStatusDemoPage />;
+}
+
+function SysReleaseStatusDemoPage() {
   const snapshot = RELEASE_STATUS_DEMO_SNAPSHOT;
   const previousSnapshot = RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT;
   const historyInputRef = useRef<HTMLTextAreaElement | null>(null);

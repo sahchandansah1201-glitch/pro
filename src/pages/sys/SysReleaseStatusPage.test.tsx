@@ -69,6 +69,24 @@ describe("SysReleaseStatusPage", () => {
     expect(container).not.toHaveTextContent("Ссылку на отчёт можно публиковать");
   });
 
+  it("switches from demo release status to the production fail-closed state", () => {
+    appModeMock.production = false;
+    const view = render(<SysReleaseStatusPage />);
+
+    expect(
+      screen.getByRole("region", { name: "Готовность публикации" }),
+    ).toBeInTheDocument();
+
+    appModeMock.production = true;
+    view.rerender(<SysReleaseStatusPage />);
+
+    expect(
+      screen.getByRole("alert", {
+        name: "Текущий статус публикации не подтверждён",
+      }),
+    ).toBeInTheDocument();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });

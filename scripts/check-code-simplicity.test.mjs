@@ -32,6 +32,22 @@ test("passes for small focused source files", () => {
   }
 });
 
+test("accepts the reviewed current oversized baselines without clearing their debt", () => {
+  const root = makeTempProject();
+  try {
+    writeLines(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", 3261);
+    writeLines(root, "src/pages/sys/SysReleaseStatusPage.tsx", 3097);
+
+    const result = analyzeSimplicity({ root, scanDirs: ["src"] });
+
+    assert.equal(result.status, "passed");
+    assert.equal(result.metrics.knownOversizedFileCount, 2);
+    assert.equal(result.metrics.violationCount, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("fails when a new frontend page exceeds the file budget", () => {
   const root = makeTempProject();
   try {
