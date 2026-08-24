@@ -1138,18 +1138,65 @@ test.describe("Live production admin management journey", () => {
     await expect(mainText(page, "Проверка хранения и сроков")).toBeVisible();
     await expect(mainText(page, "Проверка файлов и сеансов")).toBeVisible();
 
-    for (const [buttonName, path] of [
-      ["Блокировать окна без правил", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unapproved-retention$/],
-      ["Закрыть окна без срока", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-missing-expiry$/],
-      ["Закрыть временные коды", /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unsafe-session-artifacts$/],
-      ["Подготовить новую выдачу", /^\/api\/v1\/patient-photo-protocol-release\/governance\/prepare-access-artifact-rotation$/],
-      ["Подготовить ключ входа", /^\/api\/v1\/patient-photo-protocol-release\/governance\/issue-access-credential-hash$/],
-      ["Отозвать истёкшие окна", /^\/api\/v1\/patient-photo-protocol-release\/governance\/revoke-expired$/],
+    await expect(appMain(page).getByRole("button", { name: /Требует действий/ })).toHaveAttribute("aria-expanded", "true");
+    await expect(appMain(page).getByRole("button", { name: /Решение клиники/ })).toHaveAttribute("aria-expanded", "false");
+    await expect(appMain(page).getByRole("button", { name: /История и безопасность/ })).toHaveAttribute("aria-expanded", "false");
+    await expect(appMain(page).getByRole("button", { name: /Очередь утверждений/ })).toHaveAttribute("aria-expanded", "false");
+
+    for (const { buttonName, path, confirmation } of [
+      {
+        buttonName: "Блокировать окна без правил",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unapproved-retention$/,
+        confirmation: "Подтвердить блокировку",
+      },
+      {
+        buttonName: "Закрыть окна без срока",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-missing-expiry$/,
+        confirmation: "Подтвердить закрытие",
+      },
+      {
+        buttonName: "Закрыть временные коды",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/block-unsafe-session-artifacts$/,
+        confirmation: "Подтвердить закрытие",
+      },
+      {
+        buttonName: "Подготовить новую выдачу",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/prepare-access-artifact-rotation$/,
+        confirmation: null,
+      },
+      {
+        buttonName: "Подготовить ключ входа",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/issue-access-credential-hash$/,
+        confirmation: null,
+      },
+      {
+        buttonName: "Отозвать истёкшие окна",
+        path: /^\/api\/v1\/patient-photo-protocol-release\/governance\/revoke-expired$/,
+        confirmation: "Подтвердить отзыв",
+      },
     ] as const) {
+      const trigger = appMain(page).getByRole("button", { name: buttonName }).first();
+
+      if (confirmation) {
+        await trigger.click();
+        const dialog = page.getByRole("alertdialog");
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+        await expect(trigger).toBeFocused();
+        await trigger.click();
+        await expect(dialog).toBeVisible();
+      }
+
       const governanceOperationResponsePromise = page.waitForResponse((response) =>
         isAdminGovernanceResponse(response, "POST", path),
       );
-      await appMain(page).getByRole("button", { name: buttonName }).first().click();
+      if (confirmation) {
+        await page.getByRole("alertdialog").getByRole("button", { name: confirmation }).click();
+      } else {
+        await trigger.click();
+      }
       const governanceOperationResponse = await governanceOperationResponsePromise;
       expect(governanceOperationResponse.status()).toBeGreaterThanOrEqual(200);
       expect(governanceOperationResponse.status()).toBeLessThan(300);
