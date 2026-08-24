@@ -93,6 +93,31 @@ describe("AdminAnalyticsPage — заголовок и баннер", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("группирует длинную страницу в четыре зоны и восемь закрытых разделов", () => {
+    const { getByRole } = renderPage();
+    for (const title of [
+      "Главное за период",
+      "Запись и обращения",
+      "Качество и маршрутизация",
+      "Финансовая оценка",
+    ]) {
+      expect(getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    }
+
+    for (const label of [
+      "Срез периода — детали",
+      "Воронка и источники",
+      "Операционный разбор",
+      "Лиды по статусу",
+      "Маршрутизация по клиникам и риск",
+      "Качество фото и состояния диалогов",
+      "Финансовый контур и ценность по филиалам",
+      "Проверка методики",
+    ]) {
+      expect(getByRole("button", { name: new RegExp(label) })).toHaveAttribute("aria-expanded", "false");
+    }
+  });
 });
 
 describe("AdminAnalyticsPage — KPI и агрегаты", () => {

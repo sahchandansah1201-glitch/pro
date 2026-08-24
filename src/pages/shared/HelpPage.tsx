@@ -250,7 +250,7 @@ function matchRole(r: RoleRef, q: string) {
 
 export default function HelpPage() {
   const [query, setQuery] = useState("");
-  const [bannerOpen, setBannerOpen] = useState(true);
+  const [bannerOpen, setBannerOpen] = useState(false);
   const q = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
@@ -290,10 +290,64 @@ export default function HelpPage() {
       <PageHeader title="Справка" subtitle="Роли, разделы и границы доступа" />
 
       <div className="space-y-3 p-3 sm:p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по ролям и разделам, например: визит, запись, оператор"
+            aria-label="Поиск по разделам справки"
+            className="h-11 pl-9 pr-20 text-[13px]"
+          />
+          {isSearching && (
+            <div
+              className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1"
+              aria-live="polite"
+            >
+              <span className="text-[11px] text-muted-foreground">
+                {totalMatches} {totalMatches === 1 ? "совпадение" : "совп."}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="pointer-events-auto h-11 w-11"
+                aria-label="Очистить поиск"
+                onClick={() => setQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-md border bg-muted/30 p-3">
+          <p className="text-[13px] font-semibold">С чего начать</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Найдите свою роль — увидите доступные разделы и границы.
+          </p>
+          <Button
+            asChild
+            size="sm"
+            className="mt-2 min-h-11 w-full sm:w-auto"
+          >
+            <a
+              href="#roles"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("roles")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              Выбрать свою роль
+            </a>
+          </Button>
+        </div>
+
         <div
           role="note"
           aria-label="Граничные условия безопасности"
-          className="sticky top-2 z-10 rounded-md border px-3 py-2 text-[12px] shadow-sm backdrop-blur"
+          className="rounded-md border px-3 py-2 text-[12px]"
           style={{
             background: "hsl(var(--warning) / 0.12)",
             borderColor: "hsl(var(--warning) / 0.30)",
@@ -327,38 +381,6 @@ export default function HelpPage() {
               )}
             </div>
           </div>
-        </div>
-
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по ролям и разделам, например: визит, запись, оператор"
-            aria-label="Поиск по разделам справки"
-            className="h-11 pl-9 pr-20 text-[13px]"
-          />
-          {isSearching && (
-            <div
-              className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1"
-              aria-live="polite"
-            >
-              <span className="text-[11px] text-muted-foreground">
-                {totalMatches} {totalMatches === 1 ? "совпадение" : "совп."}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="pointer-events-auto h-11 w-11"
-                aria-label="Очистить поиск"
-                onClick={() => setQuery("")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
         </div>
 
         <nav aria-label="Разделы справки" className="flex flex-wrap gap-1.5">

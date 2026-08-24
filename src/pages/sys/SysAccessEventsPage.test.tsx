@@ -116,6 +116,26 @@ describe("SysAccessEventsPage", () => {
     expect(html).not.toContain("access_token");
   });
 
+  it("оставляет частые действия видимыми, а три подробных блока закрывает по умолчанию", () => {
+    renderPage();
+
+    for (const [label, bodyId] of [
+      ["Расширенные фильтры", "access-events-advanced-filters"],
+      ["Параметры выгрузки", "access-events-export-settings"],
+      ["Журнал выгрузок", "access-events-export-log-body"],
+    ] as const) {
+      const toggle = screen.getByRole("button", { name: label });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      expect(document.getElementById(bodyId)).toHaveClass("hidden");
+      fireEvent.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      expect(document.getElementById(bodyId)).not.toHaveClass("hidden");
+    }
+
+    expect(screen.getByLabelText("Поиск событий доступа")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Обновить события доступа" })).toBeVisible();
+  });
+
   it("blocks non-system-admin roles before rendering rows or export", () => {
     renderPage("clinic_admin");
 

@@ -498,6 +498,9 @@ export default function SysAccessEventsPage() {
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [reloadTick, setReloadTick] = useState(0);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [exportSettingsOpen, setExportSettingsOpen] = useState(false);
+  const [exportLogOpen, setExportLogOpen] = useState(false);
   const visibleSourceFilters = productionMode
     ? SOURCE_FILTERS.filter((item) => item.key !== "demo")
     : SOURCE_FILTERS;
@@ -815,6 +818,18 @@ export default function SysAccessEventsPage() {
     dateFrom !== DEFAULT_FILTER_STATE.dateFrom ||
     dateTo !== DEFAULT_FILTER_STATE.dateTo ||
     pageSize !== DEFAULT_FILTER_STATE.pageSize;
+
+  const advancedFilterCount = [
+    sourceFilter !== DEFAULT_FILTER_STATE.sourceFilter,
+    entityFilter !== DEFAULT_FILTER_STATE.entityFilter,
+    clinicFilter !== DEFAULT_FILTER_STATE.clinicFilter,
+    actorFilter !== DEFAULT_FILTER_STATE.actorFilter,
+    actionFilter !== DEFAULT_FILTER_STATE.actionFilter,
+    patientCodeFilter !== DEFAULT_FILTER_STATE.patientCodeFilter,
+    dateFrom !== DEFAULT_FILTER_STATE.dateFrom,
+    dateTo !== DEFAULT_FILTER_STATE.dateTo,
+    pageSize !== DEFAULT_FILTER_STATE.pageSize,
+  ].filter(Boolean).length;
 
   const pagination = useListPagination(filteredRows, {
     pageSize,
@@ -1320,7 +1335,7 @@ export default function SysAccessEventsPage() {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="default"
             className="min-h-11 gap-1 sm:min-h-9"
             onClick={handleRefresh}
             disabled={refreshDisabled}
@@ -1430,6 +1445,21 @@ export default function SysAccessEventsPage() {
               </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setAdvancedFiltersOpen((open) => !open)}
+            aria-expanded={advancedFiltersOpen}
+            aria-controls="access-events-advanced-filters"
+            className="mt-2 flex min-h-11 items-center gap-1 rounded-md border border-border bg-surface px-3 text-[12px] font-medium text-foreground hover:bg-muted sm:min-h-9"
+          >
+            Расширенные фильтры
+            {advancedFilterCount > 0 ? (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+                {advancedFilterCount}
+              </span>
+            ) : null}
+          </button>
+          <div id="access-events-advanced-filters" className={advancedFiltersOpen ? "space-y-2" : "hidden"}>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             <label className="grid gap-1 text-[11px] text-muted-foreground">
               Источник событий
@@ -1661,16 +1691,25 @@ export default function SysAccessEventsPage() {
               </Button>
             </div>
           </div>
+          </div>
         </Card>
 
         <Card className="space-y-3 p-3">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-[13px] font-semibold">Параметры экспорта</h2>
+            <button
+              type="button"
+              onClick={() => setExportSettingsOpen((open) => !open)}
+              aria-expanded={exportSettingsOpen}
+              aria-controls="access-events-export-settings"
+              className="flex min-h-11 items-center gap-1 text-[13px] font-semibold hover:text-primary sm:min-h-9"
+            >
+              Параметры выгрузки
+            </button>
             <span className="text-[11px] text-muted-foreground">
               Диапазон: {exportScopeLabel}; колонок: {selectedExportColumnCount}
             </span>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(240px,320px)_1fr]">
+          <div id="access-events-export-settings" className={exportSettingsOpen ? "grid gap-3 lg:grid-cols-[minmax(240px,320px)_1fr]" : "hidden"}>
             <div className="space-y-2">
               <label className="grid gap-1 text-[11px] text-muted-foreground">
                 Что экспортировать
@@ -1874,11 +1913,22 @@ export default function SysAccessEventsPage() {
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-[13px] font-semibold">Журнал экспортов</h2>
+              <button
+                type="button"
+                onClick={() => setExportLogOpen((open) => !open)}
+                aria-expanded={exportLogOpen}
+                aria-controls="access-events-export-log-body"
+                className="flex min-h-11 items-center gap-1 text-[13px] font-semibold hover:text-primary sm:min-h-9"
+              >
+                Журнал выгрузок
+              </button>
               <span className="text-[11px] text-muted-foreground">
                 показано {exportLogPagination.rangeLabel}; всего в журнале {exportLog.length}; последние 5 файлов
               </span>
             </div>
+          </div>
+          <div id="access-events-export-log-body" className={exportLogOpen ? "space-y-2" : "hidden"}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-56">
                 Поиск в журнале
@@ -2001,7 +2051,9 @@ export default function SysAccessEventsPage() {
             onPageChange={exportLogPagination.setPage}
             itemNoun="экспортов"
           />
+          </div>
         </Card>
+
 
         <Card className="hidden p-0 md:block">
           <table className="w-full text-[12px]">

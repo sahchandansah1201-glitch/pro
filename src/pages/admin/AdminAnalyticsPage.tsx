@@ -180,6 +180,68 @@ function SectionCard({
 }
 
 /**
+ * Заголовок семантической зоны страницы (H2) + обёртка секции.
+ * Используется для группировки существующих карточек в 4 зоны:
+ * «Главное за период», «Запись и обращения», «Качество и маршрутизация»,
+ * «Финансовая оценка».
+ */
+function ZoneSection({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section aria-labelledby={id} className="space-y-3">
+      <h2 id={id} className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Раскрывающийся блок для деталей секции (таблицы, методика, лиды,
+ * состояния бот-диалогов, финансовые пояснения). Содержимое остаётся
+ * смонтированным в DOM всегда — скрытие делается классом Tailwind
+ * "hidden", а не условным рендерингом, чтобы существующие unit-тесты
+ * продолжали находить содержимое секций через getByRole/getByText.
+ */
+function Disclosure({
+  id,
+  label,
+  defaultOpen = false,
+  children,
+}: {
+  id: string;
+  label: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-surface px-3 text-[12px] font-medium text-foreground hover:bg-muted"
+      >
+        {open ? "Свернуть" : "Показать"}: {label}
+      </button>
+      <div id={id} className={open ? "mt-3" : "hidden"}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Унифицированное пустое состояние для всех секций аналитики.
  * Одинаковая высота, иконка, основной заголовок и подсказка
  * с указанием выбранного периода — чтобы все секции выглядели
@@ -737,7 +799,7 @@ function AdminAnalyticsPageDemo() {
         subtitle="Воронка заявок, запись, маршрутизация и качество фото · учебные агрегаты"
       />
 
-      <div className="space-y-4 p-4">
+      <div className="space-y-5 p-4">
         {/* Safety banner */}
         <div
           role="status"
@@ -754,9 +816,11 @@ function AdminAnalyticsPageDemo() {
           </span>
         </div>
 
-        {/* Range segmented control */}
-        <div
-          role="tablist"
+        {/* ───────── Зона 1: Главное за период ───────── */}
+        <ZoneSection id="zone-key-summary" title="Главное за период">
+          {/* Range segmented control */}
+          <div
+            role="tablist"
           aria-label="Период"
           className="inline-flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1"
         >
@@ -800,13 +864,51 @@ function AdminAnalyticsPageDemo() {
                 hint="по предварительной оценке"
               />
             </>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <SectionCard title="Срез периода" hint="только агрегаты">
-            {isLoading ? (
-              <SectionSkeleton rows={4} />
+          {/* Primary action: единственное primary-действие демо-режима */}
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[13px] font-semibold">Действия</div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled
+                  title="Учебный режим: отключено"
+                  className="min-h-[44px]"
+                >
+                  Выгрузка CSV отключена
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onGenerateReport}
+                  className="order-first w-full min-h-[44px] sm:order-none sm:w-auto"
+                >
+                  Сформировать учебный отчёт
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 text-[12px] text-muted-foreground">
+              Это учебный предпросмотр. Данные не отправляются во внешние системы.
+            </div>
+            {reportPreview && (
+              <div className="mt-3 max-w-full overflow-auto rounded-md border border-border bg-muted/40">
+                <pre
+                  aria-label="Безопасный агрегатный предпросмотр отчёта"
+                  className="max-h-80 min-w-0 whitespace-pre p-3 text-[12px] leading-relaxed"
+                >
+{reportPreview}
+                </pre>
+              </div>
+            )}
+          </Card>
+
+          <Disclosure id="disclosure-period-slice" label="Срез периода — детали">
+            <SectionCard title="Срез периода" hint="только агрегаты">
+              {isLoading ? (
+                <SectionSkeleton rows={4} />
             ) : (
               <div className="space-y-3">
                 <div className="rounded-md border border-border bg-surface-muted px-3 py-2">
@@ -841,37 +943,18 @@ function AdminAnalyticsPageDemo() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </SectionCard>
+                </div>
+              )}
+            </SectionCard>
+          </Disclosure>
+        </ZoneSection>
 
-          <SectionCard title="Операционный разбор" hint="без персональных строк">
-            {isLoading ? (
-              <SectionSkeleton rows={4} />
-            ) : (
-              <div className="divide-y divide-border rounded-md border border-border">
-                {operationalBottlenecks.map((row) => (
-                  <div
-                    key={row.key}
-                    className="grid grid-cols-1 gap-1 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto]"
-                  >
-                    <span className="font-medium">{row.label}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {row.count}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {fmtPct(row.share)} · {row.basis}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </SectionCard>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {/* Funnel */}
-          <SectionCard title="Воронка" hint="учебный расчёт на обезличенных агрегатах">
+        {/* ───────── Зона 2: Запись и обращения ───────── */}
+        <ZoneSection id="zone-booking-inquiries" title="Запись и обращения">
+          <Disclosure id="disclosure-funnel-sources" label="Воронка и источники">
+            <div className="grid gap-4 xl:grid-cols-2">
+              {/* Funnel */}
+              <SectionCard title="Воронка" hint="учебный расчёт на обезличенных агрегатах">
             {isLoading ? (
               <SectionSkeleton rows={4} />
             ) : totalLeads === 0 ? (
@@ -925,13 +1008,64 @@ function AdminAnalyticsPageDemo() {
                     </span>
                   </div>
                 ))}
-              </div>
-            )}
-          </SectionCard>
+                  </div>
+                )}
+              </SectionCard>
+            </div>
+          </Disclosure>
 
-          {/* Clinics */}
-          <SectionCard
-            title="Маршрутизация по клиникам"
+          <Disclosure id="disclosure-operational" label="Операционный разбор">
+            <SectionCard title="Операционный разбор" hint="без персональных строк">
+              {isLoading ? (
+                <SectionSkeleton rows={4} />
+              ) : (
+                <div className="divide-y divide-border rounded-md border border-border">
+                  {operationalBottlenecks.map((row) => (
+                    <div
+                      key={row.key}
+                      className="grid grid-cols-1 gap-1 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto]"
+                    >
+                      <span className="font-medium">{row.label}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {row.count}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {fmtPct(row.share)} · {row.basis}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </Disclosure>
+
+          <Disclosure id="disclosure-leads-by-status" label="Лиды по статусу">
+            <SectionCard title="Лиды по статусу">
+              <div className="flex flex-wrap gap-2 text-[12px]">
+                {(Object.keys(LEAD_STATUS_LABEL) as LeadStatus[]).map((st) => {
+                  const n = data.leads.filter((l) => l.status === st).length;
+                  return (
+                    <span
+                      key={st}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1"
+                    >
+                      <span>{LEAD_STATUS_LABEL[st]}</span>
+                      <span className="tabular-nums text-muted-foreground">{n}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          </Disclosure>
+        </ZoneSection>
+
+        {/* ───────── Зона 3: Качество и маршрутизация ───────── */}
+        <ZoneSection id="zone-quality-routing" title="Качество и маршрутизация">
+          <Disclosure id="disclosure-routing-risk" label="Маршрутизация по клиникам и риск">
+            <div className="grid gap-4 xl:grid-cols-2">
+              {/* Clinics */}
+              <SectionCard
+                title="Маршрутизация по клиникам"
             hint={
               <span
                 role="tablist"
@@ -1020,13 +1154,17 @@ function AdminAnalyticsPageDemo() {
                     </div>
                   </li>
                 ))}
-              </ul>
-            )}
-          </SectionCard>
+                  </ul>
+                )}
+              </SectionCard>
+            </div>
+          </Disclosure>
 
-          {/* Image quality */}
-          <SectionCard
-            title="Качество фото"
+          <Disclosure id="disclosure-quality-dialogs" label="Качество фото и состояния диалогов">
+            <div className="grid gap-4 xl:grid-cols-2">
+              {/* Image quality */}
+              <SectionCard
+                title="Качество фото"
             hint="техническое качество снимка, не диагноз"
           >
             {isLoading ? (
@@ -1066,13 +1204,20 @@ function AdminAnalyticsPageDemo() {
                     </span>
                   </div>
                 ))}
-              </div>
-            )}
-          </SectionCard>
+                  </div>
+                )}
+              </SectionCard>
+            </div>
+          </Disclosure>
+        </ZoneSection>
 
-          {/* Financial value */}
-          <SectionCard
-            title="Финансовый контур"
+        {/* ───────── Зона 4: Финансовая оценка ───────── */}
+        <ZoneSection id="zone-finance" title="Финансовая оценка">
+          <Disclosure id="disclosure-finance-value" label="Финансовый контур и ценность по филиалам">
+            <div className="grid gap-4 xl:grid-cols-2">
+              {/* Financial value */}
+              <SectionCard
+                title="Финансовый контур"
             hint="оценка вклада, не бухгалтерская выручка"
           >
             {isLoading ? (
@@ -1119,13 +1264,16 @@ function AdminAnalyticsPageDemo() {
                     </span>
                   </div>
                 ))}
-              </div>
-            )}
-          </SectionCard>
+                  </div>
+                )}
+              </SectionCard>
+            </div>
+          </Disclosure>
 
-          <SectionCard title="Проверка методики" hint="до рабочего запуска">
-            {isLoading ? (
-              <SectionSkeleton rows={5} />
+          <Disclosure id="disclosure-finance-methodology" label="Проверка методики">
+            <SectionCard title="Проверка методики" hint="до рабочего запуска">
+              {isLoading ? (
+                <SectionSkeleton rows={5} />
             ) : (
               <div className="space-y-3">
                 <div className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px]">
@@ -1157,67 +1305,11 @@ function AdminAnalyticsPageDemo() {
                   Граница: только агрегаты, без пациентских строк, без бухгалтерской
                   выручки и без финансового прогноза.
                 </div>
-              </div>
-            )}
-          </SectionCard>
-        </div>
-
-        {/* Lead status mini-row */}
-        <SectionCard title="Лиды по статусу">
-          <div className="flex flex-wrap gap-2 text-[12px]">
-            {(Object.keys(LEAD_STATUS_LABEL) as LeadStatus[]).map((st) => {
-              const n = data.leads.filter((l) => l.status === st).length;
-              return (
-                <span
-                  key={st}
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1"
-                >
-                  <span>{LEAD_STATUS_LABEL[st]}</span>
-                  <span className="tabular-nums text-muted-foreground">{n}</span>
-                </span>
-              );
-            })}
-          </div>
-        </SectionCard>
-
-        {/* Учебные действия */}
-        <Card className="p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[13px] font-semibold">Действия</div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled
-                title="Учебный режим: отключено"
-                className="min-h-[44px]"
-              >
-                Выгрузка CSV отключена
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onGenerateReport}
-                className="min-h-[44px]"
-              >
-                Сформировать учебный отчёт
-              </Button>
-            </div>
-          </div>
-          <div className="mt-2 text-[12px] text-muted-foreground">
-            Это учебный предпросмотр. Данные не отправляются во внешние системы.
-          </div>
-          {reportPreview && (
-            <div className="mt-3 max-w-full overflow-auto rounded-md border border-border bg-muted/40">
-              <pre
-                aria-label="Безопасный агрегатный предпросмотр отчёта"
-                className="max-h-80 min-w-0 whitespace-pre p-3 text-[12px] leading-relaxed"
-              >
-{reportPreview}
-              </pre>
-            </div>
-          )}
-        </Card>
+                </div>
+              )}
+            </SectionCard>
+          </Disclosure>
+        </ZoneSection>
       </div>
     </div>
   );

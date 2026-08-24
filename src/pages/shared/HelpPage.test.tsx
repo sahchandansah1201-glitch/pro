@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import HelpPage from "./HelpPage";
 
@@ -43,6 +43,10 @@ describe("HelpPage", () => {
   it("рендерит заголовок и баннер безопасности", () => {
     renderHelp();
     expect(screen.getByText("Справка")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: /Безопасность и границы текущей версии/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(/Права на разделы проверяются сервером/i)).toBeInTheDocument();
     expect(screen.getByText(/Пациентские данные, снимки и служебные значения не выводятся/i)).toBeInTheDocument();
     expect(screen.getByText(/Помощник записи даёт только навигационную подсказку/i)).toBeInTheDocument();
