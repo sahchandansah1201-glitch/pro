@@ -99,12 +99,51 @@ test.describe("Patient delivery gates — native Russian release decision", () =
         "Разобрать правила хранения",
         "Блокировать окна без правил",
         "Закрыть окна без срока",
-        "Проверить истекающие окна",
+        "Отозвать истёкшие окна",
       ]) {
         await expect(drilldown.getByText(text, { exact: true }).first()).toBeVisible();
       }
 
+      const requiredActionsToggle = page.getByRole("button", { name: /^Требует действий:/ });
+      const clinicDecisionToggle = page.getByRole("button", { name: /^Решение клиники:/ });
+      const historySafetyToggle = page.getByRole("button", { name: /^История и безопасность:/ });
+      const approvalQueueToggle = page.getByRole("button", { name: /^Очередь утверждений:/ });
+      await expect(requiredActionsToggle).toHaveAttribute("aria-expanded", "true");
+      await expect(clinicDecisionToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(historySafetyToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(approvalQueueToggle).toHaveAttribute("aria-expanded", "false");
+      await clinicDecisionToggle.press("Enter");
+      await expect(clinicDecisionToggle).toHaveAttribute("aria-expanded", "true");
+      await clinicDecisionToggle.press("Enter");
+      await expect(clinicDecisionToggle).toHaveAttribute("aria-expanded", "false");
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        ),
+      ).toBe(false);
+
+      const blockRetentionButton = drilldown.getByRole("button", {
+        name: "Блокировать окна без правил",
+      });
+      await blockRetentionButton.click();
+      const retentionConfirmation = page.getByRole("alertdialog", {
+        name: "Заблокировать окна без правил хранения?",
+      });
+      await expect(retentionConfirmation).toBeVisible();
+      await expect(
+        retentionConfirmation.getByRole("button", { name: "Отмена" }),
+      ).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(retentionConfirmation).toBeHidden();
+      await expect(blockRetentionButton).toBeFocused();
+
       await drilldown.getByRole("button", { name: "Закрыть окна без срока" }).click();
+      const missingExpiryConfirmation = page.getByRole("alertdialog", {
+        name: "Закрыть окна без срока доступа?",
+      });
+      await expect(missingExpiryConfirmation).toBeVisible();
+      await expect(missingExpiryConfirmation.getByRole("button", { name: "Отмена" })).toBeVisible();
+      await missingExpiryConfirmation.getByRole("button", { name: "Подтвердить закрытие" }).click();
       await expect(page.getByText(/Учебный режим: окна без срока заблокированы локально/).first()).toBeVisible();
 
       const sessions = page.getByRole("region", { name: "Проверка файлов и сеансов" });
@@ -126,8 +165,14 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await sessions.getByRole("button", { name: "Проверить выдачу файлов" }).click();
       await expect(page.getByText(/Проверка выдачи файлов подготовлена локально/).first()).toBeVisible();
       await sessions.getByRole("button", { name: "Закрыть временные коды" }).click();
+      const unsafeCodeConfirmation = page.getByRole("alertdialog", {
+        name: "Закрыть небезопасные временные коды?",
+      });
+      await expect(unsafeCodeConfirmation).toBeVisible();
+      await unsafeCodeConfirmation.getByRole("button", { name: "Подтвердить закрытие" }).click();
       await expect(page.getByText(/Учебный режим: небезопасные временные коды заблокированы локально/).first()).toBeVisible();
 
+      await page.getByRole("button", { name: /^История и безопасность:/ }).click();
       const safety = page.getByRole("region", { name: "Итоговая проверка безопасности данных" });
       await expect(safety).toBeVisible();
       await expect(safety.getByText("Что можно показать администратору")).toBeVisible();
@@ -150,6 +195,7 @@ test.describe("Patient delivery gates — native Russian release decision", () =
       await safety.getByRole("button", { name: "Проверить безопасность данных" }).click();
       await expect(page.getByText(/Проверка безопасности данных подготовлена локально/).first()).toBeVisible();
 
+      await page.getByRole("button", { name: /^Решение клиники:/ }).click();
       const receipt = page.getByRole("region", { name: "Предварительный акт готовности к выдаче" });
       await expect(receipt).toBeVisible();
       await expect(receipt.getByText("Что зафиксировано перед решением")).toBeVisible();

@@ -160,6 +160,13 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText("Сеансы доступа").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Проверить текст для пациента/ })).toBeInTheDocument();
+    for (const groupName of [
+      /^Решение клиники:/,
+      /^История и безопасность:/,
+      /^Очередь утверждений:/,
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: groupName }));
+    }
     expect(screen.getByRole("region", { name: "Проверка хранения и сроков" })).toBeInTheDocument();
     expect(screen.getByText("Что закрыть перед выдачей")).toBeInTheDocument();
     expect(screen.getAllByText("Правила хранения").length).toBeGreaterThan(0);
@@ -169,7 +176,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Разобрать правила хранения/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Блокировать окна без правил/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Закрыть окна без срока/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Проверить истекающие окна/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Отозвать истёкшие окна/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Проверка файлов и сеансов" })).toBeInTheDocument();
     expect(screen.getByText("Как не раскрыть файлы и коды")).toBeInTheDocument();
     expect(screen.getAllByText("Защищённая выдача файлов").length).toBeGreaterThan(0);
@@ -245,28 +252,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText("Повторный просмотр").length).toBeGreaterThan(0);
     expect(screen.getByText("Итог для администратора")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить требования к утверждению/ })).toBeInTheDocument();
-    expect(screen.getByText("Работа с доступом")).toBeInTheDocument();
-    expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
-    expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Заблокировать без правил/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Заблокировать без срока/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Заблокировать временные коды/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Подготовить замену доступа/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Подготовить ключ доступа/ }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText("Обмен нужен").length).toBeGreaterThan(0);
-    expect(screen.getByText("Сессия подтверждена")).toBeInTheDocument();
-    expect(screen.getByText("Отказы обмена")).toBeInTheDocument();
-    expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
+    expect(screen.getAllByText("Очередь утверждений").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Безопасность данных").length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить текст для пациента/ }),
@@ -283,11 +269,17 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Закрыть окна без срока/ }),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить закрытие" }),
+    );
     expect(
       screen.getAllByText(/Учебный режим: окна без срока заблокированы локально/).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
-      screen.getByRole("button", { name: /Проверить истекающие окна/ }),
+      screen.getByRole("button", { name: /Отозвать истёкшие окна/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить отзыв" }),
     );
     expect(
       screen.getAllByText(
@@ -302,6 +294,9 @@ describe("Admin clinic core pages — render & safety", () => {
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Закрыть временные коды/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить закрытие" }),
     );
     expect(
       screen.getAllByText(/Учебный режим: небезопасные временные коды заблокированы локально/).length,
@@ -366,55 +361,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.getAllByText(/Требования к утверждению выдачи подготовлены локально/).length,
     ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Подготовить разбор хранения/ }),
-    );
-    expect(
-      screen.getAllByText(/Разбор хранения подготовлен локально/).length,
-    ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Отозвать истёкшие окна/ }),
-    );
-    expect(
-      screen.getAllByText(
-        /Учебный режим: отзыв истёкших окон подготовлен локально/,
-      ).length,
-    ).toBeGreaterThan(0);
     expect(screen.getByText("Последнее действие системы")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Заблокировать без правил/ }),
-    );
-    expect(
-      screen.getAllByText(
-        /Учебный режим: окна без правил хранения заблокированы локально/,
-      ).length,
-    ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Заблокировать без срока/ }),
-    );
-    expect(
-      screen.getAllByText(/Учебный режим: окна без срока заблокированы локально/).length,
-    ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Заблокировать временные коды/ }),
-    );
-    expect(
-      screen.getAllByText(
-        /Учебный режим: небезопасные временные коды заблокированы локально/,
-      ).length,
-    ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Подготовить замену доступа/ }),
-    );
-    expect(
-      screen.getAllByText(/Учебный режим: замена доступа подготовлена локально/).length,
-    ).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: /Подготовить ключ доступа/ }),
-    );
-    expect(
-      screen.getAllByText(/Учебный режим: ключ доступа подготовлен локально/).length,
-    ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0],
     );
@@ -446,6 +393,69 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(visible).not.toMatch(
       /self-hosted|backend|metadata-only|raw id|file proxy|production|credential|hash|fingerprint|session id|demo|unsafe/i,
     );
+  });
+
+  it("AdminGovernancePage keeps required actions open and secondary governance groups collapsed", () => {
+    renderRouted(<AdminGovernancePage />);
+
+    expect(screen.getByText("Заблокированные выдачи")).toBeInTheDocument();
+
+    const requiredActions = screen.getByRole("button", {
+      name: /^Требует действий:/,
+    });
+    expect(requiredActions).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("region", { name: "Проверка хранения и сроков" }),
+    ).toBeInTheDocument();
+
+    const clinicDecision = screen.getByRole("button", {
+      name: /^Решение клиники:/,
+    });
+    expect(clinicDecision).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "Пакет решения клиники по выдаче" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(clinicDecision);
+    expect(clinicDecision).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("region", { name: "Пакет решения клиники по выдаче" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: /^История и безопасность:/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", { name: /^Очередь утверждений:/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("AdminGovernancePage requires explicit confirmation before a destructive access operation", () => {
+    renderRouted(<AdminGovernancePage />);
+
+    const operationFeedback = /Учебный режим: окна без правил хранения заблокированы локально/;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Блокировать окна без правил" }),
+    );
+
+    expect(
+      screen.getByRole("alertdialog", {
+        name: "Заблокировать окна без правил хранения?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(operationFeedback)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(operationFeedback)).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Блокировать окна без правил" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить блокировку" }),
+    );
+    expect(screen.getByText(operationFeedback)).toBeInTheDocument();
   });
 
   it("AdminIntegrationsPage uses native Russian admin copy without technical transfer terms", () => {

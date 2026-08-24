@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Clock3,
   FileCheck2,
-  KeyRound,
   ListChecks,
   LockKeyhole,
   RotateCcw,
@@ -15,6 +14,23 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
@@ -234,6 +250,89 @@ function SectionCard({
       </div>
       {children}
     </Card>
+  );
+}
+
+function GovernanceDisclosure({
+  value,
+  title,
+  hint,
+  status,
+  children,
+}: {
+  value: string;
+  title: string;
+  hint: string;
+  status: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <AccordionItem value={value} className="overflow-hidden rounded-lg border bg-card px-4 shadow-sm">
+      <AccordionTrigger
+        aria-label={`${title}: ${status}`}
+        className="min-h-[64px] gap-3 py-3 text-left hover:no-underline"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold leading-tight">{title}</span>
+          <span className="mt-1 block text-[12px] font-normal leading-snug text-muted-foreground">{hint}</span>
+        </span>
+        <Badge variant="outline" className="min-h-[28px] shrink-0 px-2.5 py-1 text-[11px]">
+          {status}
+        </Badge>
+      </AccordionTrigger>
+      <AccordionContent className="border-t pt-3">
+        <div className="space-y-3">{children}</div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
+
+function GovernanceDestructiveAction({
+  triggerLabel,
+  busyLabel,
+  title,
+  description,
+  confirmLabel,
+  busy,
+  onConfirm,
+}: {
+  triggerLabel: string;
+  busyLabel: string;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  busy: boolean;
+  onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="min-h-[44px] justify-center sm:min-h-[36px]"
+          disabled={busy}
+        >
+          {busy ? busyLabel : triggerLabel}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription className="leading-relaxed">
+            {description} Операция не открывает доступ пациенту. Итог появится в блоке «Последнее действие системы».
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="min-h-[44px]">Отмена</AlertDialogCancel>
+          <AlertDialogAction
+            className="min-h-[44px] bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => void onConfirm()}
+          >
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -560,14 +659,15 @@ function DeliveryGateDrilldownPanel({
             <Button variant="outline" className="min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRetentionReview}>
               Разобрать правила хранения
             </Button>
-            <Button
-              variant="outline"
-              className="min-h-[44px] justify-center sm:min-h-[36px]"
-              onClick={onBlockUnapprovedRetention}
-              disabled={retentionOperationBusy}
-            >
-              {retentionOperationBusy ? "Блокируем окна..." : "Блокировать окна без правил"}
-            </Button>
+            <GovernanceDestructiveAction
+              triggerLabel="Блокировать окна без правил"
+              busyLabel="Блокируем окна..."
+              title="Заблокировать окна без правил хранения?"
+              description="Окна без утверждённых правил хранения станут недоступны до отдельного исправления условий."
+              confirmLabel="Подтвердить блокировку"
+              busy={retentionOperationBusy}
+              onConfirm={onBlockUnapprovedRetention}
+            />
           </div>
         </div>
 
@@ -597,22 +697,24 @@ function DeliveryGateDrilldownPanel({
             />
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Button
-              variant="outline"
-              className="min-h-[44px] justify-center sm:min-h-[36px]"
-              onClick={onBlockMissingExpiry}
-              disabled={missingExpiryOperationBusy}
-            >
-              {missingExpiryOperationBusy ? "Блокируем окна..." : "Закрыть окна без срока"}
-            </Button>
-            <Button
-              variant="outline"
-              className="min-h-[44px] justify-center sm:min-h-[36px]"
-              onClick={onRevokeReview}
-              disabled={revokeOperationBusy}
-            >
-              {revokeOperationBusy ? "Проверяем окна..." : "Проверить истекающие окна"}
-            </Button>
+            <GovernanceDestructiveAction
+              triggerLabel="Закрыть окна без срока"
+              busyLabel="Блокируем окна..."
+              title="Закрыть окна без срока доступа?"
+              description="Окна без даты окончания будут заблокированы до назначения корректного срока."
+              confirmLabel="Подтвердить закрытие"
+              busy={missingExpiryOperationBusy}
+              onConfirm={onBlockMissingExpiry}
+            />
+            <GovernanceDestructiveAction
+              triggerLabel="Отозвать истёкшие окна"
+              busyLabel="Отзываем окна..."
+              title="Отозвать истёкшие окна доступа?"
+              description="Система отзовёт только уже истёкшие окна; активные окна будут пропущены."
+              confirmLabel="Подтвердить отзыв"
+              busy={revokeOperationBusy}
+              onConfirm={onRevokeReview}
+            />
           </div>
         </div>
       </div>
@@ -715,14 +817,15 @@ function DeliverySessionDrilldownPanel({
             />
           </div>
           <div className="grid gap-2">
-            <Button
-              variant="outline"
-              className="min-h-[44px] justify-center sm:min-h-[36px]"
-              onClick={onBlockUnsafeSessionArtifacts}
-              disabled={unsafeSessionArtifactOperationBusy}
-            >
-              {unsafeSessionArtifactOperationBusy ? "Закрываем коды..." : "Закрыть временные коды"}
-            </Button>
+            <GovernanceDestructiveAction
+              triggerLabel="Закрыть временные коды"
+              busyLabel="Закрываем коды..."
+              title="Закрыть небезопасные временные коды?"
+              description="Временные коды, не отвечающие правилам безопасного сеанса, будут заблокированы."
+              confirmLabel="Подтвердить закрытие"
+              busy={unsafeSessionArtifactOperationBusy}
+              onConfirm={onBlockUnsafeSessionArtifacts}
+            />
             <Button
               variant="outline"
               className="min-h-[44px] justify-center sm:min-h-[36px]"
@@ -958,159 +1061,24 @@ function OperationLine({
   );
 }
 
-function GovernanceOperations({
-  governance,
+function GovernanceActionFeedback({
+  lastAction,
   operationResult,
-  missingExpiryOperationBusy,
-  retentionOperationBusy,
-  revokeOperationBusy,
-  unsafeSessionArtifactOperationBusy,
-  rotationOperationBusy,
-  credentialHashOperationBusy,
-  onRetentionReview,
-  onBlockMissingExpiry,
-  onBlockUnapprovedRetention,
-  onBlockUnsafeSessionArtifacts,
-  onPrepareAccessArtifactRotation,
-  onIssueAccessCredentialHash,
-  onRevokeReview,
 }: {
-  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  lastAction: string | null;
   operationResult: SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null;
-  missingExpiryOperationBusy: boolean;
-  retentionOperationBusy: boolean;
-  revokeOperationBusy: boolean;
-  unsafeSessionArtifactOperationBusy: boolean;
-  rotationOperationBusy: boolean;
-  credentialHashOperationBusy: boolean;
-  onRetentionReview: () => void;
-  onBlockMissingExpiry: () => void;
-  onBlockUnapprovedRetention: () => void;
-  onBlockUnsafeSessionArtifacts: () => void;
-  onPrepareAccessArtifactRotation: () => void;
-  onIssueAccessCredentialHash: () => void;
-  onRevokeReview: () => void;
 }) {
-  const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
+  if (!lastAction && !operationResult) return null;
+
   return (
-    <SectionCard title="Работа с доступом" hint="Правила хранения, отзыв доступа и безопасные сеансы">
-      <div className="grid gap-3 lg:grid-cols-3">
-        <div className="grid gap-2 rounded-md border p-3">
-          <div className="flex items-center gap-2 text-[12px] font-semibold">
-            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Разбор хранения
-          </div>
-          <OperationLine label="Требуют разбора" value={retention.reviewDue} tone={retention.reviewDue > 0 ? "warning" : "success"} />
-          <OperationLine label="Готовы по хранению" value={retention.ready} tone="success" />
-          <OperationLine label="Блокированы" value={retention.blocked} />
-          <Button variant="outline" className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRetentionReview}>
-            Подготовить разбор хранения
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onBlockUnapprovedRetention}
-            disabled={retentionOperationBusy}
-          >
-            {retentionOperationBusy ? "Блокируем окна..." : "Заблокировать без правил"}
-          </Button>
-        </div>
-
-        <div className="grid gap-2 rounded-md border p-3">
-          <div className="flex items-center gap-2 text-[12px] font-semibold">
-            <LockKeyhole className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Отзыв доступа
-          </div>
-          <OperationLine label="Окна доступа" value={revokeReadiness.activeWindows} />
-          <OperationLine label="Истекают за 24ч" value={revokeReadiness.expiringIn24h} tone={revokeReadiness.expiringIn24h > 0 ? "warning" : "default"} />
-          <OperationLine label="Причина отзыва" value={revokeReadiness.revokeReasonExposed ? "видна" : "скрыта"} tone="success" />
-          <Button
-            variant="outline"
-            className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onRevokeReview}
-            disabled={revokeOperationBusy}
-          >
-            {revokeOperationBusy ? "Отзываем окна..." : "Отозвать истёкшие окна"}
-          </Button>
-        </div>
-
-        <div className="grid gap-2 rounded-md border p-3">
-          <div className="flex items-center gap-2 text-[12px] font-semibold">
-            <KeyRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Сеансы доступа
-          </div>
-          <OperationLine label="Активные" value={sessionLifecycle.active} />
-          <OperationLine label="Без срока" value={sessionLifecycle.missingExpiry} tone={sessionLifecycle.missingExpiry > 0 ? "warning" : "success"} />
-          <OperationLine
-            label="Временные коды"
-            value={sessionLifecycle.unsafeArtifacts}
-            tone={sessionLifecycle.unsafeArtifacts > 0 ? "warning" : "success"}
-          />
-          <OperationLine
-            label="Нужна замена"
-            value={sessionLifecycle.rotationPending}
-            tone={sessionLifecycle.rotationPending > 0 ? "warning" : "success"}
-          />
-          <OperationLine label="Замена готова" value={sessionLifecycle.rotationPrepared} />
-          <OperationLine
-            label="Ключ нужен"
-            value={sessionLifecycle.credentialHashPending}
-            tone={sessionLifecycle.credentialHashPending > 0 ? "warning" : "success"}
-          />
-          <OperationLine label="Ключ готов" value={sessionLifecycle.credentialHashReady} />
-          <OperationLine
-            label="Обмен нужен"
-            value={sessionLifecycle.sessionExchangePending}
-            tone={sessionLifecycle.sessionExchangePending > 0 ? "warning" : "success"}
-          />
-          <OperationLine label="Сессия подтверждена" value={sessionLifecycle.sessionExchangeReady} tone="success" />
-          <OperationLine
-            label="Отказы обмена"
-            value={sessionLifecycle.sessionExchangeDenied}
-            tone={sessionLifecycle.sessionExchangeDenied > 0 ? "warning" : "success"}
-          />
-          <OperationLine label="Коды входа" value="скрыты" tone="success" />
-          <div className="text-[11px] text-muted-foreground">
-            Обмен одноразового кода проходит только через систему клиники. Сырые коды, контрольные значения и номера сеансов не выводятся.
-          </div>
-          <Button
-            variant="outline"
-            className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onBlockMissingExpiry}
-            disabled={missingExpiryOperationBusy}
-          >
-            {missingExpiryOperationBusy ? "Блокируем окна..." : "Заблокировать без срока"}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onBlockUnsafeSessionArtifacts}
-            disabled={unsafeSessionArtifactOperationBusy}
-          >
-            {unsafeSessionArtifactOperationBusy ? "Блокируем временные коды..." : "Заблокировать временные коды"}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onPrepareAccessArtifactRotation}
-            disabled={rotationOperationBusy}
-          >
-            {rotationOperationBusy ? "Готовим замену..." : "Подготовить замену доступа"}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-[44px] justify-center sm:min-h-[36px]"
-            onClick={onIssueAccessCredentialHash}
-            disabled={credentialHashOperationBusy}
-          >
-            {credentialHashOperationBusy ? "Готовим ключ..." : "Подготовить ключ доступа"}
-          </Button>
-        </div>
+    <div role="status" aria-live="polite" className="rounded-md border px-3 py-2 text-[12px] text-muted-foreground">
+      <div className="font-semibold text-foreground">
+        {operationResult ? "Последнее действие системы" : "Последнее действие"}
       </div>
+      {lastAction && <div className="mt-1 text-foreground">{lastAction}</div>}
       {operationResult && (
-        <div role="status" className="mt-3 rounded-md border px-3 py-2 text-[12px] text-muted-foreground">
-          <div className="font-semibold text-foreground">Последнее действие системы</div>
-          <div className="mt-1 grid gap-1 sm:grid-cols-3">
+        <>
+          <div className="mt-2 grid gap-1 sm:grid-cols-3">
             <span>Изменено: <b className="tabular-nums text-foreground">{operationResult.affectedCount}</b></span>
             <span>Активные пропущены: <b className="tabular-nums text-foreground">{operationResult.skippedActiveCount}</b></span>
             <span>Без срока: <b className="tabular-nums text-foreground">{operationResult.skippedMissingExpiryCount}</b></span>
@@ -1118,9 +1086,9 @@ function GovernanceOperations({
           <div className="mt-1">
             Только итоговые числа: пациентские строки, причина отзыва, секрет доступа, коды входа, номера сеансов и файловые пути не раскрывались.
           </div>
-        </div>
+        </>
       )}
-    </SectionCard>
+    </div>
   );
 }
 
@@ -1172,6 +1140,8 @@ export default function AdminGovernancePage() {
     [governance.queue],
   );
   const deliveryGates = useMemo(() => buildDeliveryGates(governance), [governance]);
+  const openGateCount = deliveryGates.filter((gate) => !gate.ready).length;
+  const blockerCount = deliveryGates.reduce((sum, gate) => sum + gate.blockerCount, 0);
 
   function recordReview(item: SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow) {
     setLastAction(`Разбор правил подготовлен локально: строка #${item.queueNumber}`);
@@ -1577,68 +1547,6 @@ export default function AdminGovernancePage() {
 
         <DeliveryDecisionPanel governance={governance} onDecisionAction={recordDeliveryDecisionAction} />
 
-        <DeliveryGateDrilldownPanel
-          governance={governance}
-          retentionOperationBusy={retentionOperationBusy}
-          missingExpiryOperationBusy={missingExpiryOperationBusy}
-          revokeOperationBusy={revokeOperationBusy}
-          onRetentionReview={recordRetentionReview}
-          onBlockUnapprovedRetention={recordBlockUnapprovedRetention}
-          onBlockMissingExpiry={recordBlockMissingExpiry}
-          onRevokeReview={recordRevokeReview}
-        />
-
-        <DeliverySessionDrilldownPanel
-          governance={governance}
-          unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
-          rotationOperationBusy={rotationOperationBusy}
-          credentialHashOperationBusy={credentialHashOperationBusy}
-          onFileChannelReview={recordFileChannelReview}
-          onBlockUnsafeSessionArtifacts={recordBlockUnsafeSessionArtifacts}
-          onPrepareAccessArtifactRotation={recordPrepareAccessArtifactRotation}
-          onIssueAccessCredentialHash={recordIssueAccessCredentialHash}
-        />
-
-        <DataSafetySummaryPanel governance={governance} onDataSafetyReview={recordDataSafetyReview} />
-
-        <PreReleaseReadinessReceiptPanel
-          governance={governance}
-          onReceiptReview={recordPreReleaseReceiptReview}
-        />
-
-        <LocalReadinessHistoryPanel
-          gates={deliveryGates}
-          lastAction={lastAction}
-          operationResult={operationResult}
-          onHistoryReview={recordReadinessHistoryReview}
-        />
-
-        <PreLaunchBlockerPanel
-          gates={deliveryGates}
-          onBlockerReview={recordPreLaunchBlockerReview}
-        />
-
-        <ClinicDecisionPackagePanel
-          gates={deliveryGates}
-          onDecisionPackageReview={recordClinicDecisionPackageReview}
-        />
-
-        <ClinicLaunchApprovalGatePanel
-          gates={deliveryGates}
-          onLaunchApprovalReview={recordClinicLaunchApprovalReview}
-        />
-
-        <PatientDeliveryAuditReceiptPanel
-          gates={deliveryGates}
-          lastAction={lastAction}
-          onAuditReceiptReview={recordPatientDeliveryAuditReceiptReview}
-        />
-
-        <PatientDeliveryApprovalRequirementsPanel
-          gates={deliveryGates}
-          onApprovalRequirementsReview={recordPatientDeliveryApprovalRequirementsReview}
-        />
-
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric
             icon={FileCheck2}
@@ -1660,80 +1568,148 @@ export default function AdminGovernancePage() {
           />
           <Metric
             icon={AlertTriangle}
-            label="Препятствия"
+            label="Заблокированные выдачи"
             value={governance.summary.blocked}
-            hint="мешают выдаче"
+            hint="требуют разбора"
           />
         </div>
 
-        <GovernanceOperations
-          governance={governance}
-          operationResult={operationResult}
-          missingExpiryOperationBusy={missingExpiryOperationBusy}
-          retentionOperationBusy={retentionOperationBusy}
-          revokeOperationBusy={revokeOperationBusy}
-          unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
-          rotationOperationBusy={rotationOperationBusy}
-          credentialHashOperationBusy={credentialHashOperationBusy}
-          onRetentionReview={recordRetentionReview}
-          onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
-          onBlockUnapprovedRetention={() => void recordBlockUnapprovedRetention()}
-          onBlockUnsafeSessionArtifacts={() => void recordBlockUnsafeSessionArtifacts()}
-          onPrepareAccessArtifactRotation={() => void recordPrepareAccessArtifactRotation()}
-          onIssueAccessCredentialHash={() => void recordIssueAccessCredentialHash()}
-          onRevokeReview={() => void recordRevokeReview()}
-        />
+        <GovernanceActionFeedback lastAction={lastAction} operationResult={operationResult} />
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <SectionCard title="Очередь утверждений" hint="служебные строки без пациентов и внутренних кодов">
-            <div className="space-y-2">
-              {governance.queue.map((item) => (
-                <QueueRow key={item.queueNumber} item={item} onReview={() => recordReview(item)} />
-              ))}
-            </div>
-            {lastAction && <div className="mt-3 text-[12px] text-success">{lastAction}</div>}
-          </SectionCard>
+        <Accordion type="multiple" defaultValue={["required-actions"]} className="space-y-3">
+          <GovernanceDisclosure
+            value="required-actions"
+            title="Требует действий"
+            hint="Открытые правила, сроки, файлы и сеансы"
+            status={`${blockerCount} препятств.`}
+          >
+            <DeliveryGateDrilldownPanel
+              governance={governance}
+              retentionOperationBusy={retentionOperationBusy}
+              missingExpiryOperationBusy={missingExpiryOperationBusy}
+              revokeOperationBusy={revokeOperationBusy}
+              onRetentionReview={recordRetentionReview}
+              onBlockUnapprovedRetention={recordBlockUnapprovedRetention}
+              onBlockMissingExpiry={recordBlockMissingExpiry}
+              onRevokeReview={recordRevokeReview}
+            />
+            <DeliverySessionDrilldownPanel
+              governance={governance}
+              unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
+              rotationOperationBusy={rotationOperationBusy}
+              credentialHashOperationBusy={credentialHashOperationBusy}
+              onFileChannelReview={recordFileChannelReview}
+              onBlockUnsafeSessionArtifacts={recordBlockUnsafeSessionArtifacts}
+              onPrepareAccessArtifactRotation={recordPrepareAccessArtifactRotation}
+              onIssueAccessCredentialHash={recordIssueAccessCredentialHash}
+            />
+          </GovernanceDisclosure>
 
-          <div className="grid gap-3">
-            <SectionCard title="Сеансы пациента" hint="сроки и отзывы">
-              <div className="grid gap-2 text-[12px]">
-                <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <span>Подготовлено</span>
-                  <span className="font-semibold tabular-nums">{governance.summary.prepared}</span>
+          <GovernanceDisclosure
+            value="clinic-decision"
+            title="Решение клиники"
+            hint="Акты, условия утверждения и запрет запуска"
+            status={`${openGateCount} проверок открыто`}
+          >
+            <PreReleaseReadinessReceiptPanel
+              governance={governance}
+              onReceiptReview={recordPreReleaseReceiptReview}
+            />
+            <PreLaunchBlockerPanel
+              gates={deliveryGates}
+              onBlockerReview={recordPreLaunchBlockerReview}
+            />
+            <ClinicDecisionPackagePanel
+              gates={deliveryGates}
+              onDecisionPackageReview={recordClinicDecisionPackageReview}
+            />
+            <ClinicLaunchApprovalGatePanel
+              gates={deliveryGates}
+              onLaunchApprovalReview={recordClinicLaunchApprovalReview}
+            />
+            <PatientDeliveryApprovalRequirementsPanel
+              gates={deliveryGates}
+              onApprovalRequirementsReview={recordPatientDeliveryApprovalRequirementsReview}
+            />
+          </GovernanceDisclosure>
+
+          <GovernanceDisclosure
+            value="history-safety"
+            title="История и безопасность"
+            hint="Безопасные агрегаты и журнал локальных проверок"
+            status="данные скрыты"
+          >
+            <DataSafetySummaryPanel governance={governance} onDataSafetyReview={recordDataSafetyReview} />
+            <LocalReadinessHistoryPanel
+              gates={deliveryGates}
+              lastAction={lastAction}
+              operationResult={operationResult}
+              onHistoryReview={recordReadinessHistoryReview}
+            />
+            <PatientDeliveryAuditReceiptPanel
+              gates={deliveryGates}
+              lastAction={lastAction}
+              onAuditReceiptReview={recordPatientDeliveryAuditReceiptReview}
+            />
+          </GovernanceDisclosure>
+
+          <GovernanceDisclosure
+            value="approval-queue"
+            title="Очередь утверждений"
+            hint="Служебные строки без пациентов и внутренних кодов"
+            status={`строк: ${governance.queue.length}`}
+          >
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <SectionCard title="Очередь утверждений" hint="служебные строки без пациентов и внутренних кодов">
+                <div className="space-y-2">
+                  {governance.queue.map((item) => (
+                    <QueueRow key={item.queueNumber} item={item} onReview={() => recordReview(item)} />
+                  ))}
                 </div>
-                <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <span>Отозвано</span>
-                  <span className="font-semibold tabular-nums">{governance.summary.revoked}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <span>Без срока</span>
-                  <span className="font-semibold tabular-nums">{governance.summary.expiryMissing}</span>
-                </div>
+              </SectionCard>
+
+              <div className="grid gap-3">
+                <SectionCard title="Сеансы пациента" hint="сроки и отзывы">
+                  <div className="grid gap-2 text-[12px]">
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <span>Подготовлено</span>
+                      <span className="font-semibold tabular-nums">{governance.summary.prepared}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <span>Отозвано</span>
+                      <span className="font-semibold tabular-nums">{governance.summary.revoked}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <span>Без срока</span>
+                      <span className="font-semibold tabular-nums">{governance.summary.expiryMissing}</span>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Безопасность данных" hint="показываются только безопасные итоги">
+                  <BoundaryList governance={governance} />
+                </SectionCard>
+
+                <SectionCard title="Что мешает запуску" hint="что нельзя считать закрытым">
+                  <ul className="grid gap-2 text-[12px] text-muted-foreground">
+                    <li className="flex gap-2">
+                      <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Нужны утверждённые правила хранения и срок доступа.
+                    </li>
+                    <li className="flex gap-2">
+                      <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Нужна проверенная пациентская копия без врачебной версии.
+                    </li>
+                    <li className="flex gap-2">
+                      <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Файловая выдача работает только через защищённый канал клиники.
+                    </li>
+                  </ul>
+                </SectionCard>
               </div>
-            </SectionCard>
-
-            <SectionCard title="Безопасность данных" hint="показываются только безопасные итоги">
-              <BoundaryList governance={governance} />
-            </SectionCard>
-
-            <SectionCard title="Что мешает запуску" hint="что нельзя считать закрытым">
-              <ul className="grid gap-2 text-[12px] text-muted-foreground">
-                <li className="flex gap-2">
-                  <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Нужны утверждённые правила хранения и срок доступа.
-                </li>
-                <li className="flex gap-2">
-                  <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Нужна проверенная пациентская копия без врачебной версии.
-                </li>
-                <li className="flex gap-2">
-                  <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Файловая выдача работает только через защищённый канал клиники.
-                </li>
-              </ul>
-            </SectionCard>
-          </div>
-        </div>
+            </div>
+          </GovernanceDisclosure>
+        </Accordion>
       </div>
     </div>
   );
