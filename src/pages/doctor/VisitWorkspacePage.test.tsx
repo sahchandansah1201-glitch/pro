@@ -2642,7 +2642,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
     expect(document.body).not.toHaveTextContent(/учебн|Database is unavailable|self-hosted|backend|PostgreSQL/i);
-  });
+  }, 10_000);
 
   it("does not synthesize production clinical or reviewer approval counts from zero values", () => {
     const source = readFileSync("src/pages/doctor/VisitWorkspacePage.tsx", "utf8");

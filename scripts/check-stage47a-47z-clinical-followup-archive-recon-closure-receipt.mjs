@@ -7,7 +7,7 @@ import { join } from "node:path";
 const MANIFEST = "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.stage47a-47z.json";
 const MIGRATION = "backend/self-hosted/db/migrations/0054_stage47_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure_receipt.sql";
 const DOC = "docs/backend/stage-47a-47z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.md";
-const WORKFLOW = ".github/workflows/stage47a-47z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.yml";
+const WORKFLOW = ".github/workflows/stage47a-47z-clinical-followup.yml";
 const GUARD = "scripts/check-stage47a-47z-clinical-followup-archive-recon-closure-receipt.mjs";
 const GUARD_TEST = "scripts/check-stage47a-47z-clinical-followup-archive-recon-closure-receipt.test.mjs";
 

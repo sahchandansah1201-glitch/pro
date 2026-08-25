@@ -12,6 +12,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.22.0"
       - name: Ensure no deno.lock files are committed
         run: node scripts/check-no-deno-locks.mjs

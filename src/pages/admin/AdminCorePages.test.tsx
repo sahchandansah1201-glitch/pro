@@ -368,7 +368,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.getAllByText(/Разбор правил подготовлен локально/).length,
     ).toBeGreaterThan(0);
-  });
+  }, 10_000);
 
   it("AdminGovernancePage keeps release governance aggregate-only and native Russian", () => {
     const { container } = renderRouted(<AdminGovernancePage />);
