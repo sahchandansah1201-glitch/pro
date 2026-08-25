@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Governance reviewed",
-    "Governance follow-up",
+    "Контроль проверен",
+    "Повторный контроль",
     "sopPolicyGovernanceReadinessSummary"
   ],
   "docs/backend/stage-26a-26z-clinical-followup-sop-policy-governance-readiness.md": [

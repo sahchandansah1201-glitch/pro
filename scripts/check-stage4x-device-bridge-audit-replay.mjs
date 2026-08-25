@@ -64,13 +64,13 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/audit",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge command audit and replay",
-    "Device Bridge replay policy",
-    "Device Bridge command audit privacy boundary",
+    "Аудит и повтор команд моста устройств",
+    "Правила повтора команд",
+    "Граница данных аудита команд",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [
     "4X",
-    "Device Bridge command audit and replay",
+    "Аудит и повтор команд моста устройств",
     "cmd-replay-e2e",
   ],
   "docs/backend/stage-4x-device-bridge-audit-replay.md": [

@@ -20,16 +20,16 @@ const REQUIRED_FILES = [
 const REQUIRED_TEXT = {
   "src/pages/doctor/VisitWorkspacePage.tsx": [
     "ProductionClinicalWorkspaceEmptyState",
-    "Production clinical workspace: mock assessment/report data hidden",
-    "локальное демо-добавление очага отключено",
+    "Рабочая запись клиники: показаны только данные этого визита",
+    "createSelfHostedVisitLesion",
     "productionMode ? [] : getAssessmentsByVisitId",
     "productionMode ? [] : getImagesByLesionId",
   ],
   "src/pages/doctor/VisitWorkspacePage.test.tsx": [
     "Stage 5G · production clinical workspace completion",
     "hides mock-derived assessment, conclusion and report tabs in production",
-    "disables local demo lesion placement in production Body Map",
-    "mock assessment",
+    "loads live patient, visit and lesions by UUID without demo patient lookup",
+    "Рабочая оценка",
   ],
   "docs/backend/stage-5g-production-clinical-workspace-completion.md": [
     "Stage 5G",

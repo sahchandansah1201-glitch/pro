@@ -71,7 +71,7 @@ const REQUIRED_TEXT = {
     "FollowUpClinicReviewSummary"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Retention и clinic review",
+    "Срок хранения и проверка клиники",
     "updateSelfHostedClinicalFollowUpClinicReview"
   ],
   "docs/backend/stage-20a-20z-clinical-followup-retention-clinic-review.md": [

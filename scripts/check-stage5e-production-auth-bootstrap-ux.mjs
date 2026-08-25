@@ -25,14 +25,14 @@ const REQUIRED_TEXT = {
     "/healthz",
     "/readyz",
     "/api/v1/meta",
-    "Stage 5B admin-sql",
+    "Первый администратор",
   ],
   "src/pages/SelfHostedLoginPage.tsx": [
-    "Дерматолог Pro — production вход",
-    "Production bootstrap",
+    "Дерматолог Про — рабочий вход",
+    "Готовность входа",
     "fetchSelfHostedBootstrapStatus",
     "buildProductionBootstrapChecklist",
-    "VITE_APP_MODE",
+    "isProductionAppMode",
     "navigate(productionMode ? \"/\" : \"/patients\"",
   ],
   "docs/backend/stage-5e-production-auth-bootstrap-ux.md": [

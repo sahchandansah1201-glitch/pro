@@ -59,8 +59,8 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/VisitsPageLive.tsx": [
     "listSelfHostedVisits",
-    "Источник данных: self-hosted backend /api/v1/visits",
-    "Production расписание",
+    "Данные загружаются из системы клиники",
+    "Расписание",
   ],
   "docs/backend/stage-5j-production-visit-schedule-contracts.md": [
     "Stage 5J",

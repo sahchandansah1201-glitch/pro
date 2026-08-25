@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Reconcile evidence",
-    "Recon mismatch",
+    "Сверить подтверждение",
+    "Есть расхождение",
     "sopPolicyGovernanceEvidenceReconciliationSummary"
   ],
   "docs/backend/stage-29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.md": [

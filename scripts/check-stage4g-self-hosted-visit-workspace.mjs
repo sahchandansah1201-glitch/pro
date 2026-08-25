@@ -61,8 +61,8 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/VisitWorkspaceLiveBanner.tsx": [
     "isSelfHostedApiConfigured",
-    "Self-hosted backend (read-only)",
-    "Demo-режим",
+    "Система клиники подключена",
+    "Учебный режим",
     "visit-workspace-live-banner",
   ],
   "src/pages/doctor/VisitWorkspacePage.tsx": [

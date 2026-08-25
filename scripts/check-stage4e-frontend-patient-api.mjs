@@ -40,7 +40,7 @@ const REQUIRED_TEXT = {
     "maps validation errors",
   ],
   "src/pages/doctor/PatientsPage.tsx": [
-    "Self-hosted backend подключён",
+    "пациенты загружаются только из системы клиники",
     "createSelfHostedPatient",
     "updateSelfHostedPatient",
     "archiveSelfHostedPatient",
@@ -48,11 +48,11 @@ const REQUIRED_TEXT = {
     "PATIENT_DEMO_CREATE_BLOCKED_MESSAGE",
   ],
   "src/pages/doctor/PatientsPage.test.tsx": [
-    "loads patients from the self-hosted backend",
-    "creates a patient through the self-hosted backend",
-    "updates a live backend patient",
-    "archives a live backend patient",
-    "surfaces backend RBAC/list errors",
+    "loads patients from the clinic system when a local session token is present",
+    "creates a patient through the clinic system in live mode",
+    "updates a live patient in the clinic system instead of changing only screen state",
+    "archives a live patient without showing screen-only undo",
+    "surfaces access errors without hiding the safe learning fallback",
   ],
   "docs/backend/stage-4e-frontend-patient-api.md": [
     "Stage 4E",

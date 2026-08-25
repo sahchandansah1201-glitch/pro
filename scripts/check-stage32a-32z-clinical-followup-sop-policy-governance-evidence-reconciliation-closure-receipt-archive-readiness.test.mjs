@@ -45,7 +45,7 @@ function fixture() {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage32a-32z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 32A-32Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Archive ready Archive rework Archived local sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Архив готов Доработать архив Архивировано sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 32A-32Z");
   write(root, "docs/backend/stage-32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.md", "Stage 32A-32Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.yml", "name: stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness npm run preflight:stage32a-32z");

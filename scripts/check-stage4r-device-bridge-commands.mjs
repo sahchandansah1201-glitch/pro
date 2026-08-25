@@ -66,7 +66,7 @@ const REQUIRED_TEXT = {
     "/api/v1/devices/",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "поставлена в очередь Device Bridge",
+    "поставлена в очередь моста устройств",
     "requestSelfHostedBridgeCommand",
     "requestSelfHostedDeviceCommand",
   ],

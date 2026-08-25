@@ -76,9 +76,9 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Close archive",
-    "Archive closure rework",
-    "Closed archives",
+    "Закрыть архив",
+    "Доработать закрытие архива",
+    "Архивы закрыты",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary"
   ],
   "docs/backend/stage-33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.md": [

@@ -91,9 +91,9 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState",
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Recon archive handoff receipt reconciliation ready",
-    "Recon archive handoff receipt reconciliation rework",
-    "Reconciled recon archive handoff receipts",
+    "Сверить передачу архива",
+    "Доработать сверку передачи",
+    "Передача архива сверена",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary",
   ],
   [DOC]: [

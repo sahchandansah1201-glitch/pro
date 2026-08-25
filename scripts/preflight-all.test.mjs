@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import {
+  getPreflightAllDeclaredSteps,
   getPreflightAllSteps,
   parsePreflightAllArgs,
   renderPreflightAllDryRun,
@@ -20,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(__dirname, "preflight-all.mjs");
 
 test("preflight all command list covers deterministic local gates", () => {
-  const steps = getPreflightAllSteps();
+  const steps = getPreflightAllDeclaredSteps();
   const labels = steps.map(([label]) => label);
   const commands = steps.map(([, cmd, args]) => `${cmd} ${args.join(" ")}`);
 
@@ -308,6 +309,53 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.equal(commands[139], "git diff --check");
 });
 
+test("preflight all executes the recursive clinical tail once through its terminal aggregator", () => {
+  const commands = getPreflightAllSteps().map(
+    ([, cmd, args]) => `${cmd} ${args.join(" ")}`,
+  );
+
+  assert.equal(commands.length, 106);
+  assert.equal(
+    commands.filter((command) => command.includes("preflight:external-clinic-operator-record")).length,
+    1,
+  );
+  assert.equal(commands.some((command) => command.includes("preflight:stage17a-17z")), false);
+  assert.equal(commands.some((command) => command.includes("preflight:stage48a-48z")), false);
+  assert.equal(commands.some((command) => command.includes("preflight:final-backlog")), false);
+  assert.equal(commands.some((command) => command.includes("preflight:operator-acceptance")), false);
+});
+
+test("terminal aggregator transitively covers every omitted preflight command", () => {
+  const packageScripts = JSON.parse(
+    readFileSync(join(__dirname, "..", "package.json"), "utf8"),
+  ).scripts;
+  const declared = getPreflightAllDeclaredSteps();
+  const executedCommands = new Set(
+    getPreflightAllSteps().map(([, , args]) => args[1]),
+  );
+  const omittedPreflights = declared
+    .filter(([, , args]) => args[0] === "run" && args[1]?.startsWith("preflight:"))
+    .map(([, , args]) => args[1])
+    .filter((scriptName) => !executedCommands.has(scriptName));
+  const reachable = new Set();
+  const pending = ["preflight:external-clinic-operator-record"];
+
+  while (pending.length > 0) {
+    const scriptName = pending.pop();
+    if (!scriptName || reachable.has(scriptName)) continue;
+    reachable.add(scriptName);
+    const command = packageScripts[scriptName] ?? "";
+    for (const match of command.matchAll(/npm run (preflight:[^\s&]+)/g)) {
+      pending.push(match[1]);
+    }
+  }
+
+  assert.ok(omittedPreflights.length > 0);
+  for (const scriptName of omittedPreflights) {
+    assert.equal(reachable.has(scriptName), true, `${scriptName} is not covered`);
+  }
+});
+
 test("argument parser supports dry-run and summary path forms", () => {
   assert.deepEqual(parsePreflightAllArgs(["--dry-run"]), {
     dryRun: true,
@@ -418,29 +466,11 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage14a-14z/);
   assert.match(out, /preflight:stage15a-15z/);
   assert.match(out, /preflight:stage16a-16z/);
-  assert.match(out, /preflight:stage17a-17z/);
-  assert.match(out, /preflight:stage18a-18z/);
-  assert.match(out, /preflight:stage19a-19z/);
-  assert.match(out, /preflight:stage20a-20z/);
-  assert.match(out, /preflight:stage21a-21z/);
-  assert.match(out, /preflight:stage22a-22z/);
-  assert.match(out, /preflight:stage23a-23z/);
-  assert.match(out, /preflight:stage24a-24z/);
-  assert.match(out, /preflight:stage25a-25z/);
-  assert.match(out, /preflight:stage26a-26z/);
-  assert.match(out, /preflight:stage27a-27z/);
-  assert.match(out, /preflight:stage28a-28z/);
-  assert.match(out, /preflight:stage29a-29z/);
-  assert.match(out, /preflight:stage30a-30z/);
-  assert.match(out, /preflight:stage31a-31z/);
-  assert.match(out, /preflight:stage32a-32z/);
-  assert.match(out, /preflight:stage33a-33z/);
-  assert.match(out, /preflight:stage34a-34z/);
-  assert.match(out, /preflight:stage35a-35z/);
-  assert.match(out, /preflight:stage36a-36z/);
-  assert.match(out, /preflight:stage37a-37z/);
-  assert.match(out, /preflight:stage38a-38z/);
-  assert.match(out, /preflight:stage39a-39z/);
+  assert.match(out, /preflight:external-clinic-operator-record/);
+  assert.doesNotMatch(out, /preflight:stage17a-17z/);
+  assert.doesNotMatch(out, /preflight:stage48a-48z/);
+  assert.doesNotMatch(out, /preflight:final-backlog/);
+  assert.doesNotMatch(out, /preflight:operator-acceptance/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);

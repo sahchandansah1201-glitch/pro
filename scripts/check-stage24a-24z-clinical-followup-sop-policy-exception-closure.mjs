@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyExceptionState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Open exception",
-    "Close exception",
+    "Открыть исключение",
+    "Закрыть исключение",
     "sopPolicyExceptionClosureSummary"
   ],
   "docs/backend/stage-24a-24z-clinical-followup-sop-policy-exception-closure.md": [

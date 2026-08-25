@@ -75,7 +75,7 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyTemplateSummary"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "SOP policy template",
+    "Шаблон правил",
     "createSelfHostedClinicalFollowUpSopPolicyTemplate",
     "activeSopPolicyVersion"
   ],

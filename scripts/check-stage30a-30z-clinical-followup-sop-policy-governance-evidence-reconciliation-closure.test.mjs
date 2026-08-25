@@ -44,7 +44,7 @@ function writeRequiredTree(root) {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage30a-30z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary FollowUpSopPolicyGovernanceEvidenceReconciliationClosureState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 30A-30Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Close recon Closure rework sopPolicyGovernanceEvidenceReconciliationClosureSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Закрыть сверку Доработать закрытие sopPolicyGovernanceEvidenceReconciliationClosureSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 30A-30Z");
   write(root, "docs/backend/stage-30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.md", "Stage 30A-30Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.yml", "name: stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure npm run preflight:stage30a-30z");

@@ -77,9 +77,9 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Recon archive closure receipt handoff ready",
-    "Recon archive closure receipt handoff rework",
-    "Handed off recon archive closure receipt handoffs",
+    "Передать архив сверки",
+    "Доработать передачу архива",
+    "Архив передан",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary"
   ],
   "docs/backend/stage-43a-43z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff.md": [

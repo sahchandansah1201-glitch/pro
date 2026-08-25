@@ -44,7 +44,7 @@ function fixture() {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage31a-31z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 31A-31Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Receive receipt Receipt rework sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Отметить получение Доработать получение sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 31A-31Z");
   write(root, "docs/backend/stage-31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.md", "Stage 31A-31Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.yml", "name: stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt npm run preflight:stage31a-31z");

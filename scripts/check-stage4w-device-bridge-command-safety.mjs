@@ -63,13 +63,13 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/recovery",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge command recovery",
-    "Device Bridge command recovery policy",
-    "Device Bridge command recovery privacy boundary",
+    "Восстановление команд моста устройств",
+    "Правила восстановления команд",
+    "Граница данных восстановления команд",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [
     "4W",
-    "Device Bridge command recovery",
+    "Восстановление команд моста устройств",
     "cmd-recovery-e2e",
   ],
   "docs/backend/stage-4w-device-bridge-command-safety.md": [

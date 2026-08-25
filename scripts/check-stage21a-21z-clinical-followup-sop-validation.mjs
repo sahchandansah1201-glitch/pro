@@ -71,7 +71,7 @@ const REQUIRED_TEXT = {
     "FollowUpSopValidationSummary"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "SOP validation",
+    "Проверка правил",
     "updateSelfHostedClinicalFollowUpSopValidation"
   ],
   "docs/backend/stage-21a-21z-clinical-followup-sop-validation.md": [

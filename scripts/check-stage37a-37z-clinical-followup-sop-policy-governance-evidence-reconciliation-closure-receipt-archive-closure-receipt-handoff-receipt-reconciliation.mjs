@@ -76,9 +76,9 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Reconcile handoff receipt",
-    "Receipt recon rework",
-    "Reconciled handoff receipts",
+    "Сверить передачу",
+    "Доработать сверку передачи",
+    "Квитанции сверены",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary"
   ],
   "docs/backend/stage-37a-37z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation.md": [

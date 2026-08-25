@@ -54,13 +54,13 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/status",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge worker observability",
-    "Device Bridge worker command lifecycle",
-    "Device Bridge worker privacy boundary",
+    "Служба моста устройств",
+    "Жизненный цикл команд моста устройств",
+    "Граница данных службы моста устройств",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [
     "stage4t-local-worker",
-    "Device Bridge worker command lifecycle",
+    "Жизненный цикл команд моста устройств",
     "payload_json",
     "result_json",
   ],

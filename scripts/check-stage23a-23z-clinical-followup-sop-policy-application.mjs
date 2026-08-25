@@ -72,8 +72,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyDriftState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Apply policy",
-    "Drift review",
+    "Применить правила",
+    "Сверка правил",
     "sopPolicyApplicationSummary"
   ],
   "docs/backend/stage-23a-23z-clinical-followup-sop-policy-application.md": [

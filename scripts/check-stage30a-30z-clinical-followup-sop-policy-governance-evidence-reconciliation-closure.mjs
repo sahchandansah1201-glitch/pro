@@ -76,8 +76,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Close recon",
-    "Closure rework",
+    "Закрыть сверку",
+    "Доработать закрытие",
     "sopPolicyGovernanceEvidenceReconciliationClosureSummary"
   ],
   "docs/backend/stage-30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.md": [

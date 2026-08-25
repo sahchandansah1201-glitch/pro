@@ -51,14 +51,14 @@ const REQUIRED_TEXT = {
     "npm run ops:stage4l:backup:dry-run",
   ],
   "src/pages/sys/SysSelfHostedOpsPage.tsx": [
-    "Self-hosted runtime checks",
-    "Self-hosted operations dry-runs",
+    "Проверки рабочей среды",
+    "Планы операций",
     "stage4p-operations-preview.md",
-    "/openapi.stage4p.json",
+    "Служебная схема",
   ],
   "e2e/sys-self-hosted-ops.pw.ts": [
     "/api/v1/ops/runtime-checks",
-    "Stage 4P operations preview",
+    "Предпросмотр операционного плана",
     "npm run smoke:stage4k:dry-run",
   ],
   "docs/backend/stage-4p-self-hosted-ops-controls.md": [

@@ -30,21 +30,21 @@ const REQUIRED_TEXT = {
     "selfHostedLesionToDomain",
   ],
   "src/pages/doctor/PatientsPage.tsx": [
-    "Production-режим: пациенты загружаются только из self-hosted backend",
-    "Production-режим не показывает демо-пациентов",
+    "пациенты загружаются только из системы клиники",
+    "Рабочий режим не показывает учебные данные",
     "isProductionAppMode",
   ],
   "src/pages/doctor/PatientDetailPage.tsx": [
     "getSelfHostedPatient",
     "listSelfHostedVisitsByPatient",
-    "mock-данные для карточки пациента отключены",
-    "Production-режим не открывает карточки пациентов из mock-данных",
+    "учебные данные для карточки отключены",
+    "Карточка пациента недоступна",
   ],
   "src/pages/doctor/VisitWorkspacePage.tsx": [
     "getSelfHostedVisit",
     "listSelfHostedVisitLesions",
-    "workspace визита не использует mock patient/visit lookup",
-    "Production-режим не открывает workspace визита из mock-данных",
+    "рабочее место визита показывает только данные системы клиники",
+    "Рабочее место визита недоступно",
   ],
   "docs/backend/stage-5f-production-patient-workspace-cutover.md": [
     "Stage 5F",
@@ -145,4 +145,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   console.log(`[stage5f-production-patient-workspace-cutover] OK (${result.checkedFiles} files checked)`);
 }
-

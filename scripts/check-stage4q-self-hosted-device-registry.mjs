@@ -58,8 +58,8 @@ const REQUIRED_TEXT = {
     "listSelfHostedDevices",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Self-hosted backend подключён",
-    "серверного реестра PostgreSQL",
+    "Рабочая система подключена",
+    "реестра рабочей системы клиники",
     "Браузер не подключается к драйверу напрямую",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [

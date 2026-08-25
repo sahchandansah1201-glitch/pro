@@ -48,13 +48,13 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/audit/export",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Экспорт audit CSV",
+    "Скачать журнал",
     "exportSelfHostedDeviceBridgeCommandAudit",
-    "Экспорт Device Bridge command audit скачан",
+    "Экспорт журнала команд моста устройств скачан",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [
     "4Y",
-    "Экспорт audit CSV",
+    "Скачать журнал",
     "device-bridge-command-audit-all-all-1-rows.csv",
   ],
   "docs/backend/stage-4y-device-bridge-audit-export.md": [

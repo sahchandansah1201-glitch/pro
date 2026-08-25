@@ -44,7 +44,7 @@ function writeRequiredTree(root) {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage29a-29z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliation FollowUpSopPolicyGovernanceEvidenceReconciliationSummary FollowUpSopPolicyGovernanceEvidenceReconciliationState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 29A-29Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Reconcile evidence Recon mismatch sopPolicyGovernanceEvidenceReconciliationSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Сверить подтверждение Есть расхождение sopPolicyGovernanceEvidenceReconciliationSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 29A-29Z");
   write(root, "docs/backend/stage-29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.md", "Stage 29A-29Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.yml", "name: stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation npm run preflight:stage29a-29z");

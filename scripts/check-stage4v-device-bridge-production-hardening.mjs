@@ -62,13 +62,13 @@ const REQUIRED_TEXT = {
     "/api/v1/device-bridge-worker/hardening",
   ],
   "src/pages/sys/SysDevicesPage.tsx": [
-    "Device Bridge worker production hardening",
-    "Device Bridge worker hardening policy",
-    "Device Bridge worker hardening privacy boundary",
+    "Устойчивость службы моста устройств",
+    "Правила устойчивости моста устройств",
+    "Граница данных устойчивости моста устройств",
   ],
   "e2e/sys-devices-stage4q.pw.ts": [
     "4V",
-    "Device Bridge worker production hardening",
+    "staleWorkers: 1",
     "linear-capped",
   ],
   "docs/backend/stage-4v-device-bridge-production-hardening.md": [

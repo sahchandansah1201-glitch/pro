@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceClosureState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Close governance",
-    "Closure follow-up",
+    "Нужно закрытие",
+    "Закрыто локально",
     "sopPolicyGovernanceClosureSummary"
   ],
   "docs/backend/stage-27a-27z-clinical-followup-sop-policy-governance-closure.md": [

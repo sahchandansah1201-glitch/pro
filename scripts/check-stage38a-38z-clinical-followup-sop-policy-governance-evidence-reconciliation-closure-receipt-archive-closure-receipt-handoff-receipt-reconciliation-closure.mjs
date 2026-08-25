@@ -76,9 +76,9 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Close receipt recon",
-    "Receipt recon closure rework",
-    "Closed receipt recons",
+    "Закрыть сверку передачи",
+    "Доработать закрытие сверки",
+    "Сверка квитанций закрыта",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary"
   ],
   "docs/backend/stage-38a-38z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure.md": [

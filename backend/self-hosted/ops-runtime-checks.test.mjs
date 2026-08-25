@@ -38,12 +38,11 @@ test("collects ready runtime checks without leaking paths or secrets", async () 
   const root = mkdtempSync(join(tmpdir(), "stage4p-ready-"));
   try {
     const migrations = join(root, "migrations");
-    const objectStore = join(root, "object-storage");
     mkdirSync(migrations, { recursive: true });
     writeMigrations(migrations);
 
     const result = await collectSelfHostedOpsRuntimeChecks({
-      config: { objectStorageLocalDir: objectStore },
+      config: { objectStorageEndpoint: "http://object-store.test" },
       dbClient: dbClient(),
       migrationsDir: migrations,
       now: NOW,

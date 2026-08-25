@@ -45,7 +45,7 @@ function fixture() {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage34a-34z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 34A-34Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Receive archive receipt Archive receipt rework Received archive receipts sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Получить архив Доработать получение архива Квитанции архива sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 34A-34Z");
   write(root, "docs/backend/stage-34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.md", "Stage 34A-34Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.yml", "name: stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt npm run preflight:stage34a-34z");

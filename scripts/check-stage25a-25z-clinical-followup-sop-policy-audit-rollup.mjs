@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyAuditState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Audit reviewed",
-    "Audit follow-up",
+    "Аудит проверен",
+    "Повторный аудит",
     "sopPolicyAuditRollupSummary"
   ],
   "docs/backend/stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md": [

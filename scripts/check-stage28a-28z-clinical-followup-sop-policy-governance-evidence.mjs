@@ -75,8 +75,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Export evidence",
-    "Evidence follow-up",
+    "Подготовить подтверждение",
+    "Повторить подтверждение",
     "sopPolicyGovernanceEvidenceSummary"
   ],
   "docs/backend/stage-28a-28z-clinical-followup-sop-policy-governance-evidence.md": [

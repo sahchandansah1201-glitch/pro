@@ -67,7 +67,7 @@ const REQUIRED_TEXT = {
     "FollowUpOutcomeQualitySummary"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Качество закрытия follow-up",
+    "Качество закрытия",
     "updateSelfHostedClinicalFollowUpQuality"
   ],
   "docs/backend/stage-19a-19z-clinical-followup-outcome-quality.md": [

@@ -59,10 +59,10 @@ const REQUIRED_TEXT = {
     "raw_payload_storage_enabled",
   ],
   "src/pages/operator/OperatorBookingRequestsPageLive.tsx": [
-    "Availability sync readiness",
-    "Stage 8D-8F",
+    "Конфликтов синхронизации не найдено",
+    "Свободные окна проверяются по локальному расписанию",
     "buildSelfHostedAvailabilitySyncSummary",
-    "no CRM runtime calls",
+    "внешние системы с экрана не вызываются",
   ],
   "docs/backend/stage-8d-8f-availability-sync.md": [
     "Stage 8D-8F",

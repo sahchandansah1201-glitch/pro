@@ -55,14 +55,14 @@ const REQUIRED_TEXT = {
     "/api/v1/product/readiness",
   ],
   "src/pages/sys/SysSelfHostedOpsPage.tsx": [
-    "Product readiness",
+    "Готовность продукта",
     "fetchSelfHostedProductReadiness",
-    "Скачать readiness",
+    "Скачать готовность",
     "/api/v1/product/readiness",
   ],
   "e2e/sys-self-hosted-ops.pw.ts": [
     "/api/v1/product/readiness",
-    "Stage 4Z product readiness preview",
+    "Предпросмотр готовности продукта",
     "stage4z-product-readiness-preview.md",
   ],
   "docs/backend/stage-4z-self-hosted-product-readiness.md": [

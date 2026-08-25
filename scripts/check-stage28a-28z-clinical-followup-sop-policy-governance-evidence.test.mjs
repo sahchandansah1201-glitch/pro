@@ -44,7 +44,7 @@ function writeRequiredTree(root) {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage28a-28z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence FollowUpSopPolicyGovernanceEvidenceSummary FollowUpSopPolicyGovernanceEvidenceState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 28A-28Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Export evidence Evidence follow-up sopPolicyGovernanceEvidenceSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Подготовить подтверждение Повторить подтверждение sopPolicyGovernanceEvidenceSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 28A-28Z");
   write(root, "docs/backend/stage-28a-28z-clinical-followup-sop-policy-governance-evidence.md", "Stage 28A-28Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage28a-28z-clinical-followup-sop-policy-governance-evidence.yml", "name: stage28a-28z-clinical-followup-sop-policy-governance-evidence npm run preflight:stage28a-28z");

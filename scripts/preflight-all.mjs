@@ -155,12 +155,32 @@ const DEFAULT_STEPS = [
   ["Whitespace diff check", "git", ["diff", "--check"]],
 ];
 
-export function getPreflightAllSteps() {
+export function getPreflightAllDeclaredSteps() {
   return DEFAULT_STEPS.map(([label, cmd, args]) => [
     label,
     cmd,
     [...args],
   ]);
+}
+
+export function getPreflightAllSteps() {
+  const steps = getPreflightAllDeclaredSteps();
+  const recursiveTailStart = steps.findIndex(([, , args]) =>
+    args.includes("preflight:stage17a-17z"),
+  );
+  const terminalAggregator = steps.findIndex(([, , args]) =>
+    args.includes("preflight:external-clinic-operator-record"),
+  );
+
+  if (recursiveTailStart === -1 || terminalAggregator === -1) {
+    throw new Error("Recursive clinical preflight boundaries are missing");
+  }
+
+  return [
+    ...steps.slice(0, recursiveTailStart),
+    steps[terminalAggregator],
+    ...steps.slice(terminalAggregator + 1),
+  ];
 }
 
 export function formatCommand(cmd, args) {

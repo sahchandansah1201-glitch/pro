@@ -76,8 +76,8 @@ const REQUIRED_TEXT = {
     "FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptState"
   ],
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": [
-    "Receive receipt",
-    "Receipt rework",
+    "Отметить получение",
+    "Доработать получение",
     "sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary"
   ],
   "docs/backend/stage-31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.md": [

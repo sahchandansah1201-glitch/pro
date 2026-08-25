@@ -44,7 +44,7 @@ function writeRequiredTree(root) {
   write(root, "deploy/self-hosted/nginx.stage4a.conf", "/openapi.stage27a-27z.json");
   write(root, "src/lib/self-hosted-follow-up-api.ts", "getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure FollowUpSopPolicyGovernanceClosureSummary FollowUpSopPolicyGovernanceClosureState");
   write(root, "src/lib/self-hosted-follow-up-api.test.ts", "Stage 27A-27Z");
-  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Close governance Closure follow-up sopPolicyGovernanceClosureSummary");
+  write(root, "src/pages/doctor/VisitWorkspaceLiveActions.tsx", "Нужно закрытие Закрыто локально sopPolicyGovernanceClosureSummary");
   write(root, "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx", "Stage 27A-27Z");
   write(root, "docs/backend/stage-27a-27z-clinical-followup-sop-policy-governance-closure.md", "Stage 27A-27Z Managed runtime/database dependency: none Managed notification provider dependency: none");
   write(root, ".github/workflows/stage27a-27z-clinical-followup-sop-policy-governance-closure.yml", "name: stage27a-27z-clinical-followup-sop-policy-governance-closure npm run preflight:stage27a-27z");
