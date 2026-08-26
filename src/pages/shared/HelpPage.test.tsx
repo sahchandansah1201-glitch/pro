@@ -58,6 +58,24 @@ describe("HelpPage", () => {
     expect(screen.queryByText(/Документация по ролям и потокам\./)).toBeNull();
   });
 
+  it("описывает передачу обращения в клинику обычным русским языком", () => {
+    renderHelp();
+    expect(screen.getByText("Передавать сложные обращения в клинику.")).toBeInTheDocument();
+    expect(screen.queryByText("Эскалировать сложные случаи в клинику.")).not.toBeInTheDocument();
+  });
+
+  it("описывает запрет хранения секретов без языка разработчиков", () => {
+    renderHelp();
+    expect(screen.getByText("Хранить ключи и секреты в интерфейсе программы.")).toBeInTheDocument();
+    expect(screen.queryByText("Хранить ключи и секреты во фронтенде.")).not.toBeInTheDocument();
+  });
+
+  it("называет доступное пациенту заключение без переводной кальки", () => {
+    renderHelp();
+    expect(screen.getByText("Смотреть заключения, подготовленные для пациента.")).toBeInTheDocument();
+    expect(screen.queryByText("Смотреть пациент-безопасные заключения.")).not.toBeInTheDocument();
+  });
+
   it("содержит ссылки на ключевые группы маршрутов", () => {
     renderHelp();
     const expected = ["/patients", "/capture", "/operator", "/admin", "/admin/governance", "/sys/users", "/me"];

@@ -136,6 +136,26 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("button", { name: "Обновить события доступа" })).toBeVisible();
   });
 
+  it("называет участника события ролью, а не внутренним термином", () => {
+    renderPage();
+
+    expect(screen.getByLabelText("Роль в событии")).toHaveTextContent("Все роли");
+    expect(screen.getByRole("columnheader", { name: "Роль" })).toBeInTheDocument();
+    expect(screen.queryByText("Актор")).not.toBeInTheDocument();
+  });
+
+  it("называет предмет события объектом, а не внутренним термином", () => {
+    renderPage();
+
+    expect(screen.getByLabelText("Тип объекта")).toHaveTextContent("Все объекты");
+    expect(screen.getByLabelText("Поиск событий доступа")).toHaveAttribute(
+      "placeholder",
+      "Поиск по действию, объекту, коду",
+    );
+    expect(screen.getByRole("columnheader", { name: "Объект" })).toBeInTheDocument();
+    expect(screen.queryByText("Сущность")).not.toBeInTheDocument();
+  });
+
   it("blocks non-system-admin roles before rendering rows or export", () => {
     renderPage("clinic_admin");
 
@@ -193,7 +213,7 @@ describe("SysAccessEventsPage", () => {
   it("filters rows by source, entity, and event date", () => {
     renderPage();
 
-    fireEvent.change(screen.getByLabelText("Тип сущности"), {
+    fireEvent.change(screen.getByLabelText("Тип объекта"), {
       target: { value: "device" },
     });
     expect(nonOptionTextCount("Устройство зарегистрировано")).toBeGreaterThan(0);
@@ -221,7 +241,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Клиника события"), {
       target: { value: "Дерма-Про · Центр" },
     });
-    fireEvent.change(screen.getByLabelText("Актор события"), {
+    fireEvent.change(screen.getByLabelText("Роль в событии"), {
       target: { value: "Врач" },
     });
     fireEvent.change(screen.getByLabelText("Действие события"), {
@@ -408,7 +428,7 @@ describe("SysAccessEventsPage", () => {
     expect(preview).toHaveTextContent(/Форматы: таблица и книга/i);
     expect(preview).not.toHaveTextContent(/email|access_token|storage_object_path/i);
 
-    fireEvent.change(screen.getByLabelText("Тип сущности"), {
+    fireEvent.change(screen.getByLabelText("Тип объекта"), {
       target: { value: "device" },
     });
     expect(preview).toHaveTextContent(/Будет экспортировано 1 событий/i);
@@ -459,7 +479,13 @@ describe("SysAccessEventsPage", () => {
     expect(preview).toHaveTextContent(/Колонки: 6/i);
 
     for (const column of ACCESS_EVENT_EXPORT_COLUMNS) {
-      const checkbox = screen.getByLabelText(`Колонка экспорта: ${column.label}`);
+      const label =
+        column.key === "actor"
+          ? "Роль"
+          : column.key === "entity"
+            ? "Объект"
+            : column.label;
+      const checkbox = screen.getByLabelText(`Колонка экспорта: ${label}`);
       if ((checkbox as HTMLInputElement).checked) fireEvent.click(checkbox);
     }
 

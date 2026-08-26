@@ -1410,7 +1410,7 @@ export default function SysAccessEventsPage() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Поиск по действию, сущности, коду"
+                  placeholder="Поиск по действию, объекту, коду"
                   aria-label="Поиск событий доступа"
                   className="h-11 pl-7 text-[12px] sm:h-9"
                 />
@@ -1477,14 +1477,14 @@ export default function SysAccessEventsPage() {
               </select>
             </label>
             <label className="grid gap-1 text-[11px] text-muted-foreground">
-              Тип сущности
+              Тип объекта
               <select
                 value={entityFilter}
                 onChange={(e) => setEntityFilter(e.target.value)}
                 className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
-                aria-label="Тип сущности"
+                aria-label="Тип объекта"
               >
-                <option value="all">Все сущности</option>
+                <option value="all">Все объекты</option>
                 {entityOptions.map((entity) => (
                   <option key={entity} value={entity}>
                     {entityLabel(entity)}
@@ -1509,14 +1509,14 @@ export default function SysAccessEventsPage() {
               </select>
             </label>
             <label className="grid gap-1 text-[11px] text-muted-foreground">
-              Актор
+              Роль
               <select
                 value={actorFilter}
                 onChange={(e) => setActorFilter(e.target.value)}
                 className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
-                aria-label="Актор события"
+                aria-label="Роль в событии"
               >
-                <option value="all">Все акторы</option>
+                <option value="all">Все роли</option>
                 {actorOptions.map((actor) => (
                   <option key={actor} value={actor}>
                     {actor}
@@ -1785,21 +1785,25 @@ export default function SysAccessEventsPage() {
                 </div>
               </div>
               <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                {ACCESS_EVENT_EXPORT_COLUMNS.map((column) => (
-                  <label
-                    key={column.key}
-                    className="flex min-h-11 items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground sm:min-h-8"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedExportColumns.includes(column.key)}
-                      onChange={() => handleToggleExportColumn(column.key)}
-                      aria-label={`Колонка экспорта: ${column.label}`}
-                      className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
-                    />
-                    {column.label}
-                  </label>
-                ))}
+                {ACCESS_EVENT_EXPORT_COLUMNS.map((column) => {
+                  const label =
+                    column.key === "actor" ? "Роль" : column.key === "entity" ? "Объект" : column.label;
+                  return (
+                    <label
+                      key={column.key}
+                      className="flex min-h-11 items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground sm:min-h-8"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedExportColumns.includes(column.key)}
+                        onChange={() => handleToggleExportColumn(column.key)}
+                        aria-label={`Колонка экспорта: ${label}`}
+                        className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2061,9 +2065,9 @@ export default function SysAccessEventsPage() {
               <tr>
                 <th className="px-3 py-2">Когда</th>
                 <th className="px-3 py-2">Клиника</th>
-                <th className="px-3 py-2">Актор</th>
+                <th className="px-3 py-2">Роль</th>
                 <th className="px-3 py-2">Действие</th>
-                <th className="px-3 py-2">Сущность</th>
+                <th className="px-3 py-2">Объект</th>
                 <th className="px-3 py-2">Номер карты</th>
                 <th className="px-3 py-2">Контекст</th>
                 <th className="px-3 py-2 text-right">Детали</th>
@@ -2133,7 +2137,7 @@ export default function SysAccessEventsPage() {
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                   <dt className="text-muted-foreground">Клиника</dt>
                   <dd className="text-right">{row.clinicName}</dd>
-                  <dt className="text-muted-foreground">Сущность</dt>
+                  <dt className="text-muted-foreground">Объект</dt>
                   <dd className="text-right">{entityLabel(row.entity)}</dd>
                   <dt className="text-muted-foreground">Номер карты</dt>
                   <dd className="text-right text-[11px]">{formatCardNumber(row.patientCode)}</dd>
