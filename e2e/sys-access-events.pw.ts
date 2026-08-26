@@ -65,7 +65,7 @@ test.describe("/sys/access-events", () => {
     await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
 
     await page.getByLabel("Клиника события").selectOption("Дерма-Про · Центр");
-    await page.getByLabel("Актор события").selectOption("Врач");
+    await page.getByLabel("Роль в событии").selectOption("Врач");
     await page.getByLabel("Действие события").selectOption("report.generate");
     await page.getByLabel("Номер карты в событии").fill("DP-2026-0001");
     await expect(table.getByText("Отчёт сформирован").first()).toBeVisible();
@@ -103,7 +103,7 @@ test.describe("/sys/access-events", () => {
     await page.getByLabel("Автообновление событий доступа").check();
     await expect(page.getByText(/Автообновление включено: каждые 60 секунд/i)).toBeVisible();
 
-    await page.getByLabel("Тип сущности").selectOption("device");
+    await page.getByLabel("Тип объекта").selectOption("device");
     await expect(table.getByText("Устройство зарегистрировано").first()).toBeVisible();
     await expect(table.getByText("Отчёт открыт по ссылке")).toHaveCount(0);
 
