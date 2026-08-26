@@ -25,6 +25,16 @@ test.describe("/sys/access-events", () => {
       /Будет экспортировано 12 событий/,
     );
 
+    const advancedFiltersButton = page.getByRole("button", { name: "Расширенные фильтры" });
+    await expect(advancedFiltersButton).toHaveAttribute("aria-expanded", "false");
+    await advancedFiltersButton.click();
+    await expect(advancedFiltersButton).toHaveAttribute("aria-expanded", "true");
+
+    const exportSettingsButton = page.getByRole("button", { name: "Параметры выгрузки" });
+    await expect(exportSettingsButton).toHaveAttribute("aria-expanded", "false");
+    await exportSettingsButton.click();
+    await expect(exportSettingsButton).toHaveAttribute("aria-expanded", "true");
+
     await page.getByLabel("Размер страницы событий").selectOption("5");
     await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
@@ -57,13 +67,16 @@ test.describe("/sys/access-events", () => {
     await page.getByLabel("Клиника события").selectOption("Дерма-Про · Центр");
     await page.getByLabel("Актор события").selectOption("Врач");
     await page.getByLabel("Действие события").selectOption("report.generate");
-    await page.getByLabel("Код пациента события").fill("DP-2026-0001");
+    await page.getByLabel("Номер карты в событии").fill("DP-2026-0001");
     await expect(table.getByText("Отчёт сформирован").first()).toBeVisible();
     await expect(table.getByText("Отчёт открыт по ссылке")).toHaveCount(0);
 
     await page.reload({ waitUntil: "networkidle" });
+    await expect(advancedFiltersButton).toHaveAttribute("aria-expanded", "false");
+    await advancedFiltersButton.click();
+    await expect(advancedFiltersButton).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Действие события")).toHaveValue("report.generate");
-    await expect(page.getByLabel("Код пациента события")).toHaveValue("DP-2026-0001");
+    await expect(page.getByLabel("Номер карты в событии")).toHaveValue("DP-2026-0001");
     await expect(page.getByLabel("Размер страницы событий")).toHaveValue("5");
 
     await page.getByRole("button", { name: "Сбросить фильтры событий доступа" }).click();
@@ -102,7 +115,7 @@ test.describe("/sys/access-events", () => {
       /Учебный журнал: локальные события загружены/,
     );
 
-    await page.getByRole("button", { name: /Подробнее о событии al-009/i }).first().click();
+    await page.getByRole("button", { name: "Подробнее: Устройство зарегистрировано" }).first().click();
     await expect(page.getByRole("heading", { name: "Детали события" })).toBeVisible();
     await expect(page.getByText("al-009")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toContainText("Код события");
@@ -127,6 +140,10 @@ test.describe("/sys/access-events", () => {
       "aria-valuenow",
       "100",
     );
+    const exportLogButton = page.getByRole("button", { name: "Журнал выгрузок" });
+    await expect(exportLogButton).toHaveAttribute("aria-expanded", "false");
+    await exportLogButton.click();
+    await expect(exportLogButton).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /Табличный файл готов: 1 строк/,
     );
@@ -173,6 +190,9 @@ test.describe("/sys/access-events", () => {
     );
 
     await page.reload({ waitUntil: "networkidle" });
+    await expect(exportLogButton).toHaveAttribute("aria-expanded", "false");
+    await exportLogButton.click();
+    await expect(exportLogButton).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Фильтр журнала экспортов")).toHaveValue("repeated");
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /Повторная выгрузка готова/,

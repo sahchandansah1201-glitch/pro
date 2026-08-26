@@ -345,9 +345,9 @@ test.describe("Stage 4Q/4R · /sys/devices clinic-system registry and commands",
     await expect(page.getByText("Рабочая система подключена")).toBeVisible();
     await expect(page.getByText("LiveScope 20").first()).toBeVisible();
     await expect(page.getByText("br-live-01")).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Наблюдение службы моста устройств" })).toContainText(
-      "stage4t-local-worker",
-    );
+    const workerStatusRegion = page.getByRole("region", { name: "Наблюдение службы моста устройств" });
+    await expect(workerStatusRegion).toContainText("версия службы скрыта");
+    await expect(workerStatusRegion).not.toContainText("stage4t-local-worker");
     await expect(page.getByRole("region", { name: "Жизненный цикл команд моста устройств" })).toContainText(
       "Служебная команда",
     );
