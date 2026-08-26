@@ -290,9 +290,9 @@ export function filterLabel(
     FILTERS.find((f) => f.key === filter)?.label ?? "Все",
     SOURCE_FILTERS.find((f) => f.key === sourceFilter)?.label ?? "Все источники",
   ];
-  if (entityFilter !== "all") parts.push(`сущность: ${entityLabel(entityFilter)}`);
+  if (entityFilter !== "all") parts.push(`объект: ${entityLabel(entityFilter)}`);
   if (clinicFilter !== "all") parts.push(`клиника: ${clinicFilter}`);
-  if (actorFilter !== "all") parts.push(`актор: ${actorFilter}`);
+  if (actorFilter !== "all") parts.push(`роль: ${actorFilter}`);
   if (actionFilter !== "all") parts.push(`действие: ${actionLabel(actionFilter)}`);
   if (patientCodeFilter.trim()) parts.push(`номер карты: ${formatCardNumber(patientCodeFilter.trim())}`);
   if (dateFrom) parts.push(`с ${dateFrom}`);

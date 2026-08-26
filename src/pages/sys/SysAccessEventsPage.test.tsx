@@ -216,6 +216,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Тип объекта"), {
       target: { value: "device" },
     });
+    expect(screen.getAllByText(/Активный срез:.*объект: устройство/).length).toBeGreaterThan(0);
     expect(nonOptionTextCount("Устройство зарегистрировано")).toBeGreaterThan(0);
     expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
 
@@ -244,6 +245,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Роль в событии"), {
       target: { value: "Врач" },
     });
+    expect(screen.getAllByText(/Активный срез:.*роль: Врач/).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Действие события"), {
       target: { value: "report.generate" },
     });
