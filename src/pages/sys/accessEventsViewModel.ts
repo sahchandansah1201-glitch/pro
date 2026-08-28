@@ -90,13 +90,17 @@ const ACTION_LABEL: Record<string, string> = {
   "image.capture": "Добавлен снимок",
   "image.delete": "Удалён снимок",
   "assessment.update": "Оценка обновлена",
+  "assessment.submit": "Оценка отправлена",
+  "lesion.update": "Данные очага обновлены",
   "report.publish": "Отчёт опубликован",
   "report.share": "Отчёт открыт по ссылке",
   "report.generate": "Отчёт сформирован",
   "lead.create": "Заявка создана",
   "lead.update": "Заявка обновлена",
   "bot_dialog.handoff": "Обращение передано",
+  "dialog.escalate": "Обращение передано специалисту",
   "appointment.create": "Запись создана",
+  "appointment.book": "Запись на приём создана",
   "admin.user.create": "Сотрудник создан",
   "admin.user.role.assign": "Роль назначена",
   "admin.user.disable": "Доступ сотрудника отключён",
@@ -113,6 +117,7 @@ const ACTION_LABEL: Record<string, string> = {
   "device.connect": "Устройство подключено",
   "device.register": "Устройство зарегистрировано",
   "integration.sync": "Интеграция обновлена",
+  "integration.update": "Интеграция обновлена",
 };
 
 function actorLabel(actorId: string | null): string {

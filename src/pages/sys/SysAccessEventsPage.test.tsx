@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
@@ -53,6 +54,7 @@ vi.mock("@/lib/self-hosted-admin-api", async (importOriginal) => {
 });
 
 import SysAccessEventsPage from "./SysAccessEventsPage";
+import { actionLabel } from "./accessEventsViewModel";
 
 function renderPage(role = "system_admin") {
   window.localStorage.setItem(ROLE_STORAGE_KEY, role);
@@ -418,7 +420,7 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByLabelText("Начало пользовательского диапазона экспорта")).toHaveValue(2);
     expect(screen.getByLabelText("Конец пользовательского диапазона экспорта")).toHaveValue(4);
     expect(screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toHaveTextContent(
-      /Будет экспортировано 3 событий.*Колонки: 6/i,
+      /Событий для выгрузки: 3.*Колонки: 6/i,
     );
   });
 
@@ -426,14 +428,14 @@ describe("SysAccessEventsPage", () => {
     renderPage();
 
     const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
-    expect(preview).toHaveTextContent(/Будет экспортировано 12 событий/i);
+    expect(preview).toHaveTextContent(/Событий для выгрузки: 12/i);
     expect(preview).toHaveTextContent(/Форматы: таблица и книга/i);
     expect(preview).not.toHaveTextContent(/email|access_token|storage_object_path/i);
 
     fireEvent.change(screen.getByLabelText("Тип объекта"), {
       target: { value: "device" },
     });
-    expect(preview).toHaveTextContent(/Будет экспортировано 1 событий/i);
+    expect(preview).toHaveTextContent(/Событий для выгрузки: 1/i);
 
     fireEvent.change(screen.getByLabelText("Источник событий"), {
       target: { value: "api" },
@@ -442,6 +444,30 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeDisabled();
   });
 
+  it.each([1, 2, 3, 5, 11, 21, 22, ACCESS_EVENTS_EXPORT_LIMIT + 1])(
+    "показывает русскую сводку для %i событий с сохранением лимита выгрузки",
+    async (count) => {
+      appModeMock.production = true;
+      adminApiMock.listAdminAuditEvents.mockResolvedValue({
+        ok: true,
+        value: Array.from({ length: count }, (_, index) => ({
+          id: `audit-${index}`,
+          action: "admin.user.create",
+          entityType: "admin_user",
+          createdAt: "2026-06-27T10:00:00.000Z",
+        })),
+        error: null,
+      });
+      renderPage();
+
+      const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
+      const expected = count > ACCESS_EVENTS_EXPORT_LIMIT
+        ? `Событий для выгрузки: ${ACCESS_EVENTS_EXPORT_LIMIT} из ${count}. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
+        : `Событий для выгрузки: ${count}.`;
+      await waitFor(() => expect(preview).toHaveTextContent(expected));
+    },
+  );
+
   it("exports all pages by default and supports current-page plus custom row ranges", () => {
     renderPage();
 
@@ -449,13 +475,13 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
       target: { value: "5" },
     });
-    expect(preview).toHaveTextContent(/Будет экспортировано 12 событий/i);
+    expect(preview).toHaveTextContent(/Событий для выгрузки: 12/i);
     expect(preview).toHaveTextContent(/Диапазон: все страницы/i);
 
     fireEvent.change(screen.getByLabelText("Диапазон экспорта событий"), {
       target: { value: "current_page" },
     });
-    expect(preview).toHaveTextContent(/Будет экспортировано 5 событий/i);
+    expect(preview).toHaveTextContent(/Событий для выгрузки: 5/i);
     expect(preview).toHaveTextContent(/Диапазон: текущая страница/i);
 
     fireEvent.change(screen.getByLabelText("Диапазон экспорта событий"), {
@@ -467,7 +493,7 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Конец пользовательского диапазона экспорта"), {
       target: { value: "4" },
     });
-    expect(preview).toHaveTextContent(/Будет экспортировано 3 событий/i);
+    expect(preview).toHaveTextContent(/Событий для выгрузки: 3/i);
     expect(preview).toHaveTextContent(/Диапазон: строки 2–4/i);
   });
 
@@ -498,6 +524,73 @@ describe("SysAccessEventsPage", () => {
     expect(selectAllColumnsButton).toHaveClass("min-w-11");
     fireEvent.click(selectAllColumnsButton);
     expect(preview).toHaveTextContent(`Колонки: ${ACCESS_EVENT_EXPORT_COLUMNS.length}`);
+  });
+
+  it.each([
+    ["appointment.book", "Запись на приём создана"],
+    ["assessment.submit", "Оценка отправлена"],
+    ["dialog.escalate", "Обращение передано специалисту"],
+    ["integration.update", "Интеграция обновлена"],
+    ["lesion.update", "Данные очага обновлены"],
+  ])("позволяет найти действие %s по понятному названию", async (action, label) => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Расширенные фильтры" }));
+    const select = screen.getByRole("combobox", { name: "Действие события" });
+
+    expect(select).toHaveClass("min-w-0", "w-full");
+    expect(screen.getByRole("option", { name: label })).toHaveValue(action);
+    await user.selectOptions(select, label);
+
+    expect(screen.getByText(/Найдено:/)).toHaveTextContent("Найдено: 1");
+    expect(screen.getAllByRole("button", { name: `Подробнее: ${label}` })).toHaveLength(2);
+  });
+
+  it("сохраняет безопасное название неизвестного действия", () => {
+    expect(actionLabel("unknown.internal.action")).toBe("Системное действие");
+  });
+
+  it("переводит фокус в детали события при открытии клавиатурой", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const trigger = screen.getAllByRole("button", {
+      name: "Подробнее: Отчёт открыт по ссылке",
+    })[0];
+
+    trigger.focus();
+    await user.keyboard("{Enter}");
+
+    const close = screen.getByRole("button", { name: "Закрыть" });
+    await waitFor(() => expect(close).toHaveFocus());
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(close).toHaveFocus();
+  });
+
+  it.each([
+    { action: "Отчёт открыт по ссылке", index: 0, escape: true },
+    { action: "Отчёт сформирован", index: 0, escape: false },
+    { action: "Отчёт открыт по ссылке", index: 1, escape: true },
+    { action: "Отчёт сформирован", index: 1, escape: false },
+  ])("возвращает фокус к событию $action, вариант $index, Escape=$escape", async ({ action, index, escape }) => {
+    const user = userEvent.setup();
+    renderPage();
+    const trigger = screen.getAllByRole("button", {
+      name: `Подробнее: ${action}`,
+    })[index];
+
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Детали события" });
+    if (escape) await user.keyboard("{Escape}");
+    else fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    // JSDOM does not finish CSS animations; dispatch the browser's completion event.
+    fireEvent(dialog, Object.assign(new Event("animationend", { bubbles: true }), {
+      animationName: getComputedStyle(dialog).animationName,
+    }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("opens a safe row details drawer without sensitive fields", () => {

@@ -481,6 +481,7 @@ export default function SysAccessEventsPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
+  const detailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
@@ -893,8 +894,8 @@ export default function SysAccessEventsPage() {
       : filteredRows.length === 0
         ? "Нет событий для экспорта."
         : scopedExportRows.length > exportRows.length
-          ? `Будет экспортировано ${exportRows.length} из ${scopedExportRows.length} событий. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
-          : `Будет экспортировано ${exportRows.length} событий.`;
+          ? `Событий для выгрузки: ${exportRows.length} из ${scopedExportRows.length}. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
+          : `Событий для выгрузки: ${exportRows.length}.`;
 
   const exportBusy = exportProgress?.active === true;
   const exportQueryMeta = query.trim() ? "поиск применён" : "";
@@ -1529,7 +1530,7 @@ export default function SysAccessEventsPage() {
               <select
                 value={actionFilter}
                 onChange={(e) => setActionFilter(e.target.value)}
-                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                className="h-11 min-w-0 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
                 aria-label="Действие события"
               >
                 <option value="all">Все действия</option>
@@ -2099,7 +2100,10 @@ export default function SysAccessEventsPage() {
                         size="sm"
                         variant="outline"
                         className="h-8 gap-1 text-[12px]"
-                        onClick={() => setSelectedRow(row)}
+                        onClick={(event) => {
+                          detailsTriggerRef.current = event.currentTarget;
+                          setSelectedRow(row);
+                        }}
                         aria-label={`Подробнее: ${actionLabel(row.action)}`}
                       >
                         <Eye className="h-3.5 w-3.5" aria-hidden />
@@ -2148,7 +2152,10 @@ export default function SysAccessEventsPage() {
                   type="button"
                   variant="outline"
                   className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
-                  onClick={() => setSelectedRow(row)}
+                  onClick={(event) => {
+                    detailsTriggerRef.current = event.currentTarget;
+                    setSelectedRow(row);
+                  }}
                   aria-label={`Подробнее: ${actionLabel(row.action)}`}
                 >
                   <Eye className="h-3.5 w-3.5" aria-hidden />
@@ -2175,8 +2182,16 @@ export default function SysAccessEventsPage() {
         />
       </div>
 
-      <Drawer open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
-        <DrawerContent role="dialog" aria-modal="true" aria-describedby={undefined}>
+      <Drawer autoFocus open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        <DrawerContent
+          role="dialog"
+          aria-modal="true"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            detailsTriggerRef.current?.focus();
+          }}
+        >
           <DrawerHeader>
             <DrawerTitle>Детали события</DrawerTitle>
             <DrawerDescription id="access-event-details-description">
