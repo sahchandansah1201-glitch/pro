@@ -22,7 +22,7 @@ test.describe("/sys/access-events", () => {
     expect(bodyText).not.toContain("access_token");
     expect(bodyText).not.toContain("storage_object_path");
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 12 событий/,
+      /Событий для выгрузки: 12\./,
     );
 
     const advancedFiltersButton = page.getByRole("button", { name: "Расширенные фильтры" });
@@ -38,20 +38,20 @@ test.describe("/sys/access-events", () => {
     await page.getByLabel("Размер страницы событий").selectOption("5");
     await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 12 событий/,
+      /Событий для выгрузки: 12\./,
     );
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
       /Диапазон: все страницы/,
     );
     await page.getByLabel("Диапазон экспорта событий").selectOption("current_page");
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 5 событий/,
+      /Событий для выгрузки: 5\./,
     );
     await page.getByLabel("Диапазон экспорта событий").selectOption("custom_range");
     await page.getByLabel("Начало пользовательского диапазона экспорта").fill("2");
     await page.getByLabel("Конец пользовательского диапазона экспорта").fill("4");
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 3 событий/,
+      /Событий для выгрузки: 3\./,
     );
     await page.getByLabel("Диапазон экспорта событий").selectOption("all_pages");
     await page.getByRole("button", { name: "Выбрать основные колонки экспорта" }).click();
@@ -82,7 +82,7 @@ test.describe("/sys/access-events", () => {
     await page.getByRole("button", { name: "Сбросить фильтры событий доступа" }).click();
     await expect(page.getByText("Фильтры сброшены.")).toBeVisible();
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 12 событий/,
+      /Событий для выгрузки: 12\./,
     );
 
     await page.getByRole("button", { name: "Показать события за март 2026" }).click();
@@ -90,7 +90,7 @@ test.describe("/sys/access-events", () => {
     await expect(page.getByLabel("Дата события по")).toHaveValue("2026-03-31");
     await expect(page.getByText("Пресет даты применён: март 2026.")).toBeVisible();
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 11 событий/,
+      /Событий для выгрузки: 11\./,
     );
     await page.getByRole("button", { name: "Сбросить фильтр даты событий" }).click();
     await expect(page.getByLabel("Дата события с")).toHaveValue("");
@@ -109,7 +109,7 @@ test.describe("/sys/access-events", () => {
 
     await expect(page.getByText("1–1 из 1 событий")).toBeVisible();
     await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
-      /Будет экспортировано 1 событий/,
+      /Событий для выгрузки: 1\./,
     );
     await expect(page.getByRole("region", { name: "Журнал запросов событий доступа" })).toContainText(
       /Учебный журнал: локальные события загружены/,
