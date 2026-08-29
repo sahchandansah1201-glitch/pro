@@ -212,6 +212,77 @@ describe("SysAccessEventsPage", () => {
     expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
   });
 
+  it("keeps only the selected event filter in the sequential tab order", () => {
+    renderPage();
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1, -1, -1, -1]);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Устройства" }));
+
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([-1, -1, -1, -1, 0]);
+  });
+
+  it("moves selection and focus to the next event filter with ArrowRight", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const allTab = screen.getByRole("tab", { name: "Все" });
+    const clinicTab = screen.getByRole("tab", { name: "Клиника" });
+    allTab.focus();
+
+    await user.keyboard("{ArrowRight}");
+
+    expect(clinicTab).toHaveFocus();
+    expect(clinicTab).toHaveAttribute("aria-selected", "true");
+    expect(allTab).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("wraps selection and focus to the last event filter with ArrowLeft", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const allTab = screen.getByRole("tab", { name: "Все" });
+    const devicesTab = screen.getByRole("tab", { name: "Устройства" });
+    allTab.focus();
+
+    await user.keyboard("{ArrowLeft}");
+
+    expect(devicesTab).toHaveFocus();
+    expect(devicesTab).toHaveAttribute("aria-selected", "true");
+    expect(allTab).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("moves selection and focus to the last event filter with End", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const allTab = screen.getByRole("tab", { name: "Все" });
+    const devicesTab = screen.getByRole("tab", { name: "Устройства" });
+    allTab.focus();
+
+    await user.keyboard("{End}");
+
+    expect(devicesTab).toHaveFocus();
+    expect(devicesTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("moves selection and focus to the first event filter with Home", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const allTab = screen.getByRole("tab", { name: "Все" });
+    const devicesTab = screen.getByRole("tab", { name: "Устройства" });
+    fireEvent.click(devicesTab);
+    devicesTab.focus();
+
+    await user.keyboard("{Home}");
+
+    expect(allTab).toHaveFocus();
+    expect(allTab).toHaveAttribute("aria-selected", "true");
+    expect(devicesTab).toHaveAttribute("aria-selected", "false");
+  });
+
   it("filters rows by source, entity, and event date", () => {
     renderPage();
 

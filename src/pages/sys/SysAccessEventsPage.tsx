@@ -1393,7 +1393,36 @@ export default function SysAccessEventsPage() {
                     type="button"
                     role="tab"
                     aria-selected={active}
+                    tabIndex={active ? 0 : -1}
                     onClick={() => setFilter(f.key)}
+                    onKeyDown={(event) => {
+                      const currentIndex = FILTERS.findIndex((item) => item.key === f.key);
+                      let nextIndex: number;
+
+                      switch (event.key) {
+                        case "ArrowRight":
+                          nextIndex = (currentIndex + 1) % FILTERS.length;
+                          break;
+                        case "ArrowLeft":
+                          nextIndex = (currentIndex - 1 + FILTERS.length) % FILTERS.length;
+                          break;
+                        case "Home":
+                          nextIndex = 0;
+                          break;
+                        case "End":
+                          nextIndex = FILTERS.length - 1;
+                          break;
+                        default:
+                          return;
+                      }
+
+                      event.preventDefault();
+                      const tabs = event.currentTarget
+                        .closest('[role="tablist"]')
+                        ?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+                      setFilter(FILTERS[nextIndex].key);
+                      tabs?.[nextIndex]?.focus();
+                    }}
                     className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[32px] ${
                       active
                         ? "border-primary bg-primary/10 text-primary"
