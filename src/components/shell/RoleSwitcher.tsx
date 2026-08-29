@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
-import { ROLES, type Role } from "@/lib/roles";
+import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
 import { ShieldCheck } from "lucide-react";
 import {
   Select,
@@ -23,6 +23,7 @@ import { UserCog, LogOut } from "lucide-react";
  */
 export function RoleSwitcher() {
   const { role, setRole, label, currentUser } = useRole();
+  const shortLabel = ROLE_BY_ID[role].short;
   const { status, signOut, user } = useAuth();
   const navigate = useNavigate();
 
@@ -56,11 +57,12 @@ export function RoleSwitcher() {
       <Select value={role} onValueChange={(v) => setRole(v as Role)}>
         <SelectTrigger
           className="h-11 w-[160px] text-[12px] sm:w-[220px]"
-          aria-label="Учебный режим. Доступ не является реальной защитой. Сменить роль/пользователя."
+          aria-label={`Учебный режим. Доступ не является реальной защитой. Текущая роль: ${label}. Сменить роль/пользователя.`}
           title={`Учебный режим. ${currentUser.fullName} · ${label}`}
         >
           <SelectValue>
-            <span className="block truncate">{label}</span>
+            <span className="block sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:block">{label}</span>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>

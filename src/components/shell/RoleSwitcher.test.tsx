@@ -59,6 +59,20 @@ describe("RoleSwitcher", () => {
     expect(screen.queryByRole("button", { name: /выйти/i })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["system_admin", "Сисадмин", "Системный администратор"],
+    ["clinic_admin", "Админ клиники", "Администратор клиники"],
+  ])("показывает короткую роль %s на мобильном экране и сохраняет полное доступное имя", (role, short, full) => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, role);
+    renderSwitcher();
+
+    expect(
+      screen.getByRole("combobox", { name: new RegExp(`Текущая роль: ${full}`, "i") }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(short)).toHaveClass("sm:hidden");
+    expect(screen.getByText(full)).toHaveClass("hidden", "sm:block");
+  });
+
   it("does not show the session chip when anonymous", () => {
     renderSwitcher();
     expect(screen.queryByText(/Вход активен/)).not.toBeInTheDocument();

@@ -568,6 +568,17 @@ describe("SysAccessEventsPage", () => {
     expect(close).toHaveFocus();
   });
 
+  it("держит кнопку закрытия деталей не ниже проектной цели 44 px", () => {
+    renderPage();
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: "Подробнее: Отчёт открыт по ссылке",
+      })[0],
+    );
+
+    expect(screen.getByRole("button", { name: "Закрыть" })).toHaveClass("min-h-11");
+  });
+
   it.each([
     { action: "Отчёт открыт по ссылке", index: 0, escape: true },
     { action: "Отчёт сформирован", index: 0, escape: false },

@@ -109,7 +109,7 @@ function NoAccessScreen({
       <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
         <div className="mb-3 flex items-center gap-2 text-warning">
           <Lock className="h-4 w-4" aria-hidden />
-          <div className="text-[13px] font-semibold">Нет доступа в учебном режиме</div>
+          <h1 className="text-[13px] font-semibold">Нет доступа в учебном режиме</h1>
         </div>
         <p className="text-[13px] text-muted-foreground">
           Текущая роль <span className="text-foreground">{currentLabel}</span> не входит в

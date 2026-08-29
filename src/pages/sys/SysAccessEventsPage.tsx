@@ -2229,7 +2229,7 @@ export default function SysAccessEventsPage() {
           ) : null}
           <DrawerFooter>
             <DrawerClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" className="min-h-11">
                 Закрыть
               </Button>
             </DrawerClose>

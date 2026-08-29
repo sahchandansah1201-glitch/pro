@@ -99,6 +99,14 @@ describe("RoleGuard · unconfigured (demo) mode", () => {
     renderAt("/sys/users", authValue(), "doctor");
     expect(screen.getByText(/Нет доступа в учебном режиме/)).toBeInTheDocument();
   });
+
+  it("обозначает название учебного состояния запрета заголовком первого уровня", () => {
+    renderAt("/sys/users", authValue(), "doctor");
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Нет доступа в учебном режиме" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("RoleGuard · configured + auth-aware", () => {
