@@ -90,7 +90,39 @@
     "/api/v1/admin/analytics": {
       "get": {
         "operationId": "getAdminAnalytics",
-        "summary": "Read production aggregate statistics without patient rows"
+        "summary": "Read production aggregate statistics without patient rows",
+        "description": "No query preserves all legacy totals. Optional dateFrom/dateTo/timeZone must be provided together once each. Calendar dates are inclusive in Europe/Moscow; SQL uses [start of dateFrom, start of dateTo + 1 day). Scope comes from the authenticated administrator, never query clinicId. This GET records an admin.analytics.read audit event.",
+        "parameters": [
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "timeZone", "in": "query", "schema": { "type": "string", "enum": ["Europe/Moscow"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unchanged item totals and recentAuditEvents; optional additive item.period. Patients exclude deleted cards. Visit records use created_at, not completed appointments. Photos use created_at and overview_photo/dermoscopy kinds only. Signed reports use signed_at and signed status. No historical snapshot at the end of the period is implied.",
+            "content": { "application/json": { "schema": {
+              "type": "object",
+              "properties": { "item": { "type": "object", "properties": {
+                "period": {
+                  "type": "object",
+                  "required": ["dateFrom", "dateTo", "timeZone", "patientsCreated", "visitsCreated", "photosAdded", "reportsSigned"],
+                  "properties": {
+                    "dateFrom": { "type": "string", "format": "date" },
+                    "dateTo": { "type": "string", "format": "date" },
+                    "timeZone": { "type": "string", "enum": ["Europe/Moscow"] },
+                    "patientsCreated": { "type": "integer", "minimum": 0 },
+                    "visitsCreated": { "type": "integer", "minimum": 0 },
+                    "photosAdded": { "type": "integer", "minimum": 0 },
+                    "reportsSigned": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              } } }
+            } } }
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Administrator role and clinic scope required" },
+          "422": { "description": "Invalid, incomplete, repeated or inverted dates, or unsupported timeZone; no fallback to all-time totals" }
+        }
       }
     },
     "/api/v1/admin/services": {

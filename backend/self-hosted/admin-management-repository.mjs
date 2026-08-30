@@ -971,12 +971,22 @@ from (
 `.trim();
 }
 
-export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false } = {}) {
+export function buildAdminAnalyticsSql({ clinicIds = [], allClinics = false, period = null } = {}) {
   const clinicWhere = allClinics ? "" : `where c.id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const patientClinicWhere = allClinics ? "" : `and p.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const visitClinicWhere = allClinics ? "" : `and v.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const assetClinicWhere = allClinics ? "" : `and a.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
   const auditClinicWhere = allClinics ? "" : `and al.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`;
+  // Dates are validated by the service. Local calendar days, not server timezone.
+  const periodWhere = (column) => `${column} >= (${sqlLiteral(period.dateFrom)}::date::timestamp at time zone 'Europe/Moscow') and ${column} < ((${sqlLiteral(period.dateTo)}::date + interval '1 day') at time zone 'Europe/Moscow')`;
+  const periodFields = period ? `,
+  'period', jsonb_build_object(
+    'dateFrom', ${sqlLiteral(period.dateFrom)}, 'dateTo', ${sqlLiteral(period.dateTo)}, 'timeZone', 'Europe/Moscow',
+    'patientsCreated', (select count(*)::int from patients p where p.deleted_at is null ${patientClinicWhere} and ${periodWhere("p.created_at")}),
+    'visitsCreated', (select count(*)::int from visits v where true ${visitClinicWhere} and ${periodWhere("v.created_at")}),
+    'photosAdded', (select count(*)::int from clinical_assets a where a.kind in ('overview_photo', 'dermoscopy') ${assetClinicWhere} and ${periodWhere("a.created_at")}),
+    'reportsSigned', (select count(*)::int from reports r where r.status = 'signed' ${allClinics ? "" : `and r.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`} and ${periodWhere("r.signed_at")})
+  )` : "";
   return `
 select jsonb_build_object(
   'clinics', (select count(*)::int from clinics c ${clinicWhere}${clinicWhere ? " and" : " where"} c.deleted_at is null),
@@ -999,7 +1009,7 @@ select jsonb_build_object(
   'visits', (select count(*)::int from visits v where true ${visitClinicWhere}),
   'photos', (select count(*)::int from clinical_assets a where true ${assetClinicWhere}),
   'signedReports', (select count(*)::int from reports r where r.status = 'signed' ${allClinics ? "" : `and r.clinic_id in (${sqlUuidList(safeUuidList(clinicIds)) || "null"})`}),
-  'auditEvents7d', (select count(*)::int from audit_log al where al.created_at >= now() - interval '7 days' ${auditClinicWhere})
+  'auditEvents7d', (select count(*)::int from audit_log al where al.created_at >= now() - interval '7 days' ${auditClinicWhere})${periodFields}
 )::text;
 `.trim();
 }

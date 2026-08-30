@@ -53,6 +53,24 @@ export class AdminManagementNotFoundError extends Error {
   }
 }
 
+function analyticsPeriod(searchParams) {
+  const fields = ["dateFrom", "dateTo", "timeZone"];
+  if (fields.every((field) => !searchParams.has(field))) return null;
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
+  const validDate = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? "") || value.startsWith("0000")) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (fields.some((field) => searchParams.getAll(field).length !== 1)
+      || !validDate(dateFrom) || !validDate(dateTo) || dateFrom > dateTo
+      || searchParams.get("timeZone") !== "Europe/Moscow") {
+    throw new AdminManagementValidationError([], "Укажите корректные даты начала и окончания периода по московскому времени.");
+  }
+  return { dateFrom, dateTo, timeZone: "Europe/Moscow" };
+}
+
 function cleanString(value, max = 240) {
   if (value == null) return null;
   const cleaned = String(value).trim().replace(/\s+/g, " ").slice(0, max);
@@ -936,9 +954,10 @@ export function createAdminManagementService({ adminManagementRepository, auditR
       };
     },
 
-    async getAnalytics(authContext, meta = {}) {
+    async getAnalytics(authContext, meta = {}, searchParams = new URLSearchParams()) {
       const scope = adminScope(authContext);
-      const analytics = await adminManagementRepository.getAnalytics(scope);
+      const period = analyticsPeriod(searchParams);
+      const analytics = await adminManagementRepository.getAnalytics({ ...scope, ...(period ? { period } : {}) });
       const auditEvents = await adminManagementRepository.listAuditEvents({ ...scope, limit: 20 });
       await recordAuditBestEffort(auditRepository, {
         clinicId: scope.allClinics ? null : scope.clinicIds[0],

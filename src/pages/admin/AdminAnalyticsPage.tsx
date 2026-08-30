@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Inbox, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLeads,
@@ -24,6 +25,7 @@ import {
   adminApiErrorText,
   getAdminAnalytics,
   type AdminAnalyticsDTO,
+  type AdminAnalyticsPeriod,
 } from "@/lib/self-hosted-admin-api";
 
 /**
@@ -381,16 +383,28 @@ function auditActionLabel(action: string): string {
 
 function AdminAnalyticsPageLive() {
   const session = useSelfHostedApiSession();
+  const requestSequence = useRef(0);
+  const [period, setPeriod] = useState<AdminAnalyticsPeriod>(() => {
+    const parts = new Intl.DateTimeFormat("en", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+    const dateTo = `${part("year")}-${part("month")}-${part("day")}`;
+    return { dateFrom: `${dateTo.slice(0, 7)}-01`, dateTo, timeZone: "Europe/Moscow" };
+  });
   const [analytics, setAnalytics] = useState<AdminAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState<string | null>(null);
 
   async function load() {
+    const sequence = ++requestSequence.current;
     setLoading(true);
+    setNote(null);
+    setAnalytics(null);
     const result = await getAdminAnalytics({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
+      period,
     });
+    if (sequence !== requestSequence.current) return;
     setLoading(false);
     if (!result.ok) {
       setNote(adminApiErrorText(result.error));
@@ -401,6 +415,7 @@ function AdminAnalyticsPageLive() {
 
   useEffect(() => {
     void load();
+    return () => { requestSequence.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.apiBaseUrl, session.apiToken]);
 
@@ -420,19 +435,55 @@ function AdminAnalyticsPageLive() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Аналитика"
-        subtitle="Рабочие агрегаты из базы: клиники, сотрудники, визиты, снимки и аудит."
+        subtitle="Количество рабочих записей за выбранные даты."
       />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочий режим: показаны только агрегаты. Персональные строки, фото, диагнозы и внутренние ссылки не выводятся.
+          Данные по доступным вам клиникам. Карточки пациентов, изображения и медицинские сведения здесь не показываются.
         </div>
 
+        <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="space-y-3 rounded-md border border-border bg-surface p-3">
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Период</legend>
+            <p id="analytics-period-help" className="text-xs text-muted-foreground">Даты по московскому времени. Обе даты включены.</p>
+            <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+              <label className="min-w-0 space-y-1 text-sm">С
+                <Input type="date" required value={period.dateFrom} aria-describedby="analytics-period-help" className="min-h-11 min-w-0" onChange={(event) => setPeriod({ ...period, dateFrom: event.target.value })} />
+              </label>
+              <label className="min-w-0 space-y-1 text-sm">По
+                <Input type="date" required min={period.dateFrom} value={period.dateTo} aria-describedby="analytics-period-help" className="min-h-11 min-w-0" onChange={(event) => setPeriod({ ...period, dateTo: event.target.value })} />
+              </label>
+              <Button type="submit" disabled={!period.dateFrom || !period.dateTo || period.dateFrom > period.dateTo} className="col-span-2 min-h-11 sm:col-span-1">Показать за период</Button>
+            </div>
+            {period.dateFrom > period.dateTo && <p role="alert" className="text-sm text-destructive">Дата окончания должна быть не раньше даты начала.</p>}
+          </fieldset>
+        </form>
+
         {note && (
-          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
+          <div role="alert" className="rounded-md border border-border bg-surface px-3 py-2 text-sm">
             {note}
           </div>
         )}
 
+        <section aria-labelledby="analytics-period-results" aria-busy={loading} className="space-y-2">
+          <h2 id="analytics-period-results" className="text-base font-semibold">За выбранный период</h2>
+          {loading && <p role="status" className="text-sm text-muted-foreground">Загружаем показатели…</p>}
+          {analytics?.period && <>
+            <p className="text-sm text-muted-foreground">{analytics.period.dateFrom.split("-").reverse().join(".")} — {analytics.period.dateTo.split("-").reverse().join(".")} · Москва</p>
+            {(period.dateFrom !== analytics.period.dateFrom || period.dateTo !== analytics.period.dateTo) && <p role="status" className="text-sm">Даты изменены. Нажмите «Показать за период», чтобы обновить показатели.</p>}
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <KpiCard label="Добавлено карточек пациентов" value={analytics.period.patientsCreated} hint="без удалённых карточек" />
+              <KpiCard label="Создано записей визитов" value={analytics.period.visitsCreated} hint="не число завершённых приёмов" />
+              <KpiCard label="Добавлено снимков" value={analytics.period.photosAdded} hint="без вложений отчётов" />
+              <KpiCard label="Подписано отчётов" value={analytics.period.reportsSigned} hint="по дате подписи" />
+            </div>
+            {Object.values({ p: analytics.period.patientsCreated, v: analytics.period.visitsCreated, a: analytics.period.photosAdded, r: analytics.period.reportsSigned }).every((count) => count === 0) && <p className="text-sm text-muted-foreground">За этот период записей нет. Выберите другие даты, чтобы посмотреть показатели.</p>}
+          </>}
+        </section>
+
+        {analytics && <details className="space-y-3 rounded-md border border-border bg-surface p-3">
+          <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Общие показатели и последние события</summary>
+          <p className="text-xs text-muted-foreground">Текущие количества без фильтра периода. События аудита показаны отдельно.</p>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <KpiCard label="Клиники" value={loading ? "…" : data.clinics} hint="зарегистрированы" />
           <KpiCard label="Сотрудники" value={loading ? "…" : data.activeUsers} hint="активный доступ" />
@@ -440,7 +491,7 @@ function AdminAnalyticsPageLive() {
           <KpiCard label="Аудит за 7 дней" value={loading ? "…" : data.auditEvents7d} hint="события системы" />
           <KpiCard label="Пациенты" value={loading ? "…" : data.patients} hint="агрегат без строк" />
           <KpiCard label="Визиты" value={loading ? "…" : data.visits} hint="рабочие записи" />
-          <KpiCard label="Снимки" value={loading ? "…" : data.photos} hint="только количество" />
+          <KpiCard label="Файлы" value={loading ? "…" : data.photos} hint="снимки и вложения отчётов" />
           <KpiCard label="Подписанные отчёты" value={loading ? "…" : data.signedReports} hint="итоговые документы" />
         </div>
 
@@ -462,9 +513,7 @@ function AdminAnalyticsPageLive() {
           )}
         </SectionCard>
 
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => void load()}>
-          Обновить агрегаты
-        </Button>
+        </details>}
       </div>
     </div>
   );

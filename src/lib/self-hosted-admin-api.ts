@@ -66,7 +66,21 @@ export interface AdminUserPasswordResetDTO {
   passwordChangedAt: string | null;
 }
 
+export interface AdminAnalyticsPeriod {
+  dateFrom: string;
+  dateTo: string;
+  timeZone: "Europe/Moscow";
+}
+
+export interface AdminAnalyticsPeriodDTO extends AdminAnalyticsPeriod {
+  patientsCreated: number;
+  visitsCreated: number;
+  photosAdded: number;
+  reportsSigned: number;
+}
+
 export interface AdminAnalyticsDTO {
+  period?: AdminAnalyticsPeriodDTO;
   clinics: number;
   activeUsers: number;
   doctors: number;
@@ -595,12 +609,26 @@ export async function createAdminDoctor(
   return ok(normalizeUser(body.item));
 }
 
-export async function getAdminAnalytics(args: BaseArgs): Promise<SelfHostedApiResult<AdminAnalyticsDTO>> {
-  const result = await request(args, "/api/v1/admin/analytics");
+export async function getAdminAnalytics(args: BaseArgs & { period?: AdminAnalyticsPeriod }): Promise<SelfHostedApiResult<AdminAnalyticsDTO>> {
+  const query = args.period ? `?${new URLSearchParams({ ...args.period })}` : "";
+  const result = await request(args, `/api/v1/admin/analytics${query}`);
   if (!result.ok) return result as SelfHostedApiResult<AdminAnalyticsDTO>;
   const body = isRecord(result.value) ? result.value : {};
   const item = isRecord(body.item) ? body.item : {};
+  const period = isRecord(item.period) ? item.period : null;
+  if (args.period && (!period
+      || period.dateFrom !== args.period.dateFrom || period.dateTo !== args.period.dateTo
+      || period.timeZone !== args.period.timeZone
+      || [period.patientsCreated, period.visitsCreated, period.photosAdded, period.reportsSigned]
+        .some((value) => typeof value !== "number" || !Number.isSafeInteger(value) || value < 0))) {
+    return fail({ kind: "http", code: "analytics_period_unavailable", message: "Не удалось получить данные за выбранный период. Повторите запрос. Если ошибка сохраняется, обратитесь к администратору системы." });
+  }
   return ok({
+    ...(period ? { period: {
+      dateFrom: String(period.dateFrom), dateTo: String(period.dateTo), timeZone: "Europe/Moscow" as const,
+      patientsCreated: Number(period.patientsCreated), visitsCreated: Number(period.visitsCreated),
+      photosAdded: Number(period.photosAdded), reportsSigned: Number(period.reportsSigned),
+    } } : {}),
     clinics: Number(item.clinics ?? 0),
     activeUsers: Number(item.activeUsers ?? 0),
     doctors: Number(item.doctors ?? 0),
