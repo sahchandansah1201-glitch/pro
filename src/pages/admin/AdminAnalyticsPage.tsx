@@ -534,6 +534,7 @@ function AdminAnalyticsPageDemo() {
 
   // Имитация загрузки: при монтировании и при смене периода.
   useEffect(() => {
+    setReportPreview(null);
     const w = typeof window !== "undefined" ? (window as unknown as { __ANALYTICS_LOADING_MS__?: number }) : undefined;
     const ms = w?.__ANALYTICS_LOADING_MS__ ?? DEFAULT_LOADING_MS;
     if (ms <= 0) {

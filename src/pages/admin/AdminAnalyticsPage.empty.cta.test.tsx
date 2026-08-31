@@ -96,6 +96,22 @@ describe("AdminAnalyticsPage · empty CTA · смена периода из empt
     expect(getByRole("tab", { name: "Все данные" }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("убирает старый отчёт при смене периода через обе кнопки пустого состояния", () => {
+    const { getByRole, getByLabelText, queryByLabelText, getAllByRole } = renderPage(AdminAnalyticsPage);
+    const reportLabel = "Безопасный агрегатный предпросмотр отчёта";
+    fireEvent.click(getByRole("button", { name: "Показать: Воронка и источники" }));
+
+    fireEvent.click(getByRole("button", { name: "Сформировать учебный отчёт" }));
+    expect(getByLabelText(reportLabel)).toHaveTextContent("Период: Все данные");
+    fireEvent.click(getAllByRole("button", { name: /Попробовать.*Последние 90 дней/ })[0]);
+    expect(queryByLabelText(reportLabel)).not.toBeInTheDocument();
+
+    fireEvent.click(getByRole("button", { name: "Сформировать учебный отчёт" }));
+    expect(getByLabelText(reportLabel)).toHaveTextContent("Период: Последние 90 дней");
+    fireEvent.click(getAllByRole("button", { name: /Показать все данные вместо периода/ })[0]);
+    expect(queryByLabelText(reportLabel)).not.toBeInTheDocument();
+  });
+
   it("empty-state секции «клиники» не содержит CTA смены периода", () => {
     const { container } = renderPage(AdminAnalyticsPage);
     const empties = Array.from(

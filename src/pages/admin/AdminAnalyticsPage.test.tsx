@@ -367,6 +367,40 @@ describe("AdminAnalyticsPage — фильтр периода", () => {
 });
 
 describe("AdminAnalyticsPage — учебные действия", () => {
+  it("убирает старый учебный отчёт сразу после смены периода", () => {
+    const { getByRole, getByLabelText, queryByLabelText } = renderPage();
+    const reportLabel = "Безопасный агрегатный предпросмотр отчёта";
+
+    fireEvent.click(getByRole("tab", { name: "Март 2026" }));
+    fireEvent.click(getByRole("button", { name: "Сформировать учебный отчёт" }));
+    expect(getByLabelText(reportLabel)).toHaveTextContent("Период: Март 2026");
+
+    fireEvent.click(getByRole("tab", { name: "Последние 90 дней" }));
+    expect(queryByLabelText(reportLabel)).not.toBeInTheDocument();
+  });
+
+  it("заново формирует отчёт за каждый выбранный период и не возвращает старый при переключении назад", () => {
+    const { getByRole, getByLabelText, queryByLabelText } = renderPage();
+    const reportLabel = "Безопасный агрегатный предпросмотр отчёта";
+
+    for (const period of ["Март 2026", "Все данные", "Последние 90 дней", "Март 2026"]) {
+      fireEvent.click(getByRole("tab", { name: period }));
+      expect(queryByLabelText(reportLabel)).not.toBeInTheDocument();
+      fireEvent.click(getByRole("button", { name: "Сформировать учебный отчёт" }));
+      expect(getByLabelText(reportLabel)).toHaveTextContent(`Период: ${period}`);
+    }
+  });
+
+  it("сохраняет актуальный отчёт при повторном выборе уже активного периода", () => {
+    const { getByRole, getByLabelText } = renderPage();
+    const reportLabel = "Безопасный агрегатный предпросмотр отчёта";
+
+    fireEvent.click(getByRole("button", { name: "Сформировать учебный отчёт" }));
+    const preview = getByLabelText(reportLabel).textContent;
+    fireEvent.click(getByRole("tab", { name: "Все данные" }));
+    expect(getByLabelText(reportLabel).textContent).toBe(preview);
+  });
+
   it("«Выгрузка CSV отключена» кнопка disabled", () => {
     const { getByRole } = renderPage();
     const btn = getByRole("button", {
