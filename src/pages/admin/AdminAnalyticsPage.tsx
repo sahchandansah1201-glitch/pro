@@ -947,7 +947,7 @@ function AdminAnalyticsPageDemo() {
               <div className="mt-3 max-w-full overflow-auto rounded-md border border-border bg-muted/40">
                 <pre
                   aria-label="Безопасный агрегатный предпросмотр отчёта"
-                  className="max-h-80 min-w-0 whitespace-pre p-3 text-[12px] leading-relaxed"
+                  className="max-h-80 min-w-0 whitespace-pre-wrap break-words p-3 text-[12px] leading-relaxed"
                 >
 {reportPreview}
                 </pre>
