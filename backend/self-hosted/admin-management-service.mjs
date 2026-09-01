@@ -777,6 +777,7 @@ export function createAdminManagementService({ adminManagementRepository, auditR
         ...payload,
         actorUserId: authContext.userId,
       });
+      if (!item) throw new AdminManagementNotFoundError();
       await recordAuditBestEffort(auditRepository, {
         clinicId: payload.clinicId,
         actorUserId: authContext.userId,

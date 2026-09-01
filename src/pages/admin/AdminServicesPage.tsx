@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -220,6 +220,8 @@ function AdminServicesPageLive() {
   const [lastChangedServiceId, setLastChangedServiceId] = useState<string | null>(null);
   const [form, setForm] = useState<ServiceForm>(EMPTY_SERVICE_FORM);
   const [editForm, setEditForm] = useState<(ServiceForm & { id: string }) | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const refreshServicesButtonRef = useRef<HTMLButtonElement>(null);
 
   async function load() {
     setLoading(true);
@@ -243,6 +245,11 @@ function AdminServicesPageLive() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.apiBaseUrl, session.apiToken]);
+
+  async function refreshServices() {
+    await load();
+    requestAnimationFrame(() => refreshServicesButtonRef.current?.focus());
+  }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -298,9 +305,11 @@ function AdminServicesPageLive() {
 
   async function submitServiceEdit() {
     if (!editForm) return;
+    setEditError(null);
+    setNote(null);
     const validation = validateServiceForm(editForm);
     if (validation) {
-      setNote(validation);
+      setEditError(validation);
       return;
     }
     setBusy(true);
@@ -312,7 +321,9 @@ function AdminServicesPageLive() {
     });
     setBusy(false);
     if (!result.ok) {
-      setNote(adminApiErrorText(result.error));
+      setEditError(result.error?.status === 404 || result.error?.code === "not_found"
+        ? "Услуга не найдена или недоступна для вашей клиники. Изменения не сохранены. Обновите список услуг."
+        : adminApiErrorText(result.error));
       return;
     }
     if (result.value) {
@@ -447,7 +458,7 @@ function AdminServicesPageLive() {
                 <h2 className="text-[14px] font-semibold">Редактирование услуги</h2>
                 <p className="text-[12px] text-muted-foreground">Изменения сохраняются в рабочей базе клиники.</p>
               </div>
-              <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => setEditForm(null)}>
+              <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => { setEditForm(null); setEditError(null); }}>
                 Отменить
               </Button>
             </div>
@@ -528,6 +539,15 @@ function AdminServicesPageLive() {
                 </label>
               </div>
             </div>
+            {editError && (
+              <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                <p role="alert" className="text-[13px] text-foreground">{editError}</p>
+                <Button ref={refreshServicesButtonRef} type="button" variant="outline" className="mt-2 min-h-[44px]" onClick={refreshServices} disabled={busy || loading}>
+                  Обновить список услуг
+                </Button>
+                <p className="mt-2 text-[12px] text-muted-foreground">Введённые данные останутся в форме.</p>
+              </div>
+            )}
             <Button type="button" className="mt-3 min-h-[44px]" onClick={submitServiceEdit} disabled={busy}>
               Сохранить услугу
             </Button>
@@ -593,7 +613,7 @@ function AdminServicesPageLive() {
                       size="sm"
                       variant="outline"
                       className="min-h-[44px] sm:min-h-[32px]"
-                      onClick={() => setEditForm(formFromService(service))}
+                      onClick={() => { setEditForm(formFromService(service)); setEditError(null); }}
                     >
                       Редактировать
                     </Button>
@@ -626,7 +646,7 @@ function AdminServicesPageLive() {
                 <dt className="text-muted-foreground">Онлайн-запись</dt>
                 <dd className="text-right">{service.onlineBooking ? "Да" : "Нет"}</dd>
               </dl>
-              <Button type="button" variant="outline" className="mt-3 min-h-[44px] w-full text-[12px]" onClick={() => setEditForm(formFromService(service))}>
+              <Button type="button" variant="outline" className="mt-3 min-h-[44px] w-full text-[12px]" onClick={() => { setEditForm(formFromService(service)); setEditError(null); }}>
                 Редактировать
               </Button>
             </Card>

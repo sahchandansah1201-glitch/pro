@@ -144,6 +144,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Клиники и кабинеты", url: "/admin/clinics", icon: Building2 },
         { title: "Сотрудники и доступ", url: "/sys/users", icon: ShieldCheck },
         { title: "Врачи и ассистенты", url: "/admin/doctors", icon: Stethoscope },
+        { title: "Услуги", url: "/admin/services", icon: FileText },
         { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
         { title: "Устройства", url: "/sys/devices", icon: Cpu },
         { title: "Аудит", url: "/sys/audit", icon: Activity },

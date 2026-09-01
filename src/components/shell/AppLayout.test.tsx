@@ -171,6 +171,23 @@ describe("AppLayout production mode", () => {
     expect(screen.getByRole("button", { name: "Выйти из рабочей системы" })).toBeInTheDocument();
   });
 
+  it("shows and activates services in the production system administrator navigation", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-navigation-token");
+    window.localStorage.setItem(
+      SELF_HOSTED_API_USER_KEY,
+      JSON.stringify({ id: "u-system", displayName: "Тестовый системный администратор", roles: ["system_admin"] }),
+    );
+
+    renderLayout("/admin/services");
+
+    const navigation = screen.getByRole("navigation", { name: "Основная навигация" });
+    const servicesLink = within(navigation).getByRole("link", { name: "Услуги" });
+    expect(servicesLink).toHaveAttribute("href", "/admin/services");
+    expect(servicesLink).toHaveAttribute("data-active", "true");
+  });
+
   it("does not expose demo doctor routes in production navigation", () => {
     vi.stubEnv("VITE_APP_MODE", "production");
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
