@@ -55,8 +55,34 @@ import {
   PreLaunchBlockerPanel,
 } from "./PatientDeliveryReadinessPanels";
 import { PatientDeliveryApprovalRequirementsPanel } from "./PatientDeliveryApprovalRequirementsPanel";
+import { GovernanceDecisionReceiptCard } from "./GovernanceDecisionReceipt";
+import { useGovernanceDecisionReceipt } from "./useGovernanceDecisionReceipt";
 
 type LoadStatus = "demo" | "loading" | "ready" | "error";
+
+function governancePublicError(
+  error: { status?: number } | null | undefined,
+  fallback: string,
+): string {
+  if (error?.status === 401) return "Требуется повторный вход в систему клиники.";
+  if (error?.status === 403) return "Недостаточно прав для управления доступом.";
+  return fallback;
+}
+
+function formatBlockerCount(count: number): string {
+  if (count === 0) return "Препятствий нет";
+
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const noun =
+    mod10 === 1 && mod100 !== 11
+      ? "препятствие"
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? "препятствия"
+        : "препятствий";
+
+  return `${count} ${noun}`;
+}
 
 const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
   summary: {
@@ -523,9 +549,11 @@ function buildDeliveryGates(governance: SelfHostedPatientPhotoProtocolReleaseGov
 function DeliveryDecisionPanel({
   governance,
   onDecisionAction,
+  onSaveDecision,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
   onDecisionAction: (gate: DeliveryGate | null) => void;
+  onSaveDecision: () => void;
 }) {
   const gates = buildDeliveryGates(governance);
   const blockerCount = gates.reduce((sum, gate) => sum + gate.blockerCount, 0);
@@ -547,7 +575,7 @@ function DeliveryDecisionPanel({
           </p>
         </div>
         <Badge variant={firstBlocked ? "destructive" : "outline"} className="min-h-[28px] px-2.5 py-1 text-[12px]">
-          {firstBlocked ? `${blockerCount} препятств.` : "0 препятств."}
+          {formatBlockerCount(blockerCount)}
         </Badge>
       </div>
 
@@ -593,6 +621,12 @@ function DeliveryDecisionPanel({
             onClick={() => onDecisionAction(firstBlocked)}
           >
             {firstBlocked ? firstBlocked.nextAction : "Зафиксировать финальную проверку"}
+          </Button>
+          <Button
+            className="mt-2 w-full min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onSaveDecision}
+          >
+            Сохранить временную заметку
           </Button>
         </div>
       </div>
@@ -1123,7 +1157,12 @@ export default function AdminGovernancePage() {
     if (!result.ok || !result.value) {
       setStatus("error");
       setGovernance(DEMO_GOVERNANCE);
-      setError(result.error?.message ?? "Система клиники не вернула контур управления доступом.");
+      setError(
+        governancePublicError(
+          result.error,
+          "Не удалось загрузить управление доступом. Повторите попытку.",
+        ),
+      );
       return;
     }
     setStatus("ready");
@@ -1142,6 +1181,13 @@ export default function AdminGovernancePage() {
   const deliveryGates = useMemo(() => buildDeliveryGates(governance), [governance]);
   const openGateCount = deliveryGates.filter((gate) => !gate.ready).length;
   const blockerCount = deliveryGates.reduce((sum, gate) => sum + gate.blockerCount, 0);
+  const { decisionReceipt, saveGovernanceDecision } = useGovernanceDecisionReceipt({
+    session,
+    loading: status === "loading",
+    openGateCount,
+    blockerCount,
+    onStatus: setLastAction,
+  });
 
   function recordReview(item: SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow) {
     setLastAction(`Разбор правил подготовлен локально: строка #${item.queueNumber}`);
@@ -1249,7 +1295,12 @@ export default function AdminGovernancePage() {
     });
     setRetentionOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не заблокировала окна без правил хранения.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось заблокировать окна без правил хранения. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1297,7 +1348,12 @@ export default function AdminGovernancePage() {
     });
     setRevokeOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не выполнила отзыв истёкших окон доступа.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось отозвать истёкшие окна доступа. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1345,7 +1401,12 @@ export default function AdminGovernancePage() {
     });
     setMissingExpiryOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не заблокировала окна без срока доступа.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось заблокировать окна без срока доступа. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1393,7 +1454,12 @@ export default function AdminGovernancePage() {
     });
     setUnsafeSessionArtifactOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не заблокировала небезопасные временные коды.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось закрыть небезопасные временные коды. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1441,7 +1507,12 @@ export default function AdminGovernancePage() {
     });
     setRotationOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не подготовила замену доступа.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось подготовить замену доступа. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1489,7 +1560,12 @@ export default function AdminGovernancePage() {
     });
     setCredentialHashOperationBusy(false);
     if (!result.ok || !result.value) {
-      setLastAction(result.error?.message ?? "Система клиники не подготовила ключ доступа.");
+      setLastAction(
+        governancePublicError(
+          result.error,
+          "Не удалось подготовить ключ доступа. Повторите попытку.",
+        ),
+      );
       return;
     }
     setOperationResult(result.value);
@@ -1545,7 +1621,12 @@ export default function AdminGovernancePage() {
           </Card>
         )}
 
-        <DeliveryDecisionPanel governance={governance} onDecisionAction={recordDeliveryDecisionAction} />
+        <DeliveryDecisionPanel
+          governance={governance}
+          onDecisionAction={recordDeliveryDecisionAction}
+          onSaveDecision={saveGovernanceDecision}
+        />
+        {decisionReceipt && <GovernanceDecisionReceiptCard receipt={decisionReceipt} />}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric
@@ -1581,7 +1662,7 @@ export default function AdminGovernancePage() {
             value="required-actions"
             title="Требует действий"
             hint="Открытые правила, сроки, файлы и сеансы"
-            status={`${blockerCount} препятств.`}
+            status={formatBlockerCount(blockerCount)}
           >
             <DeliveryGateDrilldownPanel
               governance={governance}

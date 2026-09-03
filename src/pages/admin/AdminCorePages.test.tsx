@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AdminHomePage from "./AdminHomePage";
 import AdminDoctorsPage from "./AdminDoctorsPage";
@@ -8,6 +8,10 @@ import AdminClinicsPage from "./AdminClinicsPage";
 import AdminBotSettingsPage from "./AdminBotSettingsPage";
 import AdminGovernancePage from "./AdminGovernancePage";
 import AdminIntegrationsPage from "./AdminIntegrationsPage";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+} from "@/lib/self-hosted-api-session";
 
 const FORBIDDEN = [
   "birthDate",
@@ -26,7 +30,10 @@ const renderRouted = (ui: React.ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
 
 afterEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("Admin clinic core pages — render & safety", () => {
@@ -393,6 +400,102 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(visible).not.toMatch(
       /self-hosted|backend|metadata-only|raw id|file proxy|production|credential|hash|fingerprint|session id|demo|unsafe/i,
     );
+    expect(visible).not.toContain("препятств.");
+  });
+
+  it("AdminGovernancePage never renders raw clinic-system error details", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "internal_error",
+              message: "storagePath=/private/bucket token=secret /internal/sql",
+            },
+          }),
+          { status: 500, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    renderRouted(<AdminGovernancePage />);
+
+    expect(await screen.findByText(/Не удалось загрузить управление доступом/)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/storagePath|private\/bucket|token=secret|internal\/sql/i);
+    expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  });
+
+  it("AdminGovernancePage saves an aggregate-only ADM-10 decision receipt without enabling delivery", async () => {
+    window.sessionStorage.clear();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderRouted(<AdminGovernancePage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить временную заметку" }));
+    expect(screen.queryByRole("button", { name: "Сохранить решение" })).toBeNull();
+
+    const receipt = await screen.findByRole("status", { name: "Временная заметка о решении клиники" });
+    expect(receipt).toHaveTextContent(/Временная заметка сохранена/);
+    expect(receipt).toHaveTextContent(/только в этой вкладке браузера/);
+    expect(receipt).toHaveTextContent(/не рабочий акт клиники/);
+    expect(receipt).toHaveTextContent(/Выдача пациенту остаётся выключенной/);
+    expect(receipt).toHaveTextContent(/Открыто проверок: 5/);
+    expect(receipt).toHaveTextContent(/Препятствий: 26/);
+    const stored = JSON.parse(String(window.sessionStorage.getItem("skindoctor.admin.governance.safe-decision.v1")));
+    expect(stored).toMatchObject({
+      decision: "delivery_blocked",
+      contextFingerprint: "demo",
+      openGateCount: 5,
+      blockerCount: 26,
+      patientDeliveryAllowed: false,
+    });
+    expect(Object.keys(stored).sort()).toEqual([
+      "blockerCount",
+      "contextFingerprint",
+      "decision",
+      "openGateCount",
+      "patientDeliveryAllowed",
+      "savedAt",
+      "schemaVersion",
+    ]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("AdminGovernancePage restores only a current aggregate-only ADM-10 browser note", async () => {
+    window.sessionStorage.setItem("skindoctor.admin.governance.safe-decision.v1", JSON.stringify({
+      schemaVersion: 2,
+      savedAt: "2026-09-02T10:00:00.000Z",
+      decision: "delivery_blocked",
+      contextFingerprint: "demo",
+      openGateCount: 5,
+      blockerCount: 26,
+      patientDeliveryAllowed: false,
+    }));
+
+    const view = renderRouted(<AdminGovernancePage />);
+
+    expect(await screen.findByRole("status", { name: "Временная заметка о решении клиники" }))
+      .toHaveTextContent(/Открыто проверок: 5/);
+    view.unmount();
+
+    window.sessionStorage.setItem("skindoctor.admin.governance.safe-decision.v1", JSON.stringify({
+      schemaVersion: 2,
+      savedAt: "2026-09-02T10:00:00.000Z",
+      decision: "delivery_blocked",
+      contextFingerprint: "another-session",
+      openGateCount: 4,
+      blockerCount: 25,
+      patientDeliveryAllowed: false,
+    }));
+    renderRouted(<AdminGovernancePage />);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("status", { name: "Временная заметка о решении клиники" })).toBeNull();
+      expect(window.sessionStorage.getItem("skindoctor.admin.governance.safe-decision.v1")).toBeNull();
+    });
   });
 
   it("AdminGovernancePage keeps required actions open and secondary governance groups collapsed", () => {
