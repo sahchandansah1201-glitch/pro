@@ -42,6 +42,8 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
   it("renders capture toolbar and the API assets section", () => {
     renderTab();
     expect(screen.getByText(/Захват/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Хронология снимков" })).toBeInTheDocument();
+    expect(screen.queryByText("Таймлайн снимков")).toBeNull();
     expect(screen.getByRole("region", { name: /Снимки визита/i })).toBeInTheDocument();
   });
 
@@ -69,6 +71,345 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
       "data-image-id",
       "i-002",
     );
+  });
+});
+
+describe("VisitImagingTab · primary self-hosted comparison and retake", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the live visit asset in the primary viewer and preserves lesion/kind for retake", async () => {
+    const lesion = lesions[0];
+    const liveAsset = {
+      id: "asset-live-1",
+      clinicId: "clinic-1",
+      visitId: visit.id,
+      lesionId: lesion.id,
+      kind: "dermoscopy",
+      captureSource: "file",
+      capturedAt: "2026-09-02T08:00:00.000Z",
+      createdAt: "2026-09-02T08:00:01.000Z",
+    };
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:protected-live-asset"),
+      revokeObjectURL: vi.fn(),
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/assets/asset-live-1/download-url")) {
+        return new Response(JSON.stringify({
+          item: {
+            assetId: liveAsset.id,
+            clinicId: liveAsset.clinicId,
+            visitId: liveAsset.visitId,
+            downloadUrl: "/api/v1/assets/asset-live-1/download",
+            expiresIn: 300,
+            expiresAt: "2026-09-02T08:05:00.000Z",
+          },
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url.endsWith("/api/v1/assets/asset-live-1/download")) {
+        return new Response(new Blob(["image"], { type: "image/png" }), { status: 200 });
+      }
+      if (init?.method === "POST" && url.endsWith(`/api/v1/visits/${visit.id}/assets`)) {
+        return new Response(JSON.stringify({ item: { ...liveAsset, id: "asset-live-2" } }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ items: [liveAsset] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-image-preview")).toHaveAttribute(
+        "data-image-id",
+        liveAsset.id,
+      );
+    });
+    expect(await screen.findByRole("img", { name: /Клинический снимок Дерматоскопия/i }))
+      .toHaveAttribute("src", "blob:protected-live-asset");
+    expect(screen.getAllByText("Качество не оценено").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Хорошее качество")).toBeNull();
+    expect(screen.queryByText(/качество 100%/i)).toBeNull();
+
+    const apiRegion = screen.getByRole("region", { name: /Снимки визита/i });
+    await userEvent.click(within(apiRegion).getByRole("button", { name: /Открыть снимок/i }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(/качество не оценено/i);
+    expect(screen.getByRole("dialog")).not.toHaveTextContent(/качество 100%/i);
+    await userEvent.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Закрыть" })[0]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Повторить снимок" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /новый снимок будет привязан к тому же образованию и типу съёмки/i,
+    );
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    await userEvent.upload(
+      fileInput as HTMLInputElement,
+      new File(["next-image"], "retake.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => {
+      const postCall = fetchMock.mock.calls.find(([, request]) => request?.method === "POST");
+      expect(postCall).toBeDefined();
+      const body = JSON.parse(String(postCall?.[1]?.body));
+      expect(body.lesionId).toBe(lesion.id);
+      expect(body.kind).toBe("dermoscopy");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Повторить снимок" }));
+    await userEvent.upload(
+      fileInput as HTMLInputElement,
+      new File(["not-image"], "invalid.pdf", { type: "application/pdf" }),
+      { applyAccept: false },
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/Выберите файл изображения/);
+    expect(fetchMock.mock.calls.filter(([, request]) => request?.method === "POST")).toHaveLength(1);
+
+    const dropZone = screen.getByRole("button", { name: /Перетащите снимок сюда для загрузки/i });
+    const regularFile = new File(["regular-image"], "regular.png", { type: "image/png" });
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        files: Object.assign([regularFile], { item: (index: number) => index === 0 ? regularFile : null }),
+        types: ["Files"],
+        items: [],
+      },
+    });
+
+    await waitFor(() => {
+      const posts = fetchMock.mock.calls.filter(([, request]) => request?.method === "POST");
+      expect(posts).toHaveLength(2);
+      const regularBody = JSON.parse(String(posts[1]?.[1]?.body));
+      expect(regularBody.lesionId).toBeNull();
+      expect(regularBody.kind).toBe("overview_photo");
+    });
+  });
+
+  it("clears the previous visit assets before a failed next-visit list can render", async () => {
+    const previousAsset = {
+      id: "asset-previous-visit",
+      clinicId: "clinic-1",
+      visitId: visit.id,
+      lesionId: lesions[0].id,
+      kind: "dermoscopy",
+      captureSource: "file",
+      capturedAt: "2026-09-02T08:00:00.000Z",
+      createdAt: "2026-09-02T08:00:01.000Z",
+    };
+    const nextVisit = { ...visit, id: "visit-next" };
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:previous-visit"),
+      revokeObjectURL: vi.fn(),
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith(`/api/v1/visits/${nextVisit.id}/assets`)) {
+        return new Response(JSON.stringify({ error: { code: "list_failed" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/download-url")) {
+        return new Response(JSON.stringify({ item: {
+          assetId: previousAsset.id,
+          clinicId: previousAsset.clinicId,
+          visitId: previousAsset.visitId,
+          downloadUrl: `/api/v1/assets/${previousAsset.id}/download`,
+          expiresIn: 300,
+          expiresAt: "2026-09-02T08:05:00.000Z",
+        } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url.endsWith(`/api/v1/assets/${previousAsset.id}/download`)) {
+        return new Response(new Blob(["image"], { type: "image/png" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ items: [previousAsset] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = renderTab();
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-image-preview")).toHaveAttribute(
+        "data-image-id",
+        previousAsset.id,
+      );
+    });
+
+    view.rerender(
+      <MemoryRouter>
+        <VisitImagingTab visit={nextVisit} patientId={patientId} lesions={lesions} />
+      </MemoryRouter>,
+    );
+
+    expect(document.querySelector(`[data-image-id="${previousAsset.id}"]`)).toBeNull();
+    await waitFor(() => {
+      expect(document.querySelector(`[data-image-id="${previousAsset.id}"]`)).toBeNull();
+    });
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("compares two protected live assets without offering self-comparison", async () => {
+    const lesion = lesions[0];
+    const liveAssets = [
+      {
+        id: "asset-live-a",
+        clinicId: "clinic-1",
+        visitId: visit.id,
+        lesionId: lesion.id,
+        kind: "dermoscopy",
+        captureSource: "file",
+        capturedAt: "2026-09-02T08:00:00.000Z",
+        createdAt: "2026-09-02T08:00:01.000Z",
+      },
+      {
+        id: "asset-live-b",
+        clinicId: "clinic-1",
+        visitId: visit.id,
+        lesionId: lesion.id,
+        kind: "dermoscopy",
+        captureSource: "file",
+        capturedAt: "2026-09-02T08:10:00.000Z",
+        createdAt: "2026-09-02T08:10:01.000Z",
+      },
+      {
+        id: "asset-live-other-lesion",
+        clinicId: "clinic-1",
+        visitId: visit.id,
+        lesionId: lesions[1].id,
+        kind: "dermoscopy",
+        captureSource: "file",
+        capturedAt: "2026-09-02T08:20:00.000Z",
+        createdAt: "2026-09-02T08:20:01.000Z",
+      },
+      {
+        id: "asset-live-other-kind",
+        clinicId: "clinic-1",
+        visitId: visit.id,
+        lesionId: lesion.id,
+        kind: "overview_photo",
+        captureSource: "file",
+        capturedAt: "2026-09-02T08:30:00.000Z",
+        createdAt: "2026-09-02T08:30:01.000Z",
+      },
+    ];
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn()
+        .mockReturnValueOnce("blob:protected-live-a")
+        .mockReturnValueOnce("blob:protected-live-b"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const matchingAsset = liveAssets.find((asset) => url.includes(asset.id));
+      if (url.endsWith("/download-url") && matchingAsset) {
+        return new Response(JSON.stringify({ item: {
+          assetId: matchingAsset.id,
+          clinicId: matchingAsset.clinicId,
+          visitId: matchingAsset.visitId,
+          downloadUrl: `/api/v1/assets/${matchingAsset.id}/download`,
+          expiresIn: 300,
+          expiresAt: "2026-09-02T08:15:00.000Z",
+        } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url.endsWith("/download") && matchingAsset) {
+        return new Response(new Blob([matchingAsset.id], { type: "image/png" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ items: liveAssets }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }));
+
+    renderTab();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-image-preview")).toHaveAttribute("data-image-id", liveAssets[0].id);
+    });
+    const compareSelect = screen.getByLabelText("Сравнить с") as HTMLSelectElement;
+    expect(Array.from(compareSelect.options).map((option) => option.value)).not.toContain(liveAssets[0].id);
+    expect(Array.from(compareSelect.options).map((option) => option.value)).toContain(liveAssets[1].id);
+    expect(Array.from(compareSelect.options).map((option) => option.value)).not.toContain(liveAssets[2].id);
+    expect(Array.from(compareSelect.options).map((option) => option.value)).not.toContain(liveAssets[3].id);
+
+    await userEvent.selectOptions(compareSelect, liveAssets[1].id);
+
+    await waitFor(() => {
+      expect(document.querySelector(`[data-image-id="${liveAssets[0].id}"] img`))
+        .toHaveAttribute("src", "blob:protected-live-a");
+      expect(document.querySelector(`[data-image-id="${liveAssets[1].id}"] img`))
+        .toHaveAttribute("src", "blob:protected-live-b");
+    });
+  });
+
+  it("reuses the same asset Idempotency-Key and capturedAt when a failed self-hosted upload is retried", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    let postCount = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        postCount += 1;
+        if (postCount === 1) {
+          return new Response(JSON.stringify({ error: { code: "temporary_failure", message: "temporary" } }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ item: {
+          id: "asset-idempotent-retry",
+          clinicId: "clinic-1",
+          visitId: visit.id,
+          lesionId: null,
+          kind: "overview_photo",
+          contentType: "image/png",
+          createdAt: "2026-09-02T08:00:01.000Z",
+        } }), { status: 201, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab();
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await userEvent.upload(
+      fileInput as HTMLInputElement,
+      new File(["retry-image"], "retry.png", { type: "image/png" }),
+    );
+    const retry = await within(region).findByRole("button", {
+      name: /Повторить снимки с ошибкой/i,
+    });
+    await userEvent.click(retry);
+    await waitFor(() => expect(postCount).toBe(2));
+
+    const posts = fetchMock.mock.calls.filter(([, request]) => request?.method === "POST");
+    const firstHeaders = posts[0]?.[1]?.headers as Record<string, string>;
+    const secondHeaders = posts[1]?.[1]?.headers as Record<string, string>;
+    expect(firstHeaders["Idempotency-Key"]).toMatch(/^[A-Za-z0-9._:-]{16,128}$/);
+    expect(secondHeaders["Idempotency-Key"]).toBe(firstHeaders["Idempotency-Key"]);
+    expect(JSON.parse(String(posts[1]?.[1]?.body)).capturedAt)
+      .toBe(JSON.parse(String(posts[0]?.[1]?.body)).capturedAt);
   });
 });
 
@@ -546,6 +887,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     expect(alert).toHaveTextContent(/Недостаточно прав для просмотра снимков\./);
 
     const retry = within(region).getByRole("button", { name: /Повторить загрузку снимков/ });
+    expect(retry).toHaveClass("min-h-11");
     await userEvent.click(retry);
 
     await waitFor(() => {

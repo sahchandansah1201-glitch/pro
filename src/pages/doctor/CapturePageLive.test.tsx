@@ -155,6 +155,56 @@ describe("CapturePageLive · assistant production capture", () => {
     expect(document.body).not.toHaveTextContent(/Учебный режим|демо|mock|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
   });
 
+  it("reuses the same asset Idempotency-Key and capturedAt after a failed upload", async () => {
+    let uploadAttempts = 0;
+    const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/visits?limit=25")) {
+        return json({ items: [visit], count: 1, limit: 25, offset: 0, filters: { status: "all" } });
+      }
+      if (href.endsWith("/api/v1/visits/visit-1") && !href.endsWith("/assets") && !href.endsWith("/lesions")) {
+        return json({ item: visit });
+      }
+      if (href.endsWith("/api/v1/visits/visit-1/lesions")) return json({ items: [lesion] });
+      if (href.endsWith("/api/v1/visits/visit-1/assets") && init?.method === "POST") {
+        uploadAttempts += 1;
+        if (uploadAttempts === 1) {
+          return json({ error: { message: "Database is unavailable for the self-hosted backend." } }, 503);
+        }
+        return json({ item: { ...lesion, id: "asset-retry", visitId: "visit-1" } }, 201);
+      }
+      if (href.endsWith("/api/v1/visits/visit-1/assets")) return json({ items: [] });
+      return json({ items: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderCapture();
+    await screen.findByText("Ирина Пациент");
+    const file = new File(["image"], "retry.png", { type: "image/png", lastModified: 1234 });
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: async () => new Uint8Array([1, 2, 3]).buffer,
+    });
+    fireEvent.change(screen.getByLabelText("Файл снимка"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить снимок" }));
+    expect(await screen.findByText("Рабочая база временно недоступна или обновляется. Повторите действие после завершения обновления.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Database is unavailable|self-hosted backend/i);
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить снимок" }));
+    expect(await screen.findByText("Снимок сохранён в системе клиники.")).toBeInTheDocument();
+
+    const posts = fetchMock.mock.calls.filter(
+      (call) => String(call[0]).endsWith("/assets") && call[1]?.method === "POST",
+    );
+    expect(posts).toHaveLength(2);
+    const firstHeaders = posts[0][1]?.headers as Record<string, string>;
+    const secondHeaders = posts[1][1]?.headers as Record<string, string>;
+    expect(firstHeaders["Idempotency-Key"]).toBeTruthy();
+    expect(secondHeaders["Idempotency-Key"]).toBe(firstHeaders["Idempotency-Key"]);
+    expect(JSON.parse(String(posts[1][1]?.body)).capturedAt).toBe(
+      JSON.parse(String(posts[0][1]?.body)).capturedAt,
+    );
+  });
+
   it("shows an RDS-3 imported asset as a device capture in the assistant queue", async () => {
     const fetchMock = vi.fn((url: string | URL | Request) => {
       const href = String(url);

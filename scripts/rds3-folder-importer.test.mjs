@@ -50,6 +50,10 @@ function installFetchMock(assertCalls) {
     calls.push({ url: String(url), init });
     const body = init.body ? JSON.parse(String(init.body)) : null;
     if (String(url).endsWith(`/api/v1/visits/${UUID_VISIT}/assets`)) {
+      assert.equal(
+        init.headers["Idempotency-Key"],
+        `rds3-${UUID_VISIT}-${sha256Hex(Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01]))}`,
+      );
       assert.equal(body.kind, "dermoscopy");
       assert.equal(body.lesionId, UUID_LESION);
       assert.equal(body.originalFileName, "rds3 sample.jpg");

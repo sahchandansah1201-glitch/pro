@@ -101,6 +101,9 @@ test("RDS-3 Windows bridge worker uses existing safe asset contracts", () => {
   assert.match(text, /\/api\/v1\/visits\/\$visit\/assets/);
   assert.match(text, /\/capture-metadata/);
   assert.match(text, /kind = "dermoscopy"/);
+  assert.match(text, /\$idempotencyKey = "rds3-\$\(\$Config\.visitId\)-\$sha"/);
+  assert.match(text, /"Idempotency-Key"/);
+  assert.match(text, /-IdempotencyKey \$idempotencyKey/);
   assert.match(text, /captureSource = "device_bridge"/);
   assert.match(text, /metadata_pending/);
   assert.match(text, /last-receipt\.json/);

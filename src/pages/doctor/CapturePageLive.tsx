@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, RefreshCcw, Upload } from "lucide-react";
 
@@ -18,7 +18,11 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-import { uploadSelfHostedVisitAsset } from "@/lib/self-hosted-asset-api";
+import {
+  createSelfHostedAssetUploadIdentity,
+  uploadSelfHostedVisitAsset,
+} from "@/lib/self-hosted-asset-api";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 import {
   getSelfHostedVisit,
   listSelfHostedVisitAssets,
@@ -48,12 +52,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function errorText(error: SelfHostedApiError | null): string {
-  if (!error) return "Не удалось загрузить рабочую очередь.";
-  if (error.kind === "not_configured") return "Войдите в систему клиники, чтобы открыть съёмку.";
-  if (error.kind === "network") return "Система клиники временно недоступна. Повторите попытку.";
-  if (error.status === 401) return "Рабочий вход истёк. Войдите снова.";
-  if (error.status === 403) return "Недостаточно прав для съёмки в этой клинике.";
-  return error.message || "Не удалось загрузить рабочую очередь.";
+  return selfHostedPublicErrorText(error, "Не удалось загрузить рабочую очередь.");
 }
 
 function assetKindLabel(kind: string): string {
@@ -105,6 +104,11 @@ export default function CapturePageLive() {
   const [error, setError] = useState<SelfHostedApiError | null>(null);
   const [message, setMessage] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const uploadRequestRef = useRef<{
+    fingerprint: string;
+    idempotencyKey: string;
+    capturedAt: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -222,21 +226,41 @@ export default function CapturePageLive() {
       setMessage("Выберите файл снимка.");
       return;
     }
+    const fingerprint = [
+      selectedVisitId,
+      selectedLesionId,
+      kind,
+      file.name,
+      file.size,
+      file.lastModified,
+    ].join(":");
+    if (uploadRequestRef.current?.fingerprint !== fingerprint) {
+      const uploadIdentity = createSelfHostedAssetUploadIdentity();
+      uploadRequestRef.current = {
+        fingerprint,
+        idempotencyKey: uploadIdentity.idempotencyKey,
+        capturedAt: uploadIdentity.capturedAt,
+      };
+    }
+    const uploadRequest = uploadRequestRef.current;
     setUploadState("saving");
     const result = await uploadSelfHostedVisitAsset({
       baseUrl: session.apiBaseUrl,
       token: session.apiToken,
       visitId: selectedVisitId,
       file,
+      idempotencyKey: uploadRequest.idempotencyKey,
       kind,
       source: "file",
       lesionId: selectedLesionId || null,
+      capturedAt: uploadRequest.capturedAt,
     });
     setUploadState("idle");
     if (!result.ok || !result.value) {
-      setMessage(result.error?.message || "Не удалось сохранить снимок.");
+      setMessage(selfHostedPublicErrorText(result.error, "Не удалось сохранить снимок."));
       return;
     }
+    uploadRequestRef.current = null;
     setFile(null);
     setMessage("Снимок сохранён в системе клиники.");
     const assetResult = await listSelfHostedVisitAssets({

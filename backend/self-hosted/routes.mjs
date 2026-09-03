@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { createAdminManagementRepository } from "./admin-management-repository.mjs";
 import { handleAdminManagementRequest } from "./admin-management-routes.mjs";
 import { createAdminManagementService } from "./admin-management-service.mjs";
-import { corsHeaders, errorResponse, jsonResponse } from "./api-response.mjs";
+import { corsHeaders, errorResponse, idempotencyKeyFromHeaders, jsonResponse } from "./api-response.mjs";
 import { createAuthRepository } from "./auth-repository.mjs";
 import { createAuthService } from "./auth-service.mjs";
 import {
@@ -1549,7 +1549,6 @@ export async function handleSelfHostedRequest(
       return errorResponse({ ...publicError, correlationId, config, requestOrigin });
     }
   }
-
   // Stage 4I · self-hosted clinical asset write/download-url endpoints.
   if (visitAssetsMatch && method === "POST") {
     try {
@@ -1558,10 +1557,10 @@ export async function handleSelfHostedRequest(
         decodeURIComponent(visitAssetsMatch[1]),
         parseJsonBody(request.body),
         authContext,
-        { correlationId },
+        { correlationId, idempotencyKey: idempotencyKeyFromHeaders(request.headers) },
       );
       return jsonResponse(
-        201,
+        result.replayed ? 200 : 201,
         {
           stage: "4I",
           source: "postgres",
@@ -1569,6 +1568,7 @@ export async function handleSelfHostedRequest(
           upload: {
             mode: "metadata_registered",
             objectStorage: "backend-owned",
+            replayed: Boolean(result.replayed),
           },
           auth: {
             userId: authContext.userId,
@@ -1693,7 +1693,7 @@ export async function handleSelfHostedRequest(
         decodeURIComponent(visitLesionsMatch[1]),
         parseJsonBody(request.body),
         authContext,
-        { correlationId, idempotencyKey: request.headers?.["idempotency-key"] || request.headers?.["Idempotency-Key"] || null },
+        { correlationId, idempotencyKey: idempotencyKeyFromHeaders(request.headers) },
       );
       return jsonResponse(
         result.replayed ? 200 : 201,

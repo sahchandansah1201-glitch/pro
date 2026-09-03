@@ -27,6 +27,15 @@ import {
 
 import { Button } from "@/components/ui/button";
 import {
+  ClinicalImagePlaceholder,
+  ClinicalImagePreview,
+} from "@/components/doctor/ClinicalImagePreview";
+import {
+  ClinicalImageQualityChip,
+  ClinicalImageQualityPanel,
+} from "@/components/doctor/ClinicalImageQuality";
+import { isClinicalImageReviewNeeded } from "@/lib/clinical-image-quality";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -44,17 +53,20 @@ import {
   type SafeAssetDTO,
 } from "@/lib/clinical-assets-api";
 import {
+  createSelfHostedAssetUploadIdentity,
   getSelfHostedAssetDownloadUrl,
   listSelfHostedVisitAssets,
   uploadSelfHostedVisitAsset,
 } from "@/lib/self-hosted-asset-api";
 import {
   isSelfHostedApiConfigured,
+  selfHostedSessionIdentityKey,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-
-// Порог качества изображения. Ниже — снимок «требует проверки».
-const QUALITY_THRESHOLD = 0.8;
+import {
+  safeAssetToClinicalImage,
+  TECHNICAL_QUALITY_NOT_ASSESSED,
+} from "@/lib/safe-clinical-image-adapter";
 
 // Stage 2E-A: client-side preflight allow-list. Server-side validation
 // remains the final authority — this is purely UX guidance.
@@ -116,6 +128,12 @@ interface Props {
   apiBaseUrl?: string | null;
 }
 
+interface RetakeRequest {
+  requestId: number;
+  lesionId: string | null;
+  kind: ClinicalImage["kind"];
+}
+
 export function VisitImagingTab({
   visit,
   patientId,
@@ -128,10 +146,31 @@ export function VisitImagingTab({
 }: Props) {
   const selfHostedSession = useSelfHostedApiSession();
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
-  const allImages = useMemo(
-    () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+  const selfHostedAssetIdentityKey = selfHostedSessionIdentityKey(
+    selfHostedSession,
     [visit.id],
   );
+  const [selfHostedAssetState, setSelfHostedAssetState] = useState<{
+    identityKey: string;
+    assets: SafeAssetDTO[];
+  }>({ identityKey: "", assets: [] });
+  const handleSelfHostedAssetsChange = useCallback(
+    (assets: SafeAssetDTO[]) => {
+      setSelfHostedAssetState({ identityKey: selfHostedAssetIdentityKey, assets });
+    },
+    [selfHostedAssetIdentityKey],
+  );
+  const allImages = useMemo(() => {
+    const currentSelfHostedAssets = selfHostedAssetState.identityKey === selfHostedAssetIdentityKey
+      ? selfHostedAssetState.assets
+      : [];
+    return (selfHostedConfigured
+      ? currentSelfHostedAssets
+          .filter((asset) => asset.kind === "overview" || asset.kind === "dermoscopy")
+          .map(safeAssetToClinicalImage)
+      : [...getImagesByVisitId(visit.id)]
+    ).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  }, [selfHostedAssetIdentityKey, selfHostedAssetState, selfHostedConfigured, visit.id]);
 
   const lesionMap = useMemo(() => {
     const m = new Map<string, Lesion>();
@@ -154,6 +193,7 @@ export function VisitImagingTab({
   }, [initialLesionId, lesions]);
 
   const [captureNotice, setCaptureNotice] = useState<string | null>(null);
+  const [retakeRequest, setRetakeRequest] = useState<RetakeRequest | null>(null);
   const showCaptureNotice = (label: string) =>
     setCaptureNotice(`Учебный режим: источник «${label}» выбран, реальный захват будет подключён позже.`);
 
@@ -163,7 +203,7 @@ export function VisitImagingTab({
       if (lesionFilter !== "all" && lesionFilter !== "unlinked" && img.lesionId !== lesionFilter) return false;
       if (kindFilter !== "all" && img.kind !== kindFilter) return false;
       if (sourceFilter !== "all" && img.source !== sourceFilter) return false;
-      if (qualityFilter === "needs_review" && !needsReview(img)) return false;
+      if (qualityFilter === "needs_review" && !isClinicalImageReviewNeeded(img)) return false;
       return true;
     });
   }, [allImages, lesionFilter, kindFilter, sourceFilter, qualityFilter]);
@@ -197,9 +237,21 @@ export function VisitImagingTab({
     ? allImages.find((i) => i.id === effectiveSelectedId) ?? null
     : null;
 
-  // Fix 2: never compare an image with itself. Pure derivation.
+  const comparisonCandidates = useMemo(
+    () => selected
+      ? allImages.filter((image) =>
+          image.id !== selected.id
+          && image.lesionId === selected.lesionId
+          && image.kind === selected.kind)
+      : [],
+    [allImages, selected],
+  );
+
+  // Compare only another image of the same lesion and capture kind.
   const effectiveCompareId =
-    compareId && compareId !== effectiveSelectedId ? compareId : null;
+    compareId && comparisonCandidates.some((image) => image.id === compareId)
+      ? compareId
+      : null;
 
   // Sync state to derived values after render.
   useEffect(() => {
@@ -209,26 +261,43 @@ export function VisitImagingTab({
   }, [effectiveSelectedId, selectedId]);
 
   useEffect(() => {
-    if (compareId && compareId === effectiveSelectedId) {
+    if (compareId && compareId !== effectiveCompareId) {
       setCompareId(null);
     }
-  }, [compareId, effectiveSelectedId]);
-
-  useEffect(() => {
-    if (compareId && !allImages.some((i) => i.id === compareId)) {
-      setCompareId(null);
-    }
-  }, [compareId, allImages]);
+  }, [compareId, effectiveCompareId]);
 
   const compare = effectiveCompareId
     ? allImages.find((i) => i.id === effectiveCompareId) ?? null
     : null;
 
+  const resolveSelfHostedImage = useCallback(
+    (assetId: string) => getSelfHostedAssetDownloadUrl({
+      token: selfHostedSession.apiToken,
+      baseUrl: selfHostedSession.apiBaseUrl,
+      assetId,
+    }),
+    [selfHostedSession.apiBaseUrl, selfHostedSession.apiToken],
+  );
+
+  const requestRetake = useCallback(() => {
+    if (!selected) return;
+    if (!selfHostedConfigured) {
+      showCaptureNotice("Повтор снимка");
+      return;
+    }
+    setCaptureNotice(null);
+    setRetakeRequest((previous) => ({
+      requestId: (previous?.requestId ?? 0) + 1,
+      lesionId: selected.lesionId,
+      kind: selected.kind,
+    }));
+  }, [selected, selfHostedConfigured]);
+
   // Counts for compact summary.
   const summary = useMemo(() => {
     const total = allImages.length;
     const dermoscopy = allImages.filter((i) => i.kind === "dermoscopy").length;
-    const lowQuality = allImages.filter(needsReview).length;
+    const lowQuality = allImages.filter(isClinicalImageReviewNeeded).length;
     const unlinked = allImages.filter((i) => i.lesionId === null || i.kind === "body_map").length;
     return { total, dermoscopy, lowQuality, unlinked };
   }, [allImages]);
@@ -346,7 +415,11 @@ export function VisitImagingTab({
                             : "border-border hover:border-muted-foreground/40"
                       }`}
                     >
-                      <ThumbPlaceholder image={img} />
+                      <ClinicalImagePlaceholder
+                        image={img}
+                        kindLabel={KIND_LABEL[img.kind]}
+                        sourceLabel={SOURCE_LABEL[img.source]}
+                      />
                       {/* Patch 3: 3 строки вместо 5 — тип+лесион, источник·дата+чип, issues одной строкой. */}
                       <div className="flex flex-col gap-1 px-2 py-2">
                         <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -361,7 +434,7 @@ export function VisitImagingTab({
                           <span className="truncate text-[12px] text-muted-foreground">
                             {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
                           </span>
-                          <QualityChip image={img} compact />
+                          <ClinicalImageQualityChip image={img} compact />
                         </div>
                         {img.quality.issues.length > 0 && (
                           <div className="truncate text-[12px] text-warning">
@@ -381,7 +454,7 @@ export function VisitImagingTab({
         <section className="surface-card lg:col-span-5">
           <div className="section-bar">
             <h2 className="h-section">Просмотр</h2>
-            {selected && <QualityChip image={selected} />}
+            {selected && <ClinicalImageQualityChip image={selected} />}
           </div>
           {!selected ? (
             <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимок не выбран.</div>
@@ -405,7 +478,7 @@ export function VisitImagingTab({
                   selectedId={selected.id}
                   compareId={effectiveCompareId}
                   onChange={setCompareId}
-                  images={allImages}
+                  images={comparisonCandidates}
                   lesionMap={lesionMap}
                 />
               </div>
@@ -414,12 +487,30 @@ export function VisitImagingTab({
               <div
                 className={`grid gap-2 ${compare ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
               >
-                <PreviewPane image={selected} zoom={zoom} title="Основной" />
-                {compare && <PreviewPane image={compare} zoom={zoom} title="Сравнение" />}
+                <ClinicalImagePreview
+                  image={selected}
+                  zoom={zoom}
+                  title="Основной"
+                  kindLabel={KIND_LABEL[selected.kind]}
+                  sourceLabel={SOURCE_LABEL[selected.source]}
+                  capturedAtLabel={formatDateTime(selected.capturedAt)}
+                  resolveDownloadUrl={selfHostedConfigured ? resolveSelfHostedImage : undefined}
+                />
+                {compare && (
+                  <ClinicalImagePreview
+                    image={compare}
+                    zoom={zoom}
+                    title="Сравнение"
+                    kindLabel={KIND_LABEL[compare.kind]}
+                    sourceLabel={SOURCE_LABEL[compare.source]}
+                    capturedAtLabel={formatDateTime(compare.capturedAt)}
+                    resolveDownloadUrl={selfHostedConfigured ? resolveSelfHostedImage : undefined}
+                  />
+                )}
               </div>
 
               {/* Quality panel */}
-              <QualityPanel image={selected} />
+              <ClinicalImageQualityPanel image={selected} />
 
               {/* Metadata */}
               <ImageMeta image={selected} lesionMap={lesionMap} />
@@ -449,7 +540,7 @@ export function VisitImagingTab({
                   size="sm"
                   variant="ghost"
                   className="min-h-11 text-[12px]"
-                  onClick={() => showCaptureNotice("Повтор снимка")}
+                  onClick={requestRetake}
                 >
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
                 </Button>
@@ -462,7 +553,7 @@ export function VisitImagingTab({
       {/* Timeline */}
       <section className="surface-card">
         <div className="section-bar">
-          <h2 className="h-section">Таймлайн снимков</h2>
+          <h2 className="h-section">Хронология снимков</h2>
           <span className="h-section-hint">{allImages.length} событий</span>
         </div>
         {allImages.length === 0 ? (
@@ -485,7 +576,7 @@ export function VisitImagingTab({
                     <div className="flex flex-col gap-0.5 sm:hidden">
                       <div className="flex items-center justify-between gap-2 text-[13px]">
                         <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
-                        <QualityChip image={img} compact />
+                        <ClinicalImageQualityChip image={img} compact />
                       </div>
                       <div className="text-[13px] text-foreground">
                         {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
@@ -497,7 +588,7 @@ export function VisitImagingTab({
                       <span className="min-w-0 truncate">
                         {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
                       </span>
-                      <QualityChip image={img} compact />
+                      <ClinicalImageQualityChip image={img} compact />
                     </div>
                   </button>
 
@@ -516,6 +607,8 @@ export function VisitImagingTab({
         apiBaseUrl={apiBaseUrl ?? null}
         selfHostedApiToken={selfHostedConfigured ? selfHostedSession.apiToken : null}
         selfHostedApiBaseUrl={selfHostedConfigured ? selfHostedSession.apiBaseUrl : null}
+        onAssetsChange={handleSelfHostedAssetsChange}
+        retakeRequest={retakeRequest}
       />
     </div>
   );
@@ -529,6 +622,8 @@ interface ApiAssetsPanelProps {
   apiBaseUrl: string | null;
   selfHostedApiToken?: string | null;
   selfHostedApiBaseUrl?: string | null;
+  onAssetsChange?: (assets: SafeAssetDTO[]) => void;
+  retakeRequest?: RetakeRequest | null;
 }
 
 type ErrorContext = "list" | "download" | "upload";
@@ -544,7 +639,10 @@ interface UploadQueueItem {
   id: string;
   file: File;
   name: string;
+  idempotencyKey: string;
+  capturedAt: string;
   status: UploadItemStatus;
+  context: Pick<RetakeRequest, "lesionId" | "kind"> | null;
 }
 
 const UPLOAD_ITEM_STATUS_LABEL: Record<UploadItemStatus, string> = {
@@ -566,6 +664,8 @@ function ApiAssetsPanel({
   apiBaseUrl,
   selfHostedApiToken = null,
   selfHostedApiBaseUrl = null,
+  onAssetsChange,
+  retakeRequest = null,
 }: ApiAssetsPanelProps) {
   const selfHostedConfigured = Boolean(selfHostedApiToken && selfHostedApiBaseUrl);
   const legacyConfigured = Boolean(apiToken && apiBaseUrl);
@@ -596,6 +696,8 @@ function ApiAssetsPanel({
   const uploadAbortRef = useRef<AbortController | null>(null);
   const uploadItemsRef = useRef<UploadQueueItem[]>([]);
   const uploadBatchSeqRef = useRef(0);
+  const lastRetakeRequestRef = useRef(0);
+  const [uploadContext, setUploadContext] = useState<Pick<RetakeRequest, "lesionId" | "kind"> | null>(null);
 
   const setUploadItemsSync = useCallback(
     (
@@ -652,24 +754,31 @@ function ApiAssetsPanel({
   );
 
   const uploadActiveAsset = useCallback(
-    (file: File, signal: AbortSignal) =>
+    (
+      item: UploadQueueItem,
+      signal: AbortSignal,
+    ) =>
       selfHostedConfigured
         ? uploadSelfHostedVisitAsset({
             token: activeToken,
             baseUrl: activeBaseUrl,
             visitId,
-            file,
-            kind: "overview",
+            file: item.file,
+            idempotencyKey: item.idempotencyKey,
+            kind: item.context?.kind ?? "overview",
             source: "file",
+            lesionId: item.context?.lesionId ?? null,
+            capturedAt: item.capturedAt,
             signal,
           })
         : uploadVisitAsset({
             token: activeToken,
             baseUrl: activeBaseUrl,
             visitId,
-            file,
-            kind: "overview",
+            file: item.file,
+            kind: item.context?.kind ?? "overview",
             source: "file",
+            lesionId: item.context?.lesionId ?? undefined,
             signal,
           }),
     [activeBaseUrl, activeToken, selfHostedConfigured, visitId],
@@ -695,9 +804,12 @@ function ApiAssetsPanel({
   useEffect(() => {
     if (!configured) {
       setAssets(null);
+      onAssetsChange?.([]);
       return;
     }
     let cancelled = false;
+    setAssets(null);
+    onAssetsChange?.([]);
     setBusy(true);
     busyRef.current = true;
     setError(null);
@@ -706,8 +818,12 @@ function ApiAssetsPanel({
       .then((res) => {
         if (cancelled) return;
         if (res.ok) {
-          setAssets(res.value ?? []);
+          const nextAssets = res.value ?? [];
+          setAssets(nextAssets);
+          onAssetsChange?.(nextAssets);
         } else {
+          setAssets([]);
+          onAssetsChange?.([]);
           setError(res.error);
           setErrorContext("list");
         }
@@ -721,18 +837,36 @@ function ApiAssetsPanel({
     return () => {
       cancelled = true;
     };
-  }, [configured, listActiveAssets, reloadTick]);
+  }, [configured, listActiveAssets, onAssetsChange, reloadTick]);
 
   const handleUploadClick = useCallback(() => {
     if (!configured) {
       setStatus("Загрузка снимков доступна после входа в систему клиники.");
       return;
     }
+    setUploadContext(null);
     fileInputRef.current?.click();
   }, [configured]);
 
+  useEffect(() => {
+    if (!retakeRequest || retakeRequest.requestId === lastRetakeRequestRef.current) return;
+    lastRetakeRequestRef.current = retakeRequest.requestId;
+    if (!configured) {
+      setStatus("Пересъёмка доступна после входа в систему клиники.");
+      return;
+    }
+    setUploadContext({ lesionId: retakeRequest.lesionId, kind: retakeRequest.kind });
+    setStatus("Выберите новый файл. Новый снимок будет привязан к тому же образованию и типу съёмки.");
+    regionRef.current?.scrollIntoView({ block: "center" });
+    queueMicrotask(() => fileInputRef.current?.click());
+  }, [configured, retakeRequest]);
+
   const processFiles = useCallback(
-    async (files: File[], existingItems?: UploadQueueItem[]) => {
+    async (
+      files: File[],
+      existingItems?: UploadQueueItem[],
+      requestedContext: Pick<RetakeRequest, "lesionId" | "kind"> | null = null,
+    ) => {
       if (files.length === 0) return;
       // Guard against duplicate uploads while one is pending. The button
       // is disabled while busy, but drag/drop has no built-in disable.
@@ -762,11 +896,15 @@ function ApiAssetsPanel({
         existingItems ??
         files.map((file, idx) => {
           const batch = uploadBatchSeqRef.current;
+          const uploadIdentity = createSelfHostedAssetUploadIdentity();
           return {
             id: `${batch}-${idx}-${file.name}-${file.size}-${file.lastModified}`,
             file,
             name: file.name,
+            idempotencyKey: uploadIdentity.idempotencyKey,
+            capturedAt: uploadIdentity.capturedAt,
             status: "queued" as UploadItemStatus,
+            context: requestedContext,
           };
         });
       uploadBatchSeqRef.current += 1;
@@ -802,7 +940,7 @@ function ApiAssetsPanel({
               ? `Загружаем: ${file.name}`
               : `Загружаем ${idx + 1} из ${files.length}: ${file.name}`,
           );
-          const res = await uploadActiveAsset(file, controller.signal);
+          const res = await uploadActiveAsset(item, controller.signal);
           if (controller.signal.aborted) {
             const cancelledIds = new Set(items.slice(idx).map((x) => x.id));
             setUploadItemsSync((prev) =>
@@ -917,9 +1055,11 @@ function ApiAssetsPanel({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       e.target.value = "";
-      await processFiles(files);
+      const requestedContext = uploadContext;
+      setUploadContext(null);
+      await processFiles(files, undefined, requestedContext);
     },
-    [processFiles],
+    [processFiles, uploadContext],
   );
 
   const handleDragOver = useCallback(
@@ -948,7 +1088,8 @@ function ApiAssetsPanel({
         return;
       }
       if (busyRef.current) return;
-      await processFiles(Array.from(e.dataTransfer?.files ?? []));
+      setUploadContext(null);
+      await processFiles(Array.from(e.dataTransfer?.files ?? []), undefined, null);
     },
     [configured, processFiles],
   );
@@ -1234,7 +1375,7 @@ function ApiAssetsPanel({
               ref={retryButtonRef}
               size="sm"
               variant="secondary"
-              className="h-8 gap-1.5 text-[12px]"
+              className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
               onClick={handleRetry}
               disabled={busy}
               aria-label="Повторить загрузку снимков"
@@ -1349,8 +1490,7 @@ function ApiAssetsPanel({
                     {KIND_LABEL[a.kind]} · {SOURCE_LABEL[a.source]}
                   </div>
                   <div className="truncate text-muted-foreground">
-                    Снято: {formatDateTime(a.capturedAt)} · качество{" "}
-                    {Math.round((a.qualityScore || 0) * 100)}%
+                    Снято: {formatDateTime(a.capturedAt)} · {assetQualityLabel(a)}
                   </div>
                 </div>
                 <Button
@@ -1456,7 +1596,7 @@ function AssetPreviewDialog({
           <DialogTitle>Просмотр снимка</DialogTitle>
           <DialogDescription>
             {preview
-              ? `${KIND_LABEL[preview.asset.kind]} · ${SOURCE_LABEL[preview.asset.source]} · ${formatDateTime(preview.asset.capturedAt)} · качество ${Math.round((preview.asset.qualityScore || 0) * 100)}%`
+              ? `${KIND_LABEL[preview.asset.kind]} · ${SOURCE_LABEL[preview.asset.source]} · ${formatDateTime(preview.asset.capturedAt)} · ${assetQualityLabel(preview.asset)}`
               : ""}
           </DialogDescription>
         </DialogHeader>
@@ -1626,27 +1766,21 @@ function AssetPreviewActions({
 }
 
 
-function scrubLeaks(s: string): string {
-  return s
-    .replace(/https?:\/\/[^\s"'<>]+/gi, "")
-    .replace(/\b(?:access_token|refresh_token|token|sig|signature)=\S+/gi, "")
-    .replace(/\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g, "")
-    .replace(/storageObjectPath/gi, "")
-    .replace(/storage_object_path/gi, "")
-    .replace(/\bexif\w*/gi, "")
-    .replace(/\bclinic\/[^\s"'<>]+/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
 function assetActionLabel(asset: SafeAssetDTO): string {
   return `${KIND_LABEL[asset.kind]} · ${SOURCE_LABEL[asset.source]} · ${formatDateTime(asset.capturedAt)}`;
 }
 
+function assetQualityLabel(asset: SafeAssetDTO): string {
+  if (asset.qualityIssues.includes(TECHNICAL_QUALITY_NOT_ASSESSED)) {
+    return "качество не оценено";
+  }
+  return `качество ${Math.round(asset.qualityScore * 100)}%`;
+}
+
 function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
   if (err.kind === "validation") {
-    const msg = scrubLeaks(err.message || "");
-    if (msg) return msg;
+    if (ctx === "upload") return "Файл не прошёл техническую проверку. Проверьте формат и размер.";
+    return "Система клиники не смогла проверить запрос. Обновите страницу и повторите действие.";
   }
   if (ctx === "list") {
     if (err.kind === "network") return "Сбой сети при загрузке снимков.";
@@ -1777,108 +1911,6 @@ function CompareSelect({
   );
 }
 
-function PreviewPane({ image, zoom, title }: { image: ClinicalImage; zoom: number; title: string }) {
-  return (
-    <div
-      className="flex flex-col gap-1"
-      data-testid={title === "Основной" ? "selected-image-preview" : undefined}
-      data-image-id={image.id}
-    >
-      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="font-medium uppercase tracking-wide">{title}</span>
-        <span className="truncate">{KIND_LABEL[image.kind]} · {formatDateTime(image.capturedAt)}</span>
-      </div>
-      <div className="relative h-64 overflow-auto rounded-md border border-border bg-surface-sunken">
-        <div
-          className="mx-auto"
-          style={{ width: `${100 * zoom}%`, minWidth: `${100 * zoom}%` }}
-        >
-          <ThumbPlaceholder image={image} large />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; large?: boolean }) {
-  // Детерминированный нейтральный тайл по id/kind. Не загружаем внешние медицинские фото.
-  const seed = hashString(image.id);
-  const hue = 200 + (seed % 30); // холодный клинический диапазон
-  const sat = image.kind === "dermoscopy" ? 18 : 12;
-  const light1 = 88 - (seed % 6);
-  const light2 = light1 - 8;
-  const angle = (seed % 90) - 45;
-
-  return (
-    <div
-      className={`relative w-full ${large ? "aspect-[4/3]" : "aspect-[4/3]"} overflow-hidden`}
-      style={{
-        backgroundImage: `linear-gradient(${angle}deg, hsl(${hue} ${sat}% ${light1}%), hsl(${hue} ${sat}% ${light2}%))`,
-      }}
-      aria-label={`Плейсхолдер снимка ${KIND_LABEL[image.kind]}`}
-    >
-      {/* Patch 3: классификационные чипы — outline neutral, без uppercase. */}
-      <div className="absolute inset-0 flex items-end justify-between p-2 text-[11px] font-medium text-foreground/75">
-        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{KIND_LABEL[image.kind]}</span>
-        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{SOURCE_LABEL[image.source]}</span>
-      </div>
-      {/* Условная «рамка снимка» */}
-      <div className="pointer-events-none absolute inset-2 rounded-sm border border-foreground/10" />
-    </div>
-  );
-}
-
-function QualityChip({ image, compact = false }: { image: ClinicalImage; compact?: boolean }) {
-  const review = needsReview(image);
-  const text = review ? "Требует проверки" : "Хорошее качество";
-  // Patch 3: статусные чипы — solid с риск-цветом, без uppercase, чуть крупнее.
-  const cls = review
-    ? "bg-warning text-warning-foreground"
-    : "bg-success text-success-foreground";
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${cls}`}
-      title={`Оценка качества: ${(image.quality.score * 100).toFixed(0)}%`}
-    >
-      {compact ? `${Math.round(image.quality.score * 100)}%` : text}
-    </span>
-  );
-}
-
-function QualityPanel({ image }: { image: ClinicalImage }) {
-  const score = image.quality.score;
-  const issues = image.quality.issues;
-  const action = recommendedAction(image);
-  return (
-    <div className="rounded-md border border-border bg-surface px-3 py-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[12px] font-semibold">Контроль качества</span>
-        <span className="text-[12px] tabular-nums text-muted-foreground">
-          {(score * 100).toFixed(0)}% · порог {Math.round(QUALITY_THRESHOLD * 100)}%
-        </span>
-      </div>
-      {issues.length > 0 ? (
-        <ul className="mt-1 flex flex-wrap gap-1">
-          {issues.map((iss) => (
-            <li key={iss} className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning">
-              {iss}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mt-1 text-[12px] text-muted-foreground">Замечаний не выявлено.</div>
-      )}
-      <div className="mt-1.5 text-[12px]">
-        <span className="text-muted-foreground">Рекомендация: </span>
-        <span>{action}</span>
-      </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">
-        Только контроль качества. Это не клинический диагноз.
-      </p>
-    </div>
-  );
-}
-
 function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<string, Lesion> }) {
   const lesion = image.lesionId ? lesionMap.get(image.lesionId) ?? null : null;
   const e = image.exifMeta;
@@ -1888,7 +1920,7 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
     ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Карта тела / без привязки"],
     ["Снято", formatDateTime(image.capturedAt)],
     ["Устройство", image.deviceId ? "код скрыт" : "не указано"],
-    ["Размер", `${e.width} × ${e.height}`],
+    ["Размер", e.width > 0 && e.height > 0 ? `${e.width} × ${e.height}` : "не указан"],
     ["ISO", e.iso ?? "—"],
     ["Выдержка", e.shutter ?? "—"],
     ["Диафрагма", e.aperture ?? "—"],
@@ -1906,39 +1938,8 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
   );
 }
 
-// ───────── Helpers ─────────
-
-function needsReview(image: ClinicalImage): boolean {
-  return image.quality.score < QUALITY_THRESHOLD || image.quality.issues.length > 0;
-}
-
-function recommendedAction(image: ClinicalImage): string {
-  const issues = image.quality.issues.join(" ").toLowerCase();
-  if (image.quality.score < 0.7 || issues.includes("размыт")) {
-    return "Повторить снимок: сфокусироваться, при дерматоскопии — обеспечить контакт.";
-  }
-  if (issues.includes("блик")) {
-    return "Снизить блики: использовать поляризацию или изменить угол.";
-  }
-  if (issues.includes("освещ") || issues.includes("тени")) {
-    return "Улучшить освещение: добавить рассеянный свет, убрать тени.";
-  }
-  if (image.quality.score < QUALITY_THRESHOLD) {
-    return "Желательно повторить снимок для уверенного просмотра.";
-  }
-  return "Можно использовать для просмотра.";
-}
-
 function clampZoom(z: number): number {
   return Math.max(0.6, Math.min(2, +z.toFixed(2)));
-}
-
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
 }
 
 // Avoid unused-import warning: Camera reserved for future native camera path.

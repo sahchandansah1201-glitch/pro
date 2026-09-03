@@ -68,6 +68,160 @@ function assetInternalColumns(alias = "a") {
   `;
 }
 
+export function buildBeginVisitAssetUploadSql({
+  clinicId,
+  patientId,
+  visitId,
+  idempotencyKey,
+  requestHash,
+  reservationToken,
+  objectBucket,
+  objectKey,
+} = {}) {
+  return `
+with attempted as (
+  insert into clinical_asset_upload_requests (
+    clinic_id,
+    patient_id,
+    visit_id,
+    idempotency_key,
+    request_hash,
+    reservation_token,
+    object_bucket,
+    object_key
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlUuid(patientId)},
+    ${sqlUuid(visitId)},
+    ${sqlLiteral(idempotencyKey)},
+    ${sqlLiteral(requestHash)},
+    ${sqlUuid(reservationToken)},
+    ${sqlLiteral(objectBucket)},
+    ${sqlLiteral(objectKey)}
+  )
+  on conflict (clinic_id, idempotency_key) do nothing
+  returning *, true as claimed, false as recovered
+), reclaimed as (
+  update clinical_asset_upload_requests existing
+  set reservation_token = ${sqlUuid(reservationToken)},
+      lease_expires_at = now() + interval '15 minutes',
+      last_claimed_at = now(),
+      recovery_count = existing.recovery_count + 1
+  where existing.clinic_id = ${sqlUuid(clinicId)}
+    and existing.patient_id = ${sqlUuid(patientId)}
+    and existing.visit_id = ${sqlUuid(visitId)}
+    and existing.idempotency_key = ${sqlLiteral(idempotencyKey)}
+    and existing.request_hash = ${sqlLiteral(requestHash)}
+    and existing.state = 'pending'
+    and existing.lease_expires_at <= now()
+    and not exists (select 1 from attempted)
+  returning existing.*, true as claimed, true as recovered
+), selected as (
+  select * from attempted
+  union all
+  select * from reclaimed
+  union all
+  select existing.*, false as claimed, false as recovered
+  from clinical_asset_upload_requests existing
+  where existing.clinic_id = ${sqlUuid(clinicId)}
+    and existing.idempotency_key = ${sqlLiteral(idempotencyKey)}
+    and not exists (select 1 from attempted)
+    and not exists (select 1 from reclaimed)
+  limit 1
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    selected.claimed,
+    selected.recovered,
+    selected.state,
+    selected.request_hash as "requestHash",
+    selected.reservation_token::text as "reservationToken",
+    selected.object_bucket as "objectBucket",
+    selected.object_key as "objectKey",
+    ${assetSafeColumns("a")}
+  from selected
+  left join clinical_assets a on a.id = selected.asset_id
+) result;
+`.trim();
+}
+
+export function buildCompleteVisitAssetUploadSql({
+  clinicId,
+  patientId,
+  visitId,
+  idempotencyKey,
+  requestHash,
+  reservationToken,
+  lesionId = null,
+  kind,
+  contentType,
+  byteSize = null,
+  checksumSha256 = null,
+  capturedAt = null,
+  uploadedBy = null,
+} = {}) {
+  return `
+with reserved as (
+  select r.*
+  from clinical_asset_upload_requests r
+  where r.clinic_id = ${sqlUuid(clinicId)}
+    and r.patient_id = ${sqlUuid(patientId)}
+    and r.visit_id = ${sqlUuid(visitId)}
+    and r.idempotency_key = ${sqlLiteral(idempotencyKey)}
+    and r.request_hash = ${sqlLiteral(requestHash)}
+    and r.reservation_token = ${sqlUuid(reservationToken)}
+    and r.state = 'pending'
+  for update
+), inserted as (
+  insert into clinical_assets (
+    clinic_id,
+    patient_id,
+    visit_id,
+    lesion_id,
+    kind,
+    object_bucket,
+    object_key,
+    content_type,
+    byte_size,
+    checksum_sha256,
+    captured_at,
+    uploaded_by
+  )
+  select
+    reserved.clinic_id,
+    reserved.patient_id,
+    reserved.visit_id,
+    ${sqlNullableUuid(lesionId)},
+    ${sqlLiteral(kind)}::asset_kind,
+    reserved.object_bucket,
+    reserved.object_key,
+    ${sqlLiteral(contentType)},
+    ${sqlNullableBigint(byteSize)},
+    ${sqlNullableText(checksumSha256)},
+    ${sqlNullableTimestamp(capturedAt)},
+    ${sqlNullableUuid(uploadedBy)}
+  from reserved
+  returning *
+), completed as (
+  update clinical_asset_upload_requests r
+  set state = 'completed',
+      asset_id = inserted.id,
+      completed_at = now()
+  from inserted
+  where r.id = (select id from reserved)
+  returning r.asset_id
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select ${assetSafeColumns("a")}
+  from inserted a
+  join completed on completed.asset_id = a.id
+) result;
+`.trim();
+}
+
 export function buildCreateVisitAssetSql({
   clinicId,
   patientId,
@@ -164,8 +318,39 @@ function normalizeInternalAsset(row) {
   };
 }
 
+export class AssetIdempotencyConflictError extends Error {
+  constructor() {
+    super("Idempotency-Key was already used with a different asset payload.");
+    this.name = "AssetIdempotencyConflictError";
+    this.publicCode = "idempotency_conflict";
+    this.publicStatus = 409;
+  }
+}
+
 export function createAssetWriteRepository(dbClient) {
   return {
+    async beginVisitAssetUpload(params) {
+      const rows = await dbClient.queryJson(buildBeginVisitAssetUploadSql(params));
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (!row) return null;
+      if (row.requestHash !== params.requestHash) throw new AssetIdempotencyConflictError();
+      if (row.claimed === true) {
+        return {
+          status: "claimed",
+          recovered: row.recovered === true,
+          objectBucket: String(row.objectBucket || ""),
+          objectKey: String(row.objectKey || ""),
+        };
+      }
+      if (row.state === "completed" && row.id) {
+        return { status: "replayed", asset: normalizeAsset(row) };
+      }
+      return { status: "in_progress" };
+    },
+    async completeVisitAssetUpload(params) {
+      const rows = await dbClient.queryJson(buildCompleteVisitAssetUploadSql(params));
+      return Array.isArray(rows) && rows[0] ? normalizeAsset(rows[0]) : null;
+    },
     async createVisitAsset(params) {
       const rows = await dbClient.queryJson(buildCreateVisitAssetSql(params));
       return Array.isArray(rows) && rows[0] ? normalizeAsset(rows[0]) : null;

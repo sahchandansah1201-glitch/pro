@@ -8,6 +8,7 @@ import type {
   SafeAssetDTO,
   SignedDownloadDTO,
 } from "@/lib/clinical-assets-api";
+import { TECHNICAL_QUALITY_NOT_ASSESSED } from "@/lib/safe-clinical-image-adapter";
 import { buildSelfHostedApiUrl } from "@/lib/self-hosted-patient-api";
 
 interface BaseArgs {
@@ -22,10 +23,11 @@ export interface ListSelfHostedVisitAssetsArgs extends BaseArgs {
 export interface UploadSelfHostedVisitAssetArgs extends BaseArgs {
   visitId: string;
   file: File;
+  idempotencyKey: string;
   kind: SafeAssetDTO["kind"];
   source: SafeAssetDTO["source"];
   lesionId?: string | null;
-  capturedAt?: string;
+  capturedAt: string;
   signal?: AbortSignal;
 }
 
@@ -53,6 +55,27 @@ function ensureConfigured(args: BaseArgs): AssetsApiError | null {
 
 function authHeaders(token: string): HeadersInit {
   return { Accept: "application/json", Authorization: `Bearer ${token}` };
+}
+
+export function createSelfHostedAssetIdempotencyKey(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  if (!globalThis.crypto?.getRandomValues) {
+    throw new Error("Secure random values are unavailable for an idempotent asset upload.");
+  }
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  const encoded = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `asset-upload-${encoded}`;
+}
+
+export function createSelfHostedAssetUploadIdentity(): {
+  idempotencyKey: string;
+  capturedAt: string;
+} {
+  return {
+    idempotencyKey: createSelfHostedAssetIdempotencyKey(),
+    capturedAt: new Date().toISOString(),
+  };
 }
 
 async function parseJsonSafe(response: Response): Promise<unknown> {
@@ -159,8 +182,8 @@ function toSafeAssetDTO(input: Record<string, unknown>): SafeAssetDTO {
     source: frontendSource(input.captureSource),
     capturedAt: String(input.capturedAt ?? input.createdAt ?? ""),
     deviceId: null,
-    qualityScore: 1,
-    qualityIssues: [],
+    qualityScore: 0,
+    qualityIssues: [TECHNICAL_QUALITY_NOT_ASSESSED],
     createdAt: String(input.createdAt ?? ""),
   };
 }
@@ -200,8 +223,11 @@ export async function uploadSelfHostedVisitAsset(
 ): Promise<AssetsApiResult<SafeAssetDTO>> {
   const cfg = ensureConfigured(args);
   if (cfg) return fail(cfg);
-  if (!args.visitId || !args.file) {
-    return fail({ kind: "validation", message: "visitId и file обязательны." });
+  if (!args.visitId || !args.file || !args.idempotencyKey || !args.capturedAt) {
+    return fail({
+      kind: "validation",
+      message: "visitId, file, Idempotency-Key и capturedAt обязательны.",
+    });
   }
   const url = buildSelfHostedApiUrl(
     args.baseUrl,
@@ -213,6 +239,7 @@ export async function uploadSelfHostedVisitAsset(
     headers: {
       ...authHeaders(args.token as string),
       "Content-Type": "application/json",
+      "Idempotency-Key": args.idempotencyKey,
     },
     signal: args.signal,
     body: JSON.stringify({
@@ -222,7 +249,7 @@ export async function uploadSelfHostedVisitAsset(
       dataBase64,
       originalFileName: args.file.name,
       lesionId: args.lesionId ?? null,
-      capturedAt: args.capturedAt ?? new Date().toISOString(),
+      capturedAt: args.capturedAt,
     }),
   });
   if (!result.ok) return fail(result.error as AssetsApiError);

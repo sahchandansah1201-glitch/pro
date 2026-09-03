@@ -131,8 +131,14 @@ session identifiers, credentials, patient text, or clinical text.
    POST /api/v1/visits/{visitId}/assets
    ```
 
-   with `kind=dermoscopy`, `contentType`, `byteSize`, `checksumSha256`,
+   with the stable request header
+   `Idempotency-Key: rds3-{visitId}-{checksumSha256}` and with
+   `kind=dermoscopy`, `contentType`, `byteSize`, `checksumSha256`,
    `dataBase64`, `originalFileName`, `lesionId`, and `capturedAt`.
+
+   The Windows worker uses the source file's UTC modification time for
+   `capturedAt`, so a network retry sends the same normalized request. The key
+   contains no patient name, local source path, credential, or clinical text.
 
 5. The backend stores the bytes through backend-owned object storage and returns
    a safe asset DTO.
@@ -161,6 +167,9 @@ session identifiers, credentials, patient text, or clinical text.
 - A real RDS-3 photo saved by the developer application is imported into the
   selected Dermatolog Pro visit.
 - Duplicate imports are skipped by sha256.
+- A retry that reaches the backend before the local ledger is completed reuses
+  the same tenant-scoped idempotency key and cannot create a second stored
+  object or asset row after the first request has completed.
 - The backend response and UI do not expose local source paths, object storage
   paths, signed URLs, tokens, QR/session values, credentials, device serials, or
   patient text.

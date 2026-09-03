@@ -9,11 +9,15 @@ import {
 } from "./asset-write-service.mjs";
 
 const CLINIC_ID = "10000000-0000-4000-8000-000000000001";
+const OTHER_CLINIC_ID = "10000000-0000-4000-8000-000000000002";
 const PATIENT_ID = "10000000-0000-4000-8000-000000000201";
+const OTHER_PATIENT_ID = "10000000-0000-4000-8000-000000000202";
 const VISIT_ID = "10000000-0000-4000-8000-000000000301";
+const ORIGIN_VISIT_ID = "10000000-0000-4000-8000-000000000302";
 const LESION_ID = "10000000-0000-4000-8000-000000000401";
 const ASSET_ID = "10000000-0000-4000-8000-000000000901";
 const USER_ID = "10000000-0000-4000-8000-000000000101";
+const IDEMPOTENCY_KEY = "asset-upload-0000000000000001";
 
 const authContext = {
   userId: USER_ID,
@@ -51,6 +55,422 @@ test("normalizeDownloadUrlParams clamps expiresIn", () => {
   assert.equal(normalizeDownloadUrlParams(new URLSearchParams("expiresIn=120")), 120);
 });
 
+test("createVisitAsset requires a safe Idempotency-Key before any write", async () => {
+  const { service, audits, storedObjects } = createService();
+
+  await assert.rejects(
+    () => service.createVisitAsset(
+      VISIT_ID,
+      { contentType: "image/png" },
+      authContext,
+      { correlationId: "c-missing-idempotency" },
+    ),
+    (error) =>
+      error?.publicStatus === 422
+      && Array.isArray(error.publicDetails)
+      && error.publicDetails.some((detail) => detail.field === "Idempotency-Key"),
+  );
+
+  assert.equal(storedObjects.length, 0);
+  assert.equal(audits.length, 0);
+});
+
+test("createVisitAsset replays the same completed upload without another object write or audit", async () => {
+  let completedAsset = null;
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return completedAsset
+          ? { status: "replayed", asset: completedAsset }
+          : { status: "claimed", objectBucket: "clinical-assets", objectKey: "reserved/asset.png" };
+      },
+      async completeVisitAssetUpload(params) {
+        completedAsset = {
+          id: ASSET_ID,
+          clinicId: params.clinicId,
+          patientId: params.patientId,
+          visitId: params.visitId,
+          lesionId: params.lesionId,
+          kind: params.kind,
+          contentType: params.contentType,
+          byteSize: params.byteSize,
+          capturedAt: params.capturedAt,
+          uploadedBy: params.uploadedBy,
+          createdAt: "2026-05-12T09:00:00.000Z",
+        };
+        return completedAsset;
+      },
+    },
+  });
+  const bytes = Buffer.from("one-idempotent-upload");
+  const input = {
+    kind: "dermoscopy",
+    lesionId: LESION_ID,
+    contentType: "image/png",
+    byteSize: bytes.byteLength,
+    dataBase64: bytes.toString("base64"),
+    capturedAt: "2026-05-12T09:00:00.000Z",
+    originalFileName: "lesion.png",
+  };
+
+  const created = await service.createVisitAsset(
+    VISIT_ID,
+    input,
+    authContext,
+    { correlationId: "c-create", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+  const replay = await service.createVisitAsset(
+    VISIT_ID,
+    input,
+    authContext,
+    { correlationId: "c-replay", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(created.replayed, false);
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.asset.id, created.asset.id);
+  assert.equal(storedObjects.length, 1);
+  assert.equal(audits.length, 1);
+});
+
+test("concurrent duplicate upload lets only the reservation owner write object metadata and audit", async () => {
+  let beginCount = 0;
+  let releaseObjectWrite;
+  const objectWriteGate = new Promise((resolve) => { releaseObjectWrite = resolve; });
+  const writes = [];
+  const { service, audits } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        beginCount += 1;
+        return beginCount === 1
+          ? { status: "claimed", objectBucket: "clinical-assets", objectKey: "reserved/concurrent.png" }
+          : { status: "in_progress" };
+      },
+      async completeVisitAssetUpload(params) {
+        return {
+          id: ASSET_ID,
+          clinicId: params.clinicId,
+          patientId: params.patientId,
+          visitId: params.visitId,
+          lesionId: params.lesionId,
+          kind: params.kind,
+          contentType: params.contentType,
+          byteSize: params.byteSize,
+          capturedAt: params.capturedAt,
+          uploadedBy: params.uploadedBy,
+          createdAt: "2026-05-12T09:00:00.000Z",
+        };
+      },
+    },
+    objectStore: {
+      async putObject(object) {
+        writes.push(object);
+        await objectWriteGate;
+        return { byteSize: object.bytes.byteLength };
+      },
+    },
+  });
+  const bytes = Buffer.from("one-concurrent-upload");
+  const input = {
+    contentType: "image/png",
+    byteSize: bytes.byteLength,
+    dataBase64: bytes.toString("base64"),
+    capturedAt: "2026-05-12T09:00:00.000Z",
+  };
+
+  const owner = service.createVisitAsset(
+    VISIT_ID,
+    input,
+    authContext,
+    { correlationId: "c-owner", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(
+    () => service.createVisitAsset(
+      VISIT_ID,
+      input,
+      authContext,
+      { correlationId: "c-duplicate", idempotencyKey: IDEMPOTENCY_KEY },
+    ),
+    (error) => error?.publicStatus === 409 && error?.publicCode === "asset_upload_in_progress",
+  );
+  releaseObjectWrite();
+  const result = await owner;
+
+  assert.equal(result.replayed, false);
+  assert.equal(writes.length, 1);
+  assert.equal(audits.length, 1);
+});
+
+test("same Idempotency-Key with a different asset payload returns conflict before another object write", async () => {
+  let requestHash = null;
+  let completedAsset = null;
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload(params) {
+        if (requestHash == null) {
+          requestHash = params.requestHash;
+          return { status: "claimed", objectBucket: "clinical-assets", objectKey: "reserved/conflict.png" };
+        }
+        if (requestHash !== params.requestHash) {
+          const error = new Error("Idempotency conflict");
+          error.publicCode = "idempotency_conflict";
+          error.publicStatus = 409;
+          throw error;
+        }
+        return { status: "replayed", asset: completedAsset };
+      },
+      async completeVisitAssetUpload(params) {
+        completedAsset = {
+          id: ASSET_ID,
+          clinicId: params.clinicId,
+          patientId: params.patientId,
+          visitId: params.visitId,
+          lesionId: params.lesionId,
+          kind: params.kind,
+          contentType: params.contentType,
+          byteSize: params.byteSize,
+          capturedAt: params.capturedAt,
+          uploadedBy: params.uploadedBy,
+          createdAt: "2026-05-12T09:00:00.000Z",
+        };
+        return completedAsset;
+      },
+    },
+  });
+  const firstBytes = Buffer.from("first-payload");
+  const secondBytes = Buffer.from("different-payload");
+
+  await service.createVisitAsset(
+    VISIT_ID,
+    {
+      contentType: "image/png",
+      byteSize: firstBytes.byteLength,
+      dataBase64: firstBytes.toString("base64"),
+      capturedAt: "2026-05-12T09:00:00.000Z",
+    },
+    authContext,
+    { correlationId: "c-first", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+  await assert.rejects(
+    () => service.createVisitAsset(
+      VISIT_ID,
+      {
+        contentType: "image/png",
+        byteSize: secondBytes.byteLength,
+        dataBase64: secondBytes.toString("base64"),
+        capturedAt: "2026-05-12T09:00:00.000Z",
+      },
+      authContext,
+      { correlationId: "c-conflict", idempotencyKey: IDEMPOTENCY_KEY },
+    ),
+    (error) => error?.publicStatus === 409 && error?.publicCode === "idempotency_conflict",
+  );
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(audits.length, 1);
+});
+
+test("a stale exact retry reuses the reservation-owned object when its bytes already match", async () => {
+  const bytes = Buffer.from("object-written-before-crash");
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return {
+          status: "claimed",
+          recovered: true,
+          objectBucket: "clinical-assets",
+          objectKey: "reserved/stale-object.png",
+        };
+      },
+    },
+    objectStore: {
+      async getObject() {
+        return {
+          bytes,
+          byteSize: bytes.byteLength,
+          contentType: "image/png",
+        };
+      },
+    },
+  });
+
+  const result = await service.createVisitAsset(
+    VISIT_ID,
+    {
+      contentType: "image/png",
+      byteSize: bytes.byteLength,
+      dataBase64: bytes.toString("base64"),
+      capturedAt: "2026-05-12T09:00:00.000Z",
+    },
+    authContext,
+    { correlationId: "c-stale-recovery", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(result.replayed, false);
+  assert.equal(storedObjects.length, 0);
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].metadata.recoveredStaleUpload, true);
+  assert.equal(audits[0].metadata.objectReconciliation, "reused");
+});
+
+test("a stale exact retry restores a missing reservation-owned object in the same key", async () => {
+  const bytes = Buffer.from("object-missing-after-reservation");
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return {
+          status: "claimed",
+          recovered: true,
+          objectBucket: "clinical-assets",
+          objectKey: "reserved/stale-missing.png",
+        };
+      },
+    },
+    objectStore: {
+      async getObject() {
+        const error = new Error("missing object");
+        error.code = "ENOENT";
+        throw error;
+      },
+    },
+  });
+
+  await service.createVisitAsset(
+    VISIT_ID,
+    {
+      contentType: "image/png",
+      byteSize: bytes.byteLength,
+      dataBase64: bytes.toString("base64"),
+      capturedAt: "2026-05-12T09:00:00.000Z",
+    },
+    authContext,
+    { correlationId: "c-stale-missing", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0].key, "reserved/stale-missing.png");
+  assert.equal(audits[0].metadata.objectReconciliation, "restored");
+});
+
+test("a stale exact retry rewrites corrupted bytes only inside the reservation-owned key", async () => {
+  const bytes = Buffer.from("expected-recovery-bytes");
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return {
+          status: "claimed",
+          recovered: true,
+          objectBucket: "clinical-assets",
+          objectKey: "reserved/stale-corrupted.png",
+        };
+      },
+    },
+    objectStore: {
+      async getObject() {
+        const corrupted = Buffer.from("partial-bytes");
+        return { bytes: corrupted, byteSize: corrupted.byteLength, contentType: "image/png" };
+      },
+    },
+  });
+
+  await service.createVisitAsset(
+    VISIT_ID,
+    {
+      contentType: "image/png",
+      byteSize: bytes.byteLength,
+      dataBase64: bytes.toString("base64"),
+      capturedAt: "2026-05-12T09:00:00.000Z",
+    },
+    authContext,
+    { correlationId: "c-stale-corrupted", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0].key, "reserved/stale-corrupted.png");
+  assert.equal(String(storedObjects[0].bytes), "expected-recovery-bytes");
+  assert.equal(audits[0].metadata.objectReconciliation, "rewritten");
+});
+
+test("a stale exact retry rewrites matching bytes when object metadata is incomplete", async () => {
+  const bytes = Buffer.from("matching-bytes-with-missing-metadata");
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return {
+          status: "claimed",
+          recovered: true,
+          objectBucket: "clinical-assets",
+          objectKey: "reserved/stale-metadata.png",
+        };
+      },
+    },
+    objectStore: {
+      async getObject() {
+        return {
+          bytes,
+          byteSize: bytes.byteLength,
+          contentType: "application/octet-stream",
+        };
+      },
+    },
+  });
+
+  await service.createVisitAsset(
+    VISIT_ID,
+    {
+      contentType: "image/png",
+      byteSize: bytes.byteLength,
+      dataBase64: bytes.toString("base64"),
+      capturedAt: "2026-05-12T09:00:00.000Z",
+    },
+    authContext,
+    { correlationId: "c-stale-metadata", idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0].key, "reserved/stale-metadata.png");
+  assert.equal(storedObjects[0].contentType, "image/png");
+  assert.equal(audits[0].metadata.objectReconciliation, "rewritten");
+});
+
+test("a stale retry fails closed on object-store read errors without metadata or audit writes", async () => {
+  const bytes = Buffer.from("safe-retry-bytes");
+  const storageError = Object.assign(new Error("object store permission denied"), { code: "EACCES" });
+  const { service, audits, storedObjects } = createService({
+    assetWriteRepository: {
+      async beginVisitAssetUpload() {
+        return {
+          status: "claimed",
+          recovered: true,
+          objectBucket: "clinical-assets",
+          objectKey: "reserved/unreadable.png",
+        };
+      },
+    },
+    objectStore: {
+      async getObject() { throw storageError; },
+    },
+  });
+
+  await assert.rejects(
+    () => service.createVisitAsset(
+      VISIT_ID,
+      {
+        contentType: "image/png",
+        byteSize: bytes.byteLength,
+        dataBase64: bytes.toString("base64"),
+        capturedAt: "2026-05-12T09:00:00.000Z",
+      },
+      authContext,
+      { correlationId: "c-stale-storage-error", idempotencyKey: IDEMPOTENCY_KEY },
+    ),
+    storageError,
+  );
+  assert.equal(storedObjects.length, 0);
+  assert.equal(audits.length, 0);
+});
+
 test("buildObjectKey creates deterministic backend-owned path", () => {
   const key = buildObjectKey({
     clinicId: CLINIC_ID,
@@ -81,10 +501,25 @@ function createService(overrides = {}) {
     async listVisitLesions() {
       return [{ id: LESION_ID }];
     },
+    async getLesionContext() {
+      return {
+        id: ORIGIN_VISIT_ID,
+        patient: { id: PATIENT_ID },
+        clinic: { id: CLINIC_ID },
+        lesionId: LESION_ID,
+      };
+    },
     ...overrides.visitWorkspaceRepository,
   };
   const assetWriteRepository = {
-    async createVisitAsset(params) {
+    async beginVisitAssetUpload(params) {
+      return {
+        status: "claimed",
+        objectBucket: params.objectBucket,
+        objectKey: params.objectKey,
+      };
+    },
+    async completeVisitAssetUpload(params) {
       return {
         id: ASSET_ID,
         clinicId: params.clinicId,
@@ -98,6 +533,9 @@ function createService(overrides = {}) {
         uploadedBy: params.uploadedBy,
         createdAt: "2026-05-12T09:00:00.000Z",
       };
+    },
+    async createVisitAsset(params) {
+      return this.completeVisitAssetUpload(params);
     },
     async getAssetInternal() {
       return {
@@ -165,7 +603,7 @@ test("createVisitAsset registers metadata, returns safe DTO and audits", async (
       originalFileName: "derm.jpg",
     },
     authContext,
-    { correlationId: "c-1" },
+    { correlationId: "c-1", idempotencyKey: IDEMPOTENCY_KEY },
   );
 
   assert.equal(result.asset.id, ASSET_ID);
@@ -190,7 +628,7 @@ test("createVisitAsset allows assistant capture without exposing object storage 
       originalFileName: "assistant.png",
     },
     assistantAuthContext,
-    { correlationId: "c-assistant-capture" },
+    { correlationId: "c-assistant-capture", idempotencyKey: IDEMPOTENCY_KEY },
   );
 
   assert.equal(result.asset.uploadedBy, USER_ID);
@@ -216,7 +654,7 @@ test("createVisitAsset stores decoded bytes and verifies checksum", async () => 
       originalFileName: "spot.png",
     },
     authContext,
-    { correlationId: "c-asset-bytes" },
+    { correlationId: "c-asset-bytes", idempotencyKey: IDEMPOTENCY_KEY },
   );
 
   assert.equal(result.asset.byteSize, data.byteLength);
@@ -239,9 +677,44 @@ test("createVisitAsset stores decoded bytes and verifies checksum", async () => 
   );
 });
 
-test("createVisitAsset rejects lesion outside visit scope", async () => {
+test("createVisitAsset accepts a persistent lesion first recorded in another visit of the same patient and clinic", async () => {
   const { service } = createService({
-    visitWorkspaceRepository: { async listVisitLesions() { return []; } },
+    visitWorkspaceRepository: {
+      async listVisitLesions() { return []; },
+      async getLesionContext() {
+        return {
+          id: ORIGIN_VISIT_ID,
+          patient: { id: PATIENT_ID },
+          clinic: { id: CLINIC_ID },
+          lesionId: LESION_ID,
+        };
+      },
+    },
+  });
+
+  const result = await service.createVisitAsset(
+    VISIT_ID,
+    { lesionId: LESION_ID, contentType: "image/png" },
+    authContext,
+    { idempotencyKey: IDEMPOTENCY_KEY },
+  );
+
+  assert.equal(result.asset.lesionId, LESION_ID);
+  assert.equal(result.asset.visitId, VISIT_ID);
+});
+
+test("createVisitAsset rejects a lesion outside the patient scope", async () => {
+  const { service } = createService({
+    visitWorkspaceRepository: {
+      async getLesionContext() {
+        return {
+          id: ORIGIN_VISIT_ID,
+          patient: { id: OTHER_PATIENT_ID },
+          clinic: { id: CLINIC_ID },
+          lesionId: LESION_ID,
+        };
+      },
+    },
   });
   await assert.rejects(
     () =>
@@ -249,6 +722,33 @@ test("createVisitAsset rejects lesion outside visit scope", async () => {
         VISIT_ID,
         { lesionId: LESION_ID, contentType: "image/png" },
         authContext,
+        { idempotencyKey: IDEMPOTENCY_KEY },
+      ),
+    /Lesion was not found/,
+  );
+});
+
+test("createVisitAsset rejects a lesion outside the clinic scope", async () => {
+  const { service } = createService({
+    visitWorkspaceRepository: {
+      async getLesionContext() {
+        return {
+          id: ORIGIN_VISIT_ID,
+          patient: { id: PATIENT_ID },
+          clinic: { id: OTHER_CLINIC_ID },
+          lesionId: LESION_ID,
+        };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      service.createVisitAsset(
+        VISIT_ID,
+        { lesionId: LESION_ID, contentType: "image/png" },
+        authContext,
+        { idempotencyKey: IDEMPOTENCY_KEY },
       ),
     /Lesion was not found/,
   );

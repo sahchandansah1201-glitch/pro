@@ -34,6 +34,7 @@ const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_REPORT_BYTES = 50 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -169,6 +170,41 @@ export function normalizeDownloadUrlParams(searchParams = new URLSearchParams())
   return Math.min(900, Math.max(60, raw));
 }
 
+export function normalizeAssetIdempotencyKey(value) {
+  const key = cleanString(value);
+  if (!key || !IDEMPOTENCY_KEY_PATTERN.test(key)) {
+    throw new VisitWorkspaceValidationError([
+      {
+        field: "Idempotency-Key",
+        message: "Idempotency-Key must contain 16 to 128 safe characters.",
+      },
+    ]);
+  }
+  return key;
+}
+
+export function assetUploadRequestHash(visitId, payload) {
+  return sha256Hex(Buffer.from(JSON.stringify({
+    visitId,
+    kind: payload.kind,
+    contentType: payload.contentType,
+    byteSize: payload.byteSize,
+    checksumSha256: payload.checksumSha256,
+    capturedAt: payload.capturedAt,
+    lesionId: payload.lesionId,
+    originalFileName: payload.originalFileName,
+  }), "utf8"));
+}
+
+export class AssetUploadInProgressError extends Error {
+  constructor() {
+    super("An asset upload with this Idempotency-Key is still in progress.");
+    this.name = "AssetUploadInProgressError";
+    this.publicCode = "asset_upload_in_progress";
+    this.publicStatus = 409;
+  }
+}
+
 export function buildObjectKey({
   clinicId,
   patientId,
@@ -191,11 +227,54 @@ export function buildObjectKey({
   ].join("/");
 }
 
-function ensureLesionBelongsToVisit(lesions, lesionId) {
-  if (!lesionId) return;
-  if (!lesions.some((lesion) => lesion.id === lesionId)) {
-    throw new VisitWorkspaceNotFoundError("Lesion was not found in the allowed visit scope.");
+function ensureLesionBelongsToPatient(lesionContext, visit) {
+  if (
+    !lesionContext
+    || lesionContext.patient?.id !== visit.patient.id
+    || lesionContext.clinic?.id !== visit.clinic.id
+  ) {
+    throw new VisitWorkspaceNotFoundError("Lesion was not found in the allowed patient scope.");
   }
+}
+
+function isObjectNotFoundError(error) {
+  return error?.code === "ENOENT"
+    || error?.code === "NoSuchKey"
+    || error?.status === 404
+    || error?.statusCode === 404;
+}
+
+async function reconcileReservedObject({ objectStore, reservation, payload }) {
+  if (!payload.bytes) return "not_applicable";
+  let recoveredObjectStatus = "rewritten";
+  if (reservation.recovered === true && objectStore?.getObject) {
+    try {
+      const stored = await objectStore.getObject({
+        bucket: reservation.objectBucket,
+        key: reservation.objectKey,
+      });
+      const storedBytes = stored?.bytes;
+      if (
+        storedBytes instanceof Uint8Array
+        && storedBytes.byteLength === payload.bytes.byteLength
+        && sha256Hex(storedBytes) === payload.checksumSha256
+        && stored.contentType === payload.contentType
+      ) {
+        return "reused";
+      }
+    } catch (error) {
+      if (!isObjectNotFoundError(error)) throw error;
+      recoveredObjectStatus = "restored";
+    }
+  }
+  await objectStore.putObject({
+    bucket: reservation.objectBucket,
+    key: reservation.objectKey,
+    bytes: payload.bytes,
+    contentType: payload.contentType,
+    checksumSha256: payload.checksumSha256,
+  });
+  return reservation.recovered === true ? recoveredObjectStatus : "created";
 }
 
 export function createAssetWriteService({
@@ -208,8 +287,9 @@ export function createAssetWriteService({
   uuid = randomUUID,
 } = {}) {
   return {
-    async createVisitAsset(visitId, input, authContext, { correlationId } = {}) {
+    async createVisitAsset(visitId, input, authContext, { correlationId, idempotencyKey } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
+      const safeIdempotencyKey = normalizeAssetIdempotencyKey(idempotencyKey);
       const scope = assetWriteScope(authContext);
       const payload = normalizeCreateAssetPayload(input);
       const visit = await visitWorkspaceRepository.getVisit({
@@ -219,12 +299,18 @@ export function createAssetWriteService({
       });
       if (!visit) throw new VisitWorkspaceNotFoundError("Visit was not found in the allowed clinic scope.");
       if (payload.lesionId) {
-        const lesions = await visitWorkspaceRepository.listVisitLesions({
-          visitId: safeVisitId,
+        const lesionContext = await visitWorkspaceRepository.getLesionContext({
+          lesionId: payload.lesionId,
           clinicIds: scope.clinicIds,
           allClinics: scope.allClinics,
         });
-        ensureLesionBelongsToVisit(lesions, payload.lesionId);
+        ensureLesionBelongsToPatient(lesionContext, visit);
+      }
+      if (payload.bytes && !objectStore?.putObject) {
+        const error = new Error("Object storage is not configured for asset binary upload.");
+        error.publicCode = "object_storage_unavailable";
+        error.publicStatus = 503;
+        throw error;
       }
       const objectBucket = config?.objectStorageBucket || "clinical-assets";
       const objectKey = buildObjectKey({
@@ -236,29 +322,43 @@ export function createAssetWriteService({
         now,
         uuid,
       });
-      if (payload.bytes && !objectStore?.putObject) {
-        const error = new Error("Object storage is not configured for asset binary upload.");
-        error.publicCode = "object_storage_unavailable";
-        error.publicStatus = 503;
-        throw error;
-      }
-      if (payload.bytes) {
-        await objectStore.putObject({
-          bucket: objectBucket,
-          key: objectKey,
-          bytes: payload.bytes,
-          contentType: payload.contentType,
-          checksumSha256: payload.checksumSha256,
-        });
-      }
-      const asset = await assetWriteRepository.createVisitAsset({
+      const reservationToken = uuid();
+      const reservation = await assetWriteRepository.beginVisitAssetUpload({
         clinicId: visit.clinic.id,
         patientId: visit.patient.id,
         visitId: safeVisitId,
-        lesionId: payload.lesionId,
-        kind: payload.kind,
+        idempotencyKey: safeIdempotencyKey,
+        requestHash: assetUploadRequestHash(safeVisitId, payload),
+        reservationToken,
         objectBucket,
         objectKey,
+      });
+      if (reservation?.status === "replayed" && reservation.asset) {
+        return { asset: reservation.asset, scope, replayed: true };
+      }
+      if (reservation?.status !== "claimed") throw new AssetUploadInProgressError();
+      const reservedObjectBucket = reservation.objectBucket || objectBucket;
+      const reservedObjectKey = reservation.objectKey || objectKey;
+      const objectReconciliation = await reconcileReservedObject({
+        objectStore,
+        reservation: {
+          ...reservation,
+          objectBucket: reservedObjectBucket,
+          objectKey: reservedObjectKey,
+        },
+        payload,
+      });
+      const asset = await assetWriteRepository.completeVisitAssetUpload({
+        clinicId: visit.clinic.id,
+        patientId: visit.patient.id,
+        visitId: safeVisitId,
+        idempotencyKey: safeIdempotencyKey,
+        requestHash: assetUploadRequestHash(safeVisitId, payload),
+        reservationToken,
+        lesionId: payload.lesionId,
+        kind: payload.kind,
+        objectBucket: reservedObjectBucket,
+        objectKey: reservedObjectKey,
         contentType: payload.contentType,
         byteSize: payload.byteSize,
         checksumSha256: payload.checksumSha256,
@@ -280,9 +380,11 @@ export function createAssetWriteService({
           byteSize: asset.byteSize,
           hasChecksum: Boolean(payload.checksumSha256),
           binaryStored: Boolean(payload.bytes),
+          recoveredStaleUpload: reservation.recovered === true,
+          objectReconciliation,
         },
       });
-      return { asset, scope };
+      return { asset, scope, replayed: false };
     },
 
     async getAssetDownloadUrl(assetId, authContext, { correlationId, expiresIn = 300 } = {}) {

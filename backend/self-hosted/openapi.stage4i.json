@@ -3,7 +3,7 @@
   "info": {
     "title": "Dermatolog Pro Self-hosted API",
     "version": "4I-assets-write",
-    "description": "Stage 4I self-hosted clinical asset metadata registration and backend-owned download URL contract."
+    "description": "Stage 4I self-hosted clinical asset metadata registration, tenant-scoped idempotent upload reservation, and backend-owned download URL contract."
   },
   "servers": [{ "url": "/" }],
   "components": {
@@ -83,9 +83,12 @@
       },
       "post": {
         "summary": "Register a visit asset metadata record",
-        "description": "Registers metadata and backend-owned object location. The response does not expose object bucket/key.",
+        "description": "Reserves one tenant-scoped Idempotency-Key before object storage, then registers metadata. A completed same-payload replay returns the original asset without another object write or audit. An exact retry may atomically reclaim an expired 15-minute pending lease while retaining the reservation-owned object key. The response does not expose object bucket/key or recovery internals.",
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "description": "Clinic-scoped key; reuse only for an exact retry of the same asset payload.", "schema": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" } }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -93,9 +96,11 @@
           }
         },
         "responses": {
+          "200": { "description": "Completed same-payload replay; original asset returned" },
           "201": { "description": "Registered asset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalAsset" } } } },
           "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Idempotency key conflict or matching upload still in progress", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
         }
       }

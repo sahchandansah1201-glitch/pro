@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createSelfHostedAssetUploadIdentity,
   getSelfHostedAssetDownloadUrl,
   listSelfHostedVisitAssets,
   uploadSelfHostedVisitAsset,
 } from "@/lib/self-hosted-asset-api";
+import { TECHNICAL_QUALITY_NOT_ASSESSED } from "@/lib/safe-clinical-image-adapter";
 
 const BASE = "http://localhost:3001";
 const TOKEN = "local-token";
 const VISIT_ID = "10000000-0000-4000-8000-000000000301";
 const ASSET_ID = "10000000-0000-4000-8000-000000000901";
+const IDEMPOTENCY_KEY = "asset-upload-0000000000000001";
+const CAPTURED_AT = "2026-05-12T09:00:00.000Z";
 
 describe("self-hosted-asset-api", () => {
   beforeEach(() => {
@@ -18,6 +22,12 @@ describe("self-hosted-asset-api", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("creates one secure idempotency key and timestamp for a retryable upload", () => {
+    const identity = createSelfHostedAssetUploadIdentity();
+    expect(identity.idempotencyKey).toMatch(/^[A-Za-z0-9._:-]{16,128}$/);
+    expect(new Date(identity.capturedAt).toISOString()).toBe(identity.capturedAt);
   });
 
   it("lists safe visit assets through self-hosted backend", async () => {
@@ -54,7 +64,8 @@ describe("self-hosted-asset-api", () => {
       id: ASSET_ID,
       kind: "dermoscopy",
       source: "device_bridge",
-      qualityScore: 1,
+      qualityScore: 0,
+      qualityIssues: [TECHNICAL_QUALITY_NOT_ASSESSED],
     });
     expect(fetch).toHaveBeenCalledWith(
       `${BASE}/api/v1/visits/${VISIT_ID}/assets`,
@@ -92,12 +103,16 @@ describe("self-hosted-asset-api", () => {
       file,
       kind: "overview",
       source: "file",
+      idempotencyKey: IDEMPOTENCY_KEY,
+      capturedAt: CAPTURED_AT,
     });
 
     expect(result.ok).toBe(true);
     const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("POST");
+    expect(init.headers).toEqual(expect.objectContaining({ "Idempotency-Key": IDEMPOTENCY_KEY }));
     expect(init.body).toEqual(expect.any(String));
+    expect(JSON.parse(String(init.body)).capturedAt).toBe(CAPTURED_AT);
     expect(String(init.body)).toContain('"contentType":"image/png"');
     expect(String(init.body)).toContain('"dataBase64":"eA=="');
     expect(String(init.body)).not.toContain("object_key");

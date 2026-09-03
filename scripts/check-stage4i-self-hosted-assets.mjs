@@ -7,11 +7,16 @@ import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
   "backend/self-hosted/db/migrations/0006_stage4i_asset_write_contract.sql",
+  "backend/self-hosted/db/migrations/0097_stage4i_asset_upload_idempotency.sql",
+  "backend/self-hosted/db/migrations/0098_stage4i_asset_upload_recovery.sql",
+  "backend/self-hosted/api-response.mjs",
   "backend/self-hosted/asset-write-repository.mjs",
   "backend/self-hosted/asset-write-repository.test.mjs",
   "backend/self-hosted/asset-write-service.mjs",
   "backend/self-hosted/asset-write-service.test.mjs",
   "backend/self-hosted/openapi.stage4i.json",
+  "backend/self-hosted/openapi.stage4j.json",
+  "backend/self-hosted/routes-asset-idempotency.test.mjs",
   "src/lib/self-hosted-asset-api.ts",
   "src/lib/self-hosted-asset-api.test.ts",
   "src/lib/self-hosted-visit-api.ts",
@@ -30,12 +35,23 @@ const REQUIRED_FILES = [
 ];
 
 const REQUIRED_TEXT = {
+  "backend/self-hosted/api-response.mjs": [
+    "idempotencyKeyFromHeaders",
+    'headers?.["idempotency-key"]',
+    'headers?.["Idempotency-Key"]',
+  ],
   "backend/self-hosted/asset-write-repository.mjs": [
     "createAssetWriteRepository",
     "buildCreateVisitAssetSql",
+    "buildBeginVisitAssetUploadSql",
+    "buildCompleteVisitAssetUploadSql",
+    "clinical_asset_upload_requests",
     "buildGetAssetInternalSql",
     "objectBucket",
     "objectKey",
+    "lease_expires_at",
+    "recovery_count",
+    "true as recovered",
   ],
   "backend/self-hosted/asset-write-service.mjs": [
     "createAssetWriteService",
@@ -44,24 +60,49 @@ const REQUIRED_TEXT = {
     "asset.download_url",
     "assetWriteScope",
     "visitReadScope",
+    "normalizeAssetIdempotencyKey",
+    "assetUploadRequestHash",
+    "replayed: true",
+    "reconcileReservedObject",
+    "recoveredStaleUpload",
+    "objectReconciliation",
   ],
   "backend/self-hosted/routes.mjs": [
     "openapi.stage4i.json",
     "assetWriteService",
     "assetDownloadUrlMatch",
+    "idempotencyKeyFromHeaders",
+    "replayed: result.replayed",
     "stage: \"4I\"",
     "rbac-read-write-postgres-backend-url",
+  ],
+  "backend/self-hosted/routes-asset-idempotency.test.mjs": [
+    "asset route forwards idempotency and distinguishes create from replay",
+    '"idempotency-key"',
+    '"Idempotency-Key"',
+    "upload.replayed",
   ],
   "backend/self-hosted/openapi.stage4i.json": [
     "4I-assets-write",
     "/api/v1/visits/{visitId}/assets",
     "/api/v1/assets/{assetId}/download-url",
     "Raw object bucket/key is never exposed",
+    "Idempotency-Key",
+    "same-payload replay",
+  ],
+  "backend/self-hosted/openapi.stage4j.json": [
+    "4J-asset-binaries",
+    "/api/v1/visits/{visitId}/assets",
+    "Idempotency-Key",
+    "same-payload replay",
   ],
   "src/lib/self-hosted-asset-api.ts": [
     "listSelfHostedVisitAssets",
     "uploadSelfHostedVisitAsset",
     "getSelfHostedAssetDownloadUrl",
+    "createSelfHostedAssetIdempotencyKey",
+    "createSelfHostedAssetUploadIdentity",
+    '"Idempotency-Key"',
     "/api/v1/visits/",
     "/api/v1/assets/",
   ],
@@ -74,6 +115,8 @@ const REQUIRED_TEXT = {
     "device_bridge",
     "Дерматоскопия",
     "Прибор",
+    "createSelfHostedAssetUploadIdentity",
+    "idempotencyKey",
   ],
   "src/pages/doctor/CapturePageLive.test.tsx": [
     "shows an RDS-3 imported asset as a device capture in the assistant queue",
@@ -85,12 +128,16 @@ const REQUIRED_TEXT = {
     "система клиники",
     "Снимки визита",
     "useSelfHostedApiSession",
+    "createSelfHostedAssetUploadIdentity",
+    "idempotencyKey",
   ],
   "scripts/rds3-folder-importer.mjs": [
     "Dermatolog Pro RDS-3 folder importer",
     "/api/v1/visits/",
     "/capture-metadata",
     "captureSource: \"device_bridge\"",
+    "Idempotency-Key",
+    "rds3-${config.visitId}-${checksumSha256}",
   ],
   "scripts/rds3-folder-importer.test.mjs": [
     "RDS-3 importer uploads a new RDS image",
@@ -113,6 +160,8 @@ const REQUIRED_TEXT = {
     "Stop-RunningBridge",
     "/api/v1/visits/$visit/assets",
     "/capture-metadata",
+    "Idempotency-Key",
+    "rds3-$($Config.visitId)-$sha",
     "Dermatolog Pro RDS Bridge.lnk",
   ],
   "scripts/rds3-windows-bridge-installer.test.mjs": [
@@ -128,6 +177,11 @@ const REQUIRED_TEXT = {
     "Stage 4I",
     "POST /api/v1/visits/{visitId}/assets",
     "GET /api/v1/assets/{assetId}/download-url",
+    "Idempotency-Key",
+    "clinical_asset_upload_requests",
+    "15-minute owner lease",
+    "reservation-owned key",
+    "does not scan or delete unknown files",
     "npm run preflight:stage4i",
   ],
   "docs/backend/rds3-folder-importer-windows.md": [
@@ -136,6 +190,7 @@ const REQUIRED_TEXT = {
     "POST /api/v1/auth/login",
     "POST /api/v1/visits/{visitId}/assets",
     "PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata",
+    "Idempotency-Key",
     "npm run test:rds3:import-folder",
   ],
   ".github/workflows/stage4i-self-hosted-assets.yml": [
@@ -188,7 +243,11 @@ function validatePackageScripts(errors, root) {
   for (const script of ['"test:stage4i"', '"check:stage4i"', '"preflight:stage4i"']) {
     if (!packageJson.includes(script)) errors.push(`package.json missing ${script}`);
   }
-  for (const testFile of ["src/lib/self-hosted-visit-api.test.ts", "src/pages/doctor/CapturePageLive.test.tsx"]) {
+  for (const testFile of [
+    "backend/self-hosted/routes-asset-idempotency.test.mjs",
+    "src/lib/self-hosted-visit-api.test.ts",
+    "src/pages/doctor/CapturePageLive.test.tsx",
+  ]) {
     if (!packageJson.includes(testFile)) errors.push(`package.json Stage 4I tests missing ${testFile}`);
   }
   const preflightAll = read(root, "scripts/preflight-all.mjs");

@@ -216,11 +216,15 @@ function Invoke-BridgeJson {
     [string]$Uri,
     [string]$Method,
     [hashtable]$Body,
-    [string]$PlainToken
+    [string]$PlainToken,
+    [string]$IdempotencyKey = ""
   )
   $headers = @{
     Accept = "application/json"
     Authorization = "Bearer $PlainToken"
+  }
+  if ($IdempotencyKey) {
+    $headers["Idempotency-Key"] = $IdempotencyKey
   }
   $json = $Body | ConvertTo-Json -Depth 8
   return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $headers -ContentType "application/json; charset=utf-8" -Body $json
@@ -256,6 +260,7 @@ function Import-RdsImage {
   $safeName = Get-SafeFileName -FilePath $FilePath
   $visit = [Uri]::EscapeDataString([string]$Config.visitId)
   $base = ([string]$Config.apiBaseUrl).TrimEnd("/")
+  $idempotencyKey = "rds3-$($Config.visitId)-$sha"
 
   $assetBody = @{
     kind = "dermoscopy"
@@ -265,7 +270,7 @@ function Import-RdsImage {
     dataBase64 = [Convert]::ToBase64String($bytes)
     originalFileName = $safeName
     lesionId = if ($Config.lesionId) { [string]$Config.lesionId } else { $null }
-    capturedAt = (Get-Date).ToUniversalTime().ToString("o")
+    capturedAt = $file.LastWriteTimeUtc.ToString("o")
   }
 
   $assetId = $null
@@ -277,7 +282,7 @@ function Import-RdsImage {
       throw "Незавершённый импорт не содержит номер снимка."
     }
   } else {
-    $assetResponse = Invoke-BridgeJson -Uri "$base/api/v1/visits/$visit/assets" -Method "Post" -Body $assetBody -PlainToken $PlainToken
+    $assetResponse = Invoke-BridgeJson -Uri "$base/api/v1/visits/$visit/assets" -Method "Post" -Body $assetBody -PlainToken $PlainToken -IdempotencyKey $idempotencyKey
     $assetId = $assetResponse.item.id
     $correlationId = [string]$assetResponse.correlationId
     if (-not $assetId) {

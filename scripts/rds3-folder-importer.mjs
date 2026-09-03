@@ -207,13 +207,14 @@ function buildCaptureMetadataPayload() {
   };
 }
 
-async function requestJson(url, { apiToken, method = "POST", body }) {
+async function requestJson(url, { apiToken, method = "POST", body, idempotencyKey = null }) {
   const response = await fetch(url, {
     method,
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${apiToken}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: body == null ? undefined : JSON.stringify(body),
   });
@@ -245,7 +246,11 @@ async function registerAsset({ config, filePath, bytes, checksumSha256, contentT
   });
   const assetResponse = await requestJson(
     joinApiUrl(config.apiBaseUrl, `/api/v1/visits/${encodeURIComponent(config.visitId)}/assets`),
-    { apiToken: config.apiToken, body: assetBody },
+    {
+      apiToken: config.apiToken,
+      body: assetBody,
+      idempotencyKey: `rds3-${config.visitId}-${checksumSha256}`,
+    },
   );
   const assetId = assetResponse?.item?.id;
   if (!assetId) throw new Error("Backend did not return imported asset id.");

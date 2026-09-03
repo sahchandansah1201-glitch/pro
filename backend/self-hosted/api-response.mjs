@@ -5,6 +5,10 @@ export const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
+export function idempotencyKeyFromHeaders(headers) {
+  return headers?.["idempotency-key"] || headers?.["Idempotency-Key"] || null;
+}
+
 export function corsHeaders(config, requestOrigin = "") {
   const allowedOrigin = config.corsOrigins.includes(requestOrigin)
     ? requestOrigin
