@@ -47,6 +47,7 @@ test("Stage 4K smoke success checks login, patients, visits, asset upload, downl
   const root = await mkdtemp(join(tmpdir(), "stage4k-smoke-test-"));
   const summaryPath = join(root, "summary.md");
   const commands = [];
+  const requests = [];
   const responses = [
     new Response("{}", { status: 200 }),
     new Response("{}", { status: 200 }),
@@ -66,13 +67,18 @@ test("Stage 4K smoke success checks login, patients, visits, asset upload, downl
         commands.push(`${cmd} ${args.join(" ")}`);
         return { status: 0, stdout: "", stderr: "" };
       },
-      fetchImpl: async () => responses.shift(),
+      fetchImpl: async (url, init = {}) => {
+        requests.push({ url: String(url), init });
+        return responses.shift();
+      },
     });
 
     assert.equal(result.ok, true);
     assert.equal(result.patientId, "patient-1");
     assert.equal(result.visitId, "visit-1");
     assert.equal(result.assetId, "asset-1");
+    const assetRequest = requests.find((request) => request.url.endsWith("/api/v1/visits/visit-1/assets"));
+    assert.equal(assetRequest?.init?.headers?.["Idempotency-Key"], "stage4k-compose-smoke-visit-1");
     assert.ok(commands.some((cmd) => cmd.includes("up -d --build")));
     assert.ok(commands.some((cmd) => cmd.includes("down -v")));
     const summary = await readFile(summaryPath, "utf8");

@@ -127,6 +127,10 @@ test("Stage 4L Q2 synthetic writer records accepted and fenced attempts without 
     assert.equal(result.attempts[0].accepted, true);
     assert.equal(result.attempts[1].accepted, false);
     assert.ok(requestOptions.slice(-2).every((init) => init.signal instanceof AbortSignal));
+    assert.deepEqual(
+      requestOptions.slice(-2).map((init) => init.headers["Idempotency-Key"]),
+      ["stage4l-q2-visit-1-0", "stage4l-q2-visit-1-1"],
+    );
     const saved = await readFile(resultPath, "utf8");
     assert.doesNotMatch(saved, /header\.secret|demo-password|stage4l-q2-writer-0/);
   } finally {

@@ -46,6 +46,9 @@ const COMPLETE_SCHEMA = {
   lesionBodyMapRequiredColumns: true,
   lesionBodyAtlasRequiredColumns: true,
   lesionBodyMapIdempotencyIndex: true,
+  persistentLesionIdentityConstraints: true,
+  assetUploadIdempotencyContract: true,
+  assetUploadRecoveryContract: true,
   deviceBridgesTable: true,
   medicalDevicesTable: true,
   deviceBridgeCommandsTable: true,
@@ -84,6 +87,9 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /0093_stage6_public_analysis_links\.sql/);
   assert.match(out, /0094_stage4l_body_map_persistence\.sql/);
   assert.match(out, /0095_stage4l_body_atlas_contract\.sql/);
+  assert.match(out, /0096_stage4l_persistent_lesion_identity\.sql/);
+  assert.match(out, /0097_stage4i_asset_upload_idempotency\.sql/);
+  assert.match(out, /0098_stage4i_asset_upload_recovery\.sql/);
   assert.match(out, /Device Bridge tables\/worker\/command columns/);
   assert.match(out, /leads table\/write columns/);
   assert.match(out, /patient portal role\/ownership\/write tables/);
@@ -95,6 +101,9 @@ test("Stage 4M schema migration plan includes Device Bridge, leads, patient port
   assert.match(out, /public analysis links table/);
   assert.match(out, /precise lesion body-map columns\/idempotency index/);
   assert.match(out, /body-atlas source\/profile\/manifest\/map metadata/);
+  assert.match(out, /persistent lesion clinic\/patient ownership constraints/);
+  assert.match(out, /asset upload idempotency reservation contract/);
+  assert.match(out, /asset upload stale-reservation recovery contract/);
   assert.doesNotMatch(out, /POSTGRES_PASSWORD|JWT_SECRET|Bearer\s+[A-Za-z0-9]/);
 });
 
@@ -152,7 +161,34 @@ test("Stage 4M schema migration runner applies migrations then verifies schema",
   assert.ok(calls[19].input.includes("lesions_creation_idempotency_idx"));
   assert.ok(calls[20].input.includes("body_atlas_profile_id"));
   assert.ok(calls[20].input.includes("body_region_map_sha256"));
+  assert.ok(calls.at(-4).input.includes("clinical_assets_lesion_scope_fk"));
+  assert.ok(calls.at(-4).input.includes("lesions_origin_visit_scope_fk"));
+  assert.match(
+    calls.at(-4).input,
+    /conname = 'patients_identity_scope_unique'[\s\S]*conrelid = 'public\.patients'::regclass/,
+  );
+  assert.match(
+    calls.at(-4).input,
+    /conname = 'clinical_assets_lesion_scope_fk'[\s\S]*conrelid = 'public\.clinical_assets'::regclass/,
+  );
+  assert.ok(calls.at(-3).input.includes("create table if not exists clinical_asset_upload_requests"));
+  assert.ok(calls.at(-3).input.includes("clinical_asset_upload_requests_scope_unique"));
+  assert.ok(calls.at(-2).input.includes("lease_expires_at"));
+  assert.ok(calls.at(-2).input.includes("clinical_asset_upload_requests_pending_lease_idx"));
   assert.ok(calls.at(-1).args.includes("--command"));
+  const verificationCommandIndex = calls.at(-1).args.indexOf("--command");
+  assert.match(
+    calls.at(-1).args[verificationCommandIndex + 1],
+    /conrelid = 'public\.clinical_asset_upload_requests'::regclass/,
+  );
+  assert.match(
+    calls.at(-1).args[verificationCommandIndex + 1],
+    /conname = 'patients_identity_scope_unique'[\s\S]*conrelid = 'public\.patients'::regclass/,
+  );
+  assert.match(
+    calls.at(-1).args[verificationCommandIndex + 1],
+    /conname = 'clinical_assets_lesion_scope_fk'[\s\S]*conrelid = 'public\.clinical_assets'::regclass/,
+  );
   assert.ok(calls.every((call) => call.cmd === "docker"));
 });
 
@@ -193,6 +229,60 @@ test("Stage 4M schema migration runner fails when body-atlas metadata columns ar
       },
     ),
     /lesions body-atlas metadata columns/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when persistent lesion ownership constraints are missing", () => {
+  assert.throws(
+    () => runStage4MSelfHostedSchemaMigrations(
+      { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+      {
+        spawn() {
+          return {
+            status: 0,
+            stdout: JSON.stringify({ ...COMPLETE_SCHEMA, persistentLesionIdentityConstraints: false }),
+            stderr: "",
+          };
+        },
+      },
+    ),
+    /persistent lesion ownership constraints/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when asset upload idempotency contract is missing", () => {
+  assert.throws(
+    () => runStage4MSelfHostedSchemaMigrations(
+      { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+      {
+        spawn() {
+          return {
+            status: 0,
+            stdout: JSON.stringify({ ...COMPLETE_SCHEMA, assetUploadIdempotencyContract: false }),
+            stderr: "",
+          };
+        },
+      },
+    ),
+    /asset upload idempotency reservation contract/,
+  );
+});
+
+test("Stage 4M schema migration runner fails when asset upload recovery contract is missing", () => {
+  assert.throws(
+    () => runStage4MSelfHostedSchemaMigrations(
+      { command: "verify", projectName: "prod", composeEnvFile: "env", composeFiles: ["base.yml"] },
+      {
+        spawn() {
+          return {
+            status: 0,
+            stdout: JSON.stringify({ ...COMPLETE_SCHEMA, assetUploadRecoveryContract: false }),
+            stderr: "",
+          };
+        },
+      },
+    ),
+    /asset upload stale-reservation recovery contract/,
   );
 });
 

@@ -279,7 +279,11 @@ export async function runStage4KSmoke({
       `${baseUrl}/api/v1/visits/${visitId}/assets`,
       {
         method: "POST",
-        headers: { ...authHeaders(token), "Content-Type": "application/json" },
+        headers: {
+          ...authHeaders(token),
+          "Content-Type": "application/json",
+          "Idempotency-Key": `stage4k-compose-smoke-${visitId}`,
+        },
         body: JSON.stringify({
           kind: "overview_photo",
           contentType: "image/png",

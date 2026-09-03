@@ -37,6 +37,9 @@ export const STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS = [
   "backend/self-hosted/db/migrations/0093_stage6_public_analysis_links.sql",
   "backend/self-hosted/db/migrations/0094_stage4l_body_map_persistence.sql",
   "backend/self-hosted/db/migrations/0095_stage4l_body_atlas_contract.sql",
+  "backend/self-hosted/db/migrations/0096_stage4l_persistent_lesion_identity.sql",
+  "backend/self-hosted/db/migrations/0097_stage4i_asset_upload_idempotency.sql",
+  "backend/self-hosted/db/migrations/0098_stage4i_asset_upload_recovery.sql",
 ];
 
 const VERIFY_STAGE6_ADMIN_SCHEMA_SQL = `
@@ -356,6 +359,107 @@ select json_build_object(
       and tablename = 'lesions'
       and indexname = 'lesions_creation_idempotency_idx'
   ),
+  'persistentLesionIdentityConstraints', (
+    select count(*) = 9
+    from pg_constraint
+    where (
+      (conname = 'patients_identity_scope_unique' and conrelid = 'public.patients'::regclass)
+      or (conname = 'visits_identity_scope_unique' and conrelid = 'public.visits'::regclass)
+      or (conname = 'lesions_identity_scope_unique' and conrelid = 'public.lesions'::regclass)
+      or (conname = 'visits_patient_scope_fk' and conrelid = 'public.visits'::regclass)
+      or (conname = 'lesions_patient_scope_fk' and conrelid = 'public.lesions'::regclass)
+      or (conname = 'lesions_origin_visit_scope_fk' and conrelid = 'public.lesions'::regclass)
+      or (conname = 'clinical_assets_patient_scope_fk' and conrelid = 'public.clinical_assets'::regclass)
+      or (conname = 'clinical_assets_visit_scope_fk' and conrelid = 'public.clinical_assets'::regclass)
+      or (conname = 'clinical_assets_lesion_scope_fk' and conrelid = 'public.clinical_assets'::regclass)
+    )
+      and convalidated
+  ),
+  'assetUploadIdempotencyContract', (
+    exists (
+      select 1
+      from information_schema.tables
+      where table_schema = 'public'
+        and table_name = 'clinical_asset_upload_requests'
+    )
+    and (
+      select count(*) = 13
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'clinical_asset_upload_requests'
+        and column_name in (
+          'id',
+          'clinic_id',
+          'patient_id',
+          'visit_id',
+          'idempotency_key',
+          'request_hash',
+          'reservation_token',
+          'object_bucket',
+          'object_key',
+          'state',
+          'asset_id',
+          'created_at',
+          'completed_at'
+        )
+    )
+    and (
+      select count(*) = 10
+      from pg_constraint
+      where conname in (
+        'clinical_asset_upload_requests_scope_unique',
+        'clinical_asset_upload_requests_reservation_token_unique',
+        'clinical_asset_upload_requests_object_unique',
+        'clinical_asset_upload_requests_key_check',
+        'clinical_asset_upload_requests_hash_check',
+        'clinical_asset_upload_requests_state_check',
+        'clinical_asset_upload_requests_completion_check',
+        'clinical_asset_upload_requests_patient_scope_fk',
+        'clinical_asset_upload_requests_visit_scope_fk',
+        'clinical_asset_upload_requests_asset_id_fkey'
+      )
+        and conrelid = 'public.clinical_asset_upload_requests'::regclass
+        and convalidated
+    )
+    and exists (
+      select 1
+      from pg_indexes
+      where schemaname = 'public'
+        and tablename = 'clinical_asset_upload_requests'
+        and indexname = 'clinical_asset_upload_requests_asset_unique'
+    )
+  ),
+  'assetUploadRecoveryContract', (
+    (
+      select count(*) = 3
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'clinical_asset_upload_requests'
+        and column_name in (
+          'last_claimed_at',
+          'lease_expires_at',
+          'recovery_count'
+        )
+        and is_nullable = 'NO'
+    )
+    and (
+      select count(*) = 2
+      from pg_constraint
+      where conname in (
+        'clinical_asset_upload_requests_recovery_count_check',
+        'clinical_asset_upload_requests_lease_order_check'
+      )
+        and conrelid = 'public.clinical_asset_upload_requests'::regclass
+        and convalidated
+    )
+    and exists (
+      select 1
+      from pg_indexes
+      where schemaname = 'public'
+        and tablename = 'clinical_asset_upload_requests'
+        and indexname = 'clinical_asset_upload_requests_pending_lease_idx'
+    )
+  ),
   'lesionBodyAtlasRequiredColumns', (
     select count(*) = 4
     from information_schema.columns
@@ -517,7 +621,7 @@ export function renderStage4MSchemaMigrationPlan(options = {}) {
     `- Compose env file: ${config.composeEnvFile}`,
     "- Migrations:",
     ...STAGE4M_SELF_HOSTED_SCHEMA_MIGRATIONS.map((file) => `  - ${file}`),
-    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, patient portal role/ownership/write tables, clinical follow-up communication tables, precise lesion body-map columns/idempotency index, body-atlas source/profile/manifest/map metadata, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
+    "- Verification: Device Bridge tables/worker/command columns, leads table/write columns, patient portal role/ownership/write tables, clinical follow-up communication tables, precise lesion body-map columns/idempotency index, body-atlas source/profile/manifest/map metadata, persistent lesion clinic/patient ownership constraints, asset upload idempotency reservation contract, asset upload stale-reservation recovery contract, private_doctor role, clinics.address/status/deleted_at columns, user_roles.disabled_at column, service_api_keys table, clinic_services catalog table, integrations table, bot settings table, and public analysis links table",
     "",
     "No raw tokens, passwords, patient names, object keys, or storage paths are printed.",
   ].join("\n");
@@ -600,6 +704,15 @@ export function verifyStage6AdminSchema(config, io = {}) {
   if (verification.publicAnalysisLinksRequiredColumns !== true) missing.push("public_analysis_links columns");
   if (verification.lesionBodyMapRequiredColumns !== true) missing.push("lesions body-map columns");
   if (verification.lesionBodyMapIdempotencyIndex !== true) missing.push("lesions body-map idempotency index");
+  if (verification.persistentLesionIdentityConstraints !== true) {
+    missing.push("persistent lesion ownership constraints");
+  }
+  if (verification.assetUploadIdempotencyContract !== true) {
+    missing.push("asset upload idempotency reservation contract");
+  }
+  if (verification.assetUploadRecoveryContract !== true) {
+    missing.push("asset upload stale-reservation recovery contract");
+  }
   if (verification.lesionBodyAtlasRequiredColumns !== true) missing.push("lesions body-atlas metadata columns");
   if (verification.clinicalFollowUpTasksTable !== true) missing.push("clinical_follow_up_tasks table");
   if (verification.clinicalFollowUpTasksRequiredColumns !== true) missing.push("clinical_follow_up_tasks columns");

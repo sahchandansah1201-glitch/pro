@@ -337,7 +337,11 @@ async function createSyntheticAsset(baseUrl, label, fetchImpl = fetch) {
   const bytes = Buffer.from(`stage4l-q2-${label}`, "utf8");
   const body = await requestJson(`${baseUrl}/api/v1/visits/${session.visitId}/assets`, {
     method: "POST",
-    headers: { ...session.headers, "Content-Type": "application/json" },
+    headers: {
+      ...session.headers,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `stage4l-q2-${session.visitId}-${createHash("sha256").update(bytes).digest("hex")}`,
+    },
     body: JSON.stringify({
       kind: "overview_photo",
       contentType: "image/png",
@@ -406,7 +410,11 @@ export async function runSyntheticWriter({
     try {
       const response = await fetchImpl(`${baseUrl}/api/v1/visits/${session.visitId}/assets`, {
         method: "POST",
-        headers: { ...session.headers, "Content-Type": "application/json" },
+        headers: {
+          ...session.headers,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `stage4l-q2-${session.visitId}-${index}`,
+        },
         signal: AbortSignal.timeout(requestTimeoutMs),
         body: JSON.stringify({
           kind: "overview_photo",
