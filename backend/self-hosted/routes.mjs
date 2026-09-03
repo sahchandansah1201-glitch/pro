@@ -89,7 +89,7 @@ import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
 import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
 import { buildSelfHostedProductReadiness } from "./product-readiness.mjs";
-import { deviceReadScope, opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
+import { clinicalMediaReadScope, clinicalRecordReadScope, deviceReadScope, opsStatusScope, patientReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
 import { createVisitWorkspaceWriteService } from "./visit-workspace-write-service.mjs";
@@ -1363,7 +1363,7 @@ export async function handleSelfHostedRequest(
     try {
       const safePatientId = assertUuid(decodeURIComponent(patientVisitsMatch[1]));
       const authContext = await runtimeServices.authService.authenticate(request.headers);
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const items = await runtimeServices.visitWorkspaceRepository.listVisitsByPatient({
         patientId: safePatientId,
         clinicIds: scope.clinicIds,
@@ -1408,7 +1408,7 @@ export async function handleSelfHostedRequest(
     try {
       const safeVisitId = assertUuid(decodeURIComponent(visitDetailMatch[1]), "visitId");
       const authContext = await runtimeServices.authService.authenticate(request.headers);
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const item = await runtimeServices.visitWorkspaceRepository.getVisit({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,
@@ -1463,7 +1463,7 @@ export async function handleSelfHostedRequest(
     try {
       const safeVisitId = assertUuid(decodeURIComponent(visitLesionsMatch[1]), "visitId");
       const authContext = await runtimeServices.authService.authenticate(request.headers);
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const items = await runtimeServices.visitWorkspaceRepository.listVisitLesions({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,
@@ -1510,7 +1510,7 @@ export async function handleSelfHostedRequest(
     try {
       const safeVisitId = assertUuid(decodeURIComponent(visitAssetsMatch[1]), "visitId");
       const authContext = await runtimeServices.authService.authenticate(request.headers);
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const items = await runtimeServices.visitWorkspaceRepository.listVisitAssets({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,

@@ -65,7 +65,7 @@ export interface Clinic {
 
 export interface Consents {
   /** Согласие на обработку персональных данных. */
-  pdn: boolean;
+  pdn: boolean | null;
   /** Согласие на медицинскую съёмку и хранение фото. */
   imaging: boolean;
   /** Согласие на телемедицинскую консультацию. */

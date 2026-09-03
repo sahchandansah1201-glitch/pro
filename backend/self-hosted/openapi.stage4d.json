@@ -84,7 +84,7 @@
       "get": {
         "operationId": "listPatients",
         "summary": "List non-deleted patients visible to the authenticated role",
-        "description": "Requires system_admin, clinic_admin, or doctor. Non-system roles are scoped to assigned clinic IDs.",
+        "description": "Requires system_admin, doctor, private_doctor, or assistant. Non-system roles are scoped to assigned clinic IDs. A pure clinic_admin is denied.",
         "parameters": [
           {
             "name": "limit",
@@ -112,7 +112,7 @@
       "post": {
         "operationId": "createPatient",
         "summary": "Create a patient through the self-hosted backend",
-        "description": "Creates a patient row in PostgreSQL, scoped by RBAC. Non-system users may only write to assigned clinics.",
+        "description": "Creates a patient row in PostgreSQL for system_admin or doctor. Doctors may write only to assigned clinics; clinic_admin is denied.",
         "requestBody": {
           "required": true,
           "content": {

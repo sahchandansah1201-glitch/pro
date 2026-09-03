@@ -12,7 +12,8 @@ authenticated backend proxy.
 - `GET /api/v1/assets/{assetId}/download-url` still returns a backend-owned
   route and never exposes bucket/key paths, signed URLs, or access tokens.
 - `GET /api/v1/assets/{assetId}/download` streams bytes through the backend
-  after bearer authentication and RBAC checks.
+  after bearer authentication and `clinicalMediaReadScope` checks. A pure
+  `clinic_admin` is denied before repository or object-store access.
 - Metadata remains in PostgreSQL; bytes are written through
   `backend/self-hosted/object-store.mjs`.
 

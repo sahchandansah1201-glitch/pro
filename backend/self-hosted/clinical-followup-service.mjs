@@ -2,7 +2,13 @@
 // Doctors create local follow-up tasks; patients can answer through /api/v1/me.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { patientPortalScope, visitReadScope, visitWriteScope } from "./rbac.mjs";
+import {
+  clinicGovernanceReadScope,
+  clinicOperationsReadScope,
+  clinicalRecordReadScope,
+  patientPortalScope,
+  visitWriteScope,
+} from "./rbac.mjs";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T/;
 const PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
@@ -1416,7 +1422,7 @@ export function createClinicalFollowUpService({
 } = {}) {
   return {
     async listClinicalFollowUps(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const result = await clinicalFollowUpRepository.listClinicalFollowUps({
         ...params,
         allClinics: scope.allClinics,
@@ -1554,7 +1560,7 @@ export function createClinicalFollowUpService({
     },
 
     async listClinicalFollowUpOperations(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const result = await clinicalFollowUpRepository.listClinicalFollowUpOperations({
         ...params,
         allClinics: scope.allClinics,
@@ -1576,7 +1582,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpOperationsSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicOperationsReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpOperationsSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1597,7 +1603,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpOutcomeQualitySummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpOutcomeQualitySummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1618,7 +1624,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpClinicReviewSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpClinicReviewSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1639,7 +1645,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopValidationSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopValidationSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1660,7 +1666,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyTemplateSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyTemplateSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1681,7 +1687,7 @@ export function createClinicalFollowUpService({
     },
 
     async listClinicalFollowUpSopPolicyTemplates(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const result = await clinicalFollowUpRepository.listClinicalFollowUpSopPolicyTemplates({
         ...params,
         allClinics: scope.allClinics,
@@ -1701,7 +1707,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyApplicationSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyApplicationSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1722,7 +1728,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyExceptionClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyExceptionClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1743,7 +1749,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyAuditRollupSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyAuditRollupSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1764,7 +1770,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceReadinessSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceReadinessSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1785,7 +1791,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1806,7 +1812,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1827,7 +1833,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1848,7 +1854,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1869,7 +1875,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1890,7 +1896,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1911,7 +1917,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1932,7 +1938,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1953,7 +1959,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1974,7 +1980,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -1995,7 +2001,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2016,7 +2022,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2036,7 +2042,7 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2056,7 +2062,7 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2075,7 +2081,7 @@ export function createClinicalFollowUpService({
       });
       return { summary, scope };
     },    async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2095,7 +2101,7 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2116,7 +2122,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2137,7 +2143,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2158,7 +2164,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2179,7 +2185,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary({
         ...params,
         allClinics: scope.allClinics,
@@ -2200,7 +2206,7 @@ export function createClinicalFollowUpService({
     },
 
     async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary(params, authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary({
         ...params,
         allClinics: scope.allClinics,

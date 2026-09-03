@@ -47,4 +47,24 @@ describe("self-hosted-role", () => {
     expect(canSelfHostedSessionAccessPath(session(["system_admin"]), "/sys/users")).toBe(true);
     expect(canSelfHostedSessionAccessPath(session(["unknown"]), "/desk")).toBe(false);
   });
+
+  it("does not let a clinic administrator open clinical patient or visit routes", () => {
+    const clinicAdmin = session(["clinic_admin"]);
+
+    expect(canSelfHostedSessionAccessPath(clinicAdmin, "/patients")).toBe(false);
+    expect(canSelfHostedSessionAccessPath(clinicAdmin, "/patients/patient-1")).toBe(false);
+    expect(canSelfHostedSessionAccessPath(clinicAdmin, "/visits")).toBe(false);
+    expect(canSelfHostedSessionAccessPath(clinicAdmin, "/visits/visit-1")).toBe(false);
+  });
+
+  it("keeps clinical access for clinical roles, including a multi-role administrator", () => {
+    expect(canSelfHostedSessionAccessPath(session(["doctor"]), "/patients/patient-1")).toBe(true);
+    expect(canSelfHostedSessionAccessPath(session(["private_doctor"]), "/visits/visit-1")).toBe(true);
+    expect(
+      canSelfHostedSessionAccessPath(
+        session(["clinic_admin", "private_doctor"]),
+        "/patients/patient-1",
+      ),
+    ).toBe(true);
+  });
 });

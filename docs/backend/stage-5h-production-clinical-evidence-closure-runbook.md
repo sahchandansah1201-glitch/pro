@@ -35,7 +35,7 @@ writes the bundle and receipt.
 
 ```bash
 SELF_HOSTED_API_BASE_URL="https://<clinic-host>" \
-SELF_HOSTED_BEARER_TOKEN="<staff-token-with-visit-read-scope>" \
+SELF_HOSTED_BEARER_TOKEN="<staff-token-with-clinical-record-read-capability>" \
 STAGE5H_VISIT_ID="<visit-id>" \
 STAGE5H_CONFIRM_REAL_PRODUCTION_AGGREGATE="I_CONFIRM_REAL_AGGREGATE_NO_PATIENT_ROWS" \
 npm run export:stage5h:clinical-evidence-from-api -- \

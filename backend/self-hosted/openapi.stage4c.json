@@ -83,7 +83,7 @@
       "get": {
         "operationId": "listPatients",
         "summary": "List non-deleted patients visible to the authenticated role",
-        "description": "Requires system_admin, clinic_admin, or doctor. Non-system roles are scoped to assigned clinic IDs.",
+        "description": "Requires system_admin, doctor, private_doctor, or assistant. Non-system roles are scoped only to clinics where an allowed role is bound; role assignments in another clinic do not expand clinical access. A pure clinic_admin is denied and must use dedicated administrative aggregates.",
         "parameters": [
           {
             "name": "limit",

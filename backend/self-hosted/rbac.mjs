@@ -1,5 +1,15 @@
-export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor", "private_doctor", "assistant"];
-export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
+export const PATIENT_READ_ROLES = ["system_admin", "doctor", "private_doctor", "assistant"];
+export const PATIENT_WRITE_ROLES = ["system_admin", "doctor"];
+export const CLINICAL_RECORD_READ_ROLES = [...PATIENT_READ_ROLES];
+export const CLINICAL_MEDIA_READ_ROLES = [...PATIENT_READ_ROLES];
+export const CLINIC_OPERATIONS_READ_ROLES = [
+  "system_admin",
+  "clinic_admin",
+  "doctor",
+  "private_doctor",
+  "assistant",
+];
+export const CLINIC_GOVERNANCE_READ_ROLES = [...CLINIC_OPERATIONS_READ_ROLES];
 export const PATIENT_PORTAL_ROLES = ["patient"];
 export const PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const OPS_STATUS_ROLES = ["system_admin"];
@@ -49,44 +59,66 @@ export function requireAnyRole(authContext, allowedRoles) {
   };
 }
 
-export function patientReadScope(authContext) {
-  const scoped = requireAnyRole(authContext, PATIENT_READ_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return {
-      allClinics: true,
-      clinicIds: [],
-      roles: scoped.roles,
-    };
+function clinicIdsForRoles(authContext, allowedRoles) {
+  if (!Object.prototype.hasOwnProperty.call(authContext, "roleBindings")) {
+    return normalizeRoles(authContext.clinicIds);
   }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
+  if (!Array.isArray(authContext.roleBindings)) {
+    return [];
+  }
+  const activeRoles = new Set(normalizeRoles(authContext.roles));
+  return normalizeRoles(
+    authContext.roleBindings
+      .filter((binding) => {
+        const role = String(binding?.role || "");
+        return activeRoles.has(role) && allowedRoles.includes(role);
+      })
+      .map((binding) => binding?.clinicId)
+      .filter((clinicId) => typeof clinicId === "string" && clinicId.trim().length > 0)
+      .map((clinicId) => clinicId.trim()),
+  );
+}
+
+function clinicScope(authContext, allowedRoles) {
+  const scoped = requireAnyRole(authContext, allowedRoles);
+  if (scoped.roles.includes("system_admin")) {
+    const hasBindings = Object.prototype.hasOwnProperty.call(scoped, "roleBindings");
+    const hasSystemAdminBinding = Array.isArray(scoped.roleBindings)
+      && scoped.roleBindings.some((binding) => binding?.role === "system_admin");
+    if (hasBindings && !hasSystemAdminBinding) {
+      throw new ForbiddenError("The authenticated user has no active system-admin binding.");
+    }
+    return { allClinics: true, clinicIds: [], roles: scoped.roles };
+  }
+  const clinicIds = clinicIdsForRoles(scoped, allowedRoles);
   if (clinicIds.length === 0) {
     throw new ForbiddenError("The authenticated user has no clinic scope.");
   }
-  return {
-    allClinics: false,
-    clinicIds,
-    roles: scoped.roles,
-  };
+  return { allClinics: false, clinicIds, roles: scoped.roles };
+}
+
+export function patientReadScope(authContext) {
+  return clinicScope(authContext, PATIENT_READ_ROLES);
 }
 
 export function patientWriteScope(authContext) {
-  const scoped = requireAnyRole(authContext, PATIENT_WRITE_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return {
-      allClinics: true,
-      clinicIds: [],
-      roles: scoped.roles,
-    };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return {
-    allClinics: false,
-    clinicIds,
-    roles: scoped.roles,
-  };
+  return clinicScope(authContext, PATIENT_WRITE_ROLES);
+}
+
+export function clinicalRecordReadScope(authContext) {
+  return clinicScope(authContext, CLINICAL_RECORD_READ_ROLES);
+}
+
+export function clinicalMediaReadScope(authContext) {
+  return clinicScope(authContext, CLINICAL_MEDIA_READ_ROLES);
+}
+
+export function clinicOperationsReadScope(authContext) {
+  return clinicScope(authContext, CLINIC_OPERATIONS_READ_ROLES);
+}
+
+export function clinicGovernanceReadScope(authContext) {
+  return clinicScope(authContext, CLINIC_GOVERNANCE_READ_ROLES);
 }
 
 export function patientPortalScope(authContext) {
@@ -98,48 +130,15 @@ export function patientPortalScope(authContext) {
 }
 
 export function patientPhotoProtocolGovernanceWriteScope(authContext) {
-  const scoped = requireAnyRole(authContext, PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
-}
-
-// Stage 4G · Visit workspace read scope. Reuses the patient read RBAC: doctors,
-// clinic admins and system admins can list visits/lesions/assets. Operators and
-// other roles are denied.
-export const VISIT_READ_ROLES = PATIENT_READ_ROLES;
-
-export function visitReadScope(authContext) {
-  return patientReadScope(authContext);
+  return clinicScope(authContext, PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES);
 }
 
 export function leadsAppointmentsReadScope(authContext) {
-  const scoped = requireAnyRole(authContext, LEADS_APPOINTMENTS_READ_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, LEADS_APPOINTMENTS_READ_ROLES);
 }
 
 export function leadsAppointmentsWriteScope(authContext) {
-  const scoped = requireAnyRole(authContext, LEADS_APPOINTMENTS_WRITE_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, LEADS_APPOINTMENTS_WRITE_ROLES);
 }
 
 // Stage 4H · Visit workspace write scope. Only doctors and system admins may
@@ -148,15 +147,7 @@ export function leadsAppointmentsWriteScope(authContext) {
 export const VISIT_WRITE_ROLES = ["system_admin", "doctor"];
 
 export function visitWriteScope(authContext) {
-  const scoped = requireAnyRole(authContext, VISIT_WRITE_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, VISIT_WRITE_ROLES);
 }
 
 // Capture assistants can add image assets to existing visits in their clinic,
@@ -164,15 +155,7 @@ export function visitWriteScope(authContext) {
 export const ASSET_WRITE_ROLES = ["system_admin", "doctor", "private_doctor", "assistant"];
 
 export function assetWriteScope(authContext) {
-  const scoped = requireAnyRole(authContext, ASSET_WRITE_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, ASSET_WRITE_ROLES);
 }
 
 export function opsStatusScope(authContext) {
@@ -181,25 +164,9 @@ export function opsStatusScope(authContext) {
 }
 
 export function deviceReadScope(authContext) {
-  const scoped = requireAnyRole(authContext, DEVICE_READ_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, DEVICE_READ_ROLES);
 }
 
 export function deviceCommandScope(authContext) {
-  const scoped = requireAnyRole(authContext, DEVICE_COMMAND_ROLES);
-  if (scoped.roles.includes("system_admin")) {
-    return { allClinics: true, clinicIds: [], roles: scoped.roles };
-  }
-  const clinicIds = normalizeRoles(scoped.clinicIds);
-  if (clinicIds.length === 0) {
-    throw new ForbiddenError("The authenticated user has no clinic scope.");
-  }
-  return { allClinics: false, clinicIds, roles: scoped.roles };
+  return clinicScope(authContext, DEVICE_COMMAND_ROLES);
 }

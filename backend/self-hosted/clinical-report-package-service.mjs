@@ -2,7 +2,7 @@
 // RBAC + audit for report package readiness without external runtime calls.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitReadScope } from "./rbac.mjs";
+import { clinicalRecordReadScope } from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -22,7 +22,7 @@ export function createClinicalReportPackageService({
   return {
     async getReportPackage(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const reportPackage = await clinicalReportPackageRepository.getReportPackage({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,

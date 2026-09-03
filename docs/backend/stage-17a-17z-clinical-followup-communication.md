@@ -32,9 +32,11 @@ self-hosted product flow:
 - `POST /api/v1/me/follow-ups/{followUpId}/messages`
 - `/openapi.stage17a-17z.json`
 
-Staff read access uses clinic-scoped visit read RBAC. Staff write access uses
-doctor/system-admin visit write RBAC. Patient access uses the linked patient
-portal scope.
+The staff follow-up list contains patient and visit fields and therefore uses
+`clinicalRecordReadScope`; a pure `clinic_admin` is denied. Staff write access
+uses doctor/system-admin visit write RBAC. Patient access uses the linked
+patient portal scope. Administrative access is limited to separately reviewed
+aggregate operations/governance summaries.
 
 ## Data Model
 

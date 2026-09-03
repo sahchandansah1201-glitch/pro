@@ -157,7 +157,7 @@ test("Batch Y service reviews release policy and writes governance audit metadat
   );
 });
 
-test("Batch W service exposes release audit to staff read scope and hides internals", async () => {
+test("Batch W service exposes release audit to clinical read scope and hides internals", async () => {
   const auditEvents = [];
   const service = createPatientPhotoProtocolReleaseService({
     patientPhotoProtocolReleaseRepository: {
@@ -213,7 +213,7 @@ test("Batch W service exposes release audit to staff read scope and hides intern
 
   const result = await service.getReleaseAudit(
     VISIT_ID,
-    { userId: "admin-user", roles: ["clinic_admin"], clinicIds: [CLINIC_ID] },
+    doctorAuth,
     { correlationId: "corr-audit-read" },
   );
   assert.equal(result.audit.status, "revoked");
@@ -228,6 +228,10 @@ test("Batch W service exposes release audit to staff read scope and hides intern
 
   await assert.rejects(
     () => service.getReleaseAudit(VISIT_ID, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.getReleaseAudit(VISIT_ID, { userId: USER_ID, roles: ["clinic_admin"], clinicIds: [CLINIC_ID] }),
     ForbiddenError,
   );
 });

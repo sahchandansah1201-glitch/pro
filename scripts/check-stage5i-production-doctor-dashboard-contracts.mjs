@@ -34,7 +34,7 @@ const REQUIRED_TEXT = {
   "backend/self-hosted/doctor-dashboard-service.mjs": [
     "createDoctorDashboardService",
     "doctor.dashboard.read",
-    "visitReadScope",
+    "clinicalRecordReadScope",
   ],
   "backend/self-hosted/routes.mjs": [
     "openapi.stage5i.json",

@@ -2,7 +2,7 @@
 // RBAC, validation and audit for production assessment/conclusion/report contracts.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { ForbiddenError, visitReadScope, visitWriteScope } from "./rbac.mjs";
+import { clinicGovernanceReadScope, clinicalMediaReadScope, clinicalRecordReadScope, ForbiddenError, visitWriteScope } from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -2798,7 +2798,7 @@ export function createClinicalWorkspaceService({
   return {
     async getAssessment(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
       const assessment = await clinicalWorkspaceRepository.getAssessment({
         visitId: safeVisitId,
@@ -2846,7 +2846,7 @@ export function createClinicalWorkspaceService({
 
     async getConclusion(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
       const conclusion = await clinicalWorkspaceRepository.getConclusion({
         visitId: safeVisitId,
@@ -2894,7 +2894,7 @@ export function createClinicalWorkspaceService({
 
     async getReport(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
       const report = await clinicalWorkspaceRepository.getReport({
         visitId: safeVisitId,
@@ -2996,7 +2996,7 @@ export function createClinicalWorkspaceService({
     async getLesionCaptureMetadata(patientId, lesionId, authContext, { correlationId } = {}) {
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const metadata = await clinicalWorkspaceRepository.getLesionCaptureMetadata({
         patientId: safePatientId,
         lesionId: safeLesionId,
@@ -3266,7 +3266,7 @@ export function createClinicalWorkspaceService({
 
     async getVisitLesionComparisonViewerQaReviewQueue(visitId, input, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const params = normalizeLesionComparisonViewerQaReviewQueueParams(input);
       const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
       const queue = await clinicalWorkspaceRepository.getVisitLesionComparisonViewerQaReviewQueue({
@@ -3311,7 +3311,7 @@ export function createClinicalWorkspaceService({
 
     async getVisitLongitudinalDatasetValidation(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
       const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
         visitId: safeVisitId,
@@ -6343,7 +6343,7 @@ export function createClinicalWorkspaceService({
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const qa = await clinicalWorkspaceRepository.getLesionLongitudinalQa({
         patientId: safePatientId,
         lesionId: safeLesionId,
@@ -6390,7 +6390,7 @@ export function createClinicalWorkspaceService({
     async getLesionLongitudinalHistory(patientId, lesionId, authContext, { correlationId } = {}) {
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const history = await clinicalWorkspaceRepository.getLesionLongitudinalHistory({
         patientId: safePatientId,
         lesionId: safeLesionId,
@@ -6422,7 +6422,7 @@ export function createClinicalWorkspaceService({
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");
       const safeAssetId = assertUuid(assetId, "assetId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const asset = await clinicalWorkspaceRepository.getProtectedLesionImageAsset({
         patientId: safePatientId,
         lesionId: safeLesionId,

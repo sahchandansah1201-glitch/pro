@@ -3,8 +3,9 @@
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import {
+  clinicGovernanceReadScope,
+  clinicalRecordReadScope,
   patientPhotoProtocolGovernanceWriteScope,
-  visitReadScope,
   visitWriteScope,
 } from "./rbac.mjs";
 import {
@@ -420,7 +421,7 @@ export function createPatientPhotoProtocolReleaseService({
 
     async getReleaseAudit(visitId, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const audit = await patientPhotoProtocolReleaseRepository.getReleaseAudit({
         visitId: safeVisitId,
         clinicIds: scope.clinicIds,
@@ -443,7 +444,7 @@ export function createPatientPhotoProtocolReleaseService({
     },
 
     async getGovernance(authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicGovernanceReadScope(authContext);
       const governance = await patientPhotoProtocolReleaseRepository.getGovernance({
         clinicIds: scope.clinicIds,
         allClinics: scope.allClinics,

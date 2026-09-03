@@ -3,7 +3,7 @@
   "info": {
     "title": "Dermatolog Pro Self-hosted API",
     "version": "4J-asset-binaries",
-    "description": "Stage 4J self-hosted clinical asset binary upload and authenticated backend download proxy."
+    "description": "Stage 4J self-hosted clinical asset binary upload and authenticated backend download proxy. Clinical media reads require clinicalMediaReadScope and deny a pure clinic_admin."
   },
   "servers": [{ "url": "/" }],
   "components": {
@@ -109,6 +109,7 @@
     "/api/v1/assets/{assetId}/download-url": {
       "get": {
         "summary": "Issue backend-owned asset download route",
+        "description": "Requires clinicalMediaReadScope and denies a pure clinic_admin before repository or object-store access.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
@@ -125,7 +126,7 @@
     "/api/v1/assets/{assetId}/download": {
       "get": {
         "summary": "Download asset bytes through authenticated backend proxy",
-        "description": "Streams bytes from the self-hosted object store. Requires bearer authentication; no signed URL, access_token, bucket, object key, or storage path is exposed.",
+        "description": "Streams bytes from the self-hosted object store through clinicalMediaReadScope and denies a pure clinic_admin before repository or object-store access. Requires bearer authentication; no signed URL, access_token, bucket, object key, or storage path is exposed.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }

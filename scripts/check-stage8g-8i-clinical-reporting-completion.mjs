@@ -45,7 +45,7 @@ const REQUIRED_TEXT = {
   ],
   "backend/self-hosted/clinical-report-package-service.mjs": [
     "createClinicalReportPackageService",
-    "visitReadScope",
+    "clinicalRecordReadScope",
     "clinical_report.package.read",
     "missingCount",
     "patientPhotoProtocolStatus",

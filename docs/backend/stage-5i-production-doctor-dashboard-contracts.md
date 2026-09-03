@@ -21,9 +21,10 @@ patients and visit workspace contracts.
   - clinical asset metadata issues without exposing object bucket/key.
   - device registry summary from `medical_devices`.
 - `backend/self-hosted/doctor-dashboard-service.mjs` applies
-  `visitReadScope`, records `doctor.dashboard.read`, and scopes doctors to
-  their own `doctor_user_id` while allowing clinic/system admins their normal
-  clinic scope.
+  `clinicalRecordReadScope`, records `doctor.dashboard.read`, and scopes
+  doctors to their own `doctor_user_id`. A pure `clinic_admin` is denied
+  because this response contains patient and clinical visit data;
+  `system_admin` keeps its established all-clinic access.
 - `backend/self-hosted/openapi.stage5i.json` documents the response shape.
 - `routes.mjs` exposes `/api/v1/doctor/dashboard` and
   `/openapi.stage5i.json`.

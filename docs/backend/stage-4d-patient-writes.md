@@ -31,9 +31,13 @@ storage, and nginx are owned by the local deployment.
 Patient writes use `patientWriteScope` and `PATIENT_WRITE_ROLES`:
 
 - `system_admin` can write across clinics, but must send `clinicId` on create.
-- `clinic_admin` can write only assigned clinics.
 - `doctor` can write only assigned clinics.
-- `assistant` and `operator` are rejected with `403 forbidden`.
+- `clinic_admin`, `private_doctor`, `assistant`, `operator`, and `patient` are
+  rejected with `403 forbidden`.
+
+The current capability-split override removes generic patient write access
+from `clinic_admin`. Any future administrative patient registry requires a
+separate, owner-approved minimal DTO instead of this clinical endpoint.
 
 For non-system users, `clinicId` may be omitted only when the token has one
 clinic scope. If more than one clinic is available, the payload must choose the

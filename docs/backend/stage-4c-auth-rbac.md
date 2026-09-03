@@ -25,7 +25,8 @@ The important change is that the backend now has its own auth/RBAC contract.
   bindings from PostgreSQL.
 - `backend/self-hosted/auth-service.mjs` — login and bearer-token
   authentication.
-- `backend/self-hosted/rbac.mjs` — patient-read role enforcement.
+- `backend/self-hosted/rbac.mjs` — capability-specific clinical, media,
+  operations, governance, and patient role enforcement.
 - `backend/self-hosted/audit-repository.mjs` — append-only audit writes.
 - `backend/self-hosted/openapi.stage4c.json` — Stage 4C API contract.
 - `backend/self-hosted/db/migrations/0003_stage4c_auth_seed.sql` — demo local
@@ -43,14 +44,23 @@ seed user and `JWT_SECRET`.
 
 ## 4. Protected patient read
 
-`GET /api/v1/patients` now requires a bearer token. Allowed roles:
+`GET /api/v1/patients` requires a bearer token. The current capability-split
+override allows:
 
 - `system_admin` — all clinics;
-- `clinic_admin` — assigned clinic IDs;
-- `doctor` — assigned clinic IDs.
+- `doctor`, `private_doctor`, and `assistant` — assigned clinic IDs.
 
-`assistant` and `operator` are intentionally denied until a later workflow
-defines their exact permissions.
+`clinic_admin`, `operator`, and `patient` are denied. A clinic administrator
+must use dedicated administrative aggregates and cannot read patient rows or
+clinical records through the generic patient API.
+
+For a user with different roles in different clinics, every clinic-scoped
+capability is derived from its matching `roleBindings`, not from the union of
+all clinic IDs. An explicitly empty or malformed binding list therefore fails
+closed, including for the global `system_admin` fast-path; the
+legacy `clinicIds` fallback is used only by internal contexts that do not carry
+the `roleBindings` field. Disabled role bindings are excluded when the current
+user context is loaded from PostgreSQL.
 
 ## 5. API examples
 

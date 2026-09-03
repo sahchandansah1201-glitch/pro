@@ -2,7 +2,7 @@
 // Applies clinical RBAC and records safe audit metadata for schedule reads.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitReadScope } from "./rbac.mjs";
+import { clinicalRecordReadScope } from "./rbac.mjs";
 
 function doctorUserFilter(authContext, scope) {
   const roles = Array.isArray(scope.roles) ? scope.roles : [];
@@ -17,7 +17,7 @@ export function createVisitScheduleService({
 } = {}) {
   return {
     async listVisits(authContext, params = {}, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const schedule = await visitScheduleRepository.listVisits({
         ...params,
         clinicIds: scope.clinicIds,

@@ -58,7 +58,7 @@ test("Stage 8G-8I service returns report package and writes safe audit metadata"
   });
 });
 
-test("Stage 8G-8I service denies roles without visit read scope", async () => {
+test("Stage 8G-8I service denies roles without clinical record read capability", async () => {
   const service = createClinicalReportPackageService({
     clinicalReportPackageRepository: {
       async getReportPackage() {

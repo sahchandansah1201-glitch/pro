@@ -4432,7 +4432,16 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
       </Section>
 
       <Section title="Согласия" className="lg:col-span-5">
-        <Field term="Обработка ПД" value={patient.consents.pdn ? "Есть" : "Нет"} />
+        <Field
+          term="Обработка ПД"
+          value={
+            patient.consents.pdn == null
+              ? "Не зафиксировано"
+              : patient.consents.pdn
+                ? "Есть"
+                : "Нет"
+          }
+        />
         <Field term="Медицинская съёмка" value={patient.consents.imaging ? "Есть" : "Нет"} />
         <Field term="Телемедицина" value={patient.consents.telemed ? "Есть" : "Нет"} />
         {!patient.consents.imaging && (

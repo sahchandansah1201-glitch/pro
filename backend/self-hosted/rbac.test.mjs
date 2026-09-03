@@ -3,19 +3,193 @@ import { test } from "node:test";
 
 import {
   AuthRequiredError,
+  CLINICAL_MEDIA_READ_ROLES,
+  CLINICAL_RECORD_READ_ROLES,
+  CLINIC_GOVERNANCE_READ_ROLES,
+  CLINIC_OPERATIONS_READ_ROLES,
   ForbiddenError,
   assetWriteScope,
+  clinicGovernanceReadScope,
+  clinicOperationsReadScope,
+  clinicalMediaReadScope,
+  clinicalRecordReadScope,
   deviceCommandScope,
   deviceReadScope,
   leadsAppointmentsReadScope,
   leadsAppointmentsWriteScope,
   opsStatusScope,
   patientPortalScope,
+  patientPhotoProtocolGovernanceWriteScope,
   patientReadScope,
   patientWriteScope,
   requireAnyRole,
   visitWriteScope,
 } from "./rbac.mjs";
+
+test("clinic scopes bind each capability to the clinic where its allowed role is assigned", () => {
+  const authContext = {
+    userId: "multi-role-user",
+    roles: ["clinic_admin", "private_doctor", "assistant", "operator", "doctor"],
+    clinicIds: ["clinic-admin", "clinic-private", "clinic-assistant", "clinic-operator", "clinic-doctor"],
+    roleBindings: [
+      { role: "clinic_admin", clinicId: "clinic-admin" },
+      { role: "private_doctor", clinicId: "clinic-private" },
+      { role: "assistant", clinicId: "clinic-assistant" },
+      { role: "operator", clinicId: "clinic-operator" },
+      { role: "doctor", clinicId: "clinic-doctor" },
+    ],
+  };
+
+  for (const scope of [patientReadScope, clinicalRecordReadScope, clinicalMediaReadScope]) {
+    assert.deepEqual(scope(authContext).clinicIds, ["clinic-private", "clinic-assistant", "clinic-doctor"]);
+  }
+  assert.deepEqual(patientWriteScope(authContext).clinicIds, ["clinic-doctor"]);
+  assert.deepEqual(visitWriteScope(authContext).clinicIds, ["clinic-doctor"]);
+  assert.deepEqual(assetWriteScope(authContext).clinicIds, ["clinic-private", "clinic-assistant", "clinic-doctor"]);
+  assert.deepEqual(clinicOperationsReadScope(authContext).clinicIds, [
+    "clinic-admin",
+    "clinic-private",
+    "clinic-assistant",
+    "clinic-doctor",
+  ]);
+  assert.deepEqual(clinicGovernanceReadScope(authContext).clinicIds, [
+    "clinic-admin",
+    "clinic-private",
+    "clinic-assistant",
+    "clinic-doctor",
+  ]);
+  assert.deepEqual(patientPhotoProtocolGovernanceWriteScope(authContext).clinicIds, [
+    "clinic-admin",
+    "clinic-doctor",
+  ]);
+  assert.deepEqual(leadsAppointmentsReadScope(authContext).clinicIds, [
+    "clinic-admin",
+    "clinic-operator",
+    "clinic-doctor",
+  ]);
+  assert.deepEqual(leadsAppointmentsWriteScope(authContext).clinicIds, [
+    "clinic-admin",
+    "clinic-operator",
+    "clinic-doctor",
+  ]);
+  assert.deepEqual(deviceReadScope(authContext).clinicIds, ["clinic-admin"]);
+  assert.deepEqual(deviceCommandScope(authContext).clinicIds, ["clinic-admin"]);
+});
+
+test("explicit empty role bindings fail closed while legacy contexts without bindings retain clinic scope", () => {
+  assert.throws(
+    () => clinicOperationsReadScope({
+      userId: "clinic-admin",
+      roles: ["clinic_admin"],
+      clinicIds: ["clinic-1"],
+      roleBindings: [],
+    }),
+    ForbiddenError,
+  );
+  for (const roleBindings of [null, {}, "invalid"]) {
+    assert.throws(
+      () => clinicOperationsReadScope({
+        userId: "malformed-clinic-admin",
+        roles: ["clinic_admin"],
+        clinicIds: ["clinic-untrusted-union"],
+        roleBindings,
+      }),
+      ForbiddenError,
+    );
+  }
+  for (const roleBindings of [null, {}, "invalid", []]) {
+    assert.throws(
+      () => clinicalRecordReadScope({
+        userId: "malformed-system-admin",
+        roles: ["system_admin"],
+        clinicIds: [],
+        roleBindings,
+      }),
+      ForbiddenError,
+    );
+  }
+  assert.deepEqual(
+    clinicalRecordReadScope({
+      userId: "system-admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null }],
+    }),
+    { allClinics: true, clinicIds: [], roles: ["system_admin"] },
+  );
+  assert.deepEqual(
+    clinicOperationsReadScope({
+      userId: "legacy-clinic-admin",
+      roles: ["clinic_admin"],
+      clinicIds: ["clinic-1"],
+    }).clinicIds,
+    ["clinic-1"],
+  );
+  assert.throws(
+    () => clinicalRecordReadScope({
+      userId: "malformed-private-doctor",
+      roles: ["private_doctor"],
+      clinicIds: ["clinic-untrusted-union"],
+      roleBindings: [
+        { role: "private_doctor", clinicId: null },
+        { role: "private_doctor", clinicId: undefined },
+        { role: "private_doctor", clinicId: "   " },
+        { role: "doctor", clinicId: "clinic-role-not-active" },
+      ],
+    }),
+    ForbiddenError,
+  );
+});
+
+test("capability read scopes deny clinic-admin clinical data but preserve operations", () => {
+  const clinicAdmin = {
+    userId: "clinic-admin",
+    roles: ["clinic_admin"],
+    clinicIds: ["clinic-1"],
+  };
+
+  assert.throws(() => clinicalRecordReadScope(clinicAdmin), ForbiddenError);
+  assert.throws(() => clinicalMediaReadScope(clinicAdmin), ForbiddenError);
+  assert.deepEqual(clinicOperationsReadScope(clinicAdmin), {
+    allClinics: false,
+    clinicIds: ["clinic-1"],
+    roles: ["clinic_admin"],
+  });
+  assert.deepEqual(clinicGovernanceReadScope(clinicAdmin), {
+    allClinics: false,
+    clinicIds: ["clinic-1"],
+    roles: ["clinic_admin"],
+  });
+  assert.notStrictEqual(CLINICAL_RECORD_READ_ROLES, CLINICAL_MEDIA_READ_ROLES);
+  assert.notStrictEqual(CLINIC_GOVERNANCE_READ_ROLES, CLINIC_OPERATIONS_READ_ROLES);
+  assert.deepEqual(CLINICAL_RECORD_READ_ROLES, ["system_admin", "doctor", "private_doctor", "assistant"]);
+  assert.deepEqual(CLINICAL_MEDIA_READ_ROLES, ["system_admin", "doctor", "private_doctor", "assistant"]);
+  assert.deepEqual(CLINIC_OPERATIONS_READ_ROLES, ["system_admin", "clinic_admin", "doctor", "private_doctor", "assistant"]);
+  assert.deepEqual(CLINIC_GOVERNANCE_READ_ROLES, CLINIC_OPERATIONS_READ_ROLES);
+
+  const multiRole = { ...clinicAdmin, roles: ["clinic_admin", "private_doctor"] };
+  assert.deepEqual(clinicalRecordReadScope(multiRole), {
+    allClinics: false,
+    clinicIds: ["clinic-1"],
+    roles: ["clinic_admin", "private_doctor"],
+  });
+
+  for (const scope of [
+    clinicalRecordReadScope,
+    clinicalMediaReadScope,
+    clinicOperationsReadScope,
+    clinicGovernanceReadScope,
+  ]) {
+    assert.deepEqual(scope({ userId: "root", roles: ["system_admin"], clinicIds: [] }), {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    });
+    assert.throws(() => scope({ userId: "u", roles: ["operator"], clinicIds: ["clinic-1"] }), ForbiddenError);
+    assert.throws(() => scope({ userId: "u", roles: ["patient"], clinicIds: ["clinic-1"] }), ForbiddenError);
+    assert.throws(() => scope({ userId: "u", roles: ["doctor"], clinicIds: [] }), ForbiddenError);
+  }
+});
 
 test("requireAnyRole rejects anonymous and disallowed roles", () => {
   assert.throws(() => requireAnyRole(null, ["doctor"]), AuthRequiredError);
@@ -25,18 +199,14 @@ test("requireAnyRole rejects anonymous and disallowed roles", () => {
   );
 });
 
-test("patientWriteScope mirrors patient read clinic scoping for mutating routes", () => {
-  assert.deepEqual(
-    patientWriteScope({
+test("patientWriteScope denies clinic admins and keeps system-admin write behavior", () => {
+  assert.throws(
+    () => patientWriteScope({
       userId: "u",
       roles: ["clinic_admin"],
       clinicIds: ["clinic-1", "clinic-2"],
     }),
-    {
-      allClinics: false,
-      clinicIds: ["clinic-1", "clinic-2"],
-      roles: ["clinic_admin"],
-    },
+    ForbiddenError,
   );
 
   assert.deepEqual(
@@ -96,6 +266,15 @@ test("patientReadScope scopes clinic roles and allows system_admin globally", ()
       clinicIds: ["clinic-1"],
       roles: ["assistant"],
     },
+  );
+
+  assert.throws(
+    () => patientReadScope({
+      userId: "clinic-admin",
+      roles: ["clinic_admin"],
+      clinicIds: ["clinic-1"],
+    }),
+    ForbiddenError,
   );
 });
 

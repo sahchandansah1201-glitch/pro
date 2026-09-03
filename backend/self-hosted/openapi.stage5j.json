@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dermatologist Pro Self-hosted API · Stage 5J",
-    "version": "5J-visit-schedule-contracts"
+    "version": "5J-visit-schedule-contracts",
+    "description": "Full clinical visit schedule. Requires clinicalRecordReadScope; a pure clinic_admin is denied because the response includes patient and visit fields."
   },
   "servers": [{ "url": "/" }],
   "security": [{ "bearerAuth": [] }],

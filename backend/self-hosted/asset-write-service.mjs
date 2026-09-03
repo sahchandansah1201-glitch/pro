@@ -5,7 +5,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { assetWriteScope, visitReadScope } from "./rbac.mjs";
+import { assetWriteScope, clinicalMediaReadScope } from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -389,7 +389,7 @@ export function createAssetWriteService({
 
     async getAssetDownloadUrl(assetId, authContext, { correlationId, expiresIn = 300 } = {}) {
       const safeAssetId = assertUuid(assetId, "assetId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const asset = await assetWriteRepository.getAssetInternal({
         assetId: safeAssetId,
         clinicIds: scope.clinicIds,
@@ -438,7 +438,7 @@ export function createAssetWriteService({
 
     async downloadAsset(assetId, authContext, { correlationId } = {}) {
       const safeAssetId = assertUuid(assetId, "assetId");
-      const scope = visitReadScope(authContext);
+      const scope = clinicalMediaReadScope(authContext);
       const asset = await assetWriteRepository.getAssetInternal({
         assetId: safeAssetId,
         clinicIds: scope.clinicIds,

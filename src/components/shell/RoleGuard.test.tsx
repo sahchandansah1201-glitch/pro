@@ -2,7 +2,7 @@
 // auth-aware code paths.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
@@ -24,6 +24,13 @@ vi.mock("@/lib/supabase-client", () => ({
 }));
 
 import { RoleGuard } from "@/components/shell/RoleGuard";
+
+const patientLoader = vi.fn();
+
+function PatientLoaderProbe() {
+  patientLoader();
+  return <div data-testid="patient-loader">PATIENT LOADER</div>;
+}
 
 const noop = async () => ({ error: null });
 function authValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
@@ -67,6 +74,15 @@ function renderAt(
                 </RoleGuard>
               }
             />
+            <Route
+              path="/patients/:patientId"
+              element={
+                <RoleGuard>
+                  <PatientLoaderProbe />
+                </RoleGuard>
+              }
+            />
+            <Route path="/admin" element={<div data-testid="admin-page">ADMIN</div>} />
             <Route path="/login" element={<div data-testid="login-page">LOGIN</div>} />
             <Route path="/self-hosted/login" element={<div data-testid="self-hosted-login">SELF HOSTED LOGIN</div>} />
           </Routes>
@@ -79,6 +95,7 @@ function renderAt(
 beforeEach(() => {
   vi.unstubAllEnvs();
   configured = false;
+  patientLoader.mockClear();
   try {
     window.localStorage.removeItem(ROLE_STORAGE_KEY);
     window.localStorage.removeItem(SELF_HOSTED_API_BASE_URL_KEY);
@@ -177,5 +194,57 @@ describe("RoleGuard · production self-hosted mode", () => {
     expect(screen.getByText(/Права доступа определяются активным рабочим входом/i)).toBeInTheDocument();
     expect(screen.queryByText(/Сменить учебную роль/i)).not.toBeInTheDocument();
     expect(document.body.textContent || "").not.toMatch(/self-hosted|production|backend|демо/i);
+  });
+
+  it("blocks a clinic administrator before the clinical patient screen mounts", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["clinic_admin"]);
+
+    renderAt("/patients/patient-1", authValue(), "doctor");
+
+    expect(screen.getByRole("heading", { name: "Нет доступа к клиническим данным" })).toBeInTheDocument();
+    expect(screen.getByText("Этот раздел доступен врачу.")).toBeInTheDocument();
+    expect(screen.queryByTestId("patient-loader")).not.toBeInTheDocument();
+    expect(patientLoader).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Вернуться в администрирование" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Войти под другой учётной записью" })).toBeInTheDocument();
+  });
+
+  it("clears the working identity but keeps the API address before another login", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["clinic_admin"]);
+    renderAt("/patients/patient-1", authValue(), "doctor");
+
+    fireEvent.click(screen.getByRole("button", { name: "Войти под другой учётной записью" }));
+
+    expect(screen.getByTestId("self-hosted-login")).toBeInTheDocument();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_USER_KEY)).toBeNull();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_BASE_URL_KEY)).toBe("http://localhost:8080");
+  });
+
+  it("returns a blocked clinic administrator to the administration area", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["clinic_admin"]);
+    renderAt("/patients/patient-1", authValue(), "doctor");
+
+    fireEvent.click(screen.getByRole("button", { name: "Вернуться в администрирование" }));
+
+    expect(screen.getByTestId("admin-page")).toBeInTheDocument();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("jwt-production");
+  });
+
+  it.each([
+    ["doctor"],
+    ["private_doctor"],
+    ["clinic_admin", "private_doctor"],
+  ])("keeps the clinical screen available for the session roles %j", (...roles) => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(roles);
+
+    renderAt("/patients/patient-1", authValue(), "clinic_admin");
+
+    expect(screen.getByTestId("patient-loader")).toBeInTheDocument();
+    expect(patientLoader).toHaveBeenCalledTimes(1);
   });
 });

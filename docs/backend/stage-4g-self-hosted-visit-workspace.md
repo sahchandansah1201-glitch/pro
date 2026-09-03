@@ -12,9 +12,13 @@ backend in **read-only** mode. No managed-runtime coupling is introduced.
 - `GET /api/v1/visits/{visitId}/assets` — clinical asset metadata only
   (no `object_bucket`/`object_key`/signed URLs).
 
-All endpoints require a self-hosted bearer token (`Authorization: Bearer …`),
-enforce `visitReadScope` (doctors, clinic admins, system admins), and emit
-`visit.list` / `visit.read` / `visit.lesions` / `visit.assets` audit events.
+All endpoints require a self-hosted bearer token (`Authorization: Bearer …`).
+Visit, patient, and lesion records use `clinicalRecordReadScope`; clinical
+asset metadata uses `clinicalMediaReadScope`. Both scopes allow
+`system_admin`, `doctor`, `private_doctor`, and `assistant` with the established
+clinic boundary, and deny a pure `clinic_admin` before repository access. The
+routes emit `visit.list` / `visit.read` / `visit.lesions` / `visit.assets`
+audit events.
 
 ## Frontend
 

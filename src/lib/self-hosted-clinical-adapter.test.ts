@@ -40,13 +40,15 @@ describe("self-hosted clinical adapter", () => {
       clinic: { id: "clinic-1", slug: "clinic", name: "Clinic" },
     };
 
-    expect(selfHostedVisitDetailToPatient(visit)).toMatchObject({
+    const patient = selfHostedVisitDetailToPatient(visit);
+    expect(patient).toMatchObject({
       fullName: "Live Patient",
       birthDate: "1990-01-02",
       sex: "male",
       phototype: "III",
       consents: { imaging: true },
     });
+    expect(patient.consents.pdn).toBeNull();
     expect(selfHostedVisitToDomain(visit)).toMatchObject({
       id: "visit-1",
       patientId: "patient-1",

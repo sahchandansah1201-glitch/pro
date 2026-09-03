@@ -34,7 +34,7 @@ const REQUIRED_TEXT = {
   "backend/self-hosted/visit-schedule-service.mjs": [
     "createVisitScheduleService",
     "visit.schedule.list",
-    "visitReadScope",
+    "clinicalRecordReadScope",
   ],
   "backend/self-hosted/routes.mjs": [
     "openapi.stage5j.json",

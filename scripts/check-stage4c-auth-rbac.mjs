@@ -18,6 +18,8 @@ const REQUIRED_FILES = [
   "backend/self-hosted/audit-repository.test.mjs",
   "backend/self-hosted/rbac.mjs",
   "backend/self-hosted/rbac.test.mjs",
+  "backend/self-hosted/clinic-admin-clinical-routes.test.mjs",
+  "backend/self-hosted/rbac-capability-migration.test.mjs",
   "backend/self-hosted/openapi.stage4c.json",
   "backend/self-hosted/db/migrations/0003_stage4c_auth_seed.sql",
   "docs/backend/stage-4c-auth-rbac.md",
@@ -44,9 +46,18 @@ const REQUIRED_TEXT = {
     "Bearer",
     "InvalidCredentialsError",
   ],
+  "backend/self-hosted/auth-repository.mjs": [
+    "ur.disabled_at is null",
+  ],
   "backend/self-hosted/rbac.mjs": [
     "PATIENT_READ_ROLES",
     "patientReadScope",
+    "clinicalRecordReadScope",
+    "clinicalMediaReadScope",
+    "clinicOperationsReadScope",
+    "clinicGovernanceReadScope",
+    "clinicIdsForRoles",
+    "roleBindings",
     "AuthRequiredError",
     "ForbiddenError",
   ],
@@ -169,6 +180,14 @@ function validatePackageScripts(errors, root) {
   ]) {
     if (!packageJson.includes(script)) {
       errors.push(`package.json missing ${script}`);
+    }
+  }
+  for (const requiredTest of [
+    "clinic-admin-clinical-routes.test.mjs",
+    "rbac-capability-migration.test.mjs",
+  ]) {
+    if (!packageJson.includes(requiredTest)) {
+      errors.push(`package.json must include ${requiredTest} in the Stage 4C test gate`);
     }
   }
   const preflightAll = read(root, "scripts/preflight-all.mjs");

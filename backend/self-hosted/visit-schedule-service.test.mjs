@@ -50,21 +50,20 @@ test("Stage 5J service lists doctor-scoped schedule and audits read", async () =
   assert.equal(auditEvents[0].correlationId, "corr-5j");
 });
 
-test("Stage 5J service lets clinic_admin see clinic schedule without doctor filter", async () => {
-  let paramsSeen = null;
+test("Stage 5J service rejects clinic_admin before reading the clinical schedule", async () => {
+  let repositoryCalls = 0;
   const service = createVisitScheduleService({
     visitScheduleRepository: {
-      async listVisits(params) {
-        paramsSeen = params;
-        return { items: [], count: 0, limit: 50, offset: 0, filters: { status: "all" } };
-      },
+      async listVisits() { repositoryCalls += 1; },
     },
     auditRepository: { async recordEvent() {} },
   });
 
-  await service.listVisits(authContext("clinic_admin"), {}, { correlationId: "corr-admin" });
-  assert.equal(paramsSeen.doctorUserId, null);
-  assert.deepEqual(paramsSeen.clinicIds, [CLINIC_ID]);
+  await assert.rejects(
+    () => service.listVisits(authContext("clinic_admin"), {}, { correlationId: "corr-admin" }),
+    /access|role|resource/i,
+  );
+  assert.equal(repositoryCalls, 0);
 });
 
 test("Stage 5J service denies roles without visit read access", async () => {

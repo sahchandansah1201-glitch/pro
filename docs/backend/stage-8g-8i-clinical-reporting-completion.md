@@ -38,6 +38,11 @@ The endpoint does not expose object storage paths, signed URLs, access tokens,
 raw external payloads, or raw patient identifiers beyond scoped internal ids
 already used by the self-hosted API.
 
+The current capability-split override treats the report package as clinical
+record data: reads require `clinicalRecordReadScope`, so a pure
+`clinic_admin` is denied before repository access. Only explicitly reviewed,
+aggregate-only release governance views use `clinicGovernanceReadScope`.
+
 For the patient photo/protocol contract specifically, the endpoint also marks:
 
 - raw files exposed: false;
@@ -130,8 +135,10 @@ Batch W adds a staff/admin read-model for the release ledger:
 - repository SQL reads `patient_photo_protocol_releases` plus append-only
   `audit_log` events for prepare, revoke, patient read, proxy download, and
   proxy denial;
-- service uses visit read scope, so doctor, clinic admin, and system admin can
-  review the safe ledger inside their clinic scope;
+- service uses `clinicalRecordReadScope`, so the visit-bound ledger remains
+  available to doctor, private doctor, assistant, and system admin inside the
+  established clinic scope; a pure clinic admin is denied because the DTO
+  includes release, patient, and visit identifiers;
 - production `VisitWorkspacePage` report tab shows `Журнал выдачи фото` with
   immutable audit counts and event labels.
 
@@ -141,7 +148,7 @@ and reason-present booleans. It does not expose raw audit payloads, actor
 identifiers, internal request identifiers, revoke reason text, object storage
 identifiers, storage paths, signed links, tokens, or physician-only text.
 
-## Staff/admin aggregate governance
+## Staff aggregate audit and admin aggregate governance
 
 Batch AB adds a clinic-scope governance read model for administrator and
 private-practice operating screens:

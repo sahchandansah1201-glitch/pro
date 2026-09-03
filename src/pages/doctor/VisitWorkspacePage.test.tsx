@@ -200,6 +200,7 @@ describe("VisitWorkspacePage · connected clinic session outside production mode
     expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Визит не найден" })).toBeNull();
     expect(screen.getByTestId("visit-workspace-live-banner")).toHaveTextContent(/Система клиники/);
+    expect(screen.getByText("Не зафиксировано")).toBeInTheDocument();
   });
 });
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {

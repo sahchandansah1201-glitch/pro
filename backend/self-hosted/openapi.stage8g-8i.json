@@ -3,7 +3,7 @@
   "info": {
     "title": "Dermatolog Pro self-hosted API",
     "version": "8G-8I-clinical-reporting-completion",
-    "description": "Stage 8G-8I clinical reporting completion package. Self-hosted PostgreSQL only; no managed runtime or managed database dependency."
+    "description": "Stage 8G-8I clinical reporting completion package. The report package requires clinicalRecordReadScope and denies a pure clinic_admin; reviewed aggregate governance views use clinicGovernanceReadScope. Self-hosted PostgreSQL only; no managed runtime or managed database dependency."
   },
   "paths": {
     "/api/v1/visits/{visitId}/report-package": {
@@ -352,8 +352,8 @@
     },
     "/api/v1/visits/{visitId}/patient-photo-protocol-release/audit": {
       "get": {
-        "summary": "Read staff/admin photo protocol release audit",
-        "description": "Returns a safe immutable audit review for patient photo/protocol release operations. It exposes event labels, counts, timestamps and reason-present flags only; it does not expose raw audit payloads, actor identifiers, internal request identifiers, revoke reason text, tokens, storage paths, signed links, object storage identifiers, or physician-only text.",
+        "summary": "Read clinical-staff photo protocol release audit",
+        "description": "Requires clinicalRecordReadScope and denies a pure clinic_admin because the response includes release, patient, and visit identifiers. It exposes event labels, counts, timestamps and reason-present flags, but not raw audit payloads, actor identifiers, internal request identifiers, revoke reason text, tokens, storage paths, signed links, object storage identifiers, or physician-only text.",
         "security": [
           {
             "bearerAuth": []

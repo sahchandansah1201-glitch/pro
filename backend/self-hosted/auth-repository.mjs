@@ -54,6 +54,7 @@ from (
         from user_roles ur
         left join clinics c on c.id = ur.clinic_id
         where ur.user_id = u.id
+          and ur.disabled_at is null
       ),
       '[]'::jsonb
     ) as "roles"
@@ -86,6 +87,7 @@ from (
         from user_roles ur
         left join clinics c on c.id = ur.clinic_id
         where ur.user_id = u.id
+          and ur.disabled_at is null
       ),
       '[]'::jsonb
     ) as "roles"

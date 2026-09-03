@@ -59,7 +59,7 @@ const REQUIRED_TEXT = {
     "asset.create",
     "asset.download_url",
     "assetWriteScope",
-    "visitReadScope",
+    "clinicalMediaReadScope",
     "normalizeAssetIdempotencyKey",
     "assetUploadRequestHash",
     "replayed: true",

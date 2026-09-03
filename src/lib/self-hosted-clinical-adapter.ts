@@ -63,7 +63,7 @@ export function selfHostedVisitDetailToPatient(dto: SelfHostedVisitDetailDTO): P
     phototype: normalizePhototype(dto.patient.phototype),
     riskFactors: [],
     consents: {
-      pdn: true,
+      pdn: null,
       imaging: dto.patient.imagingConsent === true,
       telemed: false,
     },

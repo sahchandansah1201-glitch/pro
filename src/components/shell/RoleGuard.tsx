@@ -18,7 +18,11 @@ import { isProductionAppMode } from "@/lib/app-mode";
 import { canRoleAccess } from "@/lib/access";
 import { ROLES } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
-import { isSelfHostedApiConfigured, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  clearSelfHostedApiSession,
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
 import { canSelfHostedSessionAccessPath, selfHostedRoleLabel } from "@/lib/self-hosted-role";
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
@@ -34,7 +38,12 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
       return <Navigate to="/self-hosted/login" replace state={{ from }} />;
     }
     if (canSelfHostedSessionAccessPath(selfHostedSession, pathname)) return <>{children}</>;
-    return <ProductionNoAccessScreen roleLabel={selfHostedRoleLabel(selfHostedSession)} />;
+    return (
+      <ProductionNoAccessScreen
+        roleLabel={selfHostedRoleLabel(selfHostedSession)}
+        clinicalRoute={isClinicalRoute(pathname)}
+      />
+    );
   }
 
   const configured = isSupabaseConfigured();
@@ -52,28 +61,71 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
   return <NoAccessScreen currentLabel={label} onSwitchRole={setRole} />;
 }
 
-function ProductionNoAccessScreen({ roleLabel }: { roleLabel: string }) {
+function isClinicalRoute(pathname: string): boolean {
+  return ["/patients", "/visits"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function ProductionNoAccessScreen({
+  roleLabel,
+  clinicalRoute,
+}: {
+  roleLabel: string;
+  clinicalRoute: boolean;
+}) {
   const navigate = useNavigate();
+
+  function switchAccount() {
+    clearSelfHostedApiSession();
+    navigate("/self-hosted/login");
+  }
 
   return (
     <div className="flex h-full items-center justify-center p-6">
       <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
         <div className="mb-3 flex items-center gap-2 text-warning">
           <Lock className="h-4 w-4" aria-hidden />
-          <div className="text-[13px] font-semibold">Нет доступа</div>
+          {clinicalRoute ? (
+            <h1 className="text-[13px] font-semibold">Нет доступа к клиническим данным</h1>
+          ) : (
+            <div className="text-[13px] font-semibold">Нет доступа</div>
+          )}
         </div>
-        <p className="text-[13px] text-muted-foreground">
-          Текущая роль в системе клиники <span className="text-foreground">{roleLabel}</span> не
-          имеет доступа к этому разделу. Права доступа определяются активным рабочим входом.
-        </p>
+        {clinicalRoute ? (
+          <p className="text-[13px] text-muted-foreground">Этот раздел доступен врачу.</p>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">
+            Текущая роль в системе клиники <span className="text-foreground">{roleLabel}</span> не
+            имеет доступа к этому разделу. Права доступа определяются активным рабочим входом.
+          </p>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
-            Назад
-          </Button>
-          <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
-            Сменить вход в систему клиники
-          </Button>
+          {clinicalRoute ? (
+            <>
+              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/admin")}>
+                Вернуться в администрирование
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="min-h-11 text-[12px]"
+                onClick={switchAccount}
+              >
+                Войти под другой учётной записью
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
+                Назад
+              </Button>
+              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
+                Сменить вход в систему клиники
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

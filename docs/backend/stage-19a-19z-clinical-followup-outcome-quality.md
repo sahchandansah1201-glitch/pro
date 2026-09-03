@@ -35,7 +35,9 @@ Implemented surfaces:
 
 ## RBAC
 
-- Read outcome and quality summary: `visitReadScope`.
+- Read aggregate outcome and quality summary: `clinicGovernanceReadScope`.
+  A clinic administrator receives only the reviewed assigned-clinic aggregate
+  response, not follow-up rows or patient/visit records.
 - Update follow-up quality state: `visitWriteScope`.
 - Patient portal follow-up endpoints remain patient-owned and do not expose
   internal quality review notes or operations metadata.

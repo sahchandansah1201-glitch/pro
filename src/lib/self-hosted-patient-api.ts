@@ -205,7 +205,7 @@ export function selfHostedPatientToDomain(dto: SelfHostedPatientDTO): Patient {
     phototype: dto.phototype ?? "II",
     riskFactors: [],
     consents: {
-      pdn: true,
+      pdn: null,
       imaging: dto.imagingConsent,
       telemed: false,
     },

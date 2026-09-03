@@ -27,8 +27,11 @@ placeholders to self-hosted backend contracts.
 - `PATCH /api/v1/visits/{visitId}/lesion-comparison-draft`
 - `GET /api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history`
 
-All routes require bearer auth and clinic-scoped RBAC. Reads use visit
-read scope. Writes use visit write scope. Audit events are:
+All routes require bearer auth and clinic-scoped RBAC. Clinical record reads
+use `clinicalRecordReadScope`; protected image reads use
+`clinicalMediaReadScope`; approved aggregate-only administrative views use
+`clinicGovernanceReadScope`. Writes use visit write scope. A pure
+`clinic_admin` cannot read clinical record or media DTOs. Audit events are:
 
 - `assessment.read`
 - `assessment.update`
@@ -116,7 +119,7 @@ longitudinal and comparison review.
 The route is binary-only:
 
 - authenticates staff through the existing Stage 5H bearer session;
-- applies clinic scope through `visitReadScope`;
+- applies clinic scope through `clinicalMediaReadScope`;
 - verifies that the requested clinical asset belongs to the requested patient
   and lesion;
 - allows only lesion-linked `overview_photo` and `dermoscopy` image assets;

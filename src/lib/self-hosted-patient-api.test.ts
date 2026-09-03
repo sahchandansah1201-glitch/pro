@@ -68,7 +68,9 @@ describe("self-hosted-patient-api", () => {
       deletedAt: null,
     });
     expect(JSON.stringify(dto)).not.toMatch(/storage|access_token/i);
-    expect(selfHostedPatientToDomain(dto).consents.imaging).toBe(true);
+    const patient = selfHostedPatientToDomain(dto);
+    expect(patient.consents.imaging).toBe(true);
+    expect(patient.consents.pdn).toBeNull();
   });
 
   it("returns not_configured without a token and does not call the network", async () => {

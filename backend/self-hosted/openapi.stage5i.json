@@ -3,7 +3,7 @@
   "info": {
     "title": "Dermatolog Pro Self-hosted API · Stage 5I",
     "version": "5I-doctor-dashboard-contracts",
-    "description": "Production doctor dashboard contracts served by the operator-owned self-hosted backend."
+    "description": "Production doctor dashboard contracts served by the operator-owned self-hosted backend. The response contains patient and visit data, requires clinicalRecordReadScope, and denies a pure clinic_admin."
   },
   "servers": [{ "url": "/" }],
   "components": {

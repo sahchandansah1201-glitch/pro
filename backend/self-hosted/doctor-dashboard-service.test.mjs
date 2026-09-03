@@ -48,28 +48,20 @@ test("Stage 5I service reads dashboard with doctor RBAC and audit", async () => 
   assert.equal(auditEvents[0].correlationId, "corr-5i");
 });
 
-test("Stage 5I service lets clinic_admin see clinic dashboard without doctor filter", async () => {
-  let paramsSeen = null;
+test("Stage 5I service rejects clinic_admin before reading the doctor dashboard", async () => {
+  let repositoryCalls = 0;
   const service = createDoctorDashboardService({
     doctorDashboardRepository: {
-      async getDashboard(params) {
-        paramsSeen = params;
-        return {
-          kpis: {},
-          upcoming: [],
-          awaitingConclusions: [],
-          recentPatients: [],
-          assetIssues: [],
-          devices: [],
-        };
-      },
+      async getDashboard() { repositoryCalls += 1; },
     },
     auditRepository: { async recordEvent() {} },
   });
 
-  await service.getDashboard(authContext("clinic_admin"), { correlationId: "corr-admin" });
-  assert.equal(paramsSeen.doctorUserId, null);
-  assert.deepEqual(paramsSeen.clinicIds, [CLINIC_ID]);
+  await assert.rejects(
+    () => service.getDashboard(authContext("clinic_admin"), { correlationId: "corr-admin" }),
+    /access|role|resource/i,
+  );
+  assert.equal(repositoryCalls, 0);
 });
 
 test("Stage 5I service denies roles without visit read access", async () => {

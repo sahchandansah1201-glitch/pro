@@ -35,6 +35,7 @@ const REQUIRED_TEXT = {
     "objectStore.putObject",
     "downloadAsset",
     "asset.download",
+    "clinicalMediaReadScope",
     "asset_binary_not_found",
   ],
   "backend/self-hosted/routes.mjs": [
@@ -47,6 +48,8 @@ const REQUIRED_TEXT = {
   "backend/self-hosted/openapi.stage4j.json": [
     "4J-asset-binaries",
     "/api/v1/assets/{assetId}/download",
+    "clinicalMediaReadScope",
+    "denies a pure clinic_admin before repository or object-store access",
     "dataBase64",
     "no signed URL, access_token, bucket, object key, or storage path is exposed",
   ],

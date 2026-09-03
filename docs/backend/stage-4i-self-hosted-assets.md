@@ -77,7 +77,9 @@ retained rather than deleting clinical or audit history.
 
 ### GET /api/v1/assets/{assetId}/download-url
 
-The backend verifies visit read scope and returns:
+The backend verifies `clinicalMediaReadScope` and returns the backend-owned
+route. A pure `clinic_admin` is denied before repository or object-store
+access:
 
 ```json
 {

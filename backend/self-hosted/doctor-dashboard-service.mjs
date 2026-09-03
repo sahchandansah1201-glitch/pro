@@ -2,7 +2,7 @@
 // Applies clinical RBAC and writes a safe audit event for the dashboard read.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitReadScope } from "./rbac.mjs";
+import { clinicalRecordReadScope } from "./rbac.mjs";
 
 function doctorUserFilter(authContext, scope) {
   const roles = Array.isArray(scope.roles) ? scope.roles : [];
@@ -17,7 +17,7 @@ export function createDoctorDashboardService({
 } = {}) {
   return {
     async getDashboard(authContext, { correlationId } = {}) {
-      const scope = visitReadScope(authContext);
+      const scope = clinicalRecordReadScope(authContext);
       const dashboard = await doctorDashboardRepository.getDashboard({
         clinicIds: scope.clinicIds,
         allClinics: scope.allClinics,

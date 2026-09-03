@@ -33,7 +33,9 @@ Implemented surfaces:
 
 ## RBAC
 
-- Read queue and summary: `visitReadScope`.
+- Read queue: `clinicalRecordReadScope`; a pure `clinic_admin` is denied.
+- Read aggregate operations summary: `clinicOperationsReadScope`; a clinic
+  administrator can read only assigned-clinic aggregate counts.
 - Update operations state: `visitWriteScope`.
 - Patient portal follow-up endpoints remain Stage 17 patient-owned and do not
   expose operations notes or internal notes.

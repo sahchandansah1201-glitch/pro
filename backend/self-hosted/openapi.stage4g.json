@@ -4,7 +4,7 @@
     "title": "Dermatolog Pro Self-hosted API",
     "version": "4G-visit-workspace",
     "summary": "Self-hosted backend visit workspace read API",
-    "description": "Stage 4G adds RBAC-protected read endpoints for the doctor visit workspace: visits per patient, visit detail, lesions, and clinical asset metadata. Endpoints are read-only and exposed only by the self-hosted PostgreSQL backend."
+    "description": "Stage 4G adds RBAC-protected read endpoints for the doctor visit workspace: visits per patient, visit detail, lesions, and clinical asset metadata. Clinical records and media require the corresponding clinical capability; a pure clinic_admin is denied. Endpoints are read-only and exposed only by the self-hosted PostgreSQL backend."
   },
   "servers": [
     { "url": "http://localhost:8080", "description": "Self-hosted reverse proxy" }

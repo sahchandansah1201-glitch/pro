@@ -13,7 +13,8 @@ test("buildFindActiveUserByEmailSql looks up active user and role bindings safel
   assert.match(sql, /from app_users u/);
   assert.match(sql, /user_roles ur/);
   assert.match(sql, /'clinicName', c\.name/);
-  assert.match(sql, /disabled_at is null/);
+  assert.match(sql, /u\.disabled_at is null/);
+  assert.match(sql, /ur\.disabled_at is null/);
   assert.match(sql, /doctor\.o''hara@example\.invalid/);
   assert.doesNotMatch(sql, /supabase|auth\.users/i);
 });
@@ -22,6 +23,7 @@ test("buildFindUserContextByIdSql returns role context without password hash", (
   const sql = buildFindUserContextByIdSql("10000000-0000-4000-8000-000000000101");
 
   assert.match(sql, /where u.id = '10000000-0000-4000-8000-000000000101'::uuid/);
+  assert.match(sql, /ur\.disabled_at is null/);
   assert.doesNotMatch(sql, /password_hash/);
 });
 

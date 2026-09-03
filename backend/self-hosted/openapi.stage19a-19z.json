@@ -9,6 +9,7 @@
     "/api/v1/clinical/follow-ups/outcomes/summary": {
       "get": {
         "summary": "Read local follow-up outcome and quality summary",
+        "description": "Returns a reviewed assigned-clinic aggregate through clinicGovernanceReadScope. It does not grant clinic_admin access to follow-up rows or patient and visit records.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {

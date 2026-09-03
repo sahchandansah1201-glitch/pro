@@ -3,7 +3,7 @@
   "info": {
     "title": "Dermatolog Pro Self-hosted API",
     "version": "4I-assets-write",
-    "description": "Stage 4I self-hosted clinical asset metadata registration, tenant-scoped idempotent upload reservation, and backend-owned download URL contract."
+    "description": "Stage 4I self-hosted clinical asset metadata registration, tenant-scoped idempotent upload reservation, and backend-owned download URL contract. Clinical media reads require clinicalMediaReadScope and deny a pure clinic_admin."
   },
   "servers": [{ "url": "/" }],
   "components": {
@@ -108,6 +108,7 @@
     "/api/v1/assets/{assetId}/download-url": {
       "get": {
         "summary": "Issue backend-owned asset download URL",
+        "description": "Requires clinicalMediaReadScope and denies a pure clinic_admin before repository or object-store access.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },

@@ -34,7 +34,7 @@
     "openapi": "/openapi.stage17a-17z.json"
   },
   "rbac": {
-    "staffRead": "doctor, clinic_admin, system_admin through visitReadScope",
+    "staffRead": "system_admin, doctor, private_doctor, assistant through clinicalRecordReadScope; clinic_admin denied",
     "staffWrite": "doctor and system_admin through visitWriteScope",
     "patient": "linked patient user through patientPortalScope"
   },

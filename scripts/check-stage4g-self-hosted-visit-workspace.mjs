@@ -38,11 +38,14 @@ const REQUIRED_TEXT = {
     "visit.lesions",
     "visit.assets",
     "openapi.stage4g.json",
-    "visitReadScope",
+    "clinicalRecordReadScope",
+    "clinicalMediaReadScope",
   ],
   "backend/self-hosted/rbac.mjs": [
-    "visitReadScope",
-    "VISIT_READ_ROLES",
+    "clinicalRecordReadScope",
+    "clinicalMediaReadScope",
+    "CLINICAL_RECORD_READ_ROLES",
+    "CLINICAL_MEDIA_READ_ROLES",
   ],
   "backend/self-hosted/openapi.stage4g.json": [
     "4G-visit-workspace",

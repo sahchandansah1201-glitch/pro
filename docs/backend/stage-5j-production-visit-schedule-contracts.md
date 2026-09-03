@@ -8,12 +8,17 @@ backend and PostgreSQL.
 
 - Backend contract: `GET /api/v1/visits`.
 - Backend source: PostgreSQL tables `visits`, `patients`, and `clinics`.
-- RBAC: `visitReadScope`, with doctor users scoped to their own visits and
-  clinic/system admins scoped by clinic policy.
+- RBAC: `clinicalRecordReadScope`, with doctor users scoped to their own visits
+  and `system_admin` retaining all-clinic access. A pure `clinic_admin` is
+  denied because the response includes patient identity and clinical visit
+  fields.
 - Audit: `visit.schedule.list`.
 - Frontend route: `/visits`.
 - Frontend production source: `listSelfHostedVisits` against `/api/v1/visits`.
 - Demo/dev source: `VisitsPageDemo` with mock data.
+
+If an administrator schedule is approved later, it must be a separate minimal
+administrative projection rather than access to the full clinical visit DTO.
 
 ## Production boundary
 

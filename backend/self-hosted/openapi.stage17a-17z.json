@@ -19,7 +19,7 @@
     "/api/v1/clinical/follow-ups": {
       "get": {
         "summary": "List clinical follow-ups",
-        "description": "Returns clinic-scoped follow-up tasks for doctors, clinic admins, and system admins.",
+        "description": "Returns clinic-scoped patient follow-up tasks for system_admin, doctor, private_doctor, or assistant through clinicalRecordReadScope. A pure clinic_admin is denied.",
         "parameters": [
           {
             "name": "status",
