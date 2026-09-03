@@ -24,6 +24,7 @@ export interface SelfHostedApiSession {
   apiToken: string | null;
   user: SelfHostedApiSessionUser | null;
   status: "configured" | "missing_token";
+  revision: number;
 }
 
 function envBaseUrl(): string {
@@ -90,11 +91,24 @@ export function readSelfHostedApiSession(): SelfHostedApiSession {
     apiToken,
     user,
     status: apiToken ? "configured" : "missing_token",
+    revision: 0,
   };
 }
 
 export function isSelfHostedApiConfigured(session: SelfHostedApiSession): boolean {
   return session.status === "configured" && Boolean(session.apiToken);
+}
+
+export function selfHostedSessionIdentityKey(
+  session: SelfHostedApiSession,
+  resourceParts: string[],
+): string {
+  return JSON.stringify([
+    ...resourceParts,
+    session.apiBaseUrl,
+    session.user?.id ?? null,
+    Number.isSafeInteger(session.revision) ? session.revision : 0,
+  ]);
 }
 
 export interface WriteSelfHostedApiSessionInput {
@@ -146,7 +160,10 @@ export function useSelfHostedApiSession(): SelfHostedApiSession {
 
   useEffect(() => {
     function update() {
-      setSession(readSelfHostedApiSession());
+      setSession((current) => ({
+        ...readSelfHostedApiSession(),
+        revision: current.revision + 1,
+      }));
     }
     window.addEventListener("storage", update);
     window.addEventListener(SELF_HOSTED_API_SESSION_EVENT, update);

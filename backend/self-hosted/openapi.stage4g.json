@@ -54,7 +54,7 @@
     "/api/v1/visits/{visitId}/lesions": {
       "get": {
         "operationId": "listVisitLesions",
-        "summary": "List lesions linked to a visit (read-only)",
+        "summary": "List active patient lesions available during a scoped visit (read-only)",
         "parameters": [
           {
             "name": "visitId",

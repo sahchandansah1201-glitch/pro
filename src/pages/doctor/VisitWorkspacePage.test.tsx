@@ -179,6 +179,29 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
     expect(screen.getAllByText(new RegExp(lesion.label)).length).toBeGreaterThan(0);
   });
 });
+
+describe("VisitWorkspacePage · connected clinic session outside production mode", () => {
+  beforeEach(() => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("opens an existing clinic-system visit from the live patient card", async () => {
+    vi.stubGlobal("fetch", createLiveWorkspaceFetchMock());
+
+    renderAt("/patients/live-patient/visits/live-visit?tab=intake");
+
+    expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Визит не найден" })).toBeNull();
+    expect(screen.getByTestId("visit-workspace-live-banner")).toHaveTextContent(/Система клиники/);
+  });
+});
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   function placePoint() {
     const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;

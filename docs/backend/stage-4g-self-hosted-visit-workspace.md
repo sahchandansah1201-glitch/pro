@@ -7,7 +7,8 @@ backend in **read-only** mode. No managed-runtime coupling is introduced.
 
 - `GET /api/v1/patients/{patientId}/visits` — visits for a patient (RBAC scoped).
 - `GET /api/v1/visits/{visitId}` — visit detail with patient/clinic projection.
-- `GET /api/v1/visits/{visitId}/lesions` — lesions linked to the visit.
+- `GET /api/v1/visits/{visitId}/lesions` — active lesions of the visit's patient
+  in the same clinic; `visitId` on a lesion remains its origin visit.
 - `GET /api/v1/visits/{visitId}/assets` — clinical asset metadata only
   (no `object_bucket`/`object_key`/signed URLs).
 

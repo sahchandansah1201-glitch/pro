@@ -108,6 +108,40 @@ describe("PatientDetailPage", () => {
     }
   });
 
+  it("loads clinic-system patient detail whenever a self-hosted session is connected", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+    const fetchMock = vi.fn((url: RequestInfo | URL) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/patients/live-patient")) {
+        return Promise.resolve(
+          jsonResponse({
+            item: {
+              id: "live-patient",
+              code: "DP-live-002",
+              fullName: "Сидорова Елена Live",
+              birthDate: "1987-03-04",
+              sex: "female",
+              phototype: "II",
+              imagingConsent: true,
+            },
+          }),
+        );
+      }
+      if (href.endsWith("/api/v1/patients/live-patient/visits")) {
+        return Promise.resolve(jsonResponse({ items: [] }));
+      }
+      return Promise.resolve(jsonResponse({ items: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/live-patient");
+
+    expect(await screen.findByRole("heading", { name: "Сидорова Елена Live" })).toBeInTheDocument();
+    expect(screen.getByText(/Данные из системы клиники/)).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
   it("does not fall back to learning patient data when the clinic system returns an error", async () => {
     configureProductionSession();
     vi.stubGlobal(

@@ -109,7 +109,7 @@ from (
     p.sex as "patientSex",
     c.id::text as "clinicId"
   from lesions l
-  join visits v on v.id = l.visit_id
+  left join visits v on v.id = l.visit_id
   join patients p on p.id = l.patient_id
   join clinics c on c.id = l.clinic_id
   where l.id = ${sqlUuid(lesionId)}
@@ -126,6 +126,13 @@ export function buildListVisitLesionsSql({
   allClinics = false,
 } = {}) {
   return `
+with target_visit as (
+  select v.patient_id, v.clinic_id
+  from visits v
+  where v.id = ${sqlUuid(visitId)}
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  limit 1
+)
 select coalesce(jsonb_agg(row_to_json(result) order by result."createdAt" asc), '[]'::jsonb)::text
 from (
   select
@@ -151,9 +158,10 @@ from (
     l.created_at as "createdAt",
     l.updated_at as "updatedAt"
   from lesions l
-  where l.visit_id = ${sqlUuid(visitId)}
-    and l.deleted_at is null
-    ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+  join target_visit tv
+    on l.patient_id = tv.patient_id
+   and l.clinic_id = tv.clinic_id
+  where l.deleted_at is null
   order by l.created_at asc
   limit 500
 ) result;

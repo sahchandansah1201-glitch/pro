@@ -66,10 +66,12 @@ import {
 } from "@/lib/lesion-comparison-drafts";
 import {
   isSelfHostedApiConfigured,
+  selfHostedSessionIdentityKey,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import {
   downloadSelfHostedProtectedLesionImage,
+  getSelfHostedLesionLongitudinalHistory,
   getSelfHostedLesionLongitudinalQa,
   reviewSelfHostedLesionComparisonMeasurementPolicy,
   reviewSelfHostedLesionComparisonProductionAnalysisPolicy,
@@ -82,6 +84,23 @@ import {
   type SelfHostedLesionLongitudinalQaAction,
   type SelfHostedLesionLongitudinalQaDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
+import { getSelfHostedPatient } from "@/lib/self-hosted-patient-api";
+import { selfHostedPatientDetailToDomain } from "@/lib/self-hosted-clinical-adapter";
+import {
+  isLiveComparisonPairAllowed,
+  isLiveComparisonSelectionAllowed,
+  projectLiveLesionBundle,
+  type LiveLesionBundle,
+} from "@/lib/live-lesion-bundle";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
+import {
+  imageFrameSize,
+  imageQualityLabel,
+  imageQualitySummary,
+  isImageDeviceNotAssessed,
+  isImageQualityNotAssessed,
+  isImageSourceNotAssessed,
+} from "@/lib/clinical-image-technical-state";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 import {
   ComparisonWorkflowPanel,
@@ -112,6 +131,7 @@ import {
   ComparisonWorkflowGatePanel,
   type ProtectedRenderReadinessItem,
 } from "./lesion-detail/ComparisonWorkflowGatePanels";
+import { LesionNotFound } from "./lesion-detail/LesionNotFound";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
   active: "Активное",
@@ -334,17 +354,17 @@ const REVIEWER_ASSIGNMENT_SECOND_ID = "10000000-0000-4000-8000-000000000202";
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
-const DEVICE_LABEL_BY_ID = new Map(
-  getDevices().map((device) => [device.id, device.model]),
-);
+const DEVICE_LABEL_BY_ID = new Map(getDevices().map((device) => [device.id, device.model]));
 const deviceDisplayLabel = (deviceId: string | null | undefined) =>
-  deviceId
-    ? (DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано")
-    : "без устройства";
+  deviceId ? (DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано") : "Устройство не указано";
+const imageDeviceDisplayLabel = (image: ClinicalImage) =>
+  isImageDeviceNotAssessed(image) ? "Устройство не указано" : deviceDisplayLabel(image.deviceId);
+const imageSourceDisplayLabel = (image: ClinicalImage) =>
+  isImageSourceNotAssessed(image) ? "Источник не указан" : IMAGE_SOURCE[image.source];
 const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
   marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
 const imageDisplayMeta = (image: ClinicalImage) =>
-  `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${deviceDisplayLabel(image.deviceId)}`;
+  `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${imageDeviceDisplayLabel(image)}`;
 const systemHintDisclaimer = (value: string) =>
   value.replace(
     /AI-поддержка принятия решений/gi,
@@ -391,13 +411,6 @@ function viewerQaReviewReasons({
   return uniqueReasons(["dynamic_comparison_disabled", ...blockers]);
 }
 
-function imageQualityLabel(image: ClinicalImage) {
-  if (image.quality.score >= 0.8 && image.quality.issues.length === 0)
-    return "Готово";
-  if (image.quality.score >= 0.72) return "С предупреждением";
-  return "Нужен переснимок";
-}
-
 function imageQualityTone(image: ClinicalImage) {
   const label = imageQualityLabel(image);
   if (label === "Готово")
@@ -418,14 +431,19 @@ function captureConditionChecks(
   imageA: ClinicalImage,
   imageB: ClinicalImage,
 ): CaptureConditionCheck[] {
-  const deviceA = deviceDisplayLabel(imageA.deviceId);
-  const deviceB = deviceDisplayLabel(imageB.deviceId);
+  const deviceA = imageDeviceDisplayLabel(imageA);
+  const deviceB = imageDeviceDisplayLabel(imageB);
+  const sourceA = imageSourceDisplayLabel(imageA);
+  const sourceB = imageSourceDisplayLabel(imageB);
+  const sourceKnown = !isImageSourceNotAssessed(imageA) && !isImageSourceNotAssessed(imageB);
+  const sameDevice = Boolean(!isImageDeviceNotAssessed(imageA) &&
+    !isImageDeviceNotAssessed(imageB) && imageA.deviceId === imageB.deviceId);
   const minQuality = Math.min(imageA.quality.score, imageB.quality.score);
+  const qualityNotAssessed = [imageA, imageB].some(isImageQualityNotAssessed);
   const qualityIssues = Array.from(
     new Set([...imageA.quality.issues, ...imageB.quality.issues]),
   );
   const intervalMinutes = minutesBetween(imageA, imageB);
-
   return [
     {
       label: "Тип снимка",
@@ -437,19 +455,17 @@ function captureConditionChecks(
     },
     {
       label: "Источник",
-      ready: imageA.source === imageB.source,
-      detail:
-        imageA.source === imageB.source
-          ? `один источник: ${IMAGE_SOURCE[imageA.source]}`
-          : `разные источники: ${IMAGE_SOURCE[imageA.source]} / ${IMAGE_SOURCE[imageB.source]}`,
+      ready: sourceKnown && imageA.source === imageB.source,
+      detail: !sourceKnown
+        ? "Источник не указан"
+        : imageA.source === imageB.source
+          ? `один источник: ${sourceA}`
+          : `разные источники: ${sourceA} / ${sourceB}`,
     },
     {
       label: "Устройство",
-      ready: deviceA === deviceB,
-      detail:
-        deviceA === deviceB
-          ? `одно устройство: ${deviceA}`
-          : `${deviceA} / ${deviceB}`,
+      ready: sameDevice,
+      detail: sameDevice ? `одно устройство: ${deviceA}` : `${deviceA} / ${deviceB}`,
     },
     {
       label: "Интервал",
@@ -461,8 +477,10 @@ function captureConditionChecks(
     },
     {
       label: "Качество",
-      ready: minQuality >= 0.8,
-      detail: `минимум ${Math.round(minQuality * 100)}%`,
+      ready: !qualityNotAssessed && minQuality >= 0.8,
+      detail: qualityNotAssessed
+        ? "техническая оценка не выполнена"
+        : `минимум ${Math.round(minQuality * 100)}%`,
     },
     {
       label: "Замечания качества",
@@ -475,21 +493,18 @@ function captureConditionChecks(
   ];
 }
 
-const imageFrameSize = (image: ClinicalImage) =>
-  `${image.exifMeta.width}×${image.exifMeta.height}`;
-
 function calibrationReadinessChecks(
   imageA: ClinicalImage,
   imageB: ClinicalImage,
 ): CalibrationReadinessCheck[] {
-  const deviceA = deviceDisplayLabel(imageA.deviceId);
-  const deviceB = deviceDisplayLabel(imageB.deviceId);
+  const deviceA = imageDeviceDisplayLabel(imageA);
+  const deviceB = imageDeviceDisplayLabel(imageB);
   const sameDevice = Boolean(
     imageA.deviceId && imageB.deviceId && imageA.deviceId === imageB.deviceId,
   );
   const frameSizeA = imageFrameSize(imageA);
   const frameSizeB = imageFrameSize(imageB);
-  const sameFrameSize = frameSizeA === frameSizeB;
+  const sameFrameSize = Boolean(frameSizeA && frameSizeB && frameSizeA === frameSizeB);
   const scaleMarkerReady =
     imageA.viewerCalibration?.scaleMarkerDetected === true &&
     imageB.viewerCalibration?.scaleMarkerDetected === true;
@@ -509,7 +524,9 @@ function calibrationReadinessChecks(
     {
       label: "Размер кадра",
       ready: sameFrameSize,
-      detail: sameFrameSize
+      detail: !frameSizeA || !frameSizeB
+        ? "размер кадра не указан"
+        : sameFrameSize
         ? `один размер: ${frameSizeA}`
         : `${frameSizeA} / ${frameSizeB}`,
     },
@@ -537,14 +554,18 @@ function calibrationReasonCode(item: CalibrationReadinessCheck): string {
 }
 
 function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
-  const deviceA = deviceDisplayLabel(imageA.deviceId);
-  const deviceB = deviceDisplayLabel(imageB.deviceId);
-  const qualityA = `${imageQualityLabel(imageA)} · ${Math.round(imageA.quality.score * 100)}%`;
-  const qualityB = `${imageQualityLabel(imageB)} · ${Math.round(imageB.quality.score * 100)}%`;
-  const conditionsDiffer =
-    imageA.deviceId !== imageB.deviceId ||
-    imageA.source !== imageB.source ||
-    imageA.kind !== imageB.kind;
+  const deviceA = imageDeviceDisplayLabel(imageA);
+  const deviceB = imageDeviceDisplayLabel(imageB);
+  const sourceA = imageSourceDisplayLabel(imageA);
+  const sourceB = imageSourceDisplayLabel(imageB);
+  const sourceKnown = !isImageSourceNotAssessed(imageA) && !isImageSourceNotAssessed(imageB);
+  const deviceKnown = !isImageDeviceNotAssessed(imageA) && !isImageDeviceNotAssessed(imageB);
+  const sameDevice = deviceKnown && imageA.deviceId === imageB.deviceId;
+  const qualityA = imageQualitySummary(imageA);
+  const qualityB = imageQualitySummary(imageB);
+  const conditionsKnown = sourceKnown && deviceKnown;
+  const conditionsDiffer = !conditionsKnown || imageA.deviceId !== imageB.deviceId ||
+    imageA.source !== imageB.source || imageA.kind !== imageB.kind;
 
   return [
     {
@@ -571,10 +592,11 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
     },
     {
       label: "Источник",
-      a: IMAGE_SOURCE[imageA.source],
-      b: IMAGE_SOURCE[imageB.source],
-      result:
-        imageA.source === imageB.source
+      a: sourceA,
+      b: sourceB,
+      result: !sourceKnown
+        ? "Источник не указан"
+        : imageA.source === imageB.source
           ? "Источник совпадает"
           : "Разные источники",
     },
@@ -582,8 +604,11 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       label: "Устройство",
       a: deviceA,
       b: deviceB,
-      result:
-        deviceA === deviceB ? "Устройство совпадает" : "Разные устройства",
+      result: !deviceKnown
+        ? "Устройство не указано"
+        : sameDevice
+          ? "Устройство совпадает"
+          : "Разные устройства",
     },
     {
       label: "Качество",
@@ -596,11 +621,21 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
     },
     {
       label: "Сопоставимость",
-      a: conditionsDiffer ? "условия A отличаются" : "условия A совпадают",
-      b: conditionsDiffer ? "условия B отличаются" : "условия B совпадают",
-      result: conditionsDiffer
-        ? "Разные условия съёмки"
-        : "Сопоставимо по условиям",
+      a: !conditionsKnown
+        ? "условия A не подтверждены"
+        : conditionsDiffer
+          ? "условия A отличаются"
+          : "условия A совпадают",
+      b: !conditionsKnown
+        ? "условия B не подтверждены"
+        : conditionsDiffer
+          ? "условия B отличаются"
+          : "условия B совпадают",
+      result: !conditionsKnown
+        ? "Недостаточно данных об условиях"
+        : conditionsDiffer
+          ? "Разные условия съёмки"
+          : "Сопоставимо по условиям",
     },
   ];
 }
@@ -646,14 +681,14 @@ function buildLongitudinalVisitGroups(
         bestQuality,
         devices: Array.from(
           new Set(
-            sortedImages.map((image) => deviceDisplayLabel(image.deviceId)),
+            sortedImages.map((image) => imageDeviceDisplayLabel(image)),
           ),
         ),
         kinds: Array.from(
           new Set(sortedImages.map((image) => IMAGE_KIND[image.kind])),
         ),
         sources: Array.from(
-          new Set(sortedImages.map((image) => IMAGE_SOURCE[image.source])),
+          new Set(sortedImages.map((image) => imageSourceDisplayLabel(image))),
         ),
       };
     })
@@ -678,7 +713,8 @@ function buildLongitudinalPairs(
       if (!previousImage) continue;
 
       const comparedImages = [previousImage, currentImage];
-      const lowQuality = comparedImages.some(
+      const qualityNotAssessed = comparedImages.some(isImageQualityNotAssessed);
+      const lowQuality = !qualityNotAssessed && comparedImages.some(
         (image) => image.quality.score < 0.75,
       );
       const hasQualityIssues = comparedImages.some(
@@ -686,12 +722,13 @@ function buildLongitudinalPairs(
       );
       const status: LongitudinalPairStatus = lowQuality
         ? "blocked"
-        : hasQualityIssues
+        : qualityNotAssessed || hasQualityIssues
           ? "warning"
           : "ready";
       const reasons = [
+        qualityNotAssessed ? "Техническая оценка качества не выполнена" : null,
         lowQuality ? "Качество ниже порога" : null,
-        hasQualityIssues ? "Есть технические замечания" : null,
+        hasQualityIssues && !qualityNotAssessed ? "Есть технические замечания" : null,
         status === "ready" ? "Условия повторяемы" : null,
       ].filter((reason): reason is string => Boolean(reason));
 
@@ -727,9 +764,7 @@ function buildLocalLongitudinalQaGate({
   const technicalReadyPairCount = pairs.filter(
     (pair) => pair.status === "ready",
   ).length;
-  const needsRecaptureCount = pairs.filter(
-    (pair) => pair.status === "warning" || pair.status === "blocked",
-  ).length;
+  const needsRecaptureCount = pairs.filter((pair) => pair.status === "blocked").length;
   const notSuitableForComparisonCount = pairs.filter(
     (pair) => pair.status === "blocked",
   ).length;
@@ -871,7 +906,7 @@ function ComparisonImagePanel({
         <span
           className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(image)}`}
         >
-          {imageQualityLabel(image)} · {(image.quality.score * 100).toFixed(0)}%
+          {imageQualitySummary(image)}
         </span>
       </div>
       <div className="p-3">
@@ -964,20 +999,22 @@ function ComparisonImagePanel({
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Источник
             </dt>
-            <dd className="mt-0.5">{IMAGE_SOURCE[image.source]}</dd>
+            <dd className="mt-0.5">{imageSourceDisplayLabel(image)}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Устройство
             </dt>
-            <dd className="mt-0.5">{deviceDisplayLabel(image.deviceId)}</dd>
+            <dd className="mt-0.5">{imageDeviceDisplayLabel(image)}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Размер
             </dt>
             <dd className="mt-0.5 tabular-nums">
-              {image.exifMeta.width}×{image.exifMeta.height}
+              {image.exifMeta.width > 0 && image.exifMeta.height > 0
+                ? `${image.exifMeta.width}×${image.exifMeta.height}`
+                : "Не указан"}
             </dd>
           </div>
         </dl>
@@ -1769,7 +1806,7 @@ function ComparisonFullScreenDialog({
                   Источники
                 </dt>
                 <dd>
-                  {IMAGE_SOURCE[imageA.source]} / {IMAGE_SOURCE[imageB.source]}
+                  {imageSourceDisplayLabel(imageA)} / {imageSourceDisplayLabel(imageB)}
                 </dd>
               </div>
               <div>
@@ -1777,8 +1814,8 @@ function ComparisonFullScreenDialog({
                   Устройства
                 </dt>
                 <dd>
-                  {deviceDisplayLabel(imageA.deviceId)} /{" "}
-                  {deviceDisplayLabel(imageB.deviceId)}
+                  {imageDeviceDisplayLabel(imageA)} /{" "}
+                  {imageDeviceDisplayLabel(imageB)}
                 </dd>
               </div>
             </dl>
@@ -1942,22 +1979,6 @@ function BodyMapDialog({
   );
 }
 
-const NotFound = ({ title, hint }: { title: string; hint: string }) => (
-  <div className="flex h-full flex-col">
-    <PageHeader title={title} subtitle={hint} />
-    <div className="p-4">
-      <Button
-        asChild
-        size="sm"
-        variant="secondary"
-        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-      >
-        <Link to="/patients">К списку пациентов</Link>
-      </Button>
-    </div>
-  </div>
-);
-
 export default function LesionDetailPage() {
   const { id = "", lesionId = "" } = useParams<{
     id: string;
@@ -1965,10 +1986,36 @@ export default function LesionDetailPage() {
   }>();
   const selfHostedSession = useSelfHostedApiSession();
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
-  const patient = getPatientById(id);
-  const lesion = getLesionById(lesionId);
+  const demoPatient = getPatientById(id);
+  const demoLesion = getLesionById(lesionId);
+  const shouldLoadLive = Boolean(
+    selfHostedConfigured && isUuid(id) && isUuid(lesionId) && (!demoPatient || !demoLesion),
+  );
+  const liveRouteKey = selfHostedSessionIdentityKey(
+    selfHostedSession,
+    [id, lesionId],
+  );
+  const [liveBundle, setLiveBundle] = useState<LiveLesionBundle | null>(null);
+  const [liveLoadStatus, setLiveLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [liveLoadRouteKey, setLiveLoadRouteKey] = useState("");
+  const [liveLoadMessage, setLiveLoadMessage] = useState("");
+  const [liveLoadRevision, setLiveLoadRevision] = useState(0);
+  const liveBundleMatchesRoute = Boolean(
+    liveLoadRouteKey === liveRouteKey
+      && liveLoadStatus === "ready"
+      && liveBundle?.patient.id === id
+      && liveBundle?.lesion.id === lesionId,
+  );
+  const effectiveLiveLoadStatus = shouldLoadLive && liveLoadRouteKey !== liveRouteKey
+    ? "loading"
+    : liveLoadStatus;
+  const patient = shouldLoadLive
+    ? liveBundleMatchesRoute ? liveBundle?.patient ?? null : null
+    : demoPatient;
+  const lesion = shouldLoadLive
+    ? liveBundleMatchesRoute ? liveBundle?.lesion ?? null : null
+    : demoLesion;
 
-  // Локальный UI-state для демо-действий (не сетевой и не storage).
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [comparisonAction, setComparisonAction] =
@@ -2027,31 +2074,106 @@ export default function LesionDetailPage() {
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
+  useEffect(() => {
+    if (!shouldLoadLive) {
+      setLiveBundle(null);
+      setLiveLoadStatus("idle");
+      setLiveLoadRouteKey("");
+      setLiveLoadMessage("");
+      return;
+    }
+    let cancelled = false;
+    setLiveBundle(null);
+    setLiveLoadRouteKey(liveRouteKey);
+    setLiveLoadStatus("loading");
+    setLiveLoadMessage("");
+    Promise.all([
+      getSelfHostedPatient({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+        patientId: id,
+      }),
+      getSelfHostedLesionLongitudinalHistory({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+        patientId: id,
+        lesionId,
+      }),
+    ]).then(([patientResult, historyResult]) => {
+      if (cancelled) return;
+      if (!patientResult.ok || !patientResult.value || !historyResult.ok || !historyResult.value) {
+        setLiveBundle(null);
+        setLiveLoadStatus("error");
+        setLiveLoadMessage(
+          selfHostedPublicErrorText(
+            patientResult.error ?? historyResult.error,
+            "Система клиники не вернула карточку образования.",
+          ),
+        );
+        return;
+      }
+      if (
+        patientResult.value.id !== id
+        || historyResult.value.patientId !== id
+        || historyResult.value.lesionId !== lesionId
+      ) {
+        setLiveBundle(null);
+        setLiveLoadStatus("error");
+        setLiveLoadMessage("Система клиники вернула данные другой карточки. Обновите страницу или вернитесь к списку пациентов.");
+        return;
+      }
+      setLiveBundle(projectLiveLesionBundle(
+        selfHostedPatientDetailToDomain(patientResult.value),
+        historyResult.value,
+      ));
+      setLiveLoadStatus("ready");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    id,
+    lesionId,
+    liveRouteKey,
+    liveLoadRevision,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+    shouldLoadLive,
+  ]);
+
   const images = useMemo(
     () =>
-      [...getImagesByLesionId(lesionId)].sort((a, b) =>
+      [...(shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.images ?? [] : shouldLoadLive ? [] : getImagesByLesionId(lesionId))].sort((a, b) =>
         a.capturedAt.localeCompare(b.capturedAt),
       ),
-    [lesionId],
+    [lesionId, liveBundle, liveBundleMatchesRoute, shouldLoadLive],
   );
   const assessments = useMemo(
     () =>
-      [...getAssessmentsByLesionId(lesionId)].sort((a, b) =>
+      [...(shouldLoadLive ? [] : getAssessmentsByLesionId(lesionId))].sort((a, b) =>
         a.decidedAt.localeCompare(b.decidedAt),
       ),
-    [lesionId],
+    [lesionId, shouldLoadLive],
   );
   const visits = useMemo(
-    () => (patient ? getVisitsByPatientId(patient.id) : []),
-    [patient],
+    () => (shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.visits ?? [] : shouldLoadLive ? [] : patient ? getVisitsByPatientId(patient.id) : []),
+    [liveBundle, liveBundleMatchesRoute, patient, shouldLoadLive],
   );
 
   const compareImages = compareIds
     .map((imgId) => images.find((img) => img.id === imgId))
     .filter((img): img is ClinicalImage => Boolean(img));
-  const hasComparablePair = compareImages.length === 2;
+  const selectedLivePairAllowed = !shouldLoadLive || isLiveComparisonPairAllowed(
+    compareImages.map((image) => image.id),
+    liveBundleMatchesRoute ? liveBundle?.comparisonCandidatePairs ?? [] : [],
+  );
+  const hasComparablePair = compareImages.length === 2 && selectedLivePairAllowed;
+  const captureMetadataKnown = hasComparablePair && compareImages.every(
+    (image) => !isImageSourceNotAssessed(image) && !isImageDeviceNotAssessed(image),
+  );
   const captureConditionsDiffer = hasComparablePair
-    ? compareImages[0].deviceId !== compareImages[1].deviceId ||
+    ? !captureMetadataKnown ||
+      compareImages[0].deviceId !== compareImages[1].deviceId ||
       compareImages[0].source !== compareImages[1].source ||
       compareImages[0].kind !== compareImages[1].kind
     : false;
@@ -2061,17 +2183,17 @@ export default function LesionDetailPage() {
   const comparePair = hasComparablePair
     ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage])
     : null;
-  const selectedPairHasQualityIssues = hasComparablePair
-    ? compareImages.some(
-        (img) => img.quality.score < 0.75 || img.quality.issues.length > 0,
-      )
-    : false;
+  const selectedPairHasQualityIssues = hasComparablePair && compareImages.some(
+    (img) => img.quality.score < 0.75 || img.quality.issues.length > 0,
+  );
+  const selectedPairQualityNotAssessed = hasComparablePair && compareImages.some(isImageQualityNotAssessed);
   const selectedPairIsComparable =
     hasComparablePair &&
     !captureConditionsDiffer &&
     !selectedPairHasQualityIssues;
   const comparisonReasons = [
-    captureConditionsDiffer ? "Разные условия съёмки" : null,
+    !captureMetadataKnown ? "Не указаны источник или устройство" : null,
+    captureMetadataKnown && captureConditionsDiffer ? "Разные условия съёмки" : null,
     selectedPairHasQualityIssues ? "Есть технические замечания" : null,
   ].filter((reason): reason is string => Boolean(reason));
   const selectedPairDraftKey = hasComparablePair
@@ -2169,9 +2291,24 @@ export default function LesionDetailPage() {
     setLongitudinalQaMessage("");
   }, [id, lesionId]);
 
+  if (shouldLoadLive && effectiveLiveLoadStatus === "loading") {
+    return <LesionNotFound title="Загружаем карточку образования" hint="Получаем безопасную историю из системы клиники…" />;
+  }
+  if (shouldLoadLive && effectiveLiveLoadStatus === "error") {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Не удалось загрузить образование" subtitle={liveLoadMessage} />
+        <div className="p-4">
+          <Button size="sm" variant="secondary" className="min-h-[44px]" onClick={() => setLiveLoadRevision((value) => value + 1)}>
+            <RefreshCw className="mr-1 h-3.5 w-3.5" aria-hidden /> Повторить
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (!patient) {
     return (
-      <NotFound
+      <LesionNotFound
         title="Пациент не найден"
         hint="Карточка пациента отсутствует в демо-данных."
       />
@@ -2209,7 +2346,6 @@ export default function LesionDetailPage() {
     (i) => i.quality.score < 0.75 || i.quality.issues.length > 0,
   ).length;
 
-  // Визиты, в которых были снимки этого образования, но нет структурированной оценки.
   const visitsWithImages = Array.from(new Set(images.map((i) => i.visitId)));
   const visitsWithAssessment = new Set(assessments.map((a) => a.visitId));
   const orphanVisits = visitsWithImages.filter(
@@ -2238,6 +2374,9 @@ export default function LesionDetailPage() {
   const bodyMapHref = latestVisit
     ? `/patients/${patient.id}/visits/${latestVisit.id}?tab=bodymap&lesion=${lesion.id}`
     : `/patients/${patient.id}`;
+  const hasExactBodyMapPoint = !shouldLoadLive || Boolean(
+    liveBundleMatchesRoute && liveBundle?.bodyMapBound,
+  );
 
   const toggleCompare = (imgId: string) => {
     setComparisonAction(null);
@@ -2318,9 +2457,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setViewerQaStatus("error");
-      setViewerQaMessage(
-        result.error?.message ?? "Проверка просмотра не сохранена.",
-      );
+      setViewerQaMessage(selfHostedPublicErrorText(result.error, "Проверка просмотра не сохранена."));
     }
   };
 
@@ -2363,10 +2500,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(
-        saveResult.error?.message ??
-          "Черновик проверки просмотра не сохранён перед разбором.",
-      );
+      setViewerQaReviewMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед разбором."));
       return;
     }
     const reviewResult = await reviewSelfHostedLesionComparisonViewerQa({
@@ -2396,10 +2530,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(
-        reviewResult.error?.message ??
-          "Технический разбор просмотра не сохранён.",
-      );
+      setViewerQaReviewMessage(selfHostedPublicErrorText(reviewResult.error, "Технический разбор просмотра не сохранён."));
     }
   };
 
@@ -2442,10 +2573,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(
-        saveResult.error?.message ??
-          "Черновик проверки просмотра не сохранён перед разбором правил.",
-      );
+      setMeasurementPolicyMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед разбором правил."));
       return;
     }
     const result = await reviewSelfHostedLesionComparisonMeasurementPolicy({
@@ -2471,9 +2599,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(
-        result.error?.message ?? "Правила измерений не сохранены.",
-      );
+      setMeasurementPolicyMessage(selfHostedPublicErrorText(result.error, "Правила измерений не сохранены."));
     }
   };
 
@@ -2517,10 +2643,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setProductionAnalysisPolicyBackendStatus("error");
-      setProductionAnalysisPolicyMessage(
-        saveResult.error?.message ??
-          "Черновик проверки просмотра не сохранён перед правилами анализа.",
-      );
+      setProductionAnalysisPolicyMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед правилами анализа."));
       return;
     }
     const result =
@@ -2549,9 +2672,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setProductionAnalysisPolicyBackendStatus("error");
-      setProductionAnalysisPolicyMessage(
-        result.error?.message ?? "Правила анализа не сохранены.",
-      );
+      setProductionAnalysisPolicyMessage(selfHostedPublicErrorText(result.error, "Правила анализа не сохранены."));
     }
   };
 
@@ -2594,10 +2715,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(
-        saveResult.error?.message ??
-          "Черновик проверки просмотра не сохранён перед назначением проверяющего.",
-      );
+      setReviewerAssignmentMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед назначением проверяющего."));
       return;
     }
     const result = await reviewSelfHostedLesionComparisonReviewerAssignment({
@@ -2629,9 +2747,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(
-        result.error?.message ?? "Назначение проверяющего не сохранено.",
-      );
+      setReviewerAssignmentMessage(selfHostedPublicErrorText(result.error, "Назначение проверяющего не сохранено."));
     }
   };
 
@@ -2687,9 +2803,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setViewerQaReviewerWorkflowStatus("error");
-      setViewerQaReviewerWorkflowMessage(
-        result.error?.message ?? "Врачебный порядок проверки не сохранён.",
-      );
+      setViewerQaReviewerWorkflowMessage(selfHostedPublicErrorText(result.error, "Врачебный порядок проверки не сохранён."));
     }
   };
 
@@ -2737,9 +2851,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setComparisonBackendStatus("error");
-      setComparisonBackendMessage(
-        result.error?.message ?? "Журнал проверки не сохранён.",
-      );
+      setComparisonBackendMessage(selfHostedPublicErrorText(result.error, "Журнал проверки не сохранён."));
     }
   };
 
@@ -2784,9 +2896,7 @@ export default function LesionDetailPage() {
     const failed = results.find((result) => !result.ok || !result.value);
     if (failed) {
       setProtectedRenderStatus("error");
-      setProtectedRenderMessage(
-        failed.error?.message ?? "Защищённые превью не загружены.",
-      );
+      setProtectedRenderMessage(selfHostedPublicErrorText(failed.error, "Защищённые превью не загружены."));
       return;
     }
 
@@ -2832,9 +2942,7 @@ export default function LesionDetailPage() {
       );
     } else {
       setLongitudinalQaLoadStatus("error");
-      setLongitudinalQaMessage(
-        result.error?.message ?? "Рабочая проверка не обновлена.",
-      );
+      setLongitudinalQaMessage(selfHostedPublicErrorText(result.error, "Рабочая проверка не обновлена."));
     }
   };
 
@@ -2858,17 +2966,19 @@ export default function LesionDetailPage() {
               пациента
             </Link>
           </Button>
-          <Button
-            asChild
-            size="sm"
-            variant="secondary"
-            className="min-h-[44px] sm:min-h-[32px]"
-          >
-            <Link to={bodyMapHref}>
-              <MapPin className="h-3.5 w-3.5" aria-hidden /> Открыть на карте
-              тела
-            </Link>
-          </Button>
+          {hasExactBodyMapPoint && (
+            <Button
+              asChild
+              size="sm"
+              variant="secondary"
+              className="min-h-[44px] sm:min-h-[32px]"
+            >
+              <Link to={bodyMapHref}>
+                <MapPin className="h-3.5 w-3.5" aria-hidden /> Открыть на карте
+                тела
+              </Link>
+            </Button>
+          )}
           {latestVisit && (
             <Button
               asChild
@@ -2890,41 +3000,50 @@ export default function LesionDetailPage() {
               <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Локализация
               </div>
-              <div className="mt-1 flex items-start gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMapOpen(true)}
-                  aria-label="Открыть увеличенную карту тела"
-                  className="group relative shrink-0 rounded border bg-muted/30 p-0 transition hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <BodyMapMini
-                    profile={bodyProfile}
-                    view={lesion.mapPoint.view}
-                    x={lesion.mapPoint.x}
-                    y={lesion.mapPoint.y}
-                  />
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 rounded-b bg-background/85 py-0.5 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                    <Maximize2 className="h-2.5 w-2.5" aria-hidden /> увеличить
-                  </span>
-                </button>
-                <div className="min-w-0">
-                  <div className="text-[13px]">{lesion.bodyZone}</div>
-                  <div className="text-[12px] text-muted-foreground">
-                    Проекция: {VIEW_LABEL[lesion.mapPoint.view]}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground tabular-nums">
-                    x{(lesion.mapPoint.x * 100).toFixed(0)}% / y
-                    {(lesion.mapPoint.y * 100).toFixed(0)}%
-                  </div>
+              {hasExactBodyMapPoint ? (
+                <div className="mt-1 flex items-start gap-2">
                   <button
                     type="button"
                     onClick={() => setMapOpen(true)}
-                    className="mt-1 inline-flex min-h-[44px] items-center gap-1 text-[11px] text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-[32px]"
+                    aria-label="Открыть увеличенную карту тела"
+                    className="group relative shrink-0 rounded border bg-muted/30 p-0 transition hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Maximize2 className="h-3 w-3" aria-hidden /> Открыть карту
+                    <BodyMapMini
+                      profile={bodyProfile}
+                      view={lesion.mapPoint.view}
+                      x={lesion.mapPoint.x}
+                      y={lesion.mapPoint.y}
+                    />
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 rounded-b bg-background/85 py-0.5 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <Maximize2 className="h-2.5 w-2.5" aria-hidden /> увеличить
+                    </span>
                   </button>
+                  <div className="min-w-0">
+                    <div className="text-[13px]">{lesion.bodyZone}</div>
+                    <div className="text-[12px] text-muted-foreground">
+                      Проекция: {VIEW_LABEL[lesion.mapPoint.view]}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground tabular-nums">
+                      x{(lesion.mapPoint.x * 100).toFixed(0)}% / y
+                      {(lesion.mapPoint.y * 100).toFixed(0)}%
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMapOpen(true)}
+                      className="mt-1 inline-flex min-h-[44px] items-center gap-1 text-[11px] text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-[32px]"
+                    >
+                      <Maximize2 className="h-3 w-3" aria-hidden /> Открыть карту
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-1">
+                  <div className="text-[13px]">{lesion.bodyZone}</div>
+                  <p className="mt-1 text-[12px] text-muted-foreground">
+                    Точная точка на карте тела не сохранена
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -3037,10 +3156,10 @@ export default function LesionDetailPage() {
                       {formatDate(img.capturedAt)}
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {IMAGE_KIND[img.kind]} · {IMAGE_SOURCE[img.source]}
+                      {IMAGE_KIND[img.kind]} · {imageSourceDisplayLabel(img)}
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {deviceDisplayLabel(img.deviceId)}
+                      {imageDeviceDisplayLabel(img)}
                     </div>
                     <span
                       className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(img)}`}
@@ -3065,7 +3184,7 @@ export default function LesionDetailPage() {
                     className="rounded-sm border border-border bg-background px-1.5 py-0.5"
                   >
                     {formatDate(img.capturedAt)} ·{" "}
-                    {deviceDisplayLabel(img.deviceId)} · {IMAGE_KIND[img.kind]}
+                    {imageDeviceDisplayLabel(img)} · {IMAGE_KIND[img.kind]}
                   </span>
                 ))}
               </div>
@@ -3139,9 +3258,10 @@ export default function LesionDetailPage() {
                     aria-hidden
                   />
                   <span>
-                    Условия съёмки не сопоставимы: разные устройства, источник
-                    или тип снимка. Нельзя оценивать динамику без врачебной
-                    проверки.
+                    {!captureMetadataKnown
+                      ? "Условия съёмки не подтверждены: источник или устройство не указаны."
+                      : "Условия съёмки не сопоставимы: разные устройства, источник или тип снимка."}{" "}
+                    Нельзя оценивать динамику без врачебной проверки.
                   </span>
                 </p>
               )}
@@ -3224,6 +3344,8 @@ export default function LesionDetailPage() {
                       <p className="mt-1 text-[12px]">
                         {selectedPairIsComparable
                           ? "Можно использовать пару для врачебного сравнения."
+                          : selectedPairQualityNotAssessed
+                            ? "Сначала выполните техническую оценку пары. Решение о пересъёмке принимайте по её результату."
                           : "Сначала закройте техническое ограничение или запросите переснимок."}
                       </p>
                       {comparisonAction && (
@@ -3362,6 +3484,11 @@ export default function LesionDetailPage() {
                 const v = visitById(img.visitId);
                 const isActive = activeImageId === img.id;
                 const isCompare = compareIds.includes(img.id);
+                const comparisonSelectionAllowed = !shouldLoadLive || isLiveComparisonSelectionAllowed(
+                  img.id,
+                  compareIds,
+                  liveBundleMatchesRoute ? liveBundle?.comparisonCandidatePairs ?? [] : [],
+                );
                 return (
                   <li
                     key={img.id}
@@ -3377,12 +3504,12 @@ export default function LesionDetailPage() {
                         <span>{IMAGE_KIND[img.kind]}</span>
                         <span className="text-muted-foreground">·</span>
                         <span className="text-muted-foreground">
-                          {IMAGE_SOURCE[img.source]}
+                          {imageSourceDisplayLabel(img)}
                         </span>
                       </div>
                       <div className="text-[12px] text-muted-foreground">
                         {formatDateTime(img.capturedAt)}
-                        <> · {deviceDisplayLabel(img.deviceId)}</>
+                        <> · {imageDeviceDisplayLabel(img)}</>
                         {v && (
                           <>
                             {" "}
@@ -3392,8 +3519,10 @@ export default function LesionDetailPage() {
                         )}
                       </div>
                       <div className="text-[12px] text-muted-foreground">
-                        Качество: {(img.quality.score * 100).toFixed(0)}%
-                        {img.quality.issues.length > 0 && (
+                        {isImageQualityNotAssessed(img)
+                          ? "Качество не оценено"
+                          : `Качество: ${(img.quality.score * 100).toFixed(0)}%`}
+                        {!isImageQualityNotAssessed(img) && img.quality.issues.length > 0 && (
                           <> · замечания: {img.quality.issues.join(", ")}</>
                         )}
                       </div>
@@ -3428,9 +3557,10 @@ export default function LesionDetailPage() {
                         variant={isCompare ? "default" : "outline"}
                         aria-pressed={isCompare}
                         className="min-h-[44px] sm:min-h-[32px]"
+                        disabled={!comparisonSelectionAllowed}
                         onClick={() => toggleCompare(img.id)}
                       >
-                        Сравнить
+                        {comparisonSelectionAllowed ? "Сравнить" : "Нет пары для сравнения"}
                       </Button>
                     </div>
                   </li>
@@ -3541,16 +3671,18 @@ export default function LesionDetailPage() {
         </Card>
       </div>
 
-      <BodyMapDialog
-        open={mapOpen}
-        onOpenChange={setMapOpen}
-        profile={bodyProfile}
-        view={lesion.mapPoint.view}
-        x={lesion.mapPoint.x}
-        y={lesion.mapPoint.y}
-        bodyZone={lesion.bodyZone}
-        label={lesion.label}
-      />
+      {hasExactBodyMapPoint && (
+        <BodyMapDialog
+          open={mapOpen}
+          onOpenChange={setMapOpen}
+          profile={bodyProfile}
+          view={lesion.mapPoint.view}
+          x={lesion.mapPoint.x}
+          y={lesion.mapPoint.y}
+          bodyZone={lesion.bodyZone}
+          label={lesion.label}
+        />
+      )}
       <ComparisonFullScreenDialog
         open={compareDialogOpen && hasComparablePair}
         onOpenChange={setCompareDialogOpen}

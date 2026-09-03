@@ -2323,6 +2323,30 @@
               }
             }
           },
+          "images": {
+            "type": "array",
+            "description": "Metadata-only list of individually viewable lesion images. Comparison eligibility remains defined separately by candidatePairs.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "visitId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "capturedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
           "candidatePairs": {
             "type": "array",
             "items": {

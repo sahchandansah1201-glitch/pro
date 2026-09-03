@@ -70,7 +70,15 @@ test("Batch AW Stage 5H repository builds metadata-only lesion longitudinal hist
 
   assert.match(sql, /from lesions l/);
   assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /l\.id = a\.lesion_id/);
+  assert.match(sql, /l\.patient_id = a\.patient_id/);
+  assert.match(sql, /l\.clinic_id = a\.clinic_id/);
+  assert.match(sql, /partition by a\.kind/);
+  assert.match(sql, /previous_visit_id is distinct from visit_id/);
   assert.match(sql, /left join clinical_assessments ca/);
+  assert.match(sql, /as "images"/);
+  assert.match(sql, /'id', a\.id::text/);
+  assert.match(sql, /'capturedAt', a\.captured_at/);
   assert.match(sql, /patient_delivery_allowed/i);
   assert.match(sql, /protected_fields_exposed/i);
   assert.match(sql, /and l\.clinic_id in/);
@@ -2002,6 +2010,14 @@ test("Batch AW Stage 5H repository normalizes longitudinal history with forced s
               capturedAtLast: "2026-05-19T10:45:00.000Z",
             },
           ],
+          images: [
+            {
+              id: "10000000-0000-4000-8000-000000000900",
+              visitId: VISIT_ID,
+              kind: "overview_photo",
+              capturedAt: "2026-05-19T10:42:00.000Z",
+            },
+          ],
           candidatePairs: [
             {
               previousVisitId: "10000000-0000-4000-8000-000000000302",
@@ -2035,6 +2051,14 @@ test("Batch AW Stage 5H repository normalizes longitudinal history with forced s
 
   assert.equal(history.lesionId, "10000000-0000-4000-8000-000000000801");
   assert.equal(history.summary.visitCount, 2);
+  assert.deepEqual(history.images, [
+    {
+      id: "10000000-0000-4000-8000-000000000900",
+      visitId: VISIT_ID,
+      kind: "overview_photo",
+      capturedAt: "2026-05-19T10:42:00.000Z",
+    },
+  ]);
   assert.equal(history.candidatePairs[0].status, "warning");
   assert.equal(history.boundaries.patientDeliveryAllowed, false);
   assert.equal(history.boundaries.protectedFieldsExposed, false);

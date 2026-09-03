@@ -1,6 +1,8 @@
 // Stage 5H · Self-hosted clinical workspace repository.
 // PostgreSQL contracts for assessment, conclusion and report reads/writes.
 
+import { normalizeLesionLongitudinalHistory } from "./lesion-longitudinal-history-normalizer.mjs";
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sqlLiteral(value) {
@@ -323,6 +325,16 @@ from (
       ) order by v.started_at asc nulls last, v.visit_id asc)
       from visits_rollup v
     ), '[]'::jsonb) as "visits",
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', a.id::text,
+        'visitId', a.visit_id::text,
+        'kind', a.kind,
+        'capturedAt', a.captured_at
+      ) order by coalesce(a.started_at, a.captured_at, a.created_at) asc nulls last, a.created_at asc, a.id asc)
+      from lesion_assets a
+      where a.content_type like 'image/%'
+    ), '[]'::jsonb) as "images",
     coalesce((
       select jsonb_agg(jsonb_build_object(
         'previousVisitId', p.previous_visit_id::text,
@@ -10340,71 +10352,6 @@ function normalizeVisitLongitudinalDatasetValidation(row) {
       protectedFieldsExposed: false,
       pairKeysExposed: false,
       imageIdsExposed: false,
-      storagePathsExposed: false,
-      signedUrlsIssued: false,
-      rawImageBytesExposed: false,
-      doctorOnlyTextExposed: false,
-      clinicalConclusionGenerated: false,
-    },
-  };
-}
-
-function normalizeLongitudinalSummary(value) {
-  const source = parseJsonObject(value);
-  return {
-    visitCount: numberOrZero(source.visitCount),
-    imageCount: numberOrZero(source.imageCount),
-    candidatePairCount: numberOrZero(source.candidatePairCount),
-    comparablePairCount: numberOrZero(source.comparablePairCount),
-    warningPairCount: numberOrZero(source.warningPairCount),
-    blockedPairCount: numberOrZero(source.blockedPairCount),
-    assessmentCount: numberOrZero(source.assessmentCount),
-  };
-}
-
-function normalizeLongitudinalVisit(row) {
-  return {
-    visitId: String(row.visitId ?? ""),
-    startedAt: row.startedAt ?? null,
-    signedAt: row.signedAt ?? null,
-    status: String(row.status ?? "draft"),
-    imageCount: numberOrZero(row.imageCount),
-    dermoscopyCount: numberOrZero(row.dermoscopyCount),
-    overviewCount: numberOrZero(row.overviewCount),
-    assessmentCount: numberOrZero(row.assessmentCount),
-    capturedAtFirst: row.capturedAtFirst ?? null,
-    capturedAtLast: row.capturedAtLast ?? null,
-  };
-}
-
-function normalizeLongitudinalPair(row) {
-  const status = String(row.status ?? "blocked");
-  return {
-    previousVisitId: String(row.previousVisitId ?? ""),
-    currentVisitId: String(row.currentVisitId ?? ""),
-    previousImageId: String(row.previousImageId ?? ""),
-    currentImageId: String(row.currentImageId ?? ""),
-    kind: String(row.kind ?? ""),
-    status: status === "ready" || status === "warning" ? status : "blocked",
-    reasons: parseJsonArray(row.reasons),
-  };
-}
-
-function normalizeLesionLongitudinalHistory(row) {
-  return {
-    clinicId: row.clinicId ? String(row.clinicId) : null,
-    patientId: row.patientId ? String(row.patientId) : null,
-    lesionId: String(row.lesionId ?? ""),
-    label: row.label ?? null,
-    bodyZone: row.bodyZone ?? null,
-    bodySurface: row.bodySurface ?? null,
-    status: String(row.status ?? "active"),
-    summary: normalizeLongitudinalSummary(row.summary),
-    visits: parseObjectArray(row.visits).map(normalizeLongitudinalVisit),
-    candidatePairs: parseObjectArray(row.candidatePairs).map(normalizeLongitudinalPair),
-    boundaries: {
-      patientDeliveryAllowed: false,
-      protectedFieldsExposed: false,
       storagePathsExposed: false,
       signedUrlsIssued: false,
       rawImageBytesExposed: false,

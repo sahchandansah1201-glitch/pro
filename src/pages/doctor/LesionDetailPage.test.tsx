@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LESION_COMPARISON_DRAFTS_STORAGE_KEY } from "@/lib/lesion-comparison-drafts";
 import {
@@ -63,19 +63,224 @@ describe("LesionDetailPage", () => {
     expect(screen.queryByText(/таймлайн снимков, сравнение/i)).toBeNull();
   });
 
+  it("loads a real UUID lesion route from the clinic system and exposes its comparable pair", async () => {
+    const patientId = "a1111111-1111-4111-8111-111111111111";
+    const lesionId = "a2222222-2222-4222-8222-222222222222";
+    const previousImageId = "a3333333-3333-4333-8333-333333333333";
+    const currentImageId = "a4444444-4444-4444-8444-444444444444";
+    const blockedPreviousImageId = "b3333333-3333-4333-8333-333333333333";
+    const blockedCurrentImageId = "b4444444-4444-4444-8444-444444444444";
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith(`/api/v1/patients/${patientId}`)) {
+        return new Response(JSON.stringify({ item: {
+          id: patientId,
+          code: "TEST-001",
+          fullName: "Тестовый пациент",
+          birthDate: "1985-04-10",
+          sex: "female",
+          phototype: "II",
+          imagingConsent: true,
+          createdAt: "2026-09-01T08:00:00.000Z",
+        } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ item: {
+        clinicId: "a5555555-5555-4555-8555-555555555555",
+        patientId,
+        lesionId,
+        label: "Контрольный очаг",
+        bodyZone: "Кисть правой руки",
+        bodySurface: "front",
+        status: "monitoring",
+        summary: {
+          visitCount: 2,
+          imageCount: 4,
+          candidatePairCount: 2,
+          comparablePairCount: 1,
+          warningPairCount: 0,
+          blockedPairCount: 1,
+          assessmentCount: 0,
+        },
+        visits: [
+          {
+            visitId: "a6666666-6666-4666-8666-666666666666",
+            startedAt: "2026-08-01T08:00:00.000Z",
+            signedAt: "2026-08-01T09:00:00.000Z",
+            status: "signed",
+            imageCount: 2,
+            dermoscopyCount: 1,
+            overviewCount: 1,
+            assessmentCount: 0,
+            capturedAtFirst: "2026-08-01T08:20:00.000Z",
+            capturedAtLast: "2026-08-01T08:20:00.000Z",
+          },
+          {
+            visitId: "a7777777-7777-4777-8777-777777777777",
+            startedAt: "2026-09-01T08:00:00.000Z",
+            signedAt: null,
+            status: "in_progress",
+            imageCount: 2,
+            dermoscopyCount: 1,
+            overviewCount: 1,
+            assessmentCount: 0,
+            capturedAtFirst: "2026-09-01T08:20:00.000Z",
+            capturedAtLast: "2026-09-01T08:20:00.000Z",
+          },
+        ],
+        images: [
+          {
+            id: previousImageId,
+            visitId: "a6666666-6666-4666-8666-666666666666",
+            kind: "dermoscopy",
+            capturedAt: "2026-08-01T08:20:00.000Z",
+          },
+          {
+            id: blockedPreviousImageId,
+            visitId: "a6666666-6666-4666-8666-666666666666",
+            kind: "overview_photo",
+            capturedAt: "2026-08-01T08:25:00.000Z",
+          },
+          {
+            id: currentImageId,
+            visitId: "a7777777-7777-4777-8777-777777777777",
+            kind: "dermoscopy",
+            capturedAt: "2026-09-01T08:20:00.000Z",
+          },
+          {
+            id: blockedCurrentImageId,
+            visitId: "a7777777-7777-4777-8777-777777777777",
+            kind: "overview_photo",
+            capturedAt: "2026-09-01T08:25:00.000Z",
+          },
+        ],
+        candidatePairs: [
+          {
+            previousVisitId: "a6666666-6666-4666-8666-666666666666",
+            currentVisitId: "a7777777-7777-4777-8777-777777777777",
+            previousImageId,
+            currentImageId,
+            kind: "dermoscopy",
+            status: "ready",
+            reasons: [],
+          },
+          {
+            previousVisitId: "a6666666-6666-4666-8666-666666666666",
+            currentVisitId: "a7777777-7777-4777-8777-777777777777",
+            previousImageId: blockedPreviousImageId,
+            currentImageId: blockedCurrentImageId,
+            kind: "dermoscopy",
+            status: "blocked",
+            reasons: ["Нет подтверждённых условий съёмки"],
+          },
+        ],
+        boundaries: {},
+      } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt(`/patients/${patientId}/lesions/${lesionId}`);
+
+    expect(await screen.findByText(/Контрольный очаг/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelector(`[data-image-id="${previousImageId}"]`)).toBeTruthy();
+      expect(document.querySelector(`[data-image-id="${currentImageId}"]`)).toBeTruthy();
+    });
+    expect(screen.getByRole("region", { name: /Продольная история очага/ }))
+      .toHaveTextContent(/Сопоставимых пар: 0/);
+    expect(screen.getByRole("region", { name: /Продольная история очага/ }))
+      .toHaveTextContent(/Нужна техническая проверка/);
+    const liveHistory = screen.getByRole("region", { name: /Продольная история очага/ });
+    expect(liveHistory).toHaveTextContent(/Техническая оценка качества не выполнена/);
+    expect(liveHistory).not.toHaveTextContent(/Качество ниже порога/);
+    const liveQaGate = screen.getByRole("region", { name: /Готовность продольной проверки/ });
+    expect(liveQaGate).toHaveTextContent(/Нужен технический разбор/);
+    expect(liveQaGate).not.toHaveTextContent(/Нужен переснимок|Калибровка не готова|Не хватает технических маркеров/);
+    expect(document.body).not.toHaveTextContent(/0×0/);
+    const blockedPreviousRow = document.querySelector<HTMLElement>(`[data-image-id="${blockedPreviousImageId}"]`);
+    const blockedCurrentRow = document.querySelector<HTMLElement>(`[data-image-id="${blockedCurrentImageId}"]`);
+    expect(blockedPreviousRow).toBeTruthy();
+    expect(blockedCurrentRow).toBeTruthy();
+    expect(within(blockedPreviousRow!).getByRole("button", { name: "Нет пары для сравнения" })).toBeDisabled();
+    expect(within(blockedCurrentRow!).getByRole("button", { name: "Нет пары для сравнения" })).toBeDisabled();
+    expect(screen.getByText("Точная точка на карте тела не сохранена")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Открыть увеличенную карту тела" })).toBeNull();
+    selectComparePair(previousImageId, currentImageId);
+    const liveReview = screen.getByRole("region", { name: /Рабочий разбор пары/ });
+    expect(document.body).toHaveTextContent(/Источник не указан/);
+    expect(document.body).toHaveTextContent(/Устройство не указано/);
+    expect(liveReview).toHaveTextContent(/Сначала выполните техническую оценку пары/);
+    expect(liveReview).not.toHaveTextContent(
+      /один источник|Источник совпадает|одно устройство|Устройство совпадает|или запросите переснимок/,
+    );
+    expect(document.body).toHaveTextContent(/Качество не оценено/);
+    expect(document.body).not.toHaveTextContent(/Качество:\s*0%|без устройства/);
+    expect(document.body.textContent ?? "").not.toMatch(/storagePath|signedUrl|rawToken/i);
+  });
+
+  it("fails closed when the clinic response belongs to another lesion route", async () => {
+    const patientId = "c1111111-1111-4111-8111-111111111111";
+    const lesionId = "c2222222-2222-4222-8222-222222222222";
+    const otherLesionId = "c3333333-3333-4333-8333-333333333333";
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith(`/api/v1/patients/${patientId}`)) {
+        return new Response(JSON.stringify({ item: {
+          id: patientId,
+          code: "TEST-002",
+          fullName: "Маршрутный пациент",
+          birthDate: "1985-04-10",
+          sex: "female",
+          phototype: "II",
+          imagingConsent: true,
+          createdAt: "2026-09-01T08:00:00.000Z",
+        } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ item: {
+        clinicId: "c5555555-5555-4555-8555-555555555555",
+        patientId,
+        lesionId: otherLesionId,
+        label: "Чужая карточка",
+        bodyZone: "Кисть правой руки",
+        bodySurface: "front",
+        status: "monitoring",
+        summary: {
+          visitCount: 0,
+          imageCount: 0,
+          candidatePairCount: 0,
+          comparablePairCount: 0,
+          warningPairCount: 0,
+          blockedPairCount: 0,
+          assessmentCount: 0,
+        },
+        visits: [],
+        candidatePairs: [],
+        boundaries: {},
+      } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }));
+
+    renderAt(`/patients/${patientId}/lesions/${lesionId}`);
+
+    expect(await screen.findByText(/Система клиники вернула данные другой карточки/)).toBeInTheDocument();
+    expect(screen.queryByText("Маршрутный пациент")).toBeNull();
+    expect(screen.queryByText("Чужая карточка")).toBeNull();
+  });
+
   it("shows a longitudinal lesion history across visits with technical comparison boundaries", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
     const history = screen.getByRole("region", { name: /Продольная история очага/ });
     expect(within(history).getByText(/Визитов с фото: 2/)).toBeInTheDocument();
     expect(within(history).getByText(/Снимков: 4/)).toBeInTheDocument();
-    expect(within(history).getByText(/Сопоставимых пар: 1/)).toBeInTheDocument();
+    expect(within(history).getByText(/Сопоставимых пар: 0/)).toBeInTheDocument();
     expect(within(history).getByText(/Ограничений: 1/)).toBeInTheDocument();
     expect(within(history).getByText(/Визит 20\.02\.2026/)).toBeInTheDocument();
     expect(within(history).getByText(/Визит 09\.03\.2026/)).toBeInTheDocument();
     expect(history.textContent ?? "").not.toMatch(/\bv-011\b|\bv-005\b/);
     expect(within(history).getAllByText(/Снимок 20\.02\.2026 → Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
-    expect(within(history).getByText(/Сопоставимо с предупреждением/)).toBeInTheDocument();
+    expect(within(history).getByText(/Нужна техническая проверка/)).toBeInTheDocument();
     expect(within(history).getByText(/Не сопоставимо/)).toBeInTheDocument();
     expect(within(history).getByText(/Не является оценкой динамики или клиническим выводом/)).toBeInTheDocument();
     expect(history.textContent ?? "").not.toMatch(
@@ -205,14 +410,14 @@ describe("LesionDetailPage", () => {
     expect(screen.queryByText("l-008")).toBeNull();
     expect(screen.getByText(/Лента дат очага/)).toBeInTheDocument();
     expect(screen.getAllByText(/FotoFinder Handyscope/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/без устройства/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Устройство не указано/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/С предупреждением/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Нужен переснимок/).length).toBeGreaterThan(0);
 
     selectComparePair("i-011", "i-012");
 
     expect(screen.getByText(/Сравнение по датам/)).toBeInTheDocument();
-    expect(screen.getByText(/условия съёмки не сопоставимы/i)).toBeInTheDocument();
+    expect(screen.getByText(/условия съёмки не подтверждены/i)).toBeInTheDocument();
   });
 
   it("shows a richer Comparison Matrix with capture-condition differences and safety boundary", () => {
@@ -227,10 +432,10 @@ describe("LesionDetailPage", () => {
     expect(within(matrix).getByText(/Дата/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Тип снимка/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Источник/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Устройство/)).toBeInTheDocument();
+    expect(within(matrix).getByText("Устройство")).toBeInTheDocument();
     expect(within(matrix).getByText(/Качество/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Сопоставимость/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Разные условия съёмки/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Недостаточно данных об условиях/)).toBeInTheDocument();
     expect(screen.getByText(/Нельзя оценивать динамику без врачебной проверки/i)).toBeInTheDocument();
   });
 
@@ -242,7 +447,7 @@ describe("LesionDetailPage", () => {
     const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     expect(within(review).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
     expect(within(review).getAllByText(/Не сопоставимо/).length).toBeGreaterThan(0);
-    expect(within(review).getByText(/Разные условия съёмки/)).toBeInTheDocument();
+    expect(within(review).getByText(/Не указаны источник или устройство/)).toBeInTheDocument();
     expect(within(review).getByText(/Есть технические замечания/)).toBeInTheDocument();
     expect(within(review).getByText(/Не оценивайте динамику/i)).toBeInTheDocument();
 
@@ -308,8 +513,8 @@ describe("LesionDetailPage", () => {
     expect(within(captureQa).getByText(/разный тип снимка/i)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Источник/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/разные источники/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Устройство/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/FotoFinder Handyscope \/ без устройства/)).toBeInTheDocument();
+    expect(within(captureQa).getByText("Устройство")).toBeInTheDocument();
+    expect(within(captureQa).getByText(/FotoFinder Handyscope \/ Устройство не указано/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Качество/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/минимум 67%/i)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Замечания качества/)).toBeInTheDocument();
@@ -419,7 +624,7 @@ describe("LesionDetailPage", () => {
 
     expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Профиль устройства/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/FotoFinder Handyscope \/ без устройства/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/FotoFinder Handyscope \/ Устройство не указано/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Размер кадра/)).toBeInTheDocument();
     expect(within(calibration).getByText(/2048×2048 \/ 3000×2000/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Масштабная шкала/)).toBeInTheDocument();

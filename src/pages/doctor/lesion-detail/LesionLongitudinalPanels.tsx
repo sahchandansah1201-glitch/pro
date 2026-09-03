@@ -44,7 +44,7 @@ const IMAGE_KIND: Record<ClinicalImage["kind"], string> = {
 
 const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
   ready: "Сопоставимо",
-  warning: "Сопоставимо с предупреждением",
+  warning: "Нужна техническая проверка",
   blocked: "Не сопоставимо",
 };
 
@@ -87,7 +87,7 @@ export function LongitudinalHistorySection({
   formatDevice?: (deviceId: string | null | undefined) => string;
 }) {
   const totalImages = groups.reduce((count, group) => count + group.images.length, 0);
-  const comparablePairs = pairs.filter((pair) => pair.status !== "blocked").length;
+  const comparablePairs = pairs.filter((pair) => pair.status === "ready").length;
   const blockedPairs = pairs.filter((pair) => pair.status === "blocked").length;
 
   return (

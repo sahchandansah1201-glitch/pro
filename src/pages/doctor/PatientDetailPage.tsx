@@ -76,7 +76,7 @@ export default function PatientDetailPage() {
   const [liveState, setLiveState] = useState<LivePatientDetailState>({ kind: "idle" });
 
   useEffect(() => {
-    if (!productionMode || !liveBackend || !id) {
+    if (!liveBackend || !id) {
       setLiveState({ kind: "idle" });
       return;
     }
@@ -116,7 +116,6 @@ export default function PatientDetailPage() {
   }, [
     id,
     liveBackend,
-    productionMode,
     selfHostedSession.apiBaseUrl,
     selfHostedSession.apiToken,
   ]);
@@ -130,26 +129,26 @@ export default function PatientDetailPage() {
     );
   }
 
-  if (productionMode && liveState.kind === "loading") {
+  if (liveBackend && liveState.kind === "loading") {
     return <ProductionPatientState title="Загружаем карточку пациента" text="Читаем данные из системы клиники…" />;
   }
 
-  if (productionMode && liveState.kind === "error") {
+  if (liveBackend && liveState.kind === "error") {
     return <ProductionPatientState title="Карточка пациента недоступна" text={liveState.message} />;
   }
 
-  const patient = productionMode && liveState.kind === "ready"
+  const patient = liveBackend && liveState.kind === "ready"
     ? liveState.patient
     : id
       ? getPatientById(id)
       : undefined;
-  const visits = productionMode && liveState.kind === "ready"
+  const visits = liveBackend && liveState.kind === "ready"
     ? liveState.visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     : patient
       ? getVisitsByPatientId(patient.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       : [];
-  const lesions: Lesion[] = productionMode ? [] : patient ? getLesionsByPatientId(patient.id) : [];
-  const reports: Report[] = productionMode
+  const lesions: Lesion[] = liveBackend ? [] : patient ? getLesionsByPatientId(patient.id) : [];
+  const reports: Report[] = liveBackend
     ? []
     : patient
       ? getReportsByPatientId(patient.id).sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
@@ -184,7 +183,7 @@ export default function PatientDetailPage() {
         }
       />
 
-      {productionMode ? (
+      {liveBackend ? (
         <div
           role="status"
           aria-live="polite"

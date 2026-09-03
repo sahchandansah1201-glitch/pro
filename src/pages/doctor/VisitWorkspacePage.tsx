@@ -242,7 +242,7 @@ export default function VisitWorkspacePage() {
   }, []);
 
   useEffect(() => {
-    if (!productionMode || !liveBackend || !visitId) {
+    if (!liveBackend || !visitId) {
       setLiveState({ kind: "idle" });
       return;
     }
@@ -287,7 +287,6 @@ export default function VisitWorkspacePage() {
     };
   }, [
     liveBackend,
-    productionMode,
     selfHostedSession.apiBaseUrl,
     selfHostedSession.apiToken,
     visitId,
@@ -302,18 +301,18 @@ export default function VisitWorkspacePage() {
     );
   }
 
-  if (productionMode && liveState.kind === "loading") {
+  if (liveBackend && liveState.kind === "loading") {
     return <ProductionWorkspaceState title="Загружаем рабочее место визита" text="Читаем визит из системы клиники…" />;
   }
 
-  if (productionMode && liveState.kind === "error") {
+  if (liveBackend && liveState.kind === "error") {
     return <ProductionWorkspaceState title="Рабочее место визита недоступно" text={liveState.message} />;
   }
 
-  const livePatient = productionMode && liveState.kind === "ready"
+  const livePatient = liveBackend && liveState.kind === "ready"
     ? selfHostedVisitDetailToPatient(liveState.visit)
     : undefined;
-  const liveVisit = productionMode && liveState.kind === "ready"
+  const liveVisit = liveBackend && liveState.kind === "ready"
     ? selfHostedVisitToDomain(liveState.visit)
     : undefined;
   const patient = livePatient ?? (id ? getPatientById(id) : undefined);
@@ -332,7 +331,7 @@ export default function VisitWorkspacePage() {
     );
   }
 
-  const lesions = productionMode && liveState.kind === "ready"
+  const lesions = liveBackend && liveState.kind === "ready"
     ? liveState.lesions.map((lesion) => selfHostedLesionToDomain(lesion, patient.id))
     : getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);

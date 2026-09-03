@@ -44,26 +44,31 @@ test("buildGetVisitSql joins patient and clinic for detail rendering", () => {
   assert.match(sql, new RegExp(`v\\.id = '${VISIT_ID}'::uuid`));
 });
 
-test("buildListVisitLesionsSql filters by visit id", () => {
+test("buildListVisitLesionsSql exposes active patient lesions through a scoped visit", () => {
   const sql = buildListVisitLesionsSql({
     visitId: VISIT_ID,
     allClinics: true,
   });
+  assert.match(sql, /with target_visit as/);
+  assert.match(sql, new RegExp(`where v\\.id = '${VISIT_ID}'::uuid`));
   assert.match(sql, /from lesions l/);
-  assert.match(sql, new RegExp(`l\\.visit_id = '${VISIT_ID}'::uuid`));
+  assert.match(sql, /join target_visit tv/);
+  assert.match(sql, /l\.patient_id = tv\.patient_id/);
+  assert.match(sql, /l\.clinic_id = tv\.clinic_id/);
+  assert.doesNotMatch(sql, new RegExp(`l\\.visit_id = '${VISIT_ID}'::uuid`));
   assert.doesNotMatch(sql, /and l\.clinic_id in/);
   assert.match(sql, /l\.body_region_id as "bodyRegionId"/);
   assert.match(sql, /l\.body_map_x::float8 as "bodyMapX"/);
   assert.match(sql, /l\.body_atlas_source as "bodyAtlasSource"/);
   assert.match(sql, /l\.body_region_map_sha256 as "bodyRegionMapSha256"/);
-  assert.match(sql, /and l\.deleted_at is null/);
+  assert.match(sql, /where l\.deleted_at is null/);
   assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."createdAt" asc\)/);
 });
 
-test("buildGetLesionContextSql derives the scoped patient profile at visit time", () => {
+test("buildGetLesionContextSql derives the scoped patient profile and tolerates a missing origin visit", () => {
   const sql = buildGetLesionContextSql({ lesionId: "10000000-0000-4000-8000-000000000401", clinicIds: [CLINIC_ID] });
   assert.match(sql, /from lesions l/);
-  assert.match(sql, /join visits v on v\.id = l\.visit_id/);
+  assert.match(sql, /left join visits v on v\.id = l\.visit_id/);
   assert.match(sql, /join patients p on p\.id = l\.patient_id/);
   assert.match(sql, /p\.birth_date as "patientBirthDate"/);
   assert.match(sql, /p\.sex as "patientSex"/);
@@ -90,6 +95,33 @@ test("createVisitWorkspaceRepository normalizes rows from queryJson", async () =
   const dbClient = {
     async queryJson(sql) {
       calls.push(sql);
+      if (sql.includes("with target_visit as")) {
+        return [
+          {
+            id: "lesion-1",
+            clinicId: CLINIC_ID,
+            patientId: PATIENT_ID,
+            visitId: VISIT_ID,
+            label: "L1",
+            bodyZone: "спина",
+            bodySurface: null,
+            status: "active",
+            riskLevel: "moderate",
+            bodyMapView: "front",
+            bodyMapX: 0.35083,
+            bodyMapY: 0.99001,
+            bodyRegionId: "front-right-toes",
+            bodyRegionDetailId: "digit-5",
+            bodyAtlasSource: "makehuman-cc0",
+            bodyAtlasProfileId: "adult_female_30",
+            bodyAtlasManifestSha256: "a".repeat(64),
+            bodyRegionMapSha256: "b".repeat(64),
+            placementRevision: 1,
+            createdAt: "2026-05-12T09:00:00.000Z",
+            updatedAt: "2026-05-12T09:00:00.000Z",
+          },
+        ];
+      }
       if (sql.includes("from visits v\n  where")) {
         return [
           {

@@ -22,4 +22,16 @@ describe("selfHostedPublicErrorText · body atlas recovery", () => {
       }],
     })).toBe("Точка находится вне выбранной области. Выберите область на модели и поставьте точку заново.");
   });
+
+  it("never returns unknown server text or validation details to the interface", () => {
+    expect(selfHostedPublicErrorText({
+      code: "internal_error",
+      message: "backend failed at https://private.invalid/?token=secret",
+    }, "Действие не выполнено.")).toBe("Действие не выполнено.");
+
+    expect(selfHostedPublicErrorText({
+      code: "validation_error",
+      details: [{ field: "unknown", message: "storage_object_path=/private/patient" }],
+    })).toBe("Проверьте заполненные данные и повторите действие.");
+  });
 });

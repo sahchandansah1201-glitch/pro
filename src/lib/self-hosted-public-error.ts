@@ -30,7 +30,7 @@ export function selfHostedPublicErrorText(
   ) {
     return "Модель тела не совпадает с данными пациента или настройками системы. Обновите страницу и поставьте точку заново.";
   }
-  if (error.details?.length) return error.details.map((item) => item.message).join(" ");
+  if (error.details?.length) return "Проверьте заполненные данные и повторите действие.";
   if (isSelfHostedSessionExpiredError(error)) return "Сессия истекла. Выйдите и войдите в систему заново.";
   if (error.status === 404 || /not_found$/.test(error.code)) {
     return "Запись не найдена или недоступна для текущей клиники.";
@@ -46,7 +46,7 @@ export function selfHostedPublicErrorText(
   if (error.kind === "not_configured" || error.code === "not_configured") {
     return "Войдите в систему клиники, чтобы выполнить действие.";
   }
-  return sanitizeSelfHostedPublicText(error.message || fallback);
+  return fallback;
 }
 
 function isSelfHostedSessionExpiredError(error: PublicError): boolean {
@@ -56,13 +56,4 @@ function isSelfHostedSessionExpiredError(error: PublicError): boolean {
     error.code === "token_expired" ||
     /expired authorization token|invalid or expired authorization token/i.test(error.message ?? "")
   );
-}
-
-function sanitizeSelfHostedPublicText(message: string): string {
-  return message
-    .replace(/self-hosted backend/gi, "система клиники")
-    .replace(/self-hosted/gi, "система клиники")
-    .replace(/\bbackend\b/gi, "система клиники")
-    .replace(/\bPostgreSQL\b/gi, "рабочая база")
-    .trim();
 }
