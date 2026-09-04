@@ -139,11 +139,11 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     expect(selectedOpt?.text).toBe("Активное");
   });
 
-  it("'Добавить локально' adds the draft to the list with 'локально, не сохранено' label and detail panel text", () => {
+  it("'Сохранить учебный очаг' adds the draft to the list with 'локально, не сохранено' label and detail panel text", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     placePoint();
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
     expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
     expect(document.querySelector("[data-body-region-id='back-occiput']")).not.toBeNull();
@@ -157,7 +157,7 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     const { container } = renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     placePoint();
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
     const links = container.querySelectorAll("a[href*='/lesions/local-lesion']");
     expect(links.length).toBe(0);
   });
@@ -174,7 +174,7 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     placePoint();
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
     const after = getLesionsByPatientId("p-001").length;
     expect(after).toBe(before);
   });
@@ -216,7 +216,7 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
       clientX: 120,
       clientY: 172,
     });
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
     expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
 
     // switch to other tabs — draft must not appear

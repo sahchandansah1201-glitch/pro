@@ -167,7 +167,7 @@ describe("Visit Workspace · local draft isolation across downstream tabs", () =
       "Выбрать анатомическую область",
     ) as HTMLSelectElement;
     fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
   }
 
   it("local draft is labeled and does not leak to Imaging/Assessment/Conclusion/Report", () => {

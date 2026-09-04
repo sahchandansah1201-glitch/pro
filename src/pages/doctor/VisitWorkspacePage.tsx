@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
@@ -47,6 +47,7 @@ import {
 } from "@/pages/doctor/visit-workspace/ClinicalBodyMapCanvas";
 import { useBodyMapViewportPan } from "@/pages/doctor/visit-workspace/useBodyMapViewportPan";
 import { bodyMapPlacementBinding } from "@/pages/doctor/visit-workspace/bodyMapPlacementBinding";
+import { BodyMapMobileDraftContinuation } from "@/pages/doctor/visit-workspace/BodyMapMobileDraftContinuation";
 import { BodyMapPlacementBindingWarning } from "@/pages/doctor/visit-workspace/BodyMapPlacementBindingWarning";
 import {
   humanDisplayValue,
@@ -413,9 +414,7 @@ export default function VisitWorkspacePage() {
             <TabsTrigger value="conclusion" className="min-h-11 text-[13px] sm:text-[12px]">Заключение</TabsTrigger>
             <TabsTrigger value="report" className="min-h-11 text-[13px] sm:text-[12px]">Отчёт</TabsTrigger>
           </TabsList>
-          <p className="px-3 pb-2 pt-1 text-[12px] text-muted-foreground sm:hidden">
-            Листайте вправо: доступны «Заключение» и «Отчёт».
-          </p>
+          <p className="mx-1 mb-2 mt-1 rounded-sm bg-surface-muted px-3 py-2 text-right text-[12px] font-medium text-foreground sm:hidden">Ещё разделы справа → «Заключение» и «Отчёт»</p>
         </div>
 
         <TabsContent value="intake" className="m-0 min-h-0 flex-1 overflow-auto p-4">
@@ -4601,6 +4600,7 @@ function BodyMapTabReady({
   const [savingPlacement, setSavingPlacement] = useState(false);
   const [editingLesionId, setEditingLesionId] = useState<string | null>(null);
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
+  const pendingEditorRef = useRef<HTMLDivElement | null>(null);
   const pendingZoomFocusRef = useRef<{ x: number; y: number } | null>(null);
   const handleBodyMapModelReadyChange = useCallback((ready: boolean) => { setBodyMapModelReady(ready); if (!ready) { setZoom(1); const viewport = mapViewportRef.current; if (viewport) { viewport.scrollLeft = 0; viewport.scrollTop = 0; } } }, []);
   const changeZoom = (nextZoom: number) => {
@@ -4614,6 +4614,11 @@ function BodyMapTabReady({
     setZoom(nextZoom);
   };
 
+  const focusPendingEditor = () => {
+    const editor = pendingEditorRef.current;
+    editor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    editor?.focus();
+  };
   useLayoutEffect(() => {
     const viewport = mapViewportRef.current;
     const focus = pendingZoomFocusRef.current;
@@ -4802,13 +4807,13 @@ function BodyMapTabReady({
     : "Уточнить палец кисти";
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12">
+    <div data-testid="body-map-workspace" className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12 xl:grid-cols-[minmax(0,1fr)_22rem]">
       {/* Map pane */}
-      <div className="flex min-h-0 flex-col border-b border-border lg:col-span-7 lg:border-b-0 lg:border-r">
+      <div className="flex min-h-0 flex-col border-b border-border lg:col-span-7 lg:border-b-0 lg:border-r xl:col-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
           <div className="min-w-0">
             <h2 className="text-[13px] font-semibold text-foreground">Полная карта тела</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
               Создание очага, выбор поверхности, привязка к снимкам и переход в съёмку.
             </p>
           </div>
@@ -4829,11 +4834,9 @@ function BodyMapTabReady({
               </button>
             ))}
           </div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-[12px] text-muted-foreground">
             <div>Профиль карты: {profileLabel}</div>
-            <div>
-              Исходник {atlasSource === "daz-hires-local" ? "2880×4320" : "720×1200"} · без апскейла до {Math.round(maxZoom * 100)}%
-            </div>
+            <div>Исходник {atlasSource === "daz-hires-local" ? "2880×4320" : "720×1200"} · увеличение до {Math.round(maxZoom * 100)}% без программного растяжения</div>
           </div>
           <div className="flex items-center gap-1" role="group" aria-label="Масштаб карты тела">
             <Button
@@ -4877,12 +4880,12 @@ function BodyMapTabReady({
           <span className="text-[13px] font-semibold text-foreground">
             {bodyMapSurfaceLabel(view)}
           </span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[12px] text-muted-foreground">
             {bodyMapSurfaceHint(view)}
           </span>
         </div>
         {zoom > 1 && bodyMapModelReady && (
-          <p className="border-b border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">Перетаскивайте увеличенную модель мышью или пальцем. Стрелки клавиатуры перемещают область просмотра.</p>
+          <p className="border-b border-border bg-surface px-3 py-1.5 text-[12px] text-muted-foreground">Перетаскивайте увеличенную модель мышью или пальцем. Стрелки клавиатуры перемещают область просмотра.</p>
         )}
         <div
           ref={mapViewportRef}
@@ -4891,11 +4894,11 @@ function BodyMapTabReady({
           role="region"
           aria-label="Область просмотра карты тела"
           {...panViewportProps}
-          className={`h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto overscroll-contain bg-surface-muted p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+          className={`h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto overscroll-contain bg-surface-muted p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring xl:h-[calc(100vh-12rem)] xl:max-h-[60rem] ${
             zoom > 1 && bodyMapModelReady ? (isPanning ? "cursor-grabbing select-none" : "cursor-grab") : ""
           }`}
         >
-          <div data-testid="body-map-zoom-surface" className="mx-auto" style={{ width: `${320 * zoom}px` }}>
+          <div data-testid="body-map-zoom-surface" className="mx-auto xl:!w-[var(--body-map-desktop-width)]" style={{ width: `${320 * zoom}px`, "--body-map-desktop-width": `${400 * zoom}px` } as CSSProperties}>
             <ClinicalBodyMapCanvas
               profile={profile}
               view={view}
@@ -4928,10 +4931,11 @@ function BodyMapTabReady({
             />
           </div>
         </div>
+        {pending && <BodyMapMobileDraftContinuation zoneLabel={zoneDraft || pending.zone} onContinue={focusPendingEditor} />}
       </div>
 
       {/* List + detail pane */}
-      <div className="flex min-h-0 flex-col lg:col-span-5">
+      <div className="flex min-h-0 flex-col lg:col-span-5 xl:col-auto">
         <div className="border-b border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           Образований у пациента: {lesions.length} · видно на проекции «{bodyMapViewLabel(view)}»: {visiblePoints.length}
         </div>
@@ -4986,16 +4990,11 @@ function BodyMapTabReady({
                           </div>
                         </div>
                       </div>
-                      <span className="shrink-0 rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                        {LESION_STATUS[lesion.status]}
-                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-muted-foreground">
+                        <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5">{LESION_STATUS[lesion.status]}</span>
+                        <span>Снимков: {imageCount}</span>
+                      </div>
                     </div>
-                    <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
-                      <Stat term="Впервые" value={formatDate(lesion.firstSeenAt)} />
-                      <Stat term="Снимков" value={imageCount} />
-                      <Stat term="4 признака" value={a ? a.abcd.total.toFixed(1) : "—"} />
-                      <Stat term="7 баллов" value={a ? a.sevenPoint.total : "—"} />
-                    </dl>
                     {!productionMode && (imageCount === 0 || !a || lNeedsReview) && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {imageCount === 0 && (
@@ -5083,7 +5082,7 @@ function BodyMapTabReady({
         )}
 
         {pending && (
-          <div className="border-t border-border bg-surface p-3">
+          <div ref={pendingEditorRef} data-testid="body-map-pending-editor" tabIndex={-1} className="border-t border-border bg-surface p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
             <div className="text-[13px] font-semibold">
               {productionMode ? (editingLesionId ? "Исправление положения очага" : "Новый очаг") : "Новый учебный очаг"}
             </div>
@@ -5092,7 +5091,7 @@ function BodyMapTabReady({
               <Stat term="Позиция" value={formatBodyMapPosition(pending)} />
             </dl>
             {anatomyDetailOptions.length > 0 && (
-              <label className="mt-2 block text-[11px] text-muted-foreground">
+              <label className="mt-2 block text-[12px] text-muted-foreground">
                 {anatomyDetailLabel}
                 <select
                   aria-label={anatomyDetailLabel}
@@ -5115,7 +5114,7 @@ function BodyMapTabReady({
                 </span>
               </label>
             )}
-            <label className="mt-2 block text-[11px] text-muted-foreground">
+            <label className="mt-2 block text-[12px] text-muted-foreground">
               Анатомическая область
               <Input
                 value={zoneDraft}
@@ -5130,7 +5129,7 @@ function BodyMapTabReady({
                 <span className="mt-1 block">Название задаёт анатомический справочник; конкретный палец подтверждает врач.</span>
               )}
             </label>
-            <label className="mt-2 block text-[11px] text-muted-foreground">
+            <label className="mt-2 block text-[12px] text-muted-foreground">
               Метка очага
               <Input
                 value={draftLabel}
@@ -5138,7 +5137,7 @@ function BodyMapTabReady({
                 className="mt-1 min-h-11 text-[12px]"
               />
             </label>
-            <label className="mt-2 block text-[11px] text-muted-foreground">
+            <label className="mt-2 block text-[12px] text-muted-foreground">
               Статус
               <select
                 value={draftStatus}
@@ -5152,7 +5151,7 @@ function BodyMapTabReady({
               </select>
             </label>
             {!productionMode && (
-              <label className="mt-2 block text-[11px] text-muted-foreground">
+              <label className="mt-2 block text-[12px] text-muted-foreground">
                 Комментарий врача
                 <Textarea
                   value={draftNote}
@@ -5170,7 +5169,7 @@ function BodyMapTabReady({
               >
                 {productionMode
                   ? (savingPlacement ? "Сохраняем…" : editingLesionId ? "Сохранить исправление" : "Сохранить в системе клиники")
-                  : "Добавить локально"}
+                  : "Сохранить учебный очаг"}
               </Button>
               <Button
                 size="sm"
@@ -5181,7 +5180,7 @@ function BodyMapTabReady({
                 Отменить
               </Button>
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-[12px] text-muted-foreground">
               {productionMode
                 ? "Координата, проекция и подтверждённая область будут сохранены в записи визита."
                 : "Учебный очаг не сохранён в данные визита."}

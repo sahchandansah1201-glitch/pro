@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -75,6 +75,20 @@ describe("VisitWorkspacePage · Карта тела", () => {
     }
   });
 
+  it("gives the body model most of a wide desktop workspace without enlarging the mobile base", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
+
+    expect(screen.getByTestId("body-map-workspace"))
+      .toHaveClass("xl:grid-cols-[minmax(0,1fr)_22rem]");
+    expect(screen.getByTestId("body-map-viewport"))
+      .toHaveClass("xl:h-[calc(100vh-12rem)]", "xl:max-h-[60rem]");
+
+    const surface = screen.getByTestId("body-map-zoom-surface");
+    expect(surface).toHaveStyle({ width: "320px" });
+    expect(surface.style.getPropertyValue("--body-map-desktop-width")).toBe("400px");
+    expect(surface).toHaveClass("xl:!w-[var(--body-map-desktop-width)]");
+  });
+
   it("switches to the lesion projection and keeps the marker coordinates", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
@@ -85,6 +99,16 @@ describe("VisitWorkspacePage · Карта тела", () => {
     const marker = svg.querySelector("[data-marker-id='l-008'] circle");
     expect(Number(marker?.getAttribute("cx"))).toBeCloseTo(100.8);
     expect(Number(marker?.getAttribute("cy"))).toBeCloseTo(56);
+  });
+
+  it("keeps lesion list rows compact and leaves detailed scores to the selected panel", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
+
+    const row = screen.getByRole("button", { name: /Выбрать очаг 1:/ });
+    expect(within(row).getByText("Снимков: 1")).toBeInTheDocument();
+    expect(within(row).queryByText("Впервые")).toBeNull();
+    expect(within(row).queryByText("4 признака")).toBeNull();
+    expect(within(row).queryByText("7 баллов")).toBeNull();
   });
 
   it("fails closed on the background and opens a draft only for a named region", () => {
@@ -99,9 +123,36 @@ describe("VisitWorkspacePage · Карта тела", () => {
     fireEvent.click(screen.getByTestId("region-back-lumbar-spine"), { clientX: 100, clientY: 172 });
     expect(screen.getByText(/Новый учебный очаг/)).toBeInTheDocument();
     expect((screen.getByLabelText(/Статус учебного очага/) as HTMLSelectElement).value).toBe("active");
-    expect(screen.getByRole("button", { name: /Добавить локально/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сохранить учебный очаг" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Отменить/ }));
     expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
+  });
+
+  it("keeps the mobile continuation action next to the map and focuses the draft form", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
+    const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
+    fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
+
+    expect(screen.getByText("Черновик не сохранён")).toBeInTheDocument();
+    expect(screen.getByText(`${regionSelect.options[1].text} выбрана`))
+      .toHaveClass("whitespace-normal");
+    fireEvent.click(screen.getByRole("button", { name: "Продолжить оформление" }));
+
+    expect(screen.getByTestId("body-map-pending-editor")).toHaveFocus();
+  });
+
+  it("renders operational body-map guidance at a readable text size", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
+    fireEvent.click(screen.getByRole("button", { name: "Увеличить карту тела" }));
+
+    expect(screen.getByText(/Перетаскивайте увеличенную модель/)).toHaveClass("text-[12px]");
+
+    const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
+    fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
+    expect(screen.getByText("Учебный очаг не сохранён в данные визита."))
+      .toHaveClass("text-[12px]");
   });
 
   it("does not expose internal tokens or placeholder text", () => {
@@ -121,7 +172,9 @@ describe("VisitWorkspacePage · Карта тела", () => {
 
     expect(screen.getByText("800%", { selector: "span" })).toBeInTheDocument();
     expect(zoomIn).toBeDisabled();
-    expect(screen.getByText(/Исходник 2880×4320/)).toBeInTheDocument();
+    expect(screen.getByText(/Исходник 2880×4320 · увеличение до 800% без программного растяжения/))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/апскейла/i)).toBeNull();
     expect(screen.getByTestId("body-map-zoom-surface")).toHaveStyle({ width: "2560px" });
   });
 
@@ -187,7 +240,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
       "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить учебный очаг" }));
     expect(document.querySelector('[data-body-region-id="front-right-toes"]')).toHaveTextContent(
       "Тыльная поверхность 5-го пальца (мизинца) правой стопы",
     );
@@ -204,9 +257,9 @@ describe("VisitWorkspacePage · Карта тела", () => {
     const palm = screen.getByTestId("region-front-right-palm");
 
     fireEvent.click(palm, { clientX: 19.2, clientY: 186.4 });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить учебный очаг" }));
     fireEvent.click(palm, { clientX: 21.6, clientY: 190.8 });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить учебный очаг" }));
 
     expect(screen.getByText("Локальные учебные очаги (2)")).toBeInTheDocument();
     const first = document.querySelector('[data-local-marker-id="local-lesion-1"]');
@@ -223,9 +276,9 @@ describe("VisitWorkspacePage · Карта тела", () => {
     const regionSelect = screen.getByLabelText("Выбрать анатомическую область");
 
     fireEvent.change(regionSelect, { target: { value: "front-right-palm" } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить учебный очаг" }));
     fireEvent.change(regionSelect, { target: { value: "front-right-palm" } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить локально" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить учебный очаг" }));
 
     const first = document.querySelector('[data-local-marker-id="local-lesion-1"]');
     const second = document.querySelector('[data-local-marker-id="local-lesion-2"]');

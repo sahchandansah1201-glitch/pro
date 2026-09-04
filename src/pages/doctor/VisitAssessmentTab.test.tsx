@@ -117,7 +117,7 @@ describe("VisitAssessmentTab · Body Map draft does not leak", () => {
       "Выбрать анатомическую область",
     ) as HTMLSelectElement;
     fireEvent.change(regionSelect, { target: { value: regionSelect.options[1].value } });
-    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить учебный очаг/ }));
 
     const tab = screen.getByRole("tab", { name: /Оценка/ });
     fireEvent.pointerDown(tab, { button: 0 });

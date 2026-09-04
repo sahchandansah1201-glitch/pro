@@ -40,7 +40,7 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
     renderAt("/patients/p-004/visits/v-005?tab=intake");
 
     expect(screen.getByRole("tablist", { name: "Разделы визита" })).toBeInTheDocument();
-    expect(screen.getByText("Листайте вправо: доступны «Заключение» и «Отчёт»."))
+    expect(screen.getByText("Ещё разделы справа → «Заключение» и «Отчёт»"))
       .toBeInTheDocument();
   });
 
