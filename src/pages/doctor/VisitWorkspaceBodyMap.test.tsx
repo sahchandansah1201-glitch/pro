@@ -114,6 +114,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("lets a doctor inspect a high-resolution model at native-safe 800%", () => {
     vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
 
     const zoomIn = screen.getByRole("button", { name: "Увеличить карту тела" });
     for (let step = 0; step < 6; step += 1) fireEvent.click(zoomIn);
@@ -127,6 +128,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("keeps the same map focus visible when the doctor changes zoom", () => {
     vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
 
     const viewport = screen.getByTestId("body-map-viewport");
     const surface = screen.getByTestId("body-map-zoom-surface");

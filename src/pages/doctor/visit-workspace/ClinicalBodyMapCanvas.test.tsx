@@ -105,10 +105,12 @@ describe("ClinicalBodyMapCanvas", () => {
 
     expect(screen.getByRole("alert", { name: "Состояние модели" }))
       .toHaveTextContent("Не удалось загрузить модель");
+    expect(document.querySelector('[data-part="atlas-image"]')).not.toBeInTheDocument();
+    expect(screen.getByTestId("body-map-error-placeholder")).toBeInTheDocument();
     expect(document.querySelector('[data-marker-id="lesion-1"]')).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Точное положение метки" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Выбрать анатомическую область")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("region-front-right-thigh"), {
+    fireEvent.click(screen.getByTestId("body-map-error-placeholder"), {
       clientX: 84,
       clientY: 264,
     });

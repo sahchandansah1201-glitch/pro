@@ -21,10 +21,11 @@ export function useBodyMapViewportPan(enabled: boolean) {
   const [isPanning, setIsPanning] = useState(false);
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (!enabled || event.button !== 0) return;
+    if (event.button !== 0) return;
+    suppressNextClickRef.current = false;
+    if (!enabled) return;
     const target = event.target as Element | null;
     if (target?.closest("button, a, input, select, textarea")) return;
-    suppressNextClickRef.current = false;
     gestureRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -55,11 +56,6 @@ export function useBodyMapViewportPan(enabled: boolean) {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     suppressNextClickRef.current = !cancelled && gesture.moved;
-    if (suppressNextClickRef.current) {
-      window.setTimeout(() => {
-        suppressNextClickRef.current = false;
-      }, 0);
-    }
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -69,9 +65,10 @@ export function useBodyMapViewportPan(enabled: boolean) {
 
   const handleClickCapture = (event: MouseEvent<HTMLDivElement>) => {
     if (!suppressNextClickRef.current) return;
+    suppressNextClickRef.current = false;
+    if (event.detail === 0) return;
     event.preventDefault();
     event.stopPropagation();
-    suppressNextClickRef.current = false;
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

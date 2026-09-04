@@ -4586,7 +4586,8 @@ function BodyMapTabReady({
 
   const [view, setView] = useState<View>(initialView);
   const [zoom, setZoom] = useState(1);
-  const { isPanning, panViewportProps } = useBodyMapViewportPan(zoom > 1);
+  const [bodyMapModelReady, setBodyMapModelReady] = useState(false);
+  const { isPanning, panViewportProps } = useBodyMapViewportPan(zoom > 1 && bodyMapModelReady);
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
   const [pending, setPending] = useState<PendingPoint | null>(null);
   const [draftLabel, setDraftLabel] = useState("Новый очаг");
@@ -4601,7 +4602,7 @@ function BodyMapTabReady({
   const [editingLesionId, setEditingLesionId] = useState<string | null>(null);
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
   const pendingZoomFocusRef = useRef<{ x: number; y: number } | null>(null);
-
+  const handleBodyMapModelReadyChange = useCallback((ready: boolean) => { setBodyMapModelReady(ready); if (!ready) { setZoom(1); const viewport = mapViewportRef.current; if (viewport) { viewport.scrollLeft = 0; viewport.scrollTop = 0; } } }, []);
   const changeZoom = (nextZoom: number) => {
     const viewport = mapViewportRef.current;
     if (viewport) {
@@ -4841,7 +4842,7 @@ function BodyMapTabReady({
               className="h-11 w-11 p-0"
               onClick={() => changeZoom(bodyMapStepZoom(zoom, -1, zoomLevels))}
               aria-label="Уменьшить карту тела"
-              disabled={zoom <= minZoom}
+              disabled={!bodyMapModelReady || zoom <= minZoom}
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
@@ -4860,11 +4861,11 @@ function BodyMapTabReady({
               className="h-11 w-11 p-0"
               onClick={() => changeZoom(bodyMapStepZoom(zoom, 1, zoomLevels))}
               aria-label="Увеличить карту тела"
-              disabled={zoom >= maxZoom}
+              disabled={!bodyMapModelReady || zoom >= maxZoom}
             >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => changeZoom(1)} aria-label="Сбросить масштаб">
+            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => changeZoom(1)} aria-label="Сбросить масштаб" disabled={!bodyMapModelReady}>
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -4880,10 +4881,8 @@ function BodyMapTabReady({
             {bodyMapSurfaceHint(view)}
           </span>
         </div>
-        {zoom > 1 && (
-          <p className="border-b border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">
-            Перетаскивайте увеличенную модель мышью или пальцем. Стрелки клавиатуры перемещают область просмотра.
-          </p>
+        {zoom > 1 && bodyMapModelReady && (
+          <p className="border-b border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">Перетаскивайте увеличенную модель мышью или пальцем. Стрелки клавиатуры перемещают область просмотра.</p>
         )}
         <div
           ref={mapViewportRef}
@@ -4893,7 +4892,7 @@ function BodyMapTabReady({
           aria-label="Область просмотра карты тела"
           {...panViewportProps}
           className={`h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto overscroll-contain bg-surface-muted p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-            zoom > 1 ? (isPanning ? "cursor-grabbing select-none" : "cursor-grab") : ""
+            zoom > 1 && bodyMapModelReady ? (isPanning ? "cursor-grabbing select-none" : "cursor-grab") : ""
           }`}
         >
           <div data-testid="body-map-zoom-surface" className="mx-auto" style={{ width: `${320 * zoom}px` }}>
@@ -4915,6 +4914,7 @@ function BodyMapTabReady({
                 regionId: pending.regionId,
               } : null}
               zoom={zoom}
+              onModelReadyChange={handleBodyMapModelReadyChange}
               demoPoints={localDraftsForView.map((d, i) => ({
                 id: d.id,
                 num: i + 1,

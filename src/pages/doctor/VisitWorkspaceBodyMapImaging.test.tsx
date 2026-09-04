@@ -26,6 +26,15 @@ function markAtlasReady() {
   fireEvent.load(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
 }
 
+const pointerEvent = (
+  type: "pointerdown" | "pointermove" | "pointerup",
+  init: MouseEventInit & { pointerId: number },
+) => {
+  const event = new MouseEvent(type, init);
+  Object.defineProperty(event, "pointerId", { value: init.pointerId });
+  return event;
+};
+
 describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
   it("names the visit sections and makes hidden mobile tabs discoverable", () => {
     renderAt("/patients/p-004/visits/v-005?tab=intake");
@@ -47,7 +56,85 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       .toHaveTextContent("100%");
   });
 
-  it("pans a zoomed body map horizontally without creating a lesion", () => {
+  it("disables zoom and pan until a failed model has loaded successfully again", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
+    markAtlasReady();
+
+    const zoomIn = screen.getByRole("button", { name: "Увеличить карту тела" });
+    for (let step = 0; step < 6; step += 1) fireEvent.click(zoomIn);
+    const viewport = screen.getByTestId("body-map-viewport");
+    const zoomSurface = screen.getByTestId("body-map-zoom-surface");
+    Object.defineProperties(viewport, {
+      scrollLeft: { configurable: true, value: 900, writable: true },
+      scrollTop: { configurable: true, value: 500, writable: true },
+    });
+    expect(screen.getByRole("status", { name: "Текущий масштаб карты тела" }))
+      .toHaveTextContent("800%");
+    expect(zoomSurface).toHaveStyle({ width: "2560px" });
+    expect(viewport).toHaveAttribute("tabindex", "0");
+
+    const region = screen.getByTestId("region-front-left-palm");
+    fireEvent(region, pointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 6,
+      clientX: 300,
+      clientY: 300,
+    }));
+    fireEvent(region, pointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 6,
+      clientX: 180,
+      clientY: 240,
+    }));
+    fireEvent(region, pointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 6,
+      clientX: 180,
+      clientY: 240,
+    }));
+
+    fireEvent.error(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+
+    expect(screen.getByRole("status", { name: "Текущий масштаб карты тела" }))
+      .toHaveTextContent("100%");
+    expect(zoomSurface).toHaveStyle({ width: "320px" });
+    expect(viewport.scrollLeft).toBe(0);
+    expect(viewport.scrollTop).toBe(0);
+    expect(viewport).not.toHaveClass("cursor-grab");
+    expect(screen.getByRole("button", { name: "Уменьшить карту тела" })).toBeDisabled();
+    expect(zoomIn).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Сбросить масштаб" })).toBeDisabled();
+    expect(viewport).toHaveAttribute("tabindex", "-1");
+    expect(screen.queryByText(/Перетаскивайте увеличенную модель/)).not.toBeInTheDocument();
+
+    const retry = screen.getByRole("button", { name: "Повторить" });
+    fireEvent(retry, pointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 7,
+      clientX: 40,
+      clientY: 40,
+    }));
+    fireEvent.click(retry);
+    expect(screen.getByRole("status", { name: "Состояние модели" }))
+      .toHaveTextContent("Модель загружается…");
+    expect(zoomIn).toBeDisabled();
+    const retryImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+    fireEvent.load(retryImage);
+
+    expect(zoomIn).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Сбросить масштаб" })).toBeEnabled();
+    expect(viewport).toHaveAttribute("tabindex", "-1");
+    expect(screen.queryByText(/Перетаскивайте увеличенную модель/)).not.toBeInTheDocument();
+
+    fireEvent.click(zoomIn);
+    expect(viewport).toHaveAttribute("tabindex", "0");
+    expect(screen.getByText(/Перетаскивайте увеличенную модель/)).toBeInTheDocument();
+  });
+
+  it("pans repeatedly, suppresses pointer release placement, and preserves keyboard controls", async () => {
+    const user = userEvent.setup();
     renderAt("/patients/p-004/visits/v-005?tab=bodymap");
     markAtlasReady();
 
@@ -74,14 +161,6 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 640, bottom: 1067, width: 640, height: 1067, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
 
-    const pointerEvent = (
-      type: "pointerdown" | "pointermove" | "pointerup",
-      init: MouseEventInit & { pointerId: number },
-    ) => {
-      const event = new MouseEvent(type, init);
-      Object.defineProperty(event, "pointerId", { value: init.pointerId });
-      return event;
-    };
     fireEvent(region, pointerEvent("pointerdown", {
       bubbles: true,
       button: 0,
@@ -95,13 +174,16 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       clientX: 180,
       clientY: 240,
     }));
+    vi.useFakeTimers();
     fireEvent(region, pointerEvent("pointerup", {
       bubbles: true,
       pointerId: 7,
       clientX: 180,
       clientY: 240,
     }));
-    fireEvent.click(region, { clientX: 180, clientY: 240 });
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    fireEvent.click(region, { detail: 1, clientX: 180, clientY: 240 });
 
     expect(viewport.scrollLeft).toBe(320);
     expect(viewport.scrollTop).toBe(360);
@@ -119,16 +201,93 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       clientX: 180,
       clientY: 240,
     }));
+    fireEvent(region, pointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 8,
+      clientX: 500,
+      clientY: 240,
+    }));
     fireEvent(region, pointerEvent("pointerup", {
       bubbles: true,
       pointerId: 8,
+      clientX: 500,
+      clientY: 240,
+    }));
+    fireEvent.click(region, { detail: 1, clientX: 500, clientY: 240 });
+
+    expect(viewport.scrollLeft).toBe(100);
+    expect(screen.queryByRole("textbox", { name: "Метка очага" })).not.toBeInTheDocument();
+
+    fireEvent(region, pointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 9,
       clientX: 180,
       clientY: 240,
     }));
-    fireEvent.click(region, { clientX: 180, clientY: 240 });
+    fireEvent(region, pointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 9,
+      clientX: 180,
+      clientY: 240,
+    }));
+    fireEvent.click(region, { detail: 1, clientX: 180, clientY: 240 });
 
     expect(screen.getByRole("textbox", { name: "Метка очага" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Ладонная поверхность левой кисти")).toBeInTheDocument();
+
+    expect(screen.getByText("горизонталь 28% · вертикаль 22%")).toBeInTheDocument();
+    fireEvent(region, pointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 10,
+      clientX: 180,
+      clientY: 240,
+    }));
+    fireEvent(region, pointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 10,
+      clientX: 120,
+      clientY: 240,
+    }));
+    fireEvent(region, pointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 10,
+      clientX: 120,
+      clientY: 240,
+    }));
+
+    const nudgeRight = screen.getByRole("button", { name: "Сдвинуть метку вправо" });
+    nudgeRight.focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByText("горизонталь 29% · вертикаль 22%")).toBeInTheDocument();
+
+    fireEvent(region, pointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 12,
+      clientX: 180,
+      clientY: 240,
+    }));
+    fireEvent(region, pointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 12,
+      clientX: 120,
+      clientY: 240,
+    }));
+    fireEvent(region, pointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 12,
+      clientX: 120,
+      clientY: 240,
+    }));
+
+    const nudgeLeftAfterEnter = screen.getByRole("button", { name: "Сдвинуть метку влево" });
+    nudgeLeftAfterEnter.focus();
+    await user.keyboard("[Space]");
+
+    expect(screen.getByText("горизонталь 28% · вертикаль 22%")).toBeInTheDocument();
   });
 
   it("selects registered lesions from the keyboard and exposes the current row", async () => {

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
 import {
@@ -44,6 +44,7 @@ interface ClinicalBodyMapCanvasProps {
   demoPoints: BodyMapCanvasPoint[];
   zoom?: number;
   onPlace: (placement: ClinicalBodyRegionPlacement) => void;
+  onModelReadyChange?: (ready: boolean) => void;
 }
 
 function scalpShape(regionId: string) {
@@ -153,6 +154,7 @@ export function ClinicalBodyMapCanvas({
   demoPoints,
   zoom = 1,
   onPlace,
+  onModelReadyChange,
 }: ClinicalBodyMapCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const clipId = useId().replaceAll(":", "");
@@ -181,6 +183,10 @@ export function ClinicalBodyMapCanvas({
     ? atlasLoadState.attempt
     : 0;
   const atlasReady = atlasStatus === "ready";
+
+  useEffect(() => {
+    onModelReadyChange?.(atlasReady);
+  }, [atlasReady, onModelReadyChange]);
 
   const placeAtPointer = (region: ClinicalBodyRegion, event: React.MouseEvent<SVGElement>) => {
     event.stopPropagation();
@@ -293,20 +299,29 @@ export function ClinicalBodyMapCanvas({
           </button>
         </div>
       )}
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
-        className="block h-auto w-full"
-        role="img"
-        aria-label={ariaLabel}
-      >
-        <ClinicalBodyAtlas
-          profile={profile}
-          view={view}
-          imageKey={`${atlasKey}:${atlasAttempt}`}
-          onImageLoad={() => setAtlasLoadState({ atlasKey, status: "ready", attempt: atlasAttempt })}
-          onImageError={() => setAtlasLoadState({ atlasKey, status: "error", attempt: atlasAttempt })}
-        />
+      {atlasStatus === "error" ? (
+        <div
+          data-testid="body-map-error-placeholder"
+          aria-hidden="true"
+          className="flex min-h-80 items-center justify-center rounded-sm border border-dashed border-border bg-surface-muted px-4 text-center text-[12px] text-muted-foreground"
+        >
+          Модель временно недоступна
+        </div>
+      ) : (
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
+          className="block h-auto w-full"
+          role="img"
+          aria-label={ariaLabel}
+        >
+          <ClinicalBodyAtlas
+            profile={profile}
+            view={view}
+            imageKey={`${atlasKey}:${atlasAttempt}`}
+            onImageLoad={() => setAtlasLoadState({ atlasKey, status: "ready", attempt: atlasAttempt })}
+            onImageError={() => setAtlasLoadState({ atlasKey, status: "error", attempt: atlasAttempt })}
+          />
         <defs>
           <clipPath id={clipId}>
             <ellipse cx={120} cy={200} rx={78} ry={108} />
@@ -404,7 +419,8 @@ export function ClinicalBodyMapCanvas({
             </text>
           </g>
         )}
-      </svg>
+        </svg>
+      )}
 
       <div className="rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px]">
         <span className="font-medium text-foreground">Область под указателем: </span>
