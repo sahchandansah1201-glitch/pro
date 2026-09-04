@@ -26,9 +26,10 @@ Purpose: make the SkinDoctor Orchestrator 5x upgrade executable instead of advis
 
 - `npm run qa:simplicity`
   - Uses a local no-dependency Node checker.
-  - Enforces a baseline-ratchet policy for frontend/backend implementation size.
+  - Enforces a baseline-ratchet policy for production frontend/backend implementation size.
+  - Test files remain visible in the generated ledger but have no line-count limit.
   - Existing oversized files are tracked as debt, not treated as a reason to fail today's pipeline.
-  - The gate fails if a known oversized file grows beyond its baseline allowance or if a new oversized file appears.
+  - The gate fails if a known oversized production file grows beyond its baseline allowance or if a new oversized production file appears.
   - Writes `reports/agent-qa/simplicity-ledger.json`.
 
 - `npm run qa:agent-evals`

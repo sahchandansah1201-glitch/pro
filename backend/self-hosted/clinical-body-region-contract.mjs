@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 export const STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 =
   "491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024";
+export const OWNER_APPROVED_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 =
+  "0afadcfdfffb5a6a23e7061ca2fc48eba951e32395eecdde8313e846fac4c741";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WIDTH = 240;

@@ -1,4 +1,4 @@
-import { STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 } from "./clinical-body-region-contract.mjs";
+import { OWNER_APPROVED_CLINICAL_BODY_ATLAS_MANIFEST_SHA256 } from "./clinical-body-region-contract.mjs";
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_CORS_ORIGINS = ["http://localhost:8080", "http://127.0.0.1:8080"];
@@ -27,7 +27,10 @@ function parsePositiveInteger(value, fallback) {
 }
 
 export function readSelfHostedConfig(env = process.env) {
-  const clinicalBodyAtlasSource = env.CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
+  const clinicalBodyAtlasSource = env.CLINICAL_BODY_ATLAS_SOURCE || "daz-hires-local";
+  if (clinicalBodyAtlasSource !== "daz-hires-local") {
+    throw new Error("Only the owner-approved high-resolution atlas may be selected.");
+  }
   return {
     serviceName: "dermatolog-pro-backend",
     deploymentMode: "self-hosted",
@@ -45,12 +48,11 @@ export function readSelfHostedConfig(env = process.env) {
     ),
     corsOrigins: parseOrigins(env.CORS_ORIGINS),
     clinicalBodyAtlasSource,
-    clinicalBodyAtlasDir: env.CLINICAL_BODY_ATLAS_DIR || "",
+    clinicalBodyAtlasDir:
+      env.CLINICAL_BODY_ATLAS_DIR || "public/clinical-body-atlas-daz-local",
     clinicalBodyAtlasManifestSha256:
       env.CLINICAL_BODY_ATLAS_MANIFEST_SHA256
-      || (clinicalBodyAtlasSource === "makehuman-cc0"
-        ? STANDARD_CLINICAL_BODY_ATLAS_MANIFEST_SHA256
-        : ""),
+      || OWNER_APPROVED_CLINICAL_BODY_ATLAS_MANIFEST_SHA256,
   };
 }
 

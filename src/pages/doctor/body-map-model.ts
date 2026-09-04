@@ -10,14 +10,17 @@ import {
   clinicalBodyProfileLabel,
   type ClinicalBodyProfile,
 } from "@/lib/clinical-body-atlas";
+import { isValidIsoDate } from "@/lib/format";
 
 /** Stable demo "now" — used for deterministic age calculation in tests/UI. */
 export const BODY_MAP_DEMO_NOW = "2026-05-04T00:00:00Z";
 
 /** Whole-year age calculation, time-of-day independent. */
 export function calcAgeAt(birthDate: string, nowIso: string = BODY_MAP_DEMO_NOW): number {
-  const b = new Date(birthDate);
+  if (!isValidIsoDate(birthDate)) return Number.NaN;
+  const b = new Date(`${birthDate}T00:00:00Z`);
   const n = new Date(nowIso);
+  if (Number.isNaN(n.getTime()) || b > n) return Number.NaN;
   let age = n.getUTCFullYear() - b.getUTCFullYear();
   const m = n.getUTCMonth() - b.getUTCMonth();
   if (m < 0 || (m === 0 && n.getUTCDate() < b.getUTCDate())) age -= 1;
@@ -27,11 +30,11 @@ export function calcAgeAt(birthDate: string, nowIso: string = BODY_MAP_DEMO_NOW)
 export function getBodyMapProfile(
   patient: Pick<Patient, "sex" | "birthDate">,
   nowIso: string = BODY_MAP_DEMO_NOW,
-): ClinicalBodyProfile {
-  return clinicalBodyProfileFromAge(
-    patient.sex,
-    Math.max(0, calcAgeAt(patient.birthDate, nowIso)),
-  );
+): ClinicalBodyProfile | null {
+  if (!patient.sex || !patient.birthDate) return null;
+  const ageYears = calcAgeAt(patient.birthDate, nowIso);
+  if (!Number.isFinite(ageYears) || ageYears < 0) return null;
+  return clinicalBodyProfileFromAge(patient.sex, ageYears);
 }
 
 export function bodyMapProfileLabel(profile: ClinicalBodyProfile): string {

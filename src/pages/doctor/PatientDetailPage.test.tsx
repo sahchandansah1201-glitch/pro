@@ -102,7 +102,7 @@ describe("PatientDetailPage", () => {
       screen.getByRole("region", { name: "Что делать с карточкой пациента" }),
     ).toHaveTextContent("Открыть последний приём");
     expect(screen.getByRole("tab", { name: /Визиты \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByText("Не зафиксировано")).toBeInTheDocument();
+    expect(screen.getAllByText("Не зафиксировано").length).toBeGreaterThanOrEqual(2);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     for (const [, init] of fetchMock.mock.calls) {
       expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer local-jwt" });

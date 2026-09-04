@@ -13,6 +13,10 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+function markAtlasReady() {
+  fireEvent.load(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+}
+
 describe("VisitAssessmentTab · URL params", () => {
   it("opens Assessment with context for ?lesion=l-008 (p-004/v-005)", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
@@ -108,6 +112,7 @@ describe("VisitAssessmentTab · existing assessment + CTAs", () => {
 describe("VisitAssessmentTab · Body Map draft does not leak", () => {
   it("draft created on Body Map is not selectable as a real lesion in Assessment", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
     const regionSelect = screen.getByLabelText(
       "Выбрать анатомическую область",
     ) as HTMLSelectElement;

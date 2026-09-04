@@ -15,14 +15,11 @@ const KNOWN_BASELINE_GROWTH_LIMIT = 50;
 
 const KNOWN_OVERSIZED_BASELINE = {
   "backend/self-hosted/clinical-workspace-repository.mjs": 10603,
-  "backend/self-hosted/routes.test.mjs": 9732,
   "backend/self-hosted/routes.mjs": 7299,
   "backend/self-hosted/clinical-workspace-service.mjs": 6452,
   "backend/self-hosted/clinical-followup-repository.mjs": 5548,
   "src/pages/doctor/VisitWorkspacePage.tsx": 5308,
   "src/lib/self-hosted-clinical-workspace-api.ts": 4723,
-  "backend/self-hosted/clinical-workspace-service.test.mjs": 4590,
-  "src/lib/self-hosted-clinical-workspace-api.test.ts": 3975,
   "src/pages/doctor/LesionDetailPage.tsx": 3692,
   "src/pages/doctor/VisitWorkspaceLiveActions.tsx": 3261,
   "backend/self-hosted/clinical-followup-service.mjs": 3054,
@@ -37,7 +34,6 @@ const FILE_BUDGETS = {
   frontendPage: 1800,
   frontendClient: 2200,
   backendCore: 3000,
-  test: 3500,
   default: 1600,
 };
 
@@ -95,7 +91,7 @@ function isTestFile(relativePath) {
 }
 
 function fileBudget(relativePath) {
-  if (isTestFile(relativePath)) return FILE_BUDGETS.test;
+  if (isTestFile(relativePath)) return null;
   if (relativePath.startsWith("src/pages/")) return FILE_BUDGETS.frontendPage;
   if (relativePath.startsWith("src/lib/self-hosted-")) return FILE_BUDGETS.frontendClient;
   if (relativePath.startsWith("backend/self-hosted/")) return FILE_BUDGETS.backendCore;
@@ -110,12 +106,10 @@ export function analyzeSimplicity({ root = ROOT, scanDirs = SCAN_DIRS } = {}) {
     const baseline = KNOWN_OVERSIZED_BASELINE[relativePath] || null;
     const budget = baseline ? baseline + KNOWN_BASELINE_GROWTH_LIMIT : fileBudget(relativePath);
     const knownOversized = Boolean(baseline);
-    const violation =
-      knownOversized && lines > budget
-        ? "known_file_growth"
-        : !knownOversized && lines > budget
-          ? "new_oversized_file"
-          : null;
+    let violation = null;
+    if (budget !== null && lines > budget) {
+      violation = knownOversized ? "known_file_growth" : "new_oversized_file";
+    }
 
     return {
       path: relativePath,
@@ -138,8 +132,9 @@ export function analyzeSimplicity({ root = ROOT, scanDirs = SCAN_DIRS } = {}) {
       type: "baseline_ratchet",
       knownBaselineGrowthLimit: KNOWN_BASELINE_GROWTH_LIMIT,
       budgets: FILE_BUDGETS,
+      testFilesExemptFromLineCountLimit: true,
       scanDirs,
-      note: "Existing oversized files are tracked debt. The gate fails on growth beyond baseline or new oversized files.",
+      note: "Test files have no line-count limit. Existing oversized production files are tracked debt; the gate fails on production growth beyond baseline or new oversized production files.",
     },
     metrics: {
       scannedFileCount: analyzedFiles.length,

@@ -17,7 +17,7 @@ import {
   getReportsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
-import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
+import { consentLabel, formatAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
 import { formatCardNumber } from "@/lib/card-number";
@@ -175,7 +175,7 @@ export default function PatientDetailPage() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title={patient.fullName}
-        subtitle={`${formatCardNumber(patient.code)} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
+        subtitle={`${formatCardNumber(patient.code)} · ${sexShort(patient.sex)} · ${formatAge(patient.birthDate)} · фототип ${patient.phototype ?? "не указан"}`}
         actions={
           <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
             <Link to="/patients">К списку</Link>
@@ -240,9 +240,9 @@ export default function PatientDetailPage() {
             <Section title="Данные пациента" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
               <Field term="Номер карты" value={formatCardNumber(patient.code)} />
-              <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
-              <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
-              <Field term="Фототип" value={patient.phototype} />
+              <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${formatAge(patient.birthDate)})`} />
+              <Field term="Пол" value={patient.sex === "male" ? "Мужской" : patient.sex === "female" ? "Женский" : "Не указан"} />
+              <Field term="Фототип" value={patient.phototype ?? "Не указан"} />
             </Section>
 
             <Section title="Согласия" className="lg:col-span-4">
@@ -256,8 +256,8 @@ export default function PatientDetailPage() {
                       : "Нет"
                 }
               />
-              <Field term="Медицинская съёмка" value={patient.consents.imaging ? "Есть" : "Нет"} />
-              <Field term="Телемедицина" value={patient.consents.telemed ? "Есть" : "Нет"} />
+              <Field term="Медицинская съёмка" value={consentLabel(patient.consents.imaging)} />
+              <Field term="Телемедицина" value={consentLabel(patient.consents.telemed)} />
             </Section>
 
             <Section title="Отметки наблюдения" className="lg:col-span-4">

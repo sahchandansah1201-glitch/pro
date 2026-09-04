@@ -63,6 +63,22 @@ test("fails when a new frontend page exceeds the file budget", () => {
   }
 });
 
+test("does not impose a line-count limit on test files", () => {
+  const root = makeTempProject();
+  try {
+    writeLines(root, "src/pages/doctor/LargeWorkflow.test.tsx", 5000);
+
+    const result = analyzeSimplicity({ root, scanDirs: ["src"] });
+
+    assert.equal(result.status, "passed");
+    assert.equal(result.metrics.newOversizedFileCount, 0);
+    assert.equal(result.metrics.violationCount, 0);
+    assert.equal(result.largestFiles[0].budget, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("fails when a known oversized file grows beyond its baseline allowance", () => {
   const root = makeTempProject();
   try {

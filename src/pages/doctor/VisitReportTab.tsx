@@ -14,7 +14,7 @@ import {
 } from "@/lib/mock-data";
 import type { Assessment, ClinicalImage, Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { consentLabel, formatDate, formatDateTime } from "@/lib/format";
 import { formatCardNumber } from "@/lib/card-number";
 import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
 import { BODY_MAP_DEMO_NOW, bodyMapSurfaceLabel } from "@/pages/doctor/body-map-model";
@@ -846,7 +846,11 @@ function VisitPacketPanel({
     selectedImages.length === 0 ? "выберите снимки для пакета" : null,
     selectedQuality === "review" ? "Нужно переснять или проверить качество" : null,
     selectedQuality === "none" ? "нет выбранных снимков" : null,
-    !patient.consents.telemed ? "нет согласия на дистанционный доступ" : null,
+    patient.consents.telemed === true
+      ? null
+      : patient.consents.telemed == null
+        ? "согласие на дистанционный доступ не зафиксировано"
+        : "нет согласия на дистанционный доступ",
     visit.status !== "closed" ? "визит ещё не закрыт" : null,
   ].filter(Boolean) as string[];
   const reportPackageReady = missing.length === 0;
@@ -857,8 +861,16 @@ function VisitPacketPanel({
     selectedImages.length === 0 ? "врач не выбрал снимки" : null,
     selectedQuality === "review" ? "качество фото требует проверки" : null,
     selectedQuality === "none" ? "нет выбранных снимков" : null,
-    !patient.consents.imaging ? "нет согласия на медицинскую съёмку" : null,
-    !patient.consents.telemed ? "нет согласия на дистанционный доступ" : null,
+    patient.consents.imaging === true
+      ? null
+      : patient.consents.imaging == null
+        ? "согласие на медицинскую съёмку не зафиксировано"
+        : "нет согласия на медицинскую съёмку",
+    patient.consents.telemed === true
+      ? null
+      : patient.consents.telemed == null
+        ? "согласие на дистанционный доступ не зафиксировано"
+        : "нет согласия на дистанционный доступ",
     !expiresAt ? "не задан срок доступа" : null,
   ].filter(Boolean) as string[];
   const photoMetadataReady = photoReleaseMissing.length === 0;
@@ -951,7 +963,7 @@ function VisitPacketPanel({
         <Field term="Выбранные снимки" value={selectedLabel} />
         <Field term="Качество снимков" value={qualityCopy} />
         <Field term="Текст для пациента" value={patientText ? "есть" : "нет"} />
-        <Field term="Согласие на доступ" value={patient.consents.telemed ? "есть" : "нет"} />
+        <Field term="Согласие на доступ" value={consentLabel(patient.consents.telemed)} />
         <Field term="Срок ссылки" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
       </div>
 

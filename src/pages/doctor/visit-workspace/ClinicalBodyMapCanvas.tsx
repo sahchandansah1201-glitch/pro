@@ -40,7 +40,7 @@ interface ClinicalBodyMapCanvasProps {
   profile: ClinicalBodyProfile;
   view: ClinicalBodyView;
   points: BodyMapCanvasPoint[];
-  pending: { x: number; y: number } | null;
+  pending: { x: number; y: number; regionId?: string } | null;
   demoPoints: BodyMapCanvasPoint[];
   zoom?: number;
   onPlace: (placement: ClinicalBodyRegionPlacement) => void;
@@ -162,9 +162,29 @@ export function ClinicalBodyMapCanvas({
   const badge = bodyMapSurfaceBadge(view);
   const hitMapPath = view === "scalp" ? null : clinicalBodyRegionHitMapPath(profile, view);
   const allPoints = [...points, ...demoPoints];
+  const atlasKey = `${profile.sex}:${profile.ageBand}:${view}`;
+  const [atlasLoadState, setAtlasLoadState] = useState<{
+    atlasKey: string;
+    status: "loading" | "ready" | "error";
+    attempt: number;
+  }>({
+    atlasKey,
+    status: view === "scalp" ? "ready" : "loading",
+    attempt: 0,
+  });
+  const atlasStatus = view === "scalp"
+    ? "ready"
+    : atlasLoadState.atlasKey === atlasKey
+      ? atlasLoadState.status
+      : "loading";
+  const atlasAttempt = atlasLoadState.atlasKey === atlasKey
+    ? atlasLoadState.attempt
+    : 0;
+  const atlasReady = atlasStatus === "ready";
 
   const placeAtPointer = (region: ClinicalBodyRegion, event: React.MouseEvent<SVGElement>) => {
     event.stopPropagation();
+    if (!atlasReady) return;
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect?.width || !rect.height) return;
     const x = (event.clientX - rect.left) / rect.width;
@@ -180,6 +200,7 @@ export function ClinicalBodyMapCanvas({
   };
 
   const placeAtAnchor = (region: ClinicalBodyRegion) => {
+    if (!atlasReady) return;
     const target = Array.from(
       svgRef.current?.querySelectorAll<SVGGraphicsElement>("[data-region-id]") ?? [],
     ).find((element) => element.dataset.regionId === region.id);
@@ -204,8 +225,74 @@ export function ClinicalBodyMapCanvas({
     });
   };
 
+  const nudgePending = (dx: number, dy: number) => {
+    if (!atlasReady || !pending?.regionId) return;
+    const region = regions.find((item) => item.id === pending.regionId);
+    if (!region) return;
+    const target = Array.from(
+      svgRef.current?.querySelectorAll<SVGGraphicsElement>("[data-region-id]") ?? [],
+    ).find((element) => element.dataset.regionId === region.id);
+    let minX = 0;
+    let maxX = 1;
+    let minY = 0;
+    let maxY = 1;
+    try {
+      const bounds = target?.getBBox();
+      if (bounds && bounds.width > 0 && bounds.height > 0) {
+        minX = bounds.x / CLINICAL_BODY_ATLAS_WIDTH;
+        maxX = (bounds.x + bounds.width) / CLINICAL_BODY_ATLAS_WIDTH;
+        minY = bounds.y / CLINICAL_BODY_ATLAS_HEIGHT;
+        maxY = (bounds.y + bounds.height) / CLINICAL_BODY_ATLAS_HEIGHT;
+      }
+    } catch {
+      // If external SVG geometry is unavailable, keep the point inside the atlas.
+    }
+    onPlace({
+      view,
+      x: +Math.min(maxX, Math.max(minX, pending.x + dx)).toFixed(5),
+      y: +Math.min(maxY, Math.max(minY, pending.y + dy)).toFixed(5),
+      regionId: region.id,
+      regionLabel: region.label,
+    });
+  };
+
   return (
     <div className="space-y-2">
+      <p className="text-[11px] text-muted-foreground">
+        Коснитесь нужного места на модели или выберите область из списка.
+      </p>
+      {atlasStatus !== "error" ? (
+        <div
+          role="status"
+          aria-label="Состояние модели"
+          aria-live="polite"
+          className="rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px] text-muted-foreground"
+        >
+          {atlasStatus === "loading" ? "Модель загружается…" : "Модель готова"}
+        </div>
+      ) : (
+        <div
+          role="alert"
+          aria-label="Состояние модели"
+          className="rounded-sm border border-warning/40 bg-warning/10 px-2 py-2 text-[11px] text-foreground"
+        >
+          <div className="font-medium">Не удалось загрузить модель</div>
+          <p className="mt-0.5 text-muted-foreground">
+            Проверьте соединение и повторите загрузку. Точные метки временно недоступны.
+          </p>
+          <button
+            type="button"
+            className="mt-2 inline-flex min-h-11 items-center rounded-sm border border-border bg-surface px-3 text-[12px] font-medium outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => setAtlasLoadState({
+              atlasKey,
+              status: "loading",
+              attempt: atlasAttempt + 1,
+            })}
+          >
+            Повторить
+          </button>
+        </div>
+      )}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${CLINICAL_BODY_ATLAS_WIDTH} ${CLINICAL_BODY_ATLAS_HEIGHT}`}
@@ -213,7 +300,13 @@ export function ClinicalBodyMapCanvas({
         role="img"
         aria-label={ariaLabel}
       >
-        <ClinicalBodyAtlas profile={profile} view={view} />
+        <ClinicalBodyAtlas
+          profile={profile}
+          view={view}
+          imageKey={`${atlasKey}:${atlasAttempt}`}
+          onImageLoad={() => setAtlasLoadState({ atlasKey, status: "ready", attempt: atlasAttempt })}
+          onImageError={() => setAtlasLoadState({ atlasKey, status: "error", attempt: atlasAttempt })}
+        />
         <defs>
           <clipPath id={clipId}>
             <ellipse cx={120} cy={200} rx={78} ry={108} />
@@ -227,10 +320,10 @@ export function ClinicalBodyMapCanvas({
               "data-region-label": region.label,
               fill: "hsl(var(--primary))",
               fillOpacity: hoveredRegion?.id === region.id && zoom <= 2 ? 0.16 : 0.001,
-              pointerEvents: "all" as const,
-              onPointerEnter: () => setHoveredRegion(region),
+              pointerEvents: atlasReady ? "all" as const : "none" as const,
+              onPointerEnter: () => atlasReady && setHoveredRegion(region),
               onClick: (event: React.MouseEvent<SVGElement>) => placeAtPointer(region, event),
-              style: { cursor: "crosshair" },
+              style: { cursor: atlasReady ? "crosshair" : "default" },
             };
             return hitMapPath ? (
               <use key={region.id} href={`${hitMapPath}#region-${region.id}`} {...common} />
@@ -266,7 +359,7 @@ export function ClinicalBodyMapCanvas({
           </text>
         </g>
 
-        {demoPoints.map((point) => (
+        {atlasReady && demoPoints.map((point) => (
           <BodyMapMarker
             key={`demo-${point.id}`}
             point={point}
@@ -276,7 +369,7 @@ export function ClinicalBodyMapCanvas({
           />
         ))}
 
-        {points.map((point) => (
+        {atlasReady && points.map((point) => (
           <BodyMapMarker
             key={point.id}
             point={point}
@@ -285,7 +378,7 @@ export function ClinicalBodyMapCanvas({
           />
         ))}
 
-        {pending && (
+        {atlasReady && pending && (
           <g
             pointerEvents="none"
             transform={`translate(${pending.x * CLINICAL_BODY_ATLAS_WIDTH} ${pending.y * CLINICAL_BODY_ATLAS_HEIGHT}) scale(${1 / zoom}) translate(${-pending.x * CLINICAL_BODY_ATLAS_WIDTH} ${-pending.y * CLINICAL_BODY_ATLAS_HEIGHT})`}
@@ -316,7 +409,7 @@ export function ClinicalBodyMapCanvas({
       <div className="rounded-sm border border-border bg-surface px-2 py-1.5 text-[11px]">
         <span className="font-medium text-foreground">Область под указателем: </span>
         <span role="status" aria-live="polite" className="text-muted-foreground">
-          {hoveredRegion?.label ?? "наведите указатель на модель"}
+          {hoveredRegion?.label ?? "не выбрана"}
         </span>
       </div>
       <label className="block text-[11px] text-muted-foreground">
@@ -324,6 +417,7 @@ export function ClinicalBodyMapCanvas({
         <select
           className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-[12px] text-foreground"
           aria-label="Выбрать анатомическую область"
+          disabled={!atlasReady}
           value=""
           onChange={(event) => {
             const region = regions.find((item) => item.id === event.target.value);
@@ -336,6 +430,36 @@ export function ClinicalBodyMapCanvas({
           ))}
         </select>
       </label>
+      {atlasReady && pending?.regionId && (
+        <div
+          role="group"
+          aria-label="Точное положение метки"
+          className="rounded-sm border border-border bg-surface p-2"
+        >
+          <div className="text-[11px] font-medium text-foreground">Уточнить положение с клавиатуры</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {[
+              ["Сдвинуть метку влево", "←", -0.005, 0],
+              ["Сдвинуть метку вверх", "↑", 0, -0.005],
+              ["Сдвинуть метку вниз", "↓", 0, 0.005],
+              ["Сдвинуть метку вправо", "→", 0.005, 0],
+            ].map(([label, glyph, dx, dy]) => (
+              <button
+                key={String(label)}
+                type="button"
+                aria-label={String(label)}
+                onClick={() => nudgePending(Number(dx), Number(dy))}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-sm border border-border bg-background text-[16px] text-foreground outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {glyph}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Шаг — 0,5% ширины или высоты модели; метка остаётся в выбранной области.
+          </p>
+        </div>
+      )}
       <p className="text-[11px] text-muted-foreground">
         {zoom > 2 && "На увеличении контур области скрыт, чтобы не перекрывать точное место метки. "}
         Названия областей — технический анатомический справочник. Врачебная проверка границ ещё не выполнена.

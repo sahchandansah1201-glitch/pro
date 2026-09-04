@@ -1333,10 +1333,10 @@ export function validateDoctorVisitPatientProjection(errors, root) {
       "imagingConsent: row.patientImagingConsent === true",
     ],
     "src/lib/self-hosted-clinical-adapter.ts": [
-      'birthDate: dto.patient.birthDate ?? "1900-01-01"',
+      "birthDate: dto.patient.birthDate",
       "sex: normalizeSex(dto.patient.sex)",
       "phototype: normalizePhototype(dto.patient.phototype)",
-      "imaging: dto.patient.imagingConsent === true",
+      "imaging: dto.patient.imagingConsent",
     ],
   };
 
@@ -1361,23 +1361,24 @@ export function validateClinicalBodyAtlasAssets(errors, root) {
       "data-source={clinicalBodyAtlasSource()}",
       "clinicalBodyAtlasAssetPath(profile, view)",
     ],
-    "scripts/render-clinical-body-line-atlas.py": [
-      "CLINICAL_BODY_LINE_ATLAS_RENDER_OK",
-      "scene.render.use_freestyle = True",
-      "scene.render.film_transparent = True",
+    "scripts/generate-clinical-body-region-maps.py": [
+      'parser.add_argument("--copy-images", action="store_true")',
+      '"sourcePath": asset_name or str(source_path)',
+      "contained_alpha(source_path)",
     ],
     "src/lib/clinical-body-atlas.ts": [
       '"older_adult"',
       '"Женщина · 18–64 года"',
       '"Женщина · 65 лет и старше"',
-      "/clinical-body-atlas/",
+      'return "daz-hires-local"',
+      "/clinical-body-atlas-daz-local/",
     ],
     "docs/clinical-body-atlas.md": [
-      "MakeHuman Community 1.3",
-      "exported models are released under CC0",
-      "SMPL was not selected",
-      "no image, tracing, or interface asset",
-      "placement surface only",
+      "clinical-body-atlas-daz-age-sex-matrix-hires-r2-2026-08-06",
+      "DAZ Studio 6",
+      "static rendered PNG",
+      "2880 x 4320",
+      "navigation index only",
     ],
   };
 

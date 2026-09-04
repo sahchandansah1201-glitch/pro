@@ -83,6 +83,7 @@ function renderAt(
               }
             />
             <Route path="/admin" element={<div data-testid="admin-page">ADMIN</div>} />
+            <Route path="/operator" element={<div data-testid="operator-page">OPERATOR</div>} />
             <Route path="/login" element={<div data-testid="login-page">LOGIN</div>} />
             <Route path="/self-hosted/login" element={<div data-testid="self-hosted-login">SELF HOSTED LOGIN</div>} />
           </Routes>
@@ -203,10 +204,12 @@ describe("RoleGuard · production self-hosted mode", () => {
     renderAt("/patients/patient-1", authValue(), "doctor");
 
     expect(screen.getByRole("heading", { name: "Нет доступа к клиническим данным" })).toBeInTheDocument();
-    expect(screen.getByText("Этот раздел доступен врачу.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Этот раздел доступен только сотрудникам с клиническим доступом."),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("patient-loader")).not.toBeInTheDocument();
     expect(patientLoader).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Вернуться в администрирование" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Вернуться к рабочему экрану" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Войти под другой учётной записью" })).toBeInTheDocument();
   });
 
@@ -228,10 +231,32 @@ describe("RoleGuard · production self-hosted mode", () => {
     writeSelfHostedSession(["clinic_admin"]);
     renderAt("/patients/patient-1", authValue(), "doctor");
 
-    fireEvent.click(screen.getByRole("button", { name: "Вернуться в администрирование" }));
+    fireEvent.click(screen.getByRole("button", { name: "Вернуться к рабочему экрану" }));
 
     expect(screen.getByTestId("admin-page")).toBeInTheDocument();
     expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("jwt-production");
+  });
+
+  it("returns a blocked operator to the operator home without implying doctor-only access", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["operator"]);
+    renderAt("/patients/patient-1", authValue(), "doctor");
+
+    expect(
+      screen.getByText("Этот раздел доступен только сотрудникам с клиническим доступом."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Вернуться к рабочему экрану" }));
+
+    expect(screen.getByTestId("operator-page")).toBeInTheDocument();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("jwt-production");
+  });
+
+  it("moves focus to the production denial heading", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["clinic_admin"]);
+    renderAt("/patients/patient-1", authValue(), "doctor");
+
+    expect(screen.getByRole("heading", { name: "Нет доступа к клиническим данным" })).toHaveFocus();
   });
 
   it.each([

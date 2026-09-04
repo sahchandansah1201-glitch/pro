@@ -26,6 +26,10 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+function markAtlasReady() {
+  fireEvent.load(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+}
+
 const tabSelected = (name: RegExp) =>
   screen.getByRole("tab", { name }).getAttribute("aria-selected") === "true";
 
@@ -158,6 +162,7 @@ describe("Visit Workspace · invalid params", () => {
 
 describe("Visit Workspace · local draft isolation across downstream tabs", () => {
   function placeLocalDraft() {
+    markAtlasReady();
     const regionSelect = screen.getByLabelText(
       "Выбрать анатомическую область",
     ) as HTMLSelectElement;

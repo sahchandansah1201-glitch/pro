@@ -20,6 +20,6 @@ export const CLINICAL_BODY_ATLAS_VIEWS = ["front", "back", "left", "right"];
 export const CLINICAL_BODY_ATLAS_ASSET_PATHS =
   CLINICAL_BODY_ATLAS_PROFILE_NAMES.flatMap((profile) =>
     CLINICAL_BODY_ATLAS_VIEWS.map(
-      (view) => `clinical-body-atlas/${profile}-${view}.webp`,
+      (view) => `clinical-body-atlas-daz-local/${profile}-${view}.png`,
     ),
   );

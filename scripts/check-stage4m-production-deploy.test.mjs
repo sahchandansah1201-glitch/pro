@@ -17,6 +17,15 @@ import {
 } from "./check-stage4m-production-deploy.mjs";
 import { CLINICAL_BODY_ATLAS_ASSET_PATHS } from "./clinical-body-atlas-assets.mjs";
 
+test("production asset inventory contains only the owner-approved high-resolution renders", () => {
+  assert.equal(CLINICAL_BODY_ATLAS_ASSET_PATHS.length, 56);
+  assert.ok(
+    CLINICAL_BODY_ATLAS_ASSET_PATHS.every(
+      (assetPath) => assetPath.startsWith("clinical-body-atlas-daz-local/") && assetPath.endsWith(".png"),
+    ),
+  );
+});
+
 test("Stage 4M production deployment guard passes on repository files", () => {
   const result = collectStage4MChecks({ root: process.cwd() });
   assert.equal(result.ok, true, result.errors.join("\n"));
@@ -29,32 +38,32 @@ test("Stage 4M guard requires the complete clinical body atlas", () => {
   mkdirSync(join(root, "src", "lib"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
   mkdirSync(join(root, "docs"), { recursive: true });
-  mkdirSync(join(root, "public", "clinical-body-atlas"), { recursive: true });
+  mkdirSync(join(root, "public", "clinical-body-atlas-daz-local"), { recursive: true });
 
   writeFileSync(
     join(root, "src", "components", "clinical", "ClinicalBodyAtlas.tsx"),
     "data-source={clinicalBodyAtlasSource()}\nclinicalBodyAtlasAssetPath(profile, view)",
   );
   writeFileSync(
-    join(root, "scripts", "render-clinical-body-line-atlas.py"),
+    join(root, "scripts", "generate-clinical-body-region-maps.py"),
     [
-      "CLINICAL_BODY_LINE_ATLAS_RENDER_OK",
-      "scene.render.use_freestyle = True",
-      "scene.render.film_transparent = True",
+      'parser.add_argument("--copy-images", action="store_true")',
+      '"sourcePath": asset_name or str(source_path)',
+      "contained_alpha(source_path)",
     ].join("\n"),
   );
   writeFileSync(
     join(root, "src", "lib", "clinical-body-atlas.ts"),
-    '"older_adult"\n"Женщина · 18–64 года"\n"Женщина · 65 лет и старше"\n/clinical-body-atlas/',
+    '"older_adult"\n"Женщина · 18–64 года"\n"Женщина · 65 лет и старше"\nreturn "daz-hires-local"\n/clinical-body-atlas-daz-local/',
   );
   writeFileSync(
     join(root, "docs", "clinical-body-atlas.md"),
     [
-      "MakeHuman Community 1.3",
-      "exported models are released under CC0",
-      "SMPL was not selected",
-      "no image, tracing, or interface asset",
-      "placement surface only",
+      "clinical-body-atlas-daz-age-sex-matrix-hires-r2-2026-08-06",
+      "DAZ Studio 6",
+      "static rendered PNG",
+      "2880 x 4320",
+      "navigation index only",
     ].join("\n"),
   );
 

@@ -66,3 +66,22 @@ test("rejects a source image whose bytes do not match the manifest", async () =>
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("rejects a public manifest that exposes an absolute source path", async () => {
+  const root = mkdtempSync(join(tmpdir(), "skindoctor-region-private-path-"));
+  const atlasDir = join(root, "atlas");
+  try {
+    cpSync("public/clinical-body-atlas-regions", atlasDir, { recursive: true });
+    const manifestPath = join(atlasDir, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.records[0].sourcePath = "/Users/private/clinical-atlas.png";
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    await assert.rejects(
+      checkClinicalBodyRegionMaps(atlasDir),
+      /absolute source path/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

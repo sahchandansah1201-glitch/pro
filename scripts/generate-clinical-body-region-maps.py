@@ -320,7 +320,7 @@ def main() -> None:
         records.append({
             "profile": profile,
             "view": view,
-            "sourcePath": str(source_path),
+            "sourcePath": asset_name or str(source_path),
             "sourceSha256": sha256(source_path),
             "asset": asset_name,
             "mask": mask_path.name,

@@ -457,13 +457,7 @@ function AppointmentRow({ appointment }: { appointment: SelfHostedAppointmentOve
           {formatMaybeDate(appointment.slotAt)} · {APPOINTMENT_STATUS_LABEL[appointment.status] ?? appointment.status}
         </div>
       </div>
-      {appointment.patient.id ? (
-        <Button asChild size="sm" variant="outline" className="min-h-11 px-2 text-[11px]">
-          <Link to={`/patients/${appointment.patient.id}/visits/${appointment.visitId}`}>Визит</Link>
-        </Button>
-      ) : (
-        <span className="text-meta">—</span>
-      )}
+      <span className="text-meta">Передано врачу</span>
     </li>
   );
 }

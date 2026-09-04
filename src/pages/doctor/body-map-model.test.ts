@@ -37,6 +37,14 @@ describe("body-map-model", () => {
     expect(bodyMapProfileLabel(profile)).toBe("Мужчина · 18–64 года");
   });
 
+  it("does not choose a body model when sex or birth date is unusable", () => {
+    expect(getBodyMapProfile({ sex: null, birthDate: "1990-01-01" })).toBeNull();
+    expect(getBodyMapProfile({ sex: "female", birthDate: null })).toBeNull();
+    expect(getBodyMapProfile({ sex: "female", birthDate: "not-a-date" })).toBeNull();
+    expect(getBodyMapProfile({ sex: "female", birthDate: "2024-02-30" })).toBeNull();
+    expect(getBodyMapProfile({ sex: "male", birthDate: "2027-01-01" })).toBeNull();
+  });
+
   it("selects all seven age-specific atlas profiles", () => {
     expect(getBodyMapProfile({ sex: "female", birthDate: "2025-08-01" })).toEqual({
       sex: "female",

@@ -16,7 +16,7 @@ import {
   getPatientById,
   getVisitById,
 } from "@/lib/mock-data";
-import { calcAge, formatDate, formatDateTime } from "@/lib/format";
+import { consentLabel, formatAge, formatDate, formatDateTime } from "@/lib/format";
 import { formatCardNumber } from "@/lib/card-number";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
@@ -30,6 +30,7 @@ import {
   clinicalBodyAtlasSource,
   clinicalBodyProfileAssetName,
   currentClinicalBodyAtlasIso,
+  type ClinicalBodyProfile,
 } from "@/lib/clinical-body-atlas";
 import { clinicalBodyRegionDetailOptions } from "@/lib/clinical-body-regions";
 import {
@@ -44,6 +45,9 @@ import {
   ClinicalBodyMapCanvas,
   type ClinicalBodyRegionPlacement,
 } from "@/pages/doctor/visit-workspace/ClinicalBodyMapCanvas";
+import { useBodyMapViewportPan } from "@/pages/doctor/visit-workspace/useBodyMapViewportPan";
+import { bodyMapPlacementBinding } from "@/pages/doctor/visit-workspace/bodyMapPlacementBinding";
+import { BodyMapPlacementBindingWarning } from "@/pages/doctor/visit-workspace/BodyMapPlacementBindingWarning";
 import {
   humanDisplayValue,
   humanFieldTerm,
@@ -157,7 +161,7 @@ const LESION_STATUS: Record<Lesion["status"], string> = {
   archived: "Архив",
 };
 
-const SEX_LABEL_SHORT: Record<Patient["sex"], string> = {
+const SEX_LABEL_SHORT: Record<NonNullable<Patient["sex"]>, string> = {
   male: "муж.",
   female: "жен.",
 };
@@ -347,8 +351,8 @@ export default function VisitWorkspacePage() {
 
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Карта", value: formatCardNumber(patient.code) },
-    { label: "Пол / возраст", value: `${SEX_LABEL_SHORT[patient.sex]} · ${calcAge(patient.birthDate)} лет` },
-    { label: "Фототип", value: String(patient.phototype) },
+    { label: "Пол / возраст", value: `${patient.sex ? SEX_LABEL_SHORT[patient.sex] : "пол не указан"} · ${formatAge(patient.birthDate)}` },
+    { label: "Фототип", value: patient.phototype ?? "Не указан" },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
     { label: "Клиника", value: clinic?.name ?? "—" },
     { label: "Врач", value: staffName(visit.doctorId, "врач клиники") },
@@ -401,7 +405,7 @@ export default function VisitWorkspacePage() {
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="border-b border-border bg-surface px-3">
-          <TabsList className="h-auto overflow-x-auto bg-transparent p-0">
+          <TabsList aria-label="Разделы визита" className="h-auto overflow-x-auto bg-transparent p-0">
             <TabsTrigger value="intake" className="min-h-11 text-[13px] sm:text-[12px]">Первичный приём</TabsTrigger>
             <TabsTrigger value="bodymap" className="min-h-11 text-[13px] sm:text-[12px]">Карта тела</TabsTrigger>
             <TabsTrigger value="imaging" className="min-h-11 text-[13px] sm:text-[12px]">Снимки</TabsTrigger>
@@ -409,6 +413,9 @@ export default function VisitWorkspacePage() {
             <TabsTrigger value="conclusion" className="min-h-11 text-[13px] sm:text-[12px]">Заключение</TabsTrigger>
             <TabsTrigger value="report" className="min-h-11 text-[13px] sm:text-[12px]">Отчёт</TabsTrigger>
           </TabsList>
+          <p className="px-3 pb-2 pt-1 text-[12px] text-muted-foreground sm:hidden">
+            Листайте вправо: доступны «Заключение» и «Отчёт».
+          </p>
         </div>
 
         <TabsContent value="intake" className="m-0 min-h-0 flex-1 overflow-auto p-4">
@@ -4411,9 +4418,9 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
       <Section title="Демография" className="lg:col-span-5">
         <Field term="ФИО" value={patient.fullName} />
         <Field term="Карта" value={formatCardNumber(patient.code)} />
-        <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
-        <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
-        <Field term="Фототип" value={patient.phototype} />
+        <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${formatAge(patient.birthDate)})`} />
+        <Field term="Пол" value={patient.sex === "male" ? "Мужской" : patient.sex === "female" ? "Женский" : "Не указан"} />
+        <Field term="Фототип" value={patient.phototype ?? "Не указан"} />
       </Section>
 
       <Section title="Факторы риска" className="lg:col-span-7">
@@ -4442,9 +4449,9 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
                 : "Нет"
           }
         />
-        <Field term="Медицинская съёмка" value={patient.consents.imaging ? "Есть" : "Нет"} />
-        <Field term="Телемедицина" value={patient.consents.telemed ? "Есть" : "Нет"} />
-        {!patient.consents.imaging && (
+        <Field term="Медицинская съёмка" value={consentLabel(patient.consents.imaging)} />
+        <Field term="Телемедицина" value={consentLabel(patient.consents.telemed)} />
+        {patient.consents.imaging === false && (
           <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[11px] text-muted-foreground">
             Без согласия на медицинскую съёмку захват дерматоскопии заблокирован.
           </div>
@@ -4495,17 +4502,7 @@ interface LocalLesionDraft {
   createdAt: string;
 }
 
-function BodyMapTab({
-  patient,
-  visit,
-  lesions,
-  productionMode = false,
-  apiBaseUrl,
-  apiToken,
-  initialLesionId,
-  onLesionCreated,
-  onOpenImaging,
-}: {
+interface BodyMapTabProps {
   patient: Patient;
   visit: Visit;
   lesions: Lesion[];
@@ -4515,11 +4512,59 @@ function BodyMapTab({
   initialLesionId?: string | null;
   onLesionCreated?: (lesion: SelfHostedVisitLesionDTO) => void;
   onOpenImaging: (lesionId: string, imageId?: string | null) => void;
-}) {
+}
+
+function BodyMapTab(props: BodyMapTabProps) {
   const profile = getBodyMapProfile(
-    patient,
-    productionMode ? (visit.startedAt || currentClinicalBodyAtlasIso()) : BODY_MAP_DEMO_NOW,
+    props.patient,
+    props.productionMode
+      ? (props.visit.startedAt || currentClinicalBodyAtlasIso())
+      : BODY_MAP_DEMO_NOW,
   );
+  if (!profile) {
+    return (
+      <div className="space-y-3 p-4">
+        <div role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-4">
+          <h2 className="text-[13px] font-semibold text-foreground">Карта тела пока недоступна</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Укажите пол и дату рождения пациента, чтобы система выбрала подходящую модель тела.
+          </p>
+        </div>
+        <section aria-labelledby="body-map-unavailable-lesions" className="rounded-md border border-border bg-surface p-4">
+          <h2 id="body-map-unavailable-lesions" className="text-[13px] font-semibold text-foreground">
+            Зарегистрированные очаги ({props.lesions.length})
+          </h2>
+          {props.lesions.length === 0 ? (
+            <p className="mt-2 text-[12px] text-muted-foreground">Очаги не зарегистрированы.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-border">
+              {props.lesions.map((lesion) => (
+                <li key={lesion.id} className="py-2 text-[12px]">
+                  <span className="font-medium text-foreground">{lesion.label}</span>
+                  <span className="text-muted-foreground"> · {lesion.bodyZone}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    );
+  }
+  return <BodyMapTabReady {...props} profile={profile} />;
+}
+
+function BodyMapTabReady({
+  patient,
+  visit,
+  lesions,
+  productionMode = false,
+  apiBaseUrl,
+  apiToken,
+  initialLesionId,
+  onLesionCreated,
+  onOpenImaging,
+  profile,
+}: BodyMapTabProps & { profile: ClinicalBodyProfile }) {
   const profileLabel = bodyMapProfileLabel(profile);
   const atlasSource = clinicalBodyAtlasSource();
   const zoomLevels = bodyMapZoomLevels();
@@ -4527,8 +4572,11 @@ function BodyMapTab({
   const maxZoom = zoomLevels[zoomLevels.length - 1];
 
   const placedLesions = useMemo(() => {
-    return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
-  }, [lesions]);
+    return lesions.map((l, i) => ({
+      lesion: l, point: resolvePoint(l), num: i + 1,
+      binding: bodyMapPlacementBinding(l, profile),
+    }));
+  }, [lesions, profile]);
 
   const initialFromParam = initialLesionId
     ? placedLesions.find((p) => p.lesion.id === initialLesionId) ?? null
@@ -4538,6 +4586,7 @@ function BodyMapTab({
 
   const [view, setView] = useState<View>(initialView);
   const [zoom, setZoom] = useState(1);
+  const { isPanning, panViewportProps } = useBodyMapViewportPan(zoom > 1);
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
   const [pending, setPending] = useState<PendingPoint | null>(null);
   const [draftLabel, setDraftLabel] = useState("Новый очаг");
@@ -4601,8 +4650,9 @@ function BodyMapTab({
     setPending(null);
   }, [view]);
 
-  const visiblePoints = placedLesions.filter((p) => p.point.view === view);
+  const visiblePoints = placedLesions.filter((p) => p.point.view === view && (!productionMode || p.binding.exact));
   const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
+  const selectedPlacementBinding = selectedLesion ? bodyMapPlacementBinding(selectedLesion, profile) : null;
   const sourceLocalization = selectedLesion && !productionMode
     ? getDemoLesionSourceLocalization(selectedLesion.id)
     : null;
@@ -4761,11 +4811,12 @@ function BodyMapTab({
               Создание очага, выбор поверхности, привязка к снимкам и переход в съёмку.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Проекция карты тела">
             {BODY_MAP_VIEWS.map((v) => (
               <button
                 key={v}
                 type="button"
+                aria-pressed={view === v}
                 onClick={() => setView(v)}
                 className={`min-h-11 rounded-sm border px-2.5 text-[12px] ${
                   view === v
@@ -4794,7 +4845,15 @@ function BodyMapTab({
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
-            <span className="w-12 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+            <span
+              role="status"
+              aria-label="Текущий масштаб карты тела"
+              aria-live="polite"
+              aria-atomic="true"
+              className="w-12 text-center text-[12px] tabular-nums text-muted-foreground"
+            >
+              {Math.round(zoom * 100)}%
+            </span>
             <Button
               size="sm"
               variant="ghost"
@@ -4821,10 +4880,21 @@ function BodyMapTab({
             {bodyMapSurfaceHint(view)}
           </span>
         </div>
+        {zoom > 1 && (
+          <p className="border-b border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">
+            Перетаскивайте увеличенную модель мышью или пальцем. Стрелки клавиатуры перемещают область просмотра.
+          </p>
+        )}
         <div
           ref={mapViewportRef}
           data-testid="body-map-viewport"
-          className="h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto bg-surface-muted p-3"
+          data-panning={isPanning ? "true" : "false"}
+          role="region"
+          aria-label="Область просмотра карты тела"
+          {...panViewportProps}
+          className={`h-[calc(100vh-14rem)] min-h-[20rem] max-h-[44rem] flex-none overflow-auto overscroll-contain bg-surface-muted p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+            zoom > 1 ? (isPanning ? "cursor-grabbing select-none" : "cursor-grab") : ""
+          }`}
         >
           <div data-testid="body-map-zoom-surface" className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <ClinicalBodyMapCanvas
@@ -4839,7 +4909,11 @@ function BodyMapTab({
                 onSelect: () => setSelected(p.lesion.id),
                 label: p.lesion.label,
               }))}
-              pending={pending && pending.view === view ? { x: pending.x, y: pending.y } : null}
+              pending={pending && pending.view === view ? {
+                x: pending.x,
+                y: pending.y,
+                regionId: pending.regionId,
+              } : null}
               zoom={zoom}
               demoPoints={localDraftsForView.map((d, i) => ({
                 id: d.id,
@@ -4875,7 +4949,7 @@ function BodyMapTab({
             <div className="p-6 text-[13px] text-muted-foreground">Образования у пациента не зарегистрированы.</div>
           ) : (
             <ul className="divide-y divide-border">
-              {placedLesions.map(({ lesion, num, point }) => {
+              {placedLesions.map(({ lesion, num, point, binding }) => {
                 const lImages = productionMode ? [] : getImagesByLesionId(lesion.id);
                 const imageCount = lImages.length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
@@ -4884,8 +4958,18 @@ function BodyMapTab({
                 return (
                   <li
                     key={lesion.id}
-                    className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Выбрать очаг ${num}: ${lesion.label}`}
+                    aria-pressed={isSel}
+                    className={`cursor-pointer px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
                     onClick={() => {
+                      setSelected(lesion.id);
+                      setView(point.view);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
                       setSelected(lesion.id);
                       setView(point.view);
                     }}
@@ -4931,6 +5015,11 @@ function BodyMapTab({
                         )}
                       </div>
                     )}
+                    {productionMode && !binding.exact && (
+                      <BodyMapPlacementBindingWarning
+                        onRefine={() => startProductionCorrection(lesion)}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -4950,8 +5039,18 @@ function BodyMapTab({
                   <li
                     key={d.id}
                     data-body-region-id={d.bodyRegionId}
-                    className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Выбрать локальный учебный очаг ${i + 1}: ${d.label}`}
+                    aria-pressed={isSel}
+                    className={`cursor-pointer px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
                     onClick={() => {
+                      setSelected(d.id);
+                      setView(d.mapPoint.view);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
                       setSelected(d.id);
                       setView(d.mapPoint.view);
                     }}
@@ -5139,7 +5238,7 @@ function BodyMapTab({
                 </Link>
               </Button>
             </div>
-            {productionMode && (
+            {productionMode && selectedPlacementBinding?.exact && (
               <Button
                 type="button"
                 size="sm"

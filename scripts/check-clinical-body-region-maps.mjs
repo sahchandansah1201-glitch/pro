@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 async function verifyFileSha256(path, expected, label, errors) {
@@ -35,6 +35,9 @@ export async function checkClinicalBodyRegionMaps(directory) {
   }
 
   for (const record of manifest.records ?? []) {
+    if (record.sourcePath && isAbsolute(record.sourcePath)) {
+      errors.push(`${record.profile}/${record.view}: absolute source path is not allowed`);
+    }
     if (record.coveragePercent !== 100) errors.push(`${record.profile}/${record.view}: coverage`);
     if (record.coveredPixels !== record.bodyPixels) errors.push(`${record.profile}/${record.view}: uncovered`);
     if (record.backgroundFalsePositives !== 0) errors.push(`${record.profile}/${record.view}: background`);

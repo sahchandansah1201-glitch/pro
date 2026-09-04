@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -360,12 +360,9 @@ describe("PatientsPage", () => {
   it("sorts patients by age descending", async () => {
     renderPage();
 
-    await userEvent.click(
-      screen.getByRole("combobox", { name: "Сортировка пациентов" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("option", { name: "Возраст по убыванию" }),
-    );
+    const sortControl = screen.getByRole("combobox", { name: "Сортировка пациентов" });
+    sortControl.focus();
+    for (const key of "Возраст по убыванию") fireEvent.keyDown(sortControl, { key });
 
     const table = screen.getByRole("table");
     const firstDataRow = within(table).getAllByRole("row")[1];

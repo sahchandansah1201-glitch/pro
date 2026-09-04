@@ -102,11 +102,12 @@ test("body-map route exposes the idempotency CORS and OpenAPI contracts", async 
   ]);
 });
 
-test("body-map backend config pins the committed atlas and requires an explicit local DAZ pin", () => {
-  assert.equal(config.clinicalBodyAtlasSource, "makehuman-cc0");
+test("body-map backend config pins the owner-approved high-resolution atlas", () => {
+  assert.equal(config.clinicalBodyAtlasSource, "daz-hires-local");
+  assert.equal(config.clinicalBodyAtlasDir, "public/clinical-body-atlas-daz-local");
   assert.equal(
     config.clinicalBodyAtlasManifestSha256,
-    "491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024",
+    "0afadcfdfffb5a6a23e7061ca2fc48eba951e32395eecdde8313e846fac4c741",
   );
   const localDaz = readSelfHostedConfig({
     CLINICAL_BODY_ATLAS_SOURCE: "daz-hires-local",
@@ -116,4 +117,9 @@ test("body-map backend config pins the committed atlas and requires an explicit 
   assert.equal(localDaz.clinicalBodyAtlasSource, "daz-hires-local");
   assert.equal(localDaz.clinicalBodyAtlasDir, "/tmp/atlas");
   assert.equal(localDaz.clinicalBodyAtlasManifestSha256, "a".repeat(64));
+
+  assert.throws(
+    () => readSelfHostedConfig({ CLINICAL_BODY_ATLAS_SOURCE: "makehuman-cc0" }),
+    /only the owner-approved high-resolution atlas/i,
+  );
 });

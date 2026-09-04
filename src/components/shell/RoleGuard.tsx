@@ -8,6 +8,7 @@
 // пользователей редиректим на /login до проверки учебной роли. Когда вход
 // не сконфигурирован — поведение прежнее, чисто учебное.
 
+import { useEffect, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Loader2 } from "lucide-react";
 
@@ -23,7 +24,11 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-import { canSelfHostedSessionAccessPath, selfHostedRoleLabel } from "@/lib/self-hosted-role";
+import {
+  canSelfHostedSessionAccessPath,
+  selfHostedHomePath,
+  selfHostedRoleLabel,
+} from "@/lib/self-hosted-role";
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
   const { pathname, search, hash } = useLocation();
@@ -42,6 +47,7 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
       <ProductionNoAccessScreen
         roleLabel={selfHostedRoleLabel(selfHostedSession)}
         clinicalRoute={isClinicalRoute(pathname)}
+        homePath={selfHostedHomePath(selfHostedSession)}
       />
     );
   }
@@ -70,11 +76,18 @@ function isClinicalRoute(pathname: string): boolean {
 function ProductionNoAccessScreen({
   roleLabel,
   clinicalRoute,
+  homePath,
 }: {
   roleLabel: string;
   clinicalRoute: boolean;
+  homePath: string;
 }) {
   const navigate = useNavigate();
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   function switchAccount() {
     clearSelfHostedApiSession();
@@ -86,14 +99,18 @@ function ProductionNoAccessScreen({
       <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
         <div className="mb-3 flex items-center gap-2 text-warning">
           <Lock className="h-4 w-4" aria-hidden />
-          {clinicalRoute ? (
-            <h1 className="text-[13px] font-semibold">Нет доступа к клиническим данным</h1>
-          ) : (
-            <div className="text-[13px] font-semibold">Нет доступа</div>
-          )}
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="rounded-sm text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {clinicalRoute ? "Нет доступа к клиническим данным" : "Нет доступа"}
+          </h1>
         </div>
         {clinicalRoute ? (
-          <p className="text-[13px] text-muted-foreground">Этот раздел доступен врачу.</p>
+          <p className="text-[13px] text-muted-foreground">
+            Этот раздел доступен только сотрудникам с клиническим доступом.
+          </p>
         ) : (
           <p className="text-[13px] text-muted-foreground">
             Текущая роль в системе клиники <span className="text-foreground">{roleLabel}</span> не
@@ -104,8 +121,8 @@ function ProductionNoAccessScreen({
         <div className="mt-4 flex flex-wrap gap-2">
           {clinicalRoute ? (
             <>
-              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/admin")}>
-                Вернуться в администрирование
+              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate(homePath)}>
+                Вернуться к рабочему экрану
               </Button>
               <Button
                 size="sm"

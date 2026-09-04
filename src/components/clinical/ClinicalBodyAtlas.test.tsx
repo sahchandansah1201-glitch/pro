@@ -1,13 +1,19 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ClinicalBodyAtlas } from "./ClinicalBodyAtlas";
 import {
   CLINICAL_BODY_ATLAS_HEIGHT,
   CLINICAL_BODY_ATLAS_WIDTH,
   clinicalBodyAtlasAssetPath,
+  clinicalBodyAtlasManifestSha256,
   clinicalBodyAtlasSource,
   clinicalBodyProfileFromAge,
+  clinicalBodyProfileAssetName,
+  clinicalBodyRegionMapSha256,
   type ClinicalBodyAgeBand,
   type ClinicalBodyProfile,
   type ClinicalBodyView,
@@ -23,7 +29,54 @@ function renderAtlas(profile: ClinicalBodyProfile, view: ClinicalBodyView) {
   );
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("ClinicalBodyAtlas", () => {
+  it("keeps frontend manifest and map pins equal to the owner-approved package", () => {
+    const bytes = readFileSync("public/clinical-body-atlas-daz-local/manifest.json");
+    const manifest = JSON.parse(bytes.toString("utf8")) as {
+      records: Array<{ profile: string; view: Exclude<ClinicalBodyView, "scalp">; hitMapSha256: string }>;
+    };
+    expect(createHash("sha256").update(bytes).digest("hex"))
+      .toBe(clinicalBodyAtlasManifestSha256());
+
+    const bands: ClinicalBodyAgeBand[] = [
+      "infant",
+      "early_child",
+      "child",
+      "adolescent",
+      "late_adolescent",
+      "adult",
+      "older_adult",
+    ];
+    for (const ageBand of bands) {
+      for (const sex of ["female", "male"] as const) {
+        const profile = { ageBand, sex };
+        const profileId = clinicalBodyProfileAssetName(profile);
+        for (const view of ["front", "back", "left", "right"] as const) {
+          const record = manifest.records.find(
+            (candidate) => candidate.profile === profileId && candidate.view === view,
+          );
+          expect(clinicalBodyRegionMapSha256(profile, view)).toBe(record?.hitMapSha256);
+        }
+      }
+    }
+  });
+
+  it("uses the owner-approved high-resolution atlas without a legacy fallback", () => {
+    vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "makehuman-cc0");
+
+    expect(clinicalBodyAtlasSource()).toBe("daz-hires-local");
+    expect(
+      clinicalBodyAtlasAssetPath(
+        { ageBand: "adult", sex: "female" },
+        "front",
+      ),
+    ).toBe("/clinical-body-atlas-daz-local/adult_female_30-front.png");
+  });
+
   it("maps every age band and sex to a dedicated four-view atlas", () => {
     const bands: ClinicalBodyAgeBand[] = [
       "infant",

@@ -1,13 +1,20 @@
 # Clinical body atlas
 
-## Decision
+## Active product decision
 
-The body-map workspace uses original flat clinical line art rendered from
-parametric human models. It follows the familiar medical-atlas convention of a
-light figure, dark contour, four orthographic views, visible hands and feet, and
-restrained surface landmarks. The models preserve a consistent coordinate
-surface while showing age-dependent head, trunk, limb, shoulder, and pelvic
-proportions.
+The doctor body-map workspace uses only the owner-approved static render package
+`clinical-body-atlas-daz-age-sex-matrix-hires-r2-2026-08-06`. The active
+runtime source is `daz-hires-local`; the former MakeHuman line-art package is a
+legacy compatibility artifact and is not selectable by the doctor UI or the
+self-hosted runtime configuration.
+
+The exact deployable manifest SHA-256 is:
+
+```text
+0afadcfdfffb5a6a23e7061ca2fc48eba951e32395eecdde8313e846fac4c741
+```
+
+## Coverage and resolution
 
 Seven age profiles are available:
 
@@ -19,55 +26,41 @@ Seven age profiles are available:
 - 18-64 years;
 - 65 years and older.
 
-Each profile has female and male front, back, left, and right views. The scalp
-uses a dedicated orientation diagram with vertex and quadrant guides.
+Each profile has female and male front, back, left, and right views: 14 models
+and 56 static rendered PNG files in total. Every render is `2880 x 4320` RGBA.
+The doctor can zoom to 800% while the displayed surface remains within the
+native pixel dimensions. The scalp keeps its dedicated orientation diagram.
 
-## Source and license
+## Source and rights boundary
 
-The meshes were generated with MakeHuman Community 1.3. MakeHuman states that
-exported models are released under CC0, allowing their use and modification in
-the product without carrying MakeHuman's application license into the product.
+This exact high-resolution package was rendered with DAZ Studio 6 from Genesis
+9 characters and the installed age morph products documented in the source
+package. The owner explicitly selected the rendered models for product use and
+confirmed their right to use the resulting assets.
 
-- MakeHuman source: https://github.com/makehumancommunity/makehuman
-- MakeHuman generated-model FAQ:
-  https://static.makehumancommunity.org/makehuman/faq/can_i_sell_models_created_with_makehuman.html
-- MakeHuman body modeling documentation:
-  https://static.makehumancommunity.org/makehuman/docs/modeling_the_body.html
+Only static rendered PNG files are included in the product. DAZ source assets,
+textures, morph files and `.duf` files are not copied. Earlier MakeHuman-derived
+line-art images remain in repository history for compatibility and auditability,
+but are not an active runtime source.
 
-## Alternatives considered
+## Runtime geometry
 
-- The previous hand-drawn SVG was rejected because its proportions and surface
-  detail were too schematic for lesion placement.
-- SMPL was not selected because its official model license is limited to
-  non-commercial scientific research unless a separate commercial license is
-  obtained.
-- Generated photographs were not selected because they are harder to keep
-  anatomically consistent across age, sex, and four orthographic views and may
-  imply a real patient identity.
+The high-resolution images are fitted without distortion to the stable
+`240 x 400` normalized coordinate surface. A package-specific mask and SVG hit
+map is generated from every exact render. The manifest binds each source image,
+mask and hit map by SHA-256. The backend rejects a placement when the active
+source, patient profile, manifest hash, map hash, view, region or point does not
+match the pinned package.
 
-MakeHuman was selected because one parametric source controls age, sex, weight,
-muscle, height, and body proportions, and its exported models are CC0. The
-production atlas uses a flat light material, clinical contour lines, and a fixed
-orthographic camera. This keeps the surface readable without suggesting a
-diagnosis or representing a real patient. A user-provided screenshot was used
-only to establish the visual direction; no image, tracing, or interface asset
-from that application is included in the product.
+The generated navigation masks provide technical coverage of the rendered
+silhouette. They do not constitute clinical acceptance of the 114 anatomical
+labels or borders.
 
-## Generation profile
+## Clinical boundary
 
-The source parameters use representative ages 1, 3, 7, 13, 16, 30, and 70.
-Height and body-proportion controls stay neutral; weight and muscle are kept in
-the middle of their ranges with small age-appropriate adjustments. The Blender
-renderer in `scripts/render-clinical-body-line-atlas.py` creates original
-transparent PNGs with silhouette and surface-detail line sets. Every model is
-rendered from identical front, back, left, and right orthographic cameras and
-committed as a 720 x 1200 WebP. The interface fits each image to a stable
-240 x 400 coordinate surface so existing normalized lesion positions remain
-compatible. The committed assets, not MakeHuman or Blender, are production
-runtime dependencies.
-
-## Product boundary
-
-The atlas is a placement surface only. It does not infer a diagnosis, severity,
-or anatomical finding. Lesion coordinates remain normalized and the backend
-contract is unchanged.
+The atlas is a navigation index only. It does not diagnose a lesion, estimate
+risk, recommend treatment or replace a source photograph. The source photograph
+remains the clinical primary record. The two under-one-year profiles still need
+separate physician/anatomist confirmation of age-specific proportions, and all
+114 terminology rows and 56 rendered borders remain subject to the signed
+clinical review gate.

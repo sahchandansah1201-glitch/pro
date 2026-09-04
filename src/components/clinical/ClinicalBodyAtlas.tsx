@@ -54,9 +54,15 @@ function ScalpAtlas() {
 export function ClinicalBodyAtlas({
   profile,
   view,
+  imageKey,
+  onImageLoad,
+  onImageError,
 }: {
   profile: ClinicalBodyProfile;
   view: ClinicalBodyView;
+  imageKey?: string;
+  onImageLoad?: () => void;
+  onImageError?: () => void;
 }) {
   const assetPath =
     view === "scalp" ? null : clinicalBodyAtlasAssetPath(profile, view);
@@ -77,7 +83,10 @@ export function ClinicalBodyAtlas({
             fill={ATLAS_BACKGROUND}
           />
           <image
+            key={imageKey}
             data-part="atlas-image"
+            onLoad={onImageLoad}
+            onError={onImageError}
             href={assetPath}
             x={0}
             y={0}

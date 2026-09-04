@@ -41,11 +41,11 @@ import { formatCardNumber } from "@/lib/card-number";
 import {
   CLINICAL_BODY_ATLAS_HEIGHT,
   CLINICAL_BODY_ATLAS_WIDTH,
-  clinicalBodyProfileFromAge,
   clinicalBodyProfileLabel,
   type ClinicalBodyProfile,
 } from "@/lib/clinical-body-atlas";
-import { calcAge, formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { getBodyMapProfile } from "@/pages/doctor/body-map-model";
 import {
   getAssessmentsByLesionId,
   getClinicById,
@@ -2335,10 +2335,7 @@ export default function LesionDetailPage() {
     );
   }
 
-  const bodyProfile = clinicalBodyProfileFromAge(
-    patient.sex,
-    calcAge(patient.birthDate),
-  );
+  const bodyProfile = getBodyMapProfile(patient);
 
   const visitById = (vid: string) => visits.find((v) => v.id === vid);
 
@@ -2374,8 +2371,8 @@ export default function LesionDetailPage() {
   const bodyMapHref = latestVisit
     ? `/patients/${patient.id}/visits/${latestVisit.id}?tab=bodymap&lesion=${lesion.id}`
     : `/patients/${patient.id}`;
-  const hasExactBodyMapPoint = !shouldLoadLive || Boolean(
-    liveBundleMatchesRoute && liveBundle?.bodyMapBound,
+  const hasExactBodyMapPoint = Boolean(bodyProfile) && (
+    !shouldLoadLive || Boolean(liveBundleMatchesRoute && liveBundle?.bodyMapBound)
   );
 
   const toggleCompare = (imgId: string) => {

@@ -22,7 +22,7 @@ export interface SelfHostedPatientDTO {
   birthDate: string | null;
   sex: "female" | "male" | "other" | "unknown";
   phototype: Phototype | null;
-  imagingConsent: boolean;
+  imagingConsent: boolean | null;
   notes?: string | null;
   clinic?: {
     id?: string;
@@ -185,7 +185,7 @@ export function toSelfHostedPatientDTO(input: Record<string, unknown>): SelfHost
     birthDate: input.birthDate ? String(input.birthDate).slice(0, 10) : null,
     sex: normalizeSex(input.sex),
     phototype: normalizePhototype(input.phototype),
-    imagingConsent: Boolean(input.imagingConsent),
+    imagingConsent: typeof input.imagingConsent === "boolean" ? input.imagingConsent : null,
     notes: input.notes == null ? null : String(input.notes),
     clinic,
     createdAt: input.createdAt == null ? null : String(input.createdAt),
@@ -195,19 +195,19 @@ export function toSelfHostedPatientDTO(input: Record<string, unknown>): SelfHost
 }
 
 export function selfHostedPatientToDomain(dto: SelfHostedPatientDTO): Patient {
-  const sex: Sex = dto.sex === "female" ? "female" : "male";
+  const sex: Sex | null = dto.sex === "female" || dto.sex === "male" ? dto.sex : null;
   return {
     id: dto.id,
     code: dto.code,
     fullName: dto.fullName,
-    birthDate: dto.birthDate ?? "1900-01-01",
+    birthDate: dto.birthDate,
     sex,
-    phototype: dto.phototype ?? "II",
+    phototype: dto.phototype,
     riskFactors: [],
     consents: {
       pdn: null,
       imaging: dto.imagingConsent,
-      telemed: false,
+      telemed: null,
     },
     createdBy: "self-hosted-backend",
     createdAt: dto.createdAt ?? "",

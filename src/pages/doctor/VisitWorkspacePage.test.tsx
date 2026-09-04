@@ -50,6 +50,10 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+function markAtlasReady() {
+  fireEvent.load(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+}
+
 function openBodyMap() {
   const t = screen.getByRole("tab", { name: /карта тела/i });
   fireEvent.pointerDown(t, { button: 0 });
@@ -78,107 +82,6 @@ function sourceSection(source: string, start: string, end: string): string {
   expect(endIndex).toBeGreaterThan(startIndex);
   return source.slice(startIndex, endIndex);
 }
-describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
-  it("shows the exact synthetic overview source for a captured lesion", () => {
-    renderAt("/patients/p-001/visits/v-001?tab=bodymap&lesion=l-001");
-
-    expect(screen.getByRole("heading", { name: "Источник положения" })).toBeInTheDocument();
-    expect(screen.getByText("Снято полностью")).toBeInTheDocument();
-    expect(screen.getByText("Подтверждено врачом")).toBeInTheDocument();
-    expect(screen.getByText(/Синтетический обзорный снимок/)).toBeInTheDocument();
-    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-x", "0.43");
-    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("data-y", "0.31");
-    expect(screen.getByTestId("source-photo-marker")).toHaveAttribute("role", "img");
-  });
-
-  it("opens the exact overview image selected from the body map", () => {
-    renderAt("/patients/p-001/visits/v-001?tab=bodymap&lesion=l-001");
-
-    fireEvent.click(screen.getByRole("button", { name: "Открыть исходный снимок" }));
-
-    expect(screen.getByRole("tab", { name: /снимки/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("selected-image-preview")).toHaveAttribute("data-image-id", "i-001");
-  });
-
-  it("asks for clinician review when the overview covers the area only partially", () => {
-    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-009");
-
-    expect(screen.getByText("Снято частично")).toBeInTheDocument();
-    expect(screen.getByText("Нужно подтверждение врача")).toBeInTheDocument();
-    expect(screen.getByText(/нужен дополнительный ракурс с согласия пациента/i)).toBeInTheDocument();
-  });
-
-  it("does not infer absence when the anatomical area has no overview image", () => {
-    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-010");
-
-    expect(screen.getByText("Не снято")).toBeInTheDocument();
-    expect(screen.getByText(/Это не означает отсутствие образования/)).toBeInTheDocument();
-    expect(screen.queryByTestId("source-photo-marker")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Перейти к съёмке" })).toBeInTheDocument();
-  });
-
-  it("opens the imaging workflow for an area that needs an additional angle", () => {
-    renderAt("/patients/p-005/visits/v-006?tab=bodymap&lesion=l-010");
-
-    fireEvent.click(screen.getByRole("button", { name: "Перейти к съёмке" }));
-
-    expect(screen.getByRole("tab", { name: /снимки/i })).toHaveAttribute("aria-selected", "true");
-    const lesionFilter = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
-      (select) => select.value === "l-010",
-    );
-    expect(lesionFilter).toBeTruthy();
-  });
-
-  it("Карта тела selected lesion shows 'Связанные снимки' panel for l-008", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
-    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /К снимкам этого очага/ })).toBeInTheDocument();
-  });
-  it("clicking 'К снимкам этого очага' switches to Imaging tab with lesion preselected", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
-    expect(screen.getByText(/Захват/)).toBeInTheDocument();
-    const selects = screen.getAllByRole("combobox") as HTMLSelectElement[];
-    const lesionSelect = selects.find((s) => s.value === "l-008");
-    expect(lesionSelect).toBeTruthy();
-  });
-  it("Imaging tab shows 'Открыть на карте тела' for selected linked image and returns to Карта тела", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=imaging&lesion=l-008");
-    const btn = screen.getByRole("button", { name: /Открыть на карте тела/ });
-    fireEvent.click(btn);
-    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-  });
-  it("lesion list shows 'нет оценки' and 'нужен пересмотр' chips on v-005", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
-    expect(screen.getAllByText(/нет оценки/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/нужен пересмотр/).length).toBeGreaterThan(0);
-  });
-  it("регрессия: round-trip Карта тела → Imaging → Карта тела сохраняет lesion и переключает таб", async () => {
-    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
-    const bodymapTab = screen.getByRole("tab", { name: /карта тела/i });
-    const imagingTab = screen.getByRole("tab", { name: /снимки/i });
-    expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
-    expect(imagingTab.getAttribute("aria-selected")).toBe("false");
-    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-    // Карта тела → Imaging: таб переключился, lesion предвыбран.
-    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
-    expect(imagingTab.getAttribute("aria-selected")).toBe("true");
-    expect(bodymapTab.getAttribute("aria-selected")).toBe("false");
-    const lesionSelect = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
-      (s) => s.value === "l-008",
-    );
-    expect(lesionSelect).toBeTruthy();
-    // Imaging → Карта тела: возврат с тем же lesion.
-    fireEvent.click(screen.getByRole("button", { name: /Открыть на карте тела/ }));
-    expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
-    expect(imagingTab.getAttribute("aria-selected")).toBe("false");
-    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
-    const lesion = (await import("@/lib/mock-data"))
-      .getLesionsByPatientId("p-004")
-      .find((l) => l.id === "l-008")!;
-    expect(screen.getAllByText(new RegExp(lesion.label)).length).toBeGreaterThan(0);
-  });
-});
 
 describe("VisitWorkspacePage · connected clinic session outside production mode", () => {
   beforeEach(() => {
@@ -200,11 +103,12 @@ describe("VisitWorkspacePage · connected clinic session outside production mode
     expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Визит не найден" })).toBeNull();
     expect(screen.getByTestId("visit-workspace-live-banner")).toHaveTextContent(/Система клиники/);
-    expect(screen.getByText("Не зафиксировано")).toBeInTheDocument();
+    expect(screen.getAllByText("Не зафиксировано").length).toBeGreaterThanOrEqual(2);
   });
 });
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   function placePoint() {
+    markAtlasReady();
     const regionSelect = screen.getByLabelText("Выбрать анатомическую область") as HTMLSelectElement;
     fireEvent.change(regionSelect, {
       target: { value: regionSelect.options[1].value },
@@ -303,6 +207,7 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
 
   it("local draft does not leak into Assessment, Conclusion, or Report", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    markAtlasReady();
     // create a draft on Карта тела
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
@@ -2417,6 +2322,8 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
     expect(screen.getAllByText(/врач клиники/i).length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent(/edc29a29-afa5-4608-a93e-de2c728472c3/);
     expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Карта тела пока недоступна" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Карта тела/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Источник положения" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Визит не найден/)).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());

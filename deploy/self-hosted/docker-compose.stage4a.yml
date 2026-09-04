@@ -25,9 +25,9 @@ services:
       JWT_SECRET: "${JWT_SECRET:-change-me-local-jwt-secret-stage4c}"
       JWT_EXPIRES_IN_SECONDS: "${JWT_EXPIRES_IN_SECONDS:-3600}"
       DEVICE_BRIDGE_WORKER_TOKEN: "${DEVICE_BRIDGE_WORKER_TOKEN:-change-me-local-device-bridge-worker-token-stage4s}"
-      CLINICAL_BODY_ATLAS_SOURCE: "${CLINICAL_BODY_ATLAS_SOURCE:-makehuman-cc0}"
-      CLINICAL_BODY_ATLAS_DIR: "${CLINICAL_BODY_ATLAS_DIR:-}"
-      CLINICAL_BODY_ATLAS_MANIFEST_SHA256: "${CLINICAL_BODY_ATLAS_MANIFEST_SHA256:-491be7e5abfdc3adc6e565293431c521f2eef7c992def061b5df56a643fc7024}"
+      CLINICAL_BODY_ATLAS_SOURCE: "${CLINICAL_BODY_ATLAS_SOURCE:-daz-hires-local}"
+      CLINICAL_BODY_ATLAS_DIR: "${CLINICAL_BODY_ATLAS_DIR:-/app/public/clinical-body-atlas-daz-local}"
+      CLINICAL_BODY_ATLAS_MANIFEST_SHA256: "${CLINICAL_BODY_ATLAS_MANIFEST_SHA256:-0afadcfdfffb5a6a23e7061ca2fc48eba951e32395eecdde8313e846fac4c741}"
       CORS_ORIGINS: "http://localhost:${APP_PORT:-8080},http://127.0.0.1:${APP_PORT:-8080}"
     depends_on:
       - postgres

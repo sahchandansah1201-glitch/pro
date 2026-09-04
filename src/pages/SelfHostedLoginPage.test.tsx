@@ -232,4 +232,21 @@ describe("SelfHostedLoginPage", () => {
       "http://localhost:8080",
     );
   });
+
+  it("continues an active session from the start screen of its real role", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt-existing");
+    window.localStorage.setItem(
+      SELF_HOSTED_API_USER_KEY,
+      JSON.stringify({ id: "u-1", displayName: "Администратор", roles: ["clinic_admin"] }),
+    );
+
+    renderPage();
+
+    expect(screen.getByRole("link", { name: "Продолжить работу" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+    expect(screen.queryByRole("link", { name: "Открыть пациентов" })).not.toBeInTheDocument();
+  });
 });

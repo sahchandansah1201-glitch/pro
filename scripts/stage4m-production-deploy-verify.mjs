@@ -25,8 +25,13 @@ const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
 const STAGE4L_RESTORE_CONFIRM = "RESTORE_SELF_HOSTED_DATA";
 const REQUIRED_PRODUCTION_BUILD_ENV = {
   VITE_APP_MODE: "production",
+  VITE_CLINICAL_BODY_ATLAS_SOURCE: "daz-hires-local",
 };
-const REQUIRED_PRODUCTION_FRONTEND_KEYS = ["VITE_APP_MODE", "VITE_SELF_HOSTED_API_BASE_URL"];
+const REQUIRED_PRODUCTION_FRONTEND_KEYS = [
+  "VITE_APP_MODE",
+  "VITE_SELF_HOSTED_API_BASE_URL",
+  "VITE_CLINICAL_BODY_ATLAS_SOURCE",
+];
 
 function npmCmd() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
@@ -256,8 +261,8 @@ function productionBuildEnv(envFile, { cwd = process.cwd() } = {}) {
   if (!/^https?:\/\//i.test(entries.VITE_SELF_HOSTED_API_BASE_URL)) {
     throw new Error("VITE_SELF_HOSTED_API_BASE_URL must start with http:// or https://.");
   }
-  const frontendAtlasSource = entries.VITE_CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
-  const backendAtlasSource = entries.CLINICAL_BODY_ATLAS_SOURCE || "makehuman-cc0";
+  const frontendAtlasSource = entries.VITE_CLINICAL_BODY_ATLAS_SOURCE || "daz-hires-local";
+  const backendAtlasSource = entries.CLINICAL_BODY_ATLAS_SOURCE || "daz-hires-local";
   if (frontendAtlasSource === "daz-hires-local" || backendAtlasSource === "daz-hires-local") {
     if (frontendAtlasSource !== "daz-hires-local" || backendAtlasSource !== "daz-hires-local") {
       throw new Error("Frontend and backend clinical body atlas sources must both select daz-hires-local.");

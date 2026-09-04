@@ -73,6 +73,23 @@ describe("self-hosted-patient-api", () => {
     expect(patient.consents.pdn).toBeNull();
   });
 
+  it("keeps missing production demographics and consent unknown", () => {
+    const dto = toSelfHostedPatientDTO({
+      id: "p-unknown",
+      code: "DP-unknown",
+      fullName: "Пациент без демографии",
+      sex: "unknown",
+    });
+
+    const patient = selfHostedPatientToDomain(dto);
+    expect(patient).toMatchObject({
+      birthDate: null,
+      sex: null,
+      phototype: null,
+      consents: { imaging: null, telemed: null },
+    });
+  });
+
   it("returns not_configured without a token and does not call the network", async () => {
     const result = await listSelfHostedPatients({ apiBaseUrl: BASE, apiToken: null });
 

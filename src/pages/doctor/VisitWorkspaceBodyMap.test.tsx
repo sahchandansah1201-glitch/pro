@@ -25,6 +25,10 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+function markAtlasReady() {
+  fireEvent.load(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
 });
@@ -75,6 +79,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
     fireEvent.click(screen.getByText(/Очаг B/));
+    markAtlasReady();
     const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
     const marker = svg.querySelector("[data-marker-id='l-008'] circle");
@@ -85,6 +90,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("fails closed on the background and opens a draft only for a named region", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
+    markAtlasReady();
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
@@ -162,6 +168,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("lets the doctor refine a toe placement to the right little toe", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+    markAtlasReady();
 
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
@@ -187,6 +194,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("stores two coordinate-distinct local lesions on the same hand", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+    markAtlasReady();
 
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
@@ -209,6 +217,7 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("keeps repeated keyboard placements selectable without hiding one marker", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+    markAtlasReady();
     const regionSelect = screen.getByLabelText("Выбрать анатомическую область");
 
     fireEvent.change(regionSelect, { target: { value: "front-right-palm" } });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -19,6 +20,14 @@ function writeClinicalBodyAtlasAssets(root, outDir) {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, "atlas");
   }
+}
+
+function provisionClinicalBodyAtlasManifest(root) {
+  const target = join(root, "public", "clinical-body-atlas-daz-local", "manifest.json");
+  const contents = '{"schemaVersion":1}\n';
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, contents);
+  return createHash("sha256").update(contents).digest("hex");
 }
 
 test("Stage 4M parser supports deployment commands and validates app port", () => {
@@ -221,11 +230,15 @@ test("Stage 4M production frontend build injects required Vite env from env file
   try {
     const envFile = join(root, ".env.production");
     const summaryPath = join(root, "summary.md");
+    const atlasManifestSha256 = provisionClinicalBodyAtlasManifest(root);
     writeFileSync(
       envFile,
       [
         "VITE_APP_MODE=production",
         "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+        "VITE_CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        "CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        `CLINICAL_BODY_ATLAS_MANIFEST_SHA256=${atlasManifestSha256}`,
       ].join("\n"),
     );
     const buildCalls = [];
@@ -256,6 +269,7 @@ test("Stage 4M production frontend build injects required Vite env from env file
     assert.equal(buildCalls.length, 1);
     assert.equal(buildCalls[0].VITE_APP_MODE, "production");
     assert.equal(buildCalls[0].VITE_SELF_HOSTED_API_BASE_URL, "https://pro.example.test");
+    assert.equal(buildCalls[0].VITE_CLINICAL_BODY_ATLAS_SOURCE, "daz-hires-local");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -305,11 +319,15 @@ test("Stage 4M safe frontend build rejects a missing clinical body atlas asset",
   try {
     const envFile = join(root, ".env.production");
     const summaryPath = join(root, "summary.md");
+    const atlasManifestSha256 = provisionClinicalBodyAtlasManifest(root);
     writeFileSync(
       envFile,
       [
         "VITE_APP_MODE=production",
         "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+        "VITE_CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        "CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        `CLINICAL_BODY_ATLAS_MANIFEST_SHA256=${atlasManifestSha256}`,
       ].join("\n"),
     );
     assert.throws(
@@ -346,6 +364,7 @@ test("Stage 4M safe frontend build preserves current dist when staged build fail
   try {
     const envFile = join(root, ".env.production");
     const summaryPath = join(root, "summary.md");
+    const atlasManifestSha256 = provisionClinicalBodyAtlasManifest(root);
     mkdirSync(join(root, "dist"), { recursive: true });
     writeFileSync(join(root, "dist", "index.html"), "current frontend");
     writeFileSync(
@@ -353,6 +372,9 @@ test("Stage 4M safe frontend build preserves current dist when staged build fail
       [
         "VITE_APP_MODE=production",
         "VITE_SELF_HOSTED_API_BASE_URL=https://pro.example.test",
+        "VITE_CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        "CLINICAL_BODY_ATLAS_SOURCE=daz-hires-local",
+        `CLINICAL_BODY_ATLAS_MANIFEST_SHA256=${atlasManifestSha256}`,
       ].join("\n"),
     );
     assert.throws(

@@ -61,7 +61,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENTS, LESIONS, PATIENTS, VISITS } from "@/lib/mock-data";
 import { formatCardNumber } from "@/lib/card-number";
-import { calcAge, formatDate, sexShort } from "@/lib/format";
+import { calcAge, formatAge, formatDate, sexShort } from "@/lib/format";
 import type { Patient, Phototype, Sex } from "@/lib/domain";
 import {
   archiveSelfHostedPatient,
@@ -70,6 +70,7 @@ import {
   listSelfHostedPatients,
   selfHostedPatientToDomain,
   updateSelfHostedPatient,
+  type PatientWritePayload,
   type SelfHostedApiError,
 } from "@/lib/self-hosted-patient-api";
 import {
@@ -104,7 +105,7 @@ const PAGE_SIZE_OPTIONS = [4, 8] as const;
 
 interface Row {
   patient: Patient;
-  age: number;
+  age: number | null;
   lesionCount: number;
   hasActive: boolean;
   lastVisit: string | null;
@@ -115,9 +116,9 @@ interface PatientEditDraft {
   id: string;
   fullName: string;
   birthDate: string;
-  sex: Sex;
-  phototype: Phototype;
-  imagingConsent: boolean;
+  sex: Sex | "";
+  phototype: Phototype | "";
+  imagingConsent: boolean | null;
 }
 
 interface AdvancedSearchState {
@@ -174,9 +175,9 @@ function patientToDraft(patient: Patient): PatientEditDraft {
   return {
     id: patient.id,
     fullName: patient.fullName,
-    birthDate: patient.birthDate,
-    sex: patient.sex,
-    phototype: patient.phototype,
+    birthDate: patient.birthDate ?? "",
+    sex: patient.sex ?? "",
+    phototype: patient.phototype ?? "",
     imagingConsent: patient.consents.imaging,
   };
 }
@@ -210,12 +211,12 @@ function sortRows(rows: Row[], mode: SortMode): Row[] {
         return b.patient.fullName.localeCompare(a.patient.fullName, "ru");
       case "age_asc":
         return (
-          a.age - b.age ||
+          compareNullableAge(a.age, b.age, "asc") ||
           a.patient.fullName.localeCompare(b.patient.fullName, "ru")
         );
       case "age_desc":
         return (
-          b.age - a.age ||
+          compareNullableAge(a.age, b.age, "desc") ||
           a.patient.fullName.localeCompare(b.patient.fullName, "ru")
         );
       case "last_visit_desc":
@@ -225,6 +226,17 @@ function sortRows(rows: Row[], mode: SortMode): Row[] {
         );
     }
   });
+}
+
+function compareNullableAge(
+  left: number | null,
+  right: number | null,
+  direction: "asc" | "desc",
+): number {
+  if (left == null && right == null) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  return direction === "asc" ? left - right : right - left;
 }
 
 function formatChangeLogExport(entries: ChangeLogEntry[]): string {
@@ -248,13 +260,13 @@ function initialPatientDraft(): PatientEditDraft {
   };
 }
 
-function patientDraftToPayload(draft: PatientEditDraft) {
+function patientDraftToPayload(draft: PatientEditDraft): PatientWritePayload {
   return {
     fullName: draft.fullName.trim(),
     birthDate: draft.birthDate || null,
-    sex: draft.sex,
-    phototype: draft.phototype,
-    imagingConsent: draft.imagingConsent,
+    sex: draft.sex || "unknown",
+    phototype: draft.phototype || null,
+    ...(draft.imagingConsent == null ? {} : { imagingConsent: draft.imagingConsent }),
   };
 }
 
@@ -367,14 +379,20 @@ export default function PatientsPage() {
     const ageTo = Number.parseInt(advancedSearch.ageTo, 10);
     return patients.map(buildRow).filter(({ patient, hasActive }) => {
       if (q) {
-        const consentText = patient.consents.imaging
-          ? "согласие есть"
-          : "согласия нет";
-        const sexText = patient.sex === "female" ? "женский ж" : "мужской м";
+        const consentText = patient.consents.imaging == null
+          ? "согласие не зафиксировано"
+          : patient.consents.imaging
+            ? "согласие есть"
+            : "согласия нет";
+        const sexText = patient.sex === "female"
+          ? "женский ж"
+          : patient.sex === "male"
+            ? "мужской м"
+            : "пол не указан";
         const hay = [
           patient.fullName,
           patient.code,
-          patient.phototype,
+          patient.phototype ?? "фототип не указан",
           sexText,
           consentText,
           patient.riskFactors.join(" "),
@@ -386,11 +404,11 @@ export default function PatientsPage() {
       if (code && !patient.code.toLowerCase().includes(code)) return false;
       if (name && !patient.fullName.toLowerCase().includes(name)) return false;
       const age = calcAge(patient.birthDate);
-      if (!Number.isNaN(ageFrom) && age < ageFrom) return false;
-      if (!Number.isNaN(ageTo) && age > ageTo) return false;
+      if (!Number.isNaN(ageFrom) && (age == null || age < ageFrom)) return false;
+      if (!Number.isNaN(ageTo) && (age == null || age > ageTo)) return false;
       if (phototype !== "any" && patient.phototype !== phototype) return false;
-      if (consent === "yes" && !patient.consents.imaging) return false;
-      if (consent === "no" && patient.consents.imaging) return false;
+      if (consent === "yes" && patient.consents.imaging !== true) return false;
+      if (consent === "no" && patient.consents.imaging !== false) return false;
       if (lesionsFilter === "with_active" && !hasActive) return false;
       if (lesionsFilter === "without_active" && hasActive) return false;
       return true;
@@ -417,7 +435,7 @@ export default function PatientsPage() {
   const firstActionRow = rows[0] ?? null;
   const activeRowsCount = rows.filter((row) => row.hasActive).length;
   const noImagingConsentRowsCount = rows.filter(
-    (row) => !row.patient.consents.imaging,
+    (row) => row.patient.consents.imaging === false,
   ).length;
   const upcomingRowsCount = rows.filter((row) => row.nextVisit).length;
 
@@ -551,8 +569,8 @@ export default function PatientsPage() {
               ...patient,
               fullName,
               birthDate: editDraft.birthDate,
-              sex: editDraft.sex,
-              phototype: editDraft.phototype,
+              sex: editDraft.sex || null,
+              phototype: editDraft.phototype || null,
               consents: {
                 ...patient.consents,
                 imaging: editDraft.imagingConsent,
@@ -1116,9 +1134,9 @@ export default function PatientsPage() {
                             {r.patient.fullName}
                           </Link>
                         </td>
-                        <td className="tabular-nums">{r.age}</td>
+                        <td className="tabular-nums">{r.age ?? "—"}</td>
                         <td>{sexShort(r.patient.sex)}</td>
-                        <td>{r.patient.phototype}</td>
+                        <td>{r.patient.phototype ?? "Не указан"}</td>
                         <td className="tabular-nums">
                           {r.patient.riskFactors.length}
                         </td>
@@ -1200,8 +1218,8 @@ export default function PatientsPage() {
                           </span>
                         </div>
                         <div className="mt-0.5 text-meta">
-                          {sexShort(r.patient.sex)} · {r.age} лет · фототип{" "}
-                          {r.patient.phototype} · очагов {r.lesionCount}
+                          {sexShort(r.patient.sex)} · {formatAge(r.patient.birthDate)} · фототип{" "}
+                          {r.patient.phototype ?? "не указан"} · очагов {r.lesionCount}
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           <ConsentChip ok={r.patient.consents.imaging} />
@@ -1336,18 +1354,18 @@ export default function PatientsPage() {
                 value={formatCardNumber(previewRow.patient.code)}
               />
               <PreviewField label="ФИО" value={previewRow.patient.fullName} />
-              <PreviewField label="Возраст" value={`${previewRow.age} лет`} />
+              <PreviewField label="Возраст" value={formatAge(previewRow.patient.birthDate)} />
               <PreviewField
                 label="Пол"
                 value={sexShort(previewRow.patient.sex)}
               />
               <PreviewField
                 label="Фототип"
-                value={previewRow.patient.phototype}
+                value={previewRow.patient.phototype ?? "Не указан"}
               />
               <PreviewField
                 label="Согласие на съёмку"
-                value={previewRow.patient.consents.imaging ? "Есть" : "Нет"}
+                value={previewRow.patient.consents.imaging == null ? "Не зафиксировано" : previewRow.patient.consents.imaging ? "Есть" : "Нет"}
               />
               <PreviewField
                 label="Очаги"
@@ -1647,7 +1665,7 @@ function PatientDraftFields({
       <div className="flex items-start gap-2 rounded-md border border-border bg-surface-muted p-3">
         <Checkbox
           id={`${prefix}-imaging-consent`}
-          checked={draft.imagingConsent}
+          checked={draft.imagingConsent ?? "indeterminate"}
           onCheckedChange={(checked) =>
             setDraft((current) =>
               current
@@ -1661,7 +1679,9 @@ function PatientDraftFields({
             Согласие на медицинскую съёмку
           </Label>
           <p className="text-[12px] text-muted-foreground">
-            {liveBackend
+            {draft.imagingConsent == null
+              ? "Текущее значение не зафиксировано. Отметьте поле, чтобы подтвердить согласие."
+              : liveBackend
               ? "Значение будет сохранено в системе клиники."
               : "В учебном режиме меняется только отображение на текущей странице."}
           </p>
@@ -1701,12 +1721,12 @@ function FilterSelect({
   );
 }
 
-function ConsentChip({ ok }: { ok: boolean }) {
+function ConsentChip({ ok }: { ok: boolean | null }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium leading-none"
       style={
-        ok
+        ok === true
           ? {
               background: "hsl(var(--success) / 0.1)",
               color: "hsl(var(--success))",
@@ -1719,7 +1739,7 @@ function ConsentChip({ ok }: { ok: boolean }) {
             }
       }
     >
-      {ok ? "Есть" : "Нет"}
+      {ok == null ? "Не зафиксировано" : ok ? "Есть" : "Нет"}
     </span>
   );
 }

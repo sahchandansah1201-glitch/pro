@@ -12,6 +12,7 @@ import {
   writeSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import { isProductionAppMode } from "@/lib/app-mode";
+import { selfHostedHomePath } from "@/lib/self-hosted-role";
 import {
   buildProductionBootstrapChecklist,
   fetchSelfHostedBootstrapStatus,
@@ -166,7 +167,7 @@ export default function SelfHostedLoginPage() {
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button asChild type="button" size="sm" className="min-h-11 text-[12px]">
-                <Link to="/patients">Открыть пациентов</Link>
+                <Link to={selfHostedHomePath(session)}>Продолжить работу</Link>
               </Button>
               <Button
                 type="button"

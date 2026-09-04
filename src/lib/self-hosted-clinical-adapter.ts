@@ -9,14 +9,14 @@ import { selfHostedPatientToDomain } from "@/lib/self-hosted-patient-api";
 
 export const SELF_HOSTED_LIVE_SOURCE_LABEL = "Источник данных: система клиники";
 
-function normalizeSex(input: unknown): Sex {
-  return input === "male" ? "male" : "female";
+function normalizeSex(input: unknown): Sex | null {
+  return input === "male" || input === "female" ? input : null;
 }
 
-function normalizePhototype(input: unknown): Phototype {
+function normalizePhototype(input: unknown): Phototype | null {
   return input === "I" || input === "II" || input === "III" || input === "IV" || input === "V" || input === "VI"
     ? input
-    : "II";
+    : null;
 }
 
 export function selfHostedVisitStatusToDomain(status: string | null | undefined): VisitStatus {
@@ -58,14 +58,14 @@ export function selfHostedVisitDetailToPatient(dto: SelfHostedVisitDetailDTO): P
     id: dto.patient.id ?? dto.patientId ?? "",
     code: dto.patient.code ?? "—",
     fullName: dto.patient.fullName ?? "Пациент системы клиники",
-    birthDate: dto.patient.birthDate ?? "1900-01-01",
+    birthDate: dto.patient.birthDate,
     sex: normalizeSex(dto.patient.sex),
     phototype: normalizePhototype(dto.patient.phototype),
     riskFactors: [],
     consents: {
       pdn: null,
-      imaging: dto.patient.imagingConsent === true,
-      telemed: false,
+      imaging: dto.patient.imagingConsent,
+      telemed: null,
     },
     createdBy: "system-clinic",
     createdAt: dto.createdAt ?? "",

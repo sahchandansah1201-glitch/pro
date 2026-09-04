@@ -37,5 +37,4 @@ playwright-report/
 .self-hosted/
 backups/self-hosted/
 
-# Local-only DAZ renders: distribution rights must be confirmed before publish.
-public/clinical-body-atlas-daz-local/
+# Owner-approved static atlas renders are tracked; commercial source assets stay outside the repository.

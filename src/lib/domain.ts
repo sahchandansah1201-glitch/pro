@@ -67,9 +67,9 @@ export interface Consents {
   /** Согласие на обработку персональных данных. */
   pdn: boolean | null;
   /** Согласие на медицинскую съёмку и хранение фото. */
-  imaging: boolean;
+  imaging: boolean | null;
   /** Согласие на телемедицинскую консультацию. */
-  telemed: boolean;
+  telemed: boolean | null;
 }
 
 export interface Patient {
@@ -78,9 +78,9 @@ export interface Patient {
   code: string;
   fullName: string;
   /** ISO-дата YYYY-MM-DD. */
-  birthDate: string;
-  sex: Sex;
-  phototype: Phototype;
+  birthDate: string | null;
+  sex: Sex | null;
+  phototype: Phototype | null;
   riskFactors: string[];
   consents: Consents;
   /** Идентификатор пользователя, который создал карточку. */

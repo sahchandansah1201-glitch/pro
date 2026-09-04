@@ -124,6 +124,8 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
     expect(document.body).not.toHaveTextContent("bd-001");
     expect(document.body).not.toHaveTextContent("Защищённая ссылка");
     expect(document.body).not.toHaveTextContent("Демо-режим");
+    expect(screen.getByText("Передано врачу")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Визит" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/leads/appointments?limit=20",
       {

@@ -58,7 +58,7 @@ describe("self-hosted clinical adapter", () => {
     });
   });
 
-  it("keeps patient and lesion fields safe for production UI", () => {
+  it("preserves unknown patient fields instead of inventing clinical values", () => {
     const patient = selfHostedPatientDetailToDomain({
       id: "patient-1",
       code: "DP-live",
@@ -68,8 +68,34 @@ describe("self-hosted clinical adapter", () => {
       phototype: null,
       imagingConsent: true,
     });
-    expect(patient.sex).toBe("female");
-    expect(patient.phototype).toBe("II");
+    expect(patient.birthDate).toBe("1990-01-02");
+    expect(patient.sex).toBeNull();
+    expect(patient.phototype).toBeNull();
+    expect(patient.consents.telemed).toBeNull();
+
+    const visitPatient = selfHostedVisitDetailToPatient({
+      id: "visit-unknown",
+      clinicId: "clinic-1",
+      patientId: "patient-1",
+      doctorUserId: "doctor-1",
+      status: "draft",
+      startedAt: null,
+      signedAt: null,
+      chiefComplaint: null,
+      createdAt: null,
+      updatedAt: null,
+      patient: {
+        id: "patient-1",
+        fullName: "Live Patient",
+        code: "DP-live",
+        birthDate: null,
+        sex: null,
+        phototype: null,
+        imagingConsent: null,
+      },
+      clinic: { id: "clinic-1", slug: "clinic", name: "Clinic" },
+    });
+    expect(visitPatient.consents.imaging).toBeNull();
 
     const lesion = selfHostedLesionToDomain(
       {
