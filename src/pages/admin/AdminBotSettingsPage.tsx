@@ -272,7 +272,7 @@ function AdminBotSettingsPageLive() {
     setEnabled(selected.enabled);
     setSteps({ ...Object.fromEntries(LIVE_BOT_STEPS.map((step) => [step.id, true])), ...selected.intakeSteps });
     setTemplates({ ...LIVE_DEFAULT_TEMPLATES, ...selected.templates });
-  }, [selected?.clinicId]);
+  }, [selected]);
 
   async function saveSettings() {
     if (!selected) {

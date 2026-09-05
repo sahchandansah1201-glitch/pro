@@ -32,10 +32,12 @@ type LoadState =
 
 export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerProps) {
   const session = useSelfHostedApiSession();
+  const sessionConfigured = isSelfHostedApiConfigured(session);
+  const { apiBaseUrl, apiToken, revision } = session;
   const [state, setState] = useState<LoadState>({ kind: "idle" });
 
   useEffect(() => {
-    if (!visitId || !isSelfHostedApiConfigured(session)) {
+    if (!visitId || !sessionConfigured) {
       setState({ kind: "idle" });
       return;
     }
@@ -44,13 +46,13 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
     void (async () => {
       const [visit, lesions] = await Promise.all([
         getSelfHostedVisit({
-          apiBaseUrl: session.apiBaseUrl,
-          apiToken: session.apiToken,
+          apiBaseUrl,
+          apiToken,
           visitId,
         }),
         listSelfHostedVisitLesions({
-          apiBaseUrl: session.apiBaseUrl,
-          apiToken: session.apiToken,
+          apiBaseUrl,
+          apiToken,
           visitId,
         }),
       ]);
@@ -73,9 +75,10 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
       cancelled = true;
     };
   }, [
-    session.apiBaseUrl,
-    session.apiToken,
-    session.status,
+    apiBaseUrl,
+    apiToken,
+    revision,
+    sessionConfigured,
     visitId,
   ]);
 

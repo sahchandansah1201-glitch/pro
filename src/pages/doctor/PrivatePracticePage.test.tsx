@@ -8,6 +8,7 @@ import { ROLE_BY_ID } from "@/lib/roles";
 
 const mocks = vi.hoisted(() => ({
   productionMode: false,
+  sessionRevision: 0,
   getDashboard: vi.fn(),
   listLeads: vi.fn(),
   createLead: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/lib/self-hosted-api-session", () => ({
     apiBaseUrl: "https://clinic.local",
     apiToken: "token-private",
     status: "configured",
+    revision: mocks.sessionRevision,
     user: {
       id: "owner-1",
       displayName: "Морозов Дмитрий Игоревич",
@@ -152,6 +154,7 @@ function renderPage() {
 describe("PrivatePracticePage · private doctor practice center", () => {
   beforeEach(() => {
     mocks.productionMode = false;
+    mocks.sessionRevision = 0;
     mocks.getDashboard.mockReset();
     mocks.listLeads.mockReset();
     mocks.createLead.mockReset();
@@ -264,6 +267,22 @@ describe("PrivatePracticePage · private doctor practice center", () => {
     expect(await screen.findByRole("heading", { name: "Центр частной практики" })).toBeInTheDocument();
     expect(await screen.findByText(/Морозов Дмитрий Игоревич · Кабинет Морозова/)).toBeInTheDocument();
     expect(screen.queryByText(/частный кабинет/i)).not.toBeInTheDocument();
+  });
+
+  it("reloads practice data after a same-credential session revision", async () => {
+    mocks.productionMode = true;
+    const view = renderPage();
+
+    await waitFor(() => expect(mocks.getDashboard).toHaveBeenCalledTimes(1));
+    mocks.sessionRevision += 1;
+    view.rerender(
+      <MemoryRouter>
+        <PrivatePracticePage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(mocks.getDashboard).toHaveBeenCalledTimes(2));
+    expect(mocks.listLeads).toHaveBeenCalledTimes(2);
   });
 
   it("is routed only to private doctors", () => {

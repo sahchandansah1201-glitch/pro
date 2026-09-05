@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
   SELF_HOSTED_API_USER_KEY,
+  writeSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import { VisitWorkspaceLiveBanner } from "./VisitWorkspaceLiveBanner";
 
@@ -79,6 +80,40 @@ describe("VisitWorkspaceLiveBanner", () => {
     expect(fetchSpy.mock.calls.map(([url]) => String(url))).not.toContain(
       `${BASE}/api/v1/visits/${VISIT_ID}/assets`,
     );
+  });
+
+  it("reloads the live visit when the session revision changes without new credentials", async () => {
+    configureSession();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith(`/api/v1/visits/${VISIT_ID}`)) {
+        return jsonResponse({
+          item: {
+            id: VISIT_ID,
+            status: "in_progress",
+            patient: { id: "p", fullName: "Demo Patient", code: "DP-1" },
+            clinic: { id: "c", slug: "demo-clinic", name: "Clinic" },
+          },
+        });
+      }
+      if (url.endsWith(`/api/v1/visits/${VISIT_ID}/lesions`)) {
+        return jsonResponse({ items: [] });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    render(<VisitWorkspaceLiveBanner visitId={VISIT_ID} />);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      writeSelfHostedApiSession({
+        apiBaseUrl: BASE,
+        apiToken: TOKEN,
+        user: { id: "u", displayName: "Doc", roles: ["doctor"] },
+      });
+    });
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(4));
   });
 
   it("renders error banner when backend returns visit_not_found", async () => {

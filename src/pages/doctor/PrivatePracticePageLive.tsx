@@ -136,6 +136,8 @@ function clinicNameFromData(
 
 export default function PrivatePracticePageLive() {
   const session = useSelfHostedApiSession();
+  const sessionConfigured = isSelfHostedApiConfigured(session);
+  const { apiBaseUrl, apiToken, revision } = session;
   const [dashboard, setDashboard] = useState<SelfHostedDoctorDashboard>(EMPTY_DASHBOARD);
   const [leadsAppointments, setLeadsAppointments] =
     useState<SelfHostedLeadsAppointmentsOverview>(EMPTY_LEADS);
@@ -148,7 +150,7 @@ export default function PrivatePracticePageLive() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!isSelfHostedApiConfigured(session)) {
+      if (!sessionConfigured) {
         setStatus("error");
         setError({
           kind: "not_configured",
@@ -160,12 +162,12 @@ export default function PrivatePracticePageLive() {
       setStatus("loading");
       const [dashboardResult, leadsResult] = await Promise.all([
         getSelfHostedDoctorDashboard({
-          apiBaseUrl: session.apiBaseUrl,
-          apiToken: session.apiToken,
+          apiBaseUrl,
+          apiToken,
         }),
         listSelfHostedLeadsAppointments({
-          apiBaseUrl: session.apiBaseUrl,
-          apiToken: session.apiToken,
+          apiBaseUrl,
+          apiToken,
           limit: 6,
         }),
       ]);
@@ -184,7 +186,7 @@ export default function PrivatePracticePageLive() {
     return () => {
       cancelled = true;
     };
-  }, [session.apiBaseUrl, session.apiToken, session.status]);
+  }, [apiBaseUrl, apiToken, revision, sessionConfigured]);
 
   async function refreshLeads() {
     const result = await listSelfHostedLeadsAppointments({
