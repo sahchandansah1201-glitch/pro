@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const workflowPath = new URL("../.github/workflows/e2e-smoke.yml", import.meta.url);
@@ -29,10 +30,15 @@ test("e2e smoke owns the exact Vite port before accepting readiness", () => {
   );
   assert.equal(
     occurrences(
-      'grep -F "http://127.0.0.1:8080/" "$vite_log" >/dev/null',
+      String.raw`vite_url_pattern=$'http://127\.0\.0\.1:(\033\[[0-9;]*m)*8080(\033\[[0-9;]*m)*/'`,
     ),
     2,
-    "readiness must be backed by the startup log of the newly started process",
+    "both starts must accept only ANSI SGR sequences around the exact Vite port",
+  );
+  assert.equal(
+    occurrences('grep -Eq "$vite_url_pattern" "$vite_log" >/dev/null'),
+    2,
+    "readiness must match the exact ANSI-safe URL in each new process startup log",
   );
   assert.match(
     workflow,
@@ -44,4 +50,27 @@ test("e2e smoke owns the exact Vite port before accepting readiness", () => {
     /name: Verify e2e smoke workflow contract\s+run: node --test scripts\/e2e-smoke-workflow\.test\.mjs/,
     "the workflow must run its orchestration contract before browser tests",
   );
+});
+
+test("e2e smoke readiness accepts plain and ANSI-colored exact Vite URLs", () => {
+  const sgrSequence = "\u001b\\[[0-9;]*m";
+  const viteUrlPattern = `http://127\\.0\\.0\\.1:(${sgrSequence})*8080(${sgrSequence})*/`;
+  const logs = [
+    "Local: http://127.0.0.1:8080/\n",
+    "Local: \u001b[36mhttp://127.0.0.1:\u001b[1m8080\u001b[22m/\u001b[39m\n",
+  ];
+
+  for (const log of logs) {
+    const result = spawnSync("grep", ["-Eq", viteUrlPattern], {
+      encoding: "utf8",
+      input: log,
+    });
+    assert.equal(result.status, 0, `exact Vite URL was not recognized in ${JSON.stringify(log)}`);
+  }
+
+  const wrongPort = spawnSync("grep", ["-Eq", viteUrlPattern], {
+    encoding: "utf8",
+    input: "Local: \u001b[36mhttp://127.0.0.1:\u001b[1m8081\u001b[22m/\u001b[39m\n",
+  });
+  assert.equal(wrongPort.status, 1, "ANSI-safe readiness must still reject a different port");
 });

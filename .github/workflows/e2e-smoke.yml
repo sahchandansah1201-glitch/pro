@@ -73,6 +73,7 @@ jobs:
           set -euo pipefail
           mkdir -p test-results
           vite_log="test-results/e2e-smoke-vite.log"
+          vite_url_pattern=$'http://127\.0\.0\.1:(\033\[[0-9;]*m)*8080(\033\[[0-9;]*m)*/'
           ./node_modules/.bin/vite --host 127.0.0.1 --port 8080 --strictPort > "$vite_log" 2>&1 &
           vite_pid="$!"
           echo "$vite_pid" > /tmp/e2e-smoke-vite.pid
@@ -82,7 +83,7 @@ jobs:
               echo "New Vite process exited before readiness" >&2
               exit 1
             fi
-            if grep -F "http://127.0.0.1:8080/" "$vite_log" >/dev/null \
+            if grep -Eq "$vite_url_pattern" "$vite_log" >/dev/null \
               && curl -fsS http://127.0.0.1:8080 >/dev/null; then
               echo "Vite is ready on http://127.0.0.1:8080"
               exit 0
@@ -124,6 +125,7 @@ jobs:
             exit 1
           fi
           vite_log="test-results/e2e-visit-workspace-qa-vite.log"
+          vite_url_pattern=$'http://127\.0\.0\.1:(\033\[[0-9;]*m)*8080(\033\[[0-9;]*m)*/'
           ./node_modules/.bin/vite --host 127.0.0.1 --port 8080 --strictPort > "$vite_log" 2>&1 &
           vite_pid="$!"
           echo "$vite_pid" > /tmp/e2e-smoke-vite.pid
@@ -133,7 +135,7 @@ jobs:
               echo "New production-mode Vite process exited before readiness" >&2
               exit 1
             fi
-            if grep -F "http://127.0.0.1:8080/" "$vite_log" >/dev/null \
+            if grep -Eq "$vite_url_pattern" "$vite_log" >/dev/null \
               && curl -fsS http://127.0.0.1:8080 >/dev/null; then
               echo "Production-mode Vite is ready on http://127.0.0.1:8080"
               exit 0
