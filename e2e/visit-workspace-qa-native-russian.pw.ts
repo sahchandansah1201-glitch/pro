@@ -601,6 +601,13 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
 
       await expect(page.getByRole("tab", { name: "Отчёт" })).toHaveAttribute("data-state", "active");
       const timelineRegion = page.getByRole("region", { name: "Готовность проверки истории" });
+      const reportDetailsButton = page.getByRole("button", {
+        name: "Открыть подробный контроль",
+        exact: true,
+      });
+      await expect(reportDetailsButton).toBeVisible();
+      await expect(timelineRegion).toHaveCount(0);
+      await reportDetailsButton.click();
       await expect(timelineRegion).toBeVisible();
       await expect(timelineRegion.getByText("Краткая сводка проверки истории")).toBeVisible();
       await expect(timelineRegion.getByText("Данные снимков")).toBeVisible();
