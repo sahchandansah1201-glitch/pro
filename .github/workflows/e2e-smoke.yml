@@ -8,6 +8,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "playwright.config.ts"
+      - "scripts/e2e-smoke-workflow.test.mjs"
       - "docs/frontend/stage-3c-production-smoke.md"
       - ".github/workflows/e2e-smoke.yml"
   push:
@@ -17,6 +18,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "playwright.config.ts"
+      - "scripts/e2e-smoke-workflow.test.mjs"
       - "docs/frontend/stage-3c-production-smoke.md"
       - ".github/workflows/e2e-smoke.yml"
   workflow_dispatch:
@@ -62,22 +64,32 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Verify e2e smoke workflow contract
+        run: node --test scripts/e2e-smoke-workflow.test.mjs
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Start Vite
         run: |
           set -euo pipefail
           mkdir -p test-results
-          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/e2e-smoke-vite.log 2>&1 &
-          echo "$!" > /tmp/e2e-smoke-vite.pid
+          vite_log="test-results/e2e-smoke-vite.log"
+          ./node_modules/.bin/vite --host 127.0.0.1 --port 8080 --strictPort > "$vite_log" 2>&1 &
+          vite_pid="$!"
+          echo "$vite_pid" > /tmp/e2e-smoke-vite.pid
           for _ in {1..60}; do
-            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+            if ! kill -0 "$vite_pid" 2>/dev/null; then
+              cat "$vite_log"
+              echo "New Vite process exited before readiness" >&2
+              exit 1
+            fi
+            if grep -F "http://127.0.0.1:8080/" "$vite_log" >/dev/null \
+              && curl -fsS http://127.0.0.1:8080 >/dev/null; then
               echo "Vite is ready on http://127.0.0.1:8080"
               exit 0
             fi
             sleep 1
           done
-          cat test-results/e2e-smoke-vite.log
+          cat "$vite_log"
           exit 1
       - name: Run fast e2e smoke
         run: |
@@ -107,16 +119,28 @@ jobs:
               exit 1
             fi
           fi
-          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/e2e-visit-workspace-qa-vite.log 2>&1 &
-          echo "$!" > /tmp/e2e-smoke-vite.pid
+          if curl -fsS http://127.0.0.1:8080 >/dev/null 2>&1; then
+            echo "Port 8080 is still served after stopping previous Vite" >&2
+            exit 1
+          fi
+          vite_log="test-results/e2e-visit-workspace-qa-vite.log"
+          ./node_modules/.bin/vite --host 127.0.0.1 --port 8080 --strictPort > "$vite_log" 2>&1 &
+          vite_pid="$!"
+          echo "$vite_pid" > /tmp/e2e-smoke-vite.pid
           for _ in {1..60}; do
-            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+            if ! kill -0 "$vite_pid" 2>/dev/null; then
+              cat "$vite_log"
+              echo "New production-mode Vite process exited before readiness" >&2
+              exit 1
+            fi
+            if grep -F "http://127.0.0.1:8080/" "$vite_log" >/dev/null \
+              && curl -fsS http://127.0.0.1:8080 >/dev/null; then
               echo "Production-mode Vite is ready on http://127.0.0.1:8080"
               exit 0
             fi
             sleep 1
           done
-          cat test-results/e2e-visit-workspace-qa-vite.log
+          cat "$vite_log"
           exit 1
       - name: Run visit workspace native Russian QA
         env:
