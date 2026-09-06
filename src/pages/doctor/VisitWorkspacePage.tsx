@@ -4405,21 +4405,25 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
       <Section title="Жалоба и параметры визита" className="lg:col-span-7">
-        <Field term="Жалоба" value={visit.complaint} />
-        <Field term="Статус" value={VISIT_STATUS[visit.status]} />
-        <Field term="Начат" value={formatDateTime(visit.startedAt)} />
-        <Field term="Закрыт" value={visit.closedAt ? formatDateTime(visit.closedAt) : "—"} />
-        <Field term="Врач" value={staffName(visit.doctorId, "врач клиники")} />
-        <Field term="Ассистент" value={staffName(visit.assistantId, "ассистент клиники")} />
-        <Field term="Клиника" value={clinic ? `${clinic.name} · ${clinic.address}` : "—"} />
+        <dl className="space-y-1.5">
+          <Field term="Жалоба" value={visit.complaint} />
+          <Field term="Статус" value={VISIT_STATUS[visit.status]} />
+          <Field term="Начат" value={formatDateTime(visit.startedAt)} />
+          <Field term="Закрыт" value={visit.closedAt ? formatDateTime(visit.closedAt) : "—"} />
+          <Field term="Врач" value={staffName(visit.doctorId, "врач клиники")} />
+          <Field term="Ассистент" value={staffName(visit.assistantId, "ассистент клиники")} />
+          <Field term="Клиника" value={clinic ? `${clinic.name} · ${clinic.address}` : "—"} />
+        </dl>
       </Section>
 
       <Section title="Демография" className="lg:col-span-5">
-        <Field term="ФИО" value={patient.fullName} />
-        <Field term="Карта" value={formatCardNumber(patient.code)} />
-        <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${formatAge(patient.birthDate)})`} />
-        <Field term="Пол" value={patient.sex === "male" ? "Мужской" : patient.sex === "female" ? "Женский" : "Не указан"} />
-        <Field term="Фототип" value={patient.phototype ?? "Не указан"} />
+        <dl className="space-y-1.5">
+          <Field term="ФИО" value={patient.fullName} />
+          <Field term="Карта" value={formatCardNumber(patient.code)} />
+          <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${formatAge(patient.birthDate)})`} />
+          <Field term="Пол" value={patient.sex === "male" ? "Мужской" : patient.sex === "female" ? "Женский" : "Не указан"} />
+          <Field term="Фототип" value={patient.phototype ?? "Не указан"} />
+        </dl>
       </Section>
 
       <Section title="Факторы риска" className="lg:col-span-7">
@@ -4438,18 +4442,11 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
       </Section>
 
       <Section title="Согласия" className="lg:col-span-5">
-        <Field
-          term="Обработка ПД"
-          value={
-            patient.consents.pdn == null
-              ? "Не зафиксировано"
-              : patient.consents.pdn
-                ? "Есть"
-                : "Нет"
-          }
-        />
-        <Field term="Медицинская съёмка" value={consentLabel(patient.consents.imaging)} />
-        <Field term="Телемедицина" value={consentLabel(patient.consents.telemed)} />
+        <dl className="space-y-1.5">
+          <Field term="Обработка ПД" value={consentLabel(patient.consents.pdn)} />
+          <Field term="Медицинская съёмка" value={consentLabel(patient.consents.imaging)} />
+          <Field term="Телемедицина" value={consentLabel(patient.consents.telemed)} />
+        </dl>
         {patient.consents.imaging === false && (
           <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[11px] text-muted-foreground">
             Без согласия на медицинскую съёмку захват дерматоскопии заблокирован.
@@ -5338,10 +5335,10 @@ function Section({ title, children, className }: { title: string; children: Reac
 function Field({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-2 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
-      <dt className="min-w-0 max-w-[70%] break-words text-[12px] leading-snug text-muted-foreground">
+      <dt className="min-w-min max-w-[70%] break-normal text-[12px] leading-snug text-muted-foreground">
         {humanFieldTerm(term)}
       </dt>
-      <dd className="shrink-0 text-right">{typeof value === "string" ? humanDisplayValue(value) : value}</dd>
+      <dd className="min-w-0 break-words text-right">{typeof value === "string" ? humanDisplayValue(value) : value}</dd>
     </div>
   );
 }
