@@ -88,6 +88,48 @@ jobs:
           else
             npm run e2e:smoke -- "${smoke_args[@]}"
           fi
+      - name: Restart Vite in production mode for visit workspace QA
+        env:
+          VITE_APP_MODE: production
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/e2e-smoke-vite.pid ]; then
+            previous_pid="$(cat /tmp/e2e-smoke-vite.pid)"
+            kill "$previous_pid" || true
+            for _ in {1..30}; do
+              if ! kill -0 "$previous_pid" 2>/dev/null; then
+                break
+              fi
+              sleep 0.2
+            done
+            if kill -0 "$previous_pid" 2>/dev/null; then
+              echo "Previous Vite process did not stop" >&2
+              exit 1
+            fi
+          fi
+          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/e2e-visit-workspace-qa-vite.log 2>&1 &
+          echo "$!" > /tmp/e2e-smoke-vite.pid
+          for _ in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+              echo "Production-mode Vite is ready on http://127.0.0.1:8080"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat test-results/e2e-visit-workspace-qa-vite.log
+          exit 1
+      - name: Run visit workspace native Russian QA
+        env:
+          E2E_SELF_HOSTED_VISIT_QA: "1"
+          E2E_APP_BASE_URL: http://127.0.0.1:8080
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/visit-workspace-native-russian
+        run: |
+          set -euo pipefail
+          npx playwright test e2e/visit-workspace-qa-native-russian.pw.ts \
+            --reporter=list,html \
+            --output=test-results/visit-workspace-native-russian \
+            --retries="$SMOKE_RETRIES" \
+            --trace=retain-on-failure
       - name: Upload smoke report and failure artifacts
         if: always() && (env.SMOKE_UPLOAD_ARTIFACTS == 'always' || (env.SMOKE_UPLOAD_ARTIFACTS == 'failure' && failure()))
         uses: actions/upload-artifact@v4
@@ -167,6 +209,7 @@ jobs:
             echo "- Command mode: \`$AUTH_SMOKE_MODE\`"
             echo "- Default mode \`skip\` includes \`auth-assets-smoke\` without credentials; its skip is expected."
             echo "- Mode \`off\` runs only demo/local smoke specs."
+            echo "- Visit workspace QA: production mode, synthetic API interception, desktop and mobile."
             echo "- Retries: \`$SMOKE_RETRIES\`"
             echo "- Visual-regression screenshot specs are excluded."
             echo "- Artifact policy: \`$SMOKE_UPLOAD_ARTIFACTS\`"
