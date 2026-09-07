@@ -590,7 +590,12 @@ test.describe("Live production admin management journey", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await sidebarLink(page, "Справка").click();
     await expect(page.getByRole("heading", { level: 1, name: "Справка" })).toBeVisible();
-    await expect(mainText(page, "Безопасность и границы текущей версии")).toBeVisible();
+    const safetyBoundaryToggle = page.getByRole("button", {
+      name: "Безопасность и границы текущей версии",
+    });
+    await expect(safetyBoundaryToggle).toBeVisible();
+    await safetyBoundaryToggle.click();
+    await expect(safetyBoundaryToggle).toHaveAttribute("aria-expanded", "true");
     await expect(mainText(page, "Права на разделы проверяются сервером и зависят от роли сотрудника.")).toBeVisible();
     await expect(mainText(page, "Помощник записи даёт только навигационную подсказку для передачи врачу.")).toBeVisible();
     await expect(appMain(page)).not.toContainText(
@@ -1181,8 +1186,9 @@ test.describe("Live production admin management journey", () => {
         await trigger.click();
         const dialog = page.getByRole("alertdialog");
         await expect(dialog).toBeVisible();
-        await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-        await page.keyboard.press("Escape");
+        const cancelButton = dialog.getByRole("button", { name: "Отмена" });
+        await expect(cancelButton).toBeFocused();
+        await cancelButton.click();
         await expect(dialog).toHaveCount(0);
         await expect(trigger).toBeFocused();
         await trigger.click();
@@ -1225,7 +1231,12 @@ test.describe("Live production admin management journey", () => {
     expect(clinicAdminAnalyticsDeepResponse.status()).toBeGreaterThanOrEqual(200);
     expect(clinicAdminAnalyticsDeepResponse.status()).toBeLessThan(300);
     await expect(page.getByRole("heading", { level: 1, name: "Аналитика" })).toBeVisible();
-    await expect(mainText(page, "Рабочий режим: показаны только агрегаты. Персональные строки, фото, диагнозы и внутренние ссылки не выводятся.")).toBeVisible();
+    await expect(
+      mainText(
+        page,
+        "Данные по доступным вам клиникам. Карточки пациентов, изображения и медицинские сведения здесь не показываются.",
+      ),
+    ).toBeVisible();
     await expect(appMain(page)).not.toContainText(
       /Учебный режим|демо|mock|system_admin|backend|self-hosted|PostgreSQL|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
     );
