@@ -6730,10 +6730,8 @@ export function buildUpsertVisitAssessmentSql({
 } = {}) {
   const scope = clinicScopeWhere({ alias: "clinical_assessments", clinicIds, allClinics });
   return `
-select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
-from (
-  with upserted as (
-    insert into clinical_assessments (
+with upserted as (
+  insert into clinical_assessments (
       clinic_id, patient_id, visit_id, doctor_user_id, status, risk_level,
       abcd_total, seven_point_total, summary, recommendation, signed_at
     )
@@ -6753,8 +6751,10 @@ from (
     on conflict (visit_id) do update
     set ${assessmentUpdateSet(changes)}
     where true ${scope}
-    returning *
-  )
+  returning *
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
   select ${assessmentColumns("a")}
   from upserted a
   limit 1
@@ -6773,10 +6773,8 @@ export function buildUpsertVisitConclusionSql({
 } = {}) {
   const scope = clinicScopeWhere({ alias: "clinical_conclusions", clinicIds, allClinics });
   return `
-select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
-from (
-  with upserted as (
-    insert into clinical_conclusions (
+with upserted as (
+  insert into clinical_conclusions (
       clinic_id, patient_id, visit_id, doctor_user_id, status, summary,
       next_step, follow_up_at, signed_at
     )
@@ -6794,8 +6792,10 @@ from (
     on conflict (visit_id) do update
     set ${conclusionUpdateSet(changes)}
     where true ${scope}
-    returning *
-  )
+  returning *
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
   select ${conclusionColumns("c")}
   from upserted c
   limit 1
@@ -6874,9 +6874,7 @@ export function buildUpsertAssetCaptureMetadataSql({
   const scope = clinicScopeWhere({ alias: "clinical_asset_capture_metadata", clinicIds, allClinics });
   const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
   return `
-select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
-from (
-  with target_asset as (
+with target_asset as (
     select
       a.id,
       a.clinic_id,
@@ -6947,6 +6945,8 @@ from (
     where true ${scope}
     returning *
   )
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
   select
     m.id::text as "id",
     m.clinic_id::text as "clinicId",
@@ -6996,10 +6996,8 @@ export function buildUpsertLesionComparisonDraftSql({
 } = {}) {
   const scope = clinicScopeWhere({ alias: "lesion_comparison_decision_drafts", clinicIds, allClinics });
   return `
-select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
-from (
-  with upserted as (
-    insert into lesion_comparison_decision_drafts (
+with upserted as (
+  insert into lesion_comparison_decision_drafts (
       clinic_id, patient_id, visit_id, doctor_user_id, lesion_id, pair_key,
       image_ids, action, comparability, reasons, patient_delivery_allowed,
       protected_fields_exposed, metadata_json
@@ -7027,8 +7025,10 @@ from (
     on conflict (visit_id, lesion_id, pair_key) do update
     set ${lesionComparisonDraftUpdateSet(draft)}
     where true ${scope}
-    returning *
-  )
+  returning *
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
   select ${lesionComparisonDraftColumns("d")}
   from upserted d
   limit 1

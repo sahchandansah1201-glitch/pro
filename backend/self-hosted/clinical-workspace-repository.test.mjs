@@ -1224,6 +1224,7 @@ test("Batch BC Stage 5H repository upserts capture metadata as metadata-only ass
   assert.match(sql, /on conflict \(asset_id\) do update/);
   assert.match(sql, /patient_delivery_allowed,\s+protected_fields_exposed/);
   assert.match(sql, /false,\s+false/);
+  assert.match(sql, /^with target_asset as \(/);
   assert.match(sql, /where true and clinical_asset_capture_metadata\.clinic_id in/);
   assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|qrToken|deviceSerial|macAddress|ipAddress|credential/i);
 });
@@ -1245,6 +1246,7 @@ test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not ex
     },
   });
   assert.match(assessment, /insert into clinical_assessments/);
+  assert.match(assessment, /^with upserted as \(/);
   assert.match(assessment, /on conflict \(visit_id\) do update/);
   assert.match(assessment, /risk_level = 'moderate'/);
 
@@ -1257,6 +1259,7 @@ test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not ex
     changes: { status: "ready", summary: "заключение", nextStep: "контроль" },
   });
   assert.match(conclusion, /insert into clinical_conclusions/);
+  assert.match(conclusion, /^with upserted as \(/);
   assert.match(conclusion, /next_step = 'контроль'/);
   assert.doesNotMatch(`${assessment}\n${conclusion}`, /storage_object_path|signed_url|access_token/i);
 });
@@ -1343,6 +1346,7 @@ test("Stage 5H lesion comparison draft upsert is clinic-scoped and metadata-only
   });
 
   assert.match(sql, /insert into lesion_comparison_decision_drafts/);
+  assert.match(sql, /^with upserted as \(/);
   assert.match(sql, /on conflict \(visit_id, lesion_id, pair_key\) do update/);
   assert.match(sql, /patient_delivery_allowed,\s+protected_fields_exposed/);
   assert.match(sql, /false,\s+false/);
