@@ -1,19 +1,6 @@
-import {
-  getAuditLogs,
-  getClinicById,
-  getImages,
-  getLesionById,
-  getPatientById,
-  getReports,
-  getVisitById,
-  getVisitsByPatientId,
-} from "@/lib/mock-data";
 import { formatCardNumber } from "@/lib/card-number";
-import { DEMO_USERS } from "@/lib/users";
-import { ROLE_BY_ID } from "@/lib/roles";
 import type { AccessEventSource } from "@/lib/admin-access-events";
 import type { AdminAuditEventDTO } from "@/lib/self-hosted-admin-api";
-import type { AuditLog } from "@/lib/domain";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
@@ -120,13 +107,6 @@ const ACTION_LABEL: Record<string, string> = {
   "integration.update": "Интеграция обновлена",
 };
 
-function actorLabel(actorId: string | null): string {
-  if (!actorId) return "Системное событие";
-  const user = Object.values(DEMO_USERS).find((u) => u.id === actorId);
-  if (!user) return actorId;
-  return `${ROLE_BY_ID[user.role].short}`;
-}
-
 export function entityBucket(entity: string): FilterKey {
   return ENTITY_BUCKET[entity] ?? "admin";
 }
@@ -141,92 +121,6 @@ export function actionLabel(action: string): string {
 
 export function sourceLabel(source: AccessEventSource): string {
   return source === "api" ? "Рабочая система" : "Учебные данные";
-}
-
-function clinicFromLog(log: AuditLog): string {
-  let clinicId = typeof log.payload.clinicId === "string" ? log.payload.clinicId : null;
-  if (!clinicId && typeof log.payload.visitId === "string") {
-    clinicId = getVisitById(log.payload.visitId)?.clinicId ?? null;
-  }
-  if (!clinicId && log.entity === "visit") {
-    clinicId = getVisitById(log.entityId)?.clinicId ?? null;
-  }
-  if (!clinicId && log.entity === "lesion") {
-    const patientId = getLesionById(log.entityId)?.patientId;
-    clinicId = patientId ? getVisitsByPatientId(patientId)[0]?.clinicId ?? null : null;
-  }
-  if (!clinicId && typeof log.payload.lesionId === "string") {
-    const patientId = getLesionById(log.payload.lesionId)?.patientId;
-    clinicId = patientId ? getVisitsByPatientId(patientId)[0]?.clinicId ?? null : null;
-  }
-  if (!clinicId && log.entity === "image") {
-    const image = getImages().find((i) => i.id === log.entityId);
-    clinicId = image ? getVisitById(image.visitId)?.clinicId ?? null : null;
-  }
-  if (!clinicId && log.entity === "report") {
-    const report = getReports().find((r) => r.id === log.entityId);
-    clinicId = report ? getVisitById(report.visitId)?.clinicId ?? null : null;
-  }
-  return clinicId ? getClinicById(clinicId)?.name ?? clinicId : "—";
-}
-
-function patientCodeFromLog(log: AuditLog): string | null {
-  if (typeof log.payload.visitId === "string") {
-    const visit = getVisitById(log.payload.visitId);
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "visit") {
-    const visit = getVisitById(log.entityId);
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "lesion") {
-    const lesion = getLesionById(log.entityId);
-    return lesion ? getPatientById(lesion.patientId)?.code ?? null : null;
-  }
-  if (typeof log.payload.lesionId === "string") {
-    const lesion = getLesionById(log.payload.lesionId);
-    return lesion ? getPatientById(lesion.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "image") {
-    const image = getImages().find((i) => i.id === log.entityId);
-    const visit = image ? getVisitById(image.visitId) : null;
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  if (log.entity === "report") {
-    const report = getReports().find((r) => r.id === log.entityId);
-    const visit = report ? getVisitById(report.visitId) : null;
-    return visit ? getPatientById(visit.patientId)?.code ?? null : null;
-  }
-  return null;
-}
-
-function visitIdFromLog(log: AuditLog): string | null {
-  if (typeof log.payload.visitId === "string") return log.payload.visitId;
-  return log.entity === "visit" ? log.entityId : null;
-}
-
-function lesionLabelFromLog(log: AuditLog): string | null {
-  if (log.entity === "lesion") return getLesionById(log.entityId)?.label ?? log.entityId;
-  if (typeof log.payload.lesionId === "string") {
-    return getLesionById(log.payload.lesionId)?.label ?? log.payload.lesionId;
-  }
-  return null;
-}
-
-function fromDemoLog(log: AuditLog): AccessEventRow {
-  return {
-    id: log.id,
-    createdAt: log.createdAt,
-    clinicName: clinicFromLog(log),
-    actorLabel: actorLabel(log.actorId),
-    action: log.action,
-    entity: log.entity,
-    entityId: log.entityId,
-    patientCode: patientCodeFromLog(log),
-    visitId: visitIdFromLog(log),
-    lesionLabel: lesionLabelFromLog(log),
-    source: "demo",
-  };
 }
 
 export function fromViewRow(row: AccessEventsViewRow): AccessEventRow {
@@ -259,12 +153,6 @@ export function fromAdminAuditEvent(event: AdminAuditEventDTO): AccessEventRow {
     lesionLabel: null,
     source: "api",
   };
-}
-
-export function buildDemoRows(): AccessEventRow[] {
-  return getAuditLogs()
-    .map(fromDemoLog)
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
 export function contextLabel(row: AccessEventRow): string {

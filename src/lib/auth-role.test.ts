@@ -13,6 +13,9 @@ function makeUser(meta: Partial<Pick<User, "app_metadata" | "user_metadata">>): 
 }
 
 describe("roleFromAuthUser", () => {
+  it("does not grant a role from user editable metadata", () => {
+    expect(roleFromAuthUser(makeUser({ user_metadata: { role: "system_admin" } }))).toBeNull();
+  });
   it("prefers app_metadata.role", () => {
     expect(
       roleFromAuthUser(
@@ -21,15 +24,15 @@ describe("roleFromAuthUser", () => {
     ).toBe("clinic_admin");
   });
 
-  it("falls back to user_metadata.role when app_metadata missing", () => {
-    expect(roleFromAuthUser(makeUser({ user_metadata: { role: "operator" } }))).toBe("operator");
+  it("keeps missing trusted metadata unassigned", () => {
+    expect(roleFromAuthUser(makeUser({ user_metadata: { role: "operator" } }))).toBeNull();
   });
 
-  it("falls back to doctor for unknown role", () => {
-    expect(roleFromAuthUser(makeUser({ app_metadata: { role: "ceo" } }))).toBe("doctor");
+  it("keeps an unknown role unassigned", () => {
+    expect(roleFromAuthUser(makeUser({ app_metadata: { role: "ceo" } }))).toBeNull();
   });
 
-  it("falls back to doctor when user is null", () => {
-    expect(roleFromAuthUser(null)).toBe("doctor");
+  it("has no role without a user", () => {
+    expect(roleFromAuthUser(null)).toBeNull();
   });
 });

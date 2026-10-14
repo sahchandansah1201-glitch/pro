@@ -77,6 +77,7 @@ type CurrentAction = {
 
 export default function DeskPageDemo() {
   const { currentUser } = useRole();
+  if (!currentUser) return <div role="alert" className="p-4">Войдите в систему клиники.</div>;
   const doctorId = currentUser.id;
 
   const myVisits = visitsForDoctor(doctorId);

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
-import { setDemoRole } from "./helpers/demo-role";
+import { expectWorkingFixtureSafe, installWorkingSmoke, loginWorkingSmoke } from "./helpers/working-smoke";
 
 if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
@@ -180,18 +180,10 @@ const PRODUCT_READINESS = {
 };
 
 test.describe("/sys/self-hosted-ops", () => {
-  test("system_admin sees ops status and safe audit export preview", async ({ page }) => {
-    await setDemoRole(page, "system_admin");
-    await page.addInitScript(() => {
-      localStorage.setItem("derma-pro:self-hosted-api-base-url", "http://localhost:8080");
-      localStorage.setItem("derma-pro:self-hosted-api-token", "jwt-e2e");
-      localStorage.setItem(
-        "derma-pro:self-hosted-api-user",
-        JSON.stringify({ id: "u-1", displayName: "System Admin", roles: ["system_admin"] }),
-      );
-    });
-    await page.route("http://localhost:8080/api/v1/ops/status", async (route) => {
-      expect(route.request().headers().authorization).toBe("Bearer jwt-e2e");
+  test("system_admin sees ops status and safe audit export preview", async ({ page, baseURL }) => {
+    const fixture = await installWorkingSmoke(page, "system_admin", baseURL!);
+    await page.route("**/api/v1/ops/status", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer synthetic-working-smoke-system_admin");
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -203,8 +195,8 @@ test.describe("/sys/self-hosted-ops", () => {
         }),
       });
     });
-    await page.route("http://localhost:8080/api/v1/ops/runtime-checks", async (route) => {
-      expect(route.request().headers().authorization).toBe("Bearer jwt-e2e");
+    await page.route("**/api/v1/ops/runtime-checks", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer synthetic-working-smoke-system_admin");
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -216,8 +208,8 @@ test.describe("/sys/self-hosted-ops", () => {
         }),
       });
     });
-    await page.route("http://localhost:8080/api/v1/product/readiness", async (route) => {
-      expect(route.request().headers().authorization).toBe("Bearer jwt-e2e");
+    await page.route("**/api/v1/product/readiness", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer synthetic-working-smoke-system_admin");
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -230,6 +222,7 @@ test.describe("/sys/self-hosted-ops", () => {
       });
     });
 
+    await loginWorkingSmoke(page, "system_admin");
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
     await expect(page.getByRole("heading", { name: "Рабочий контур" })).toBeVisible();
@@ -293,15 +286,17 @@ test.describe("/sys/self-hosted-ops", () => {
     expect(readinessText).toContain("Предпросмотр готовности продукта");
     expect(readinessText).toContain("Полная предварительная проверка");
     expect(readinessText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
+    expectWorkingFixtureSafe(fixture);
   });
 
-  test("clinic_admin demo role is blocked by route guard", async ({ page }) => {
-    await setDemoRole(page, "clinic_admin");
+  test("clinic_admin working role is blocked by route guard", async ({ page, baseURL }) => {
+    const fixture = await installWorkingSmoke(page, "clinic_admin", baseURL!);
+    await loginWorkingSmoke(page, "clinic_admin");
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
-
-    await expect(page.getByText("Нет доступа в учебном режиме")).toBeVisible();
-    await expect(page.getByText(/учебный просмотр интерфейса/)).toBeVisible();
-    await expect(page.locator("body")).not.toContainText(/self-hosted|production|backend|демо/i);
-    await expect(page.getByRole("heading", { name: "Рабочий контур" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Нет доступа", exact: true })).toBeVisible();
+    await expect(page.getByText("Права доступа определяются активным рабочим входом.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Рабочий контур", exact: true })).toHaveCount(0);
+    expect(fixture.requests.filter(r => r.path.startsWith("/api/v1/ops/"))).toEqual([]);
+    expectWorkingFixtureSafe(fixture);
   });
 });

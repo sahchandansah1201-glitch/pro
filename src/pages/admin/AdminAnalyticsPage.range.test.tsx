@@ -62,7 +62,7 @@ describe("AdminAnalyticsPage — period switching updates all sections", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.doUnmock("@/lib/mock-data");
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   it("KPI «Лиды/Записаны/Визиты» меняются между «Все данные», «Март 2026» и «Последние 90 дней»", () => {
@@ -201,7 +201,7 @@ describe("AdminAnalyticsPage — пустые состояния при отсу
       getAnalysisCards: () => [],
       getClinics: () => [],
     }));
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   it("страница не падает и показывает все ожидаемые пустые состояния", () => {

@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import MeRemindersPageDemo from "./MeRemindersPageDemo";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import MeRemindersPageLive from "./MeRemindersPageLive";
 
 export default function MeRemindersPage() {
-  return isProductionAppMode() ? <MeRemindersPageLive /> : <MeRemindersPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <MeRemindersPageLive key={session.revision} />;
 }

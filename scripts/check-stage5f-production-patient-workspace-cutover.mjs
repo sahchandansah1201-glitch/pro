@@ -31,13 +31,13 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/doctor/PatientsPage.tsx": [
     "пациенты загружаются только из системы клиники",
-    "Рабочий режим не показывает учебные данные",
-    "isProductionAppMode",
+    "PATIENT_LOGIN_REQUIRED_MESSAGE",
+    "useSelfHostedApiSession",
   ],
   "src/pages/doctor/PatientDetailPage.tsx": [
     "getSelfHostedPatient",
     "listSelfHostedVisitsByPatient",
-    "учебные данные для карточки отключены",
+    "ProductionPatientState",
     "Карточка пациента недоступна",
   ],
   "src/pages/doctor/VisitWorkspacePage.tsx": [

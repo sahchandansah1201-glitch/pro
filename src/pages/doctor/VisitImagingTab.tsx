@@ -8,11 +8,6 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import {
-  Camera,
-  FileUp,
-  HardDrive,
-  Smartphone,
-  QrCode,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -42,7 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getImagesByVisitId } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 import {
@@ -119,9 +113,9 @@ interface Props {
   initialImageId?: string | null;
   onOpenBodyMap?: (lesionId: string) => void;
   /**
-   * Bearer JWT for the clinical assets API. When omitted the imaging tab
-   * stays in demo mode and the API panel renders a muted "not configured"
-   * status without attempting any network call.
+   * Bearer JWT for the optional managed assets API. The native clinic
+   * session works independently. Without either session, the API panel
+   * shows "not configured" and does not attempt a network call.
    */
   apiToken?: string | null;
   /** Origin of the Supabase project. Optional for the same reason as the token. */
@@ -133,6 +127,8 @@ interface RetakeRequest {
   lesionId: string | null;
   kind: ClinicalImage["kind"];
 }
+
+type ImageListState = "unconfigured" | "loading" | "ready" | "error";
 
 export function VisitImagingTab({
   visit,
@@ -148,18 +144,31 @@ export function VisitImagingTab({
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
   const selfHostedAssetIdentityKey = selfHostedSessionIdentityKey(
     selfHostedSession,
-    [visit.id],
+    [visit.id, apiBaseUrl ?? "", apiToken ?? ""],
   );
   const [selfHostedAssetState, setSelfHostedAssetState] = useState<{
     identityKey: string;
     assets: SafeAssetDTO[];
-  }>({ identityKey: "", assets: [] });
+    phase: ImageListState;
+  }>({ identityKey: "", assets: [], phase: "unconfigured" });
   const handleSelfHostedAssetsChange = useCallback(
-    (assets: SafeAssetDTO[]) => {
-      setSelfHostedAssetState({ identityKey: selfHostedAssetIdentityKey, assets });
+    (assets: SafeAssetDTO[], phase: ImageListState) => {
+      setSelfHostedAssetState({ identityKey: selfHostedAssetIdentityKey, assets, phase });
     },
     [selfHostedAssetIdentityKey],
   );
+  const configured = selfHostedConfigured || Boolean(apiToken && apiBaseUrl);
+  const imageListState = selfHostedAssetState.identityKey === selfHostedAssetIdentityKey
+    ? selfHostedAssetState.phase
+    : configured ? "loading" : "unconfigured";
+  const primaryListReady = selfHostedConfigured && imageListState === "ready";
+  const primaryListMessage = imageListState === "loading"
+    ? "Загружаем снимки…"
+    : imageListState === "error"
+      ? "Список снимков не загружен. Повторите загрузку списка снимков."
+      : configured
+        ? "Снимки доступны в панели загрузки."
+        : "Войдите в систему клиники, чтобы увидеть снимки.";
   const allImages = useMemo(() => {
     const currentSelfHostedAssets = selfHostedAssetState.identityKey === selfHostedAssetIdentityKey
       ? selfHostedAssetState.assets
@@ -168,9 +177,9 @@ export function VisitImagingTab({
       ? currentSelfHostedAssets
           .filter((asset) => asset.kind === "overview" || asset.kind === "dermoscopy")
           .map(safeAssetToClinicalImage)
-      : [...getImagesByVisitId(visit.id)]
+      : []
     ).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
-  }, [selfHostedAssetIdentityKey, selfHostedAssetState, selfHostedConfigured, visit.id]);
+  }, [selfHostedAssetIdentityKey, selfHostedAssetState, selfHostedConfigured]);
 
   const lesionMap = useMemo(() => {
     const m = new Map<string, Lesion>();
@@ -194,8 +203,6 @@ export function VisitImagingTab({
 
   const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const [retakeRequest, setRetakeRequest] = useState<RetakeRequest | null>(null);
-  const showCaptureNotice = (label: string) =>
-    setCaptureNotice(`Учебный режим: источник «${label}» выбран, реальный захват будет подключён позже.`);
 
   const filtered = useMemo(() => {
     return allImages.filter((img) => {
@@ -282,7 +289,7 @@ export function VisitImagingTab({
   const requestRetake = useCallback(() => {
     if (!selected) return;
     if (!selfHostedConfigured) {
-      showCaptureNotice("Повтор снимка");
+      setCaptureNotice("Для повторной съёмки войдите в систему клиники.");
       return;
     }
     setCaptureNotice(null);
@@ -304,17 +311,22 @@ export function VisitImagingTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Patch 3: Capture toolbar — приглушённый фон без тени, отделяет управляющую зону. */}
+      <ApiAssetsPanel
+        visitId={visit.id}
+        apiToken={apiToken ?? null}
+        apiBaseUrl={apiBaseUrl ?? null}
+        selfHostedApiToken={selfHostedConfigured ? selfHostedSession.apiToken : null}
+        selfHostedApiBaseUrl={selfHostedConfigured ? selfHostedSession.apiBaseUrl : null}
+        onAssetsChange={handleSelfHostedAssetsChange}
+        retakeRequest={retakeRequest}
+      />
+      {/* Image summary — приглушённый фон без тени. */}
       <section className="surface-toolbar">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[12px] font-medium text-muted-foreground">Захват</span>
-            <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
-            <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл" onClick={() => showCaptureNotice("Файл")} />
-            <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Связь с устройством" onClick={() => showCaptureNotice("Связь с устройством")} />
-            <CaptureBtn icon={<QrCode className="h-3.5 w-3.5" />} label="Код / локально" onClick={() => showCaptureNotice("Локальный перенос")} />
+            <span className="mr-1 text-[12px] font-medium text-muted-foreground">Снимки в просмотре</span>
           </div>
-          <SummaryStrip summary={summary} />
+          <SummaryStrip summary={summary} loaded={primaryListReady} />
         </div>
         {captureNotice && (
           <div className="border-t border-border bg-surface px-3 py-1.5 text-[12px] text-muted-foreground">
@@ -379,7 +391,7 @@ export function VisitImagingTab({
           </div>
 
           <div className="ml-auto self-end text-[13px] tabular-nums text-muted-foreground">
-            Показано <span className="font-semibold text-foreground">{filtered.length}</span> из {allImages.length}
+            {primaryListReady ? <>Показано <span className="font-semibold text-foreground">{filtered.length}</span> из {allImages.length}</> : "Список не загружен"}
           </div>
         </div>
       </section>
@@ -390,9 +402,11 @@ export function VisitImagingTab({
         <section className="surface-card lg:col-span-7">
           <div className="section-bar">
             <h2 className="h-section">Снимки визита</h2>
-            <span className="h-section-hint">{filtered.length} шт.</span>
+            <span className="h-section-hint">{primaryListReady ? `${filtered.length} шт.` : "Список не загружен"}</span>
           </div>
-          {filtered.length === 0 ? (
+          {!primaryListReady ? (
+            <div className="px-4 pb-4 text-[13px] text-muted-foreground">{primaryListMessage}</div>
+          ) : filtered.length === 0 ? (
             <div className="px-4 pb-4 text-[13px] text-muted-foreground">
               По выбранным фильтрам снимков нет. Сбросьте фильтры или выберите другой источник.
             </div>
@@ -554,9 +568,11 @@ export function VisitImagingTab({
       <section className="surface-card">
         <div className="section-bar">
           <h2 className="h-section">Хронология снимков</h2>
-          <span className="h-section-hint">{allImages.length} событий</span>
+          <span className="h-section-hint">{primaryListReady ? `${allImages.length} событий` : "Список не загружен"}</span>
         </div>
-        {allImages.length === 0 ? (
+        {!primaryListReady ? (
+          <div className="px-4 pb-4 text-[13px] text-muted-foreground">{primaryListMessage}</div>
+        ) : allImages.length === 0 ? (
           <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимков визита нет.</div>
         ) : (
           <ol className="divide-y divide-border">
@@ -599,17 +615,6 @@ export function VisitImagingTab({
         )}
       </section>
 
-      {/* Stage 1E-E · панель снимков. Network calls live in
-          src/lib/clinical-assets-api.ts; this component only consumes them. */}
-      <ApiAssetsPanel
-        visitId={visit.id}
-        apiToken={apiToken ?? null}
-        apiBaseUrl={apiBaseUrl ?? null}
-        selfHostedApiToken={selfHostedConfigured ? selfHostedSession.apiToken : null}
-        selfHostedApiBaseUrl={selfHostedConfigured ? selfHostedSession.apiBaseUrl : null}
-        onAssetsChange={handleSelfHostedAssetsChange}
-        retakeRequest={retakeRequest}
-      />
     </div>
   );
 }
@@ -622,7 +627,7 @@ interface ApiAssetsPanelProps {
   apiBaseUrl: string | null;
   selfHostedApiToken?: string | null;
   selfHostedApiBaseUrl?: string | null;
-  onAssetsChange?: (assets: SafeAssetDTO[]) => void;
+  onAssetsChange?: (assets: SafeAssetDTO[], phase: ImageListState) => void;
   retakeRequest?: RetakeRequest | null;
 }
 
@@ -804,12 +809,12 @@ function ApiAssetsPanel({
   useEffect(() => {
     if (!configured) {
       setAssets(null);
-      onAssetsChange?.([]);
+      onAssetsChange?.([], "unconfigured");
       return;
     }
     let cancelled = false;
     setAssets(null);
-    onAssetsChange?.([]);
+    onAssetsChange?.([], "loading");
     setBusy(true);
     busyRef.current = true;
     setError(null);
@@ -820,10 +825,10 @@ function ApiAssetsPanel({
         if (res.ok) {
           const nextAssets = res.value ?? [];
           setAssets(nextAssets);
-          onAssetsChange?.(nextAssets);
+          onAssetsChange?.(nextAssets, "ready");
         } else {
-          setAssets([]);
-          onAssetsChange?.([]);
+          setAssets(null);
+          onAssetsChange?.([], "error");
           setError(res.error);
           setErrorContext("list");
         }
@@ -1219,15 +1224,15 @@ function ApiAssetsPanel({
   return (
     <section className="surface-card" aria-label="Снимки визита" tabIndex={-1} ref={regionRef}>
       <div className="section-bar">
-        <h2 className="h-section">Снимки визита</h2>
+        <h2 className="h-section">Добавление снимков</h2>
         <span className="h-section-hint">
           {configured
-            ? assets
-              ? `${assets.length} шт.`
-              : busy
-                ? "загрузка…"
-                : "—"
-            : "учебный режим"}
+            ? busy
+              ? "загрузка…"
+              : error && errorContext === "list"
+                ? "Список не загружен"
+                : assets ? `${assets.length} шт.` : "—"
+            : "Требуется вход"}
         </span>
       </div>
 
@@ -1243,7 +1248,7 @@ function ApiAssetsPanel({
           variant="secondary"
           className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]"
           onClick={handleUploadClick}
-          disabled={busy}
+          disabled={!configured || busy}
           aria-label="Загрузить снимок"
         >
           <CloudUpload className="h-3.5 w-3.5" /> Загрузить снимок
@@ -1336,8 +1341,8 @@ function ApiAssetsPanel({
 
       {!configured && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
-          Учебный режим: система снимков не подключена для текущей сессии.
-          Загрузка и ссылки доступны только после входа в систему клиники.
+          Войдите в систему клиники, чтобы загрузить и просмотреть снимки.{" "}
+          <Link to="/self-hosted/login" className="underline">Войти в систему клиники</Link>
         </p>
       )}
 
@@ -1378,9 +1383,9 @@ function ApiAssetsPanel({
               className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
               onClick={handleRetry}
               disabled={busy}
-              aria-label="Повторить загрузку снимков"
+              aria-label="Повторить загрузку списка снимков"
             >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить загрузку списка снимков
             </Button>
           )}
         </div>
@@ -1469,7 +1474,7 @@ function ApiAssetsPanel({
         </div>
       )}
 
-      {configured && assets && assets.length === 0 && !busy && (
+      {configured && assets && assets.length === 0 && !busy && !(error && errorContext === "list") && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
           В системе клиники ещё нет снимков для этого визита.
         </p>
@@ -1812,27 +1817,18 @@ function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
 
 // ───────── Subcomponents ─────────
 
-function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function SummaryStrip({ summary, loaded }: { summary: { total: number; dermoscopy: number; lowQuality: number; unlinked: number }; loaded: boolean }) {
   return (
-    <Button size="sm" variant="secondary" className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]" onClick={onClick}>
-      {icon}
-      {label}
-    </Button>
-  );
-}
-
-function SummaryStrip({ summary }: { summary: { total: number; dermoscopy: number; lowQuality: number; unlinked: number } }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
-      <SummaryItem label="Всего" value={summary.total} />
-      <SummaryItem label="Дерматоскопия" value={summary.dermoscopy} />
-      <SummaryItem label="Требуют проверки" value={summary.lowQuality} tone={summary.lowQuality > 0 ? "warning" : "muted"} />
-      <SummaryItem label="Без привязки" value={summary.unlinked} />
+    <div data-testid="imaging-summary" className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+      <SummaryItem label="Всего" value={loaded ? summary.total : "—"} />
+      <SummaryItem label="Дерматоскопия" value={loaded ? summary.dermoscopy : "—"} />
+      <SummaryItem label="Требуют проверки" value={loaded ? summary.lowQuality : "—"} tone={loaded && summary.lowQuality > 0 ? "warning" : "muted"} />
+      <SummaryItem label="Без привязки" value={loaded ? summary.unlinked : "—"} />
     </div>
   );
 }
 
-function SummaryItem({ label, value, tone = "muted" }: { label: string; value: number; tone?: "muted" | "warning" }) {
+function SummaryItem({ label, value, tone = "muted" }: { label: string; value: number | string; tone?: "muted" | "warning" }) {
   return (
     <span className="inline-flex items-baseline gap-1">
       <span className="text-muted-foreground">{label}</span>
@@ -1941,6 +1937,3 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
 function clampZoom(z: number): number {
   return Math.max(0.6, Math.min(2, +z.toFixed(2)));
 }
-
-// Avoid unused-import warning: Camera reserved for future native camera path.
-void Camera;

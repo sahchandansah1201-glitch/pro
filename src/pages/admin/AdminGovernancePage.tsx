@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/self-hosted-clinical-report-package-api";
 import {
   isSelfHostedApiConfigured,
+  type SelfHostedApiSession,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import {
@@ -58,7 +60,7 @@ import { PatientDeliveryApprovalRequirementsPanel } from "./PatientDeliveryAppro
 import { GovernanceDecisionReceiptCard } from "./GovernanceDecisionReceipt";
 import { useGovernanceDecisionReceipt } from "./useGovernanceDecisionReceipt";
 
-type LoadStatus = "demo" | "loading" | "ready" | "error";
+type LoadStatus = "loading" | "ready" | "error";
 
 function governancePublicError(
   error: { status?: number } | null | undefined,
@@ -84,135 +86,6 @@ function formatBlockerCount(count: number): string {
   return `${count} ${noun}`;
 }
 
-const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
-  summary: {
-    releasesTotal: 12,
-    prepared: 5,
-    blocked: 4,
-    revoked: 3,
-    retentionMissing: 4,
-    patientCopyMissing: 3,
-    fileProxyMissing: 2,
-    expiryMissing: 4,
-    activeAccessWindows: 5,
-    expiringIn24h: 2,
-  },
-  queue: [
-    {
-      queueNumber: 1,
-      status: "prepared",
-      policyStatus: "retention_required",
-      selectedPhotoCount: 4,
-      blockerCount: 1,
-      expiresAt: "2026-06-01T10:00:00.000Z",
-      updatedAt: "2026-05-31T10:00:00.000Z",
-      patientFileProxyEnabled: true,
-      patientCopyApproved: true,
-      retentionPolicyApproved: false,
-      attention: ["retention_required", "expires_soon"],
-    },
-    {
-      queueNumber: 2,
-      status: "prepared",
-      policyStatus: "patient_copy_required",
-      selectedPhotoCount: 3,
-      blockerCount: 1,
-      expiresAt: "2026-06-04T12:00:00.000Z",
-      updatedAt: "2026-05-31T09:20:00.000Z",
-      patientFileProxyEnabled: true,
-      patientCopyApproved: false,
-      retentionPolicyApproved: true,
-      attention: ["patient_copy_required"],
-    },
-    {
-      queueNumber: 3,
-      status: "blocked",
-      policyStatus: "blocked",
-      selectedPhotoCount: 0,
-      blockerCount: 3,
-      expiresAt: null,
-      updatedAt: "2026-05-31T08:40:00.000Z",
-      patientFileProxyEnabled: false,
-      patientCopyApproved: false,
-      retentionPolicyApproved: false,
-      attention: ["blocked_release", "file_proxy_required", "expiry_required"],
-    },
-  ],
-  boundaries: {
-    metadataOnly: true,
-    patientNamesExposed: false,
-    rawIdentifiersExposed: false,
-    rawTokensExposed: false,
-    rawFilesExposed: false,
-    storagePathsExposed: false,
-    signedUrlsIssued: false,
-    doctorOnlyTextExposed: false,
-    rawPolicyPayloadExposed: false,
-  },
-  operations: {
-    retention: {
-      reviewDue: 4,
-      ready: 1,
-      blocked: 4,
-      requiresClinicSignoff: true,
-      nextAction: "review_retention_policy",
-    },
-    revokeReadiness: {
-      activeWindows: 5,
-      expiringIn24h: 2,
-      revoked: 3,
-      canPrepareRevokeReview: 5,
-      requiresManualReason: true,
-      revokeReasonExposed: false,
-    },
-    sessionLifecycle: {
-      active: 5,
-      expiringIn24h: 2,
-      missingExpiry: 4,
-      revoked: 3,
-      unsafeArtifacts: 2,
-      rotationPrepared: 1,
-      rotationPending: 2,
-      credentialHashReady: 1,
-      credentialHashPending: 2,
-      credentialStoreReady: 1,
-      credentialStorePending: 2,
-      sessionExchangeReady: 1,
-      sessionExchangePending: 2,
-      sessionExchangeDenied: 1,
-      sessionExchangeSuccess: 1,
-      credentialRotationRequired: true,
-      nextAction: "exchange_access_credential",
-      temporaryCredentialsExposed: false,
-      qrTokensExposed: false,
-      sessionIdsExposed: false,
-      rawCredentialExposed: false,
-      credentialHashExposed: false,
-      credentialFingerprintExposed: false,
-      rawSessionIdExposed: false,
-      sessionHashExposed: false,
-      sessionFingerprintExposed: false,
-    },
-    allowedOperations: [
-      "review_retention_policy",
-      "review_patient_copy",
-      "prepare_revoke_review",
-      "inspect_session_lifecycle",
-      "block_unsafe_session_artifacts",
-      "prepare_access_artifact_rotation",
-      "issue_access_credential_hash",
-      "exchange_access_credential",
-    ],
-    blockedOperations: [
-      "block_secret_issue",
-      "block_external_link_issue",
-      "block_file_location_exposure",
-      "block_patient_identity_view",
-      "block_clinical_text_view",
-      "direct_patient_delivery",
-    ],
-  },
-};
 
 const POLICY_LABEL: Record<string, string> = {
   ready_for_access_window: "Окно доступа готово",
@@ -1128,9 +1001,15 @@ function GovernanceActionFeedback({
 
 export default function AdminGovernancePage() {
   const session = useSelfHostedApiSession();
+  return <AdminGovernanceWorkspace key={session.revision} session={session} />;
+}
+
+function AdminGovernanceWorkspace({ session }: { session: SelfHostedApiSession }) {
   const configured = isSelfHostedApiConfigured(session);
-  const [status, setStatus] = useState<LoadStatus>(() => (configured ? "loading" : "demo"));
-  const [governance, setGovernance] = useState<SelfHostedPatientPhotoProtocolReleaseGovernanceDTO>(DEMO_GOVERNANCE);
+  const mounted = useRef(true);
+  const loadRevision = useRef(0);
+  const [status, setStatus] = useState<LoadStatus>("loading");
+  const [governance, setGovernance] = useState<SelfHostedPatientPhotoProtocolReleaseGovernanceDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [operationResult, setOperationResult] =
@@ -1143,20 +1022,21 @@ export default function AdminGovernancePage() {
   const [credentialHashOperationBusy, setCredentialHashOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
+    if (!mounted.current) return;
+    const revision = ++loadRevision.current;
     if (!isSelfHostedApiConfigured(session)) {
-      setStatus("demo");
-      setGovernance(DEMO_GOVERNANCE);
-      setError(null);
       return;
     }
     setStatus("loading");
+    setGovernance(null);
     const result = await getSelfHostedPatientPhotoProtocolReleaseGovernance({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
     });
+    if (!mounted.current || revision !== loadRevision.current) return;
     if (!result.ok || !result.value) {
       setStatus("error");
-      setGovernance(DEMO_GOVERNANCE);
+      setGovernance(null);
       setError(
         governancePublicError(
           result.error,
@@ -1171,19 +1051,21 @@ export default function AdminGovernancePage() {
   }, [session]);
 
   useEffect(() => {
+    mounted.current = true;
     void loadGovernance();
+    return () => { mounted.current = false; loadRevision.current += 1; };
   }, [loadGovernance]);
 
   const policyReady = useMemo(
-    () => governance.queue.filter((item) => item.policyStatus === "ready_for_access_window").length,
-    [governance.queue],
+    () => governance?.queue.filter((item) => item.policyStatus === "ready_for_access_window").length ?? 0,
+    [governance],
   );
-  const deliveryGates = useMemo(() => buildDeliveryGates(governance), [governance]);
+  const deliveryGates = useMemo(() => governance ? buildDeliveryGates(governance) : [], [governance]);
   const openGateCount = deliveryGates.filter((gate) => !gate.ready).length;
   const blockerCount = deliveryGates.reduce((sum, gate) => sum + gate.blockerCount, 0);
   const { decisionReceipt, saveGovernanceDecision } = useGovernanceDecisionReceipt({
     session,
-    loading: status === "loading",
+    loading: status !== "ready",
     openGateCount,
     blockerCount,
     onStatus: setLastAction,
@@ -1258,35 +1140,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordBlockUnapprovedRetention() {
-    if (!configured) {
-      setLastAction("Учебный режим: окна без правил хранения заблокированы локально, доступ пациента не расширялся");
-      setOperationResult({
-        operation: "block_unapproved_retention_windows",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.revokeReadiness.activeWindows,
-        expiringIn24hCount: governance.operations.revokeReadiness.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 15,
-        auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setRetentionOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention({
       apiBaseUrl: session.apiBaseUrl,
@@ -1311,35 +1165,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordRevokeReview() {
-    if (!configured) {
-      setLastAction("Учебный режим: отзыв истёкших окон подготовлен локально, причина остаётся скрытой");
-      setOperationResult({
-        operation: "revoke_expired_access_windows",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.revokeReadiness.activeWindows,
-        expiringIn24hCount: governance.operations.revokeReadiness.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 50,
-        auditAction: "patient_photo_protocol.release_governance.revoke_expired",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setRevokeOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired({
       apiBaseUrl: session.apiBaseUrl,
@@ -1364,35 +1190,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordBlockMissingExpiry() {
-    if (!configured) {
-      setLastAction("Учебный режим: окна без срока заблокированы локально, коды входа не раскрыты");
-      setOperationResult({
-        operation: "block_missing_expiry_access_windows",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.sessionLifecycle.active,
-        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 20,
-        auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setMissingExpiryOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry({
       apiBaseUrl: session.apiBaseUrl,
@@ -1417,35 +1215,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordBlockUnsafeSessionArtifacts() {
-    if (!configured) {
-      setLastAction("Учебный режим: небезопасные временные коды заблокированы локально, коды входа не раскрыты");
-      setOperationResult({
-        operation: "block_unsafe_session_artifacts",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.sessionLifecycle.active,
-        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 12,
-        auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setUnsafeSessionArtifactOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts({
       apiBaseUrl: session.apiBaseUrl,
@@ -1470,35 +1240,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordPrepareAccessArtifactRotation() {
-    if (!configured) {
-      setLastAction("Учебный режим: замена доступа подготовлена локально, секреты доступа не раскрыты");
-      setOperationResult({
-        operation: "prepare_access_artifact_rotation",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.sessionLifecycle.active,
-        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 9,
-        auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setRotationOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation({
       apiBaseUrl: session.apiBaseUrl,
@@ -1523,35 +1265,7 @@ export default function AdminGovernancePage() {
   }
 
   async function recordIssueAccessCredentialHash() {
-    if (!configured) {
-      setLastAction("Учебный режим: ключ доступа подготовлен локально, секрет доступа и коды входа не раскрыты");
-      setOperationResult({
-        operation: "issue_access_credential_hash",
-        status: "no_op",
-        affectedCount: 0,
-        skippedActiveCount: governance.operations.sessionLifecycle.active,
-        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
-        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
-        limit: 7,
-        auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
-        boundaries: {
-          metadataOnly: true,
-          patientRowsExposed: false,
-          rawIdentifiersExposed: false,
-          revokeReasonExposed: false,
-          temporaryCredentialsExposed: false,
-          qrTokensExposed: false,
-          sessionIdsExposed: false,
-          storagePathsExposed: false,
-          signedUrlsIssued: false,
-          patientDeliveryAllowed: false,
-          rawCredentialExposed: false,
-          credentialHashExposed: false,
-          credentialFingerprintExposed: false,
-        },
-      });
-      return;
-    }
+    if (!configured || status !== "ready") return;
     setCredentialHashOperationBusy(true);
     const result = await executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash({
       apiBaseUrl: session.apiBaseUrl,
@@ -1573,6 +1287,38 @@ export default function AdminGovernancePage() {
       `Ключ доступа подготовлен: ${result.value.affectedCount} записей, секрет доступа и коды входа скрыты`,
     );
     await loadGovernance();
+  }
+
+  if (!configured) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Управление доступом" subtitle="Правила выдачи и сроки доступа." />
+        <Card className="m-3 p-3 sm:m-4">
+          <p role="status" className="text-[12px] text-muted-foreground">Войдите в систему клиники, чтобы увидеть данные доступа.</p>
+          <Button asChild className="mt-2 min-h-[44px]"><Link to="/self-hosted/login">Войти в систему клиники</Link></Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (status !== "ready" || !governance) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Управление доступом" subtitle="Правила выдачи и сроки доступа." />
+        <Card className="m-3 p-3 sm:m-4">
+          {status === "loading" ? (
+            <p role="status" className="text-[12px] text-muted-foreground">Загружаем данные доступа…</p>
+          ) : (
+            <>
+              <p role="alert" className="text-[12px] text-destructive">{error}</p>
+              <Button variant="outline" className="mt-2 min-h-[44px]" onClick={() => void loadGovernance()}>
+                <RotateCcw className="mr-2 h-3.5 w-3.5" aria-hidden />Повторить
+              </Button>
+            </>
+          )}
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -1603,23 +1349,6 @@ export default function AdminGovernancePage() {
           </div>
         </section>
 
-        {status === "loading" && (
-          <Card className="p-3 text-[12px] text-muted-foreground">Загружаем контур доступа из системы клиники…</Card>
-        )}
-        {status === "error" && (
-          <Card className="p-3">
-            <div role="alert" className="text-[12px] text-destructive">{error}</div>
-            <Button variant="outline" className="mt-2 min-h-[44px] sm:min-h-[36px]" onClick={() => void loadGovernance()}>
-              <RotateCcw className="mr-2 h-3.5 w-3.5" aria-hidden />
-              Повторить
-            </Button>
-          </Card>
-        )}
-        {status === "demo" && (
-          <Card className="p-3 text-[12px] text-muted-foreground">
-            Система клиники не подключена. Показан учебный срез без сетевых действий и без пациентских данных.
-          </Card>
-        )}
 
         <DeliveryDecisionPanel
           governance={governance}

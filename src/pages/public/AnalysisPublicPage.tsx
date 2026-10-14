@@ -1,10 +1,9 @@
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
-import { isProductionAppMode } from "@/lib/app-mode";
-import { getPublicAnalysisView } from "@/lib/public-analysis-access";
 import { getSelfHostedPublicAnalysis, type SelfHostedPublicAnalysisView } from "@/lib/self-hosted-public-analysis-api";
 import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 
@@ -144,14 +143,6 @@ function AnalysisContent({ view }: { view: SelfHostedPublicAnalysisView }) {
   );
 }
 
-function AnalysisPublicPageDemo({ token }: { token: string }) {
-  return (
-    <PublicShell demo>
-      <AnalysisContent view={getPublicAnalysisView(token)} />
-    </PublicShell>
-  );
-}
-
 function AnalysisPublicPageLive({ token }: { token: string }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [view, setView] = useState<SelfHostedPublicAnalysisView | null>(null);
@@ -197,7 +188,6 @@ function AnalysisPublicPageLive({ token }: { token: string }) {
 
 export default function AnalysisPublicPage() {
   const { token = "" } = useParams<{ token: string }>();
-  return isProductionAppMode()
-    ? <AnalysisPublicPageLive token={token} />
-    : <AnalysisPublicPageDemo token={token} />;
+  const session = useSelfHostedApiSession();
+  return <AnalysisPublicPageLive key={`${session.revision}:${token}`} token={token} />;
 }

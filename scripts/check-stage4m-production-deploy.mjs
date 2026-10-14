@@ -111,7 +111,6 @@ const REQUIRED_TEXT = {
     "backup-after-deploy",
     "rollback-drill",
     "update",
-    "VITE_APP_MODE",
     "VITE_SELF_HOSTED_API_BASE_URL",
     "safeFrontendBuild",
     "dist/index.html",
@@ -578,8 +577,8 @@ const REQUIRED_TEXT = {
     "live-private-doctor-practice-mobile-390.png",
   ],
   "src/pages/doctor/DoctorReportsPage.tsx": [
-    "isProductionAppMode",
-    "DoctorReportsPageDemo",
+    "useSelfHostedApiSession",
+    "key={session.revision}",
     "DoctorReportsPageLive",
   ],
   "src/pages/doctor/DoctorReportsPageLive.tsx": [
@@ -589,9 +588,8 @@ const REQUIRED_TEXT = {
     "Поиск отчётов",
   ],
   "src/pages/admin/AdminServicesPage.tsx": [
-    "isProductionAppMode",
     "AdminServicesPageLive",
-    "AdminServicesPageDemo",
+    "key={session.revision}",
     "listAdminClinicServices",
     "createAdminClinicService",
     "updateAdminClinicService",
@@ -788,7 +786,6 @@ const REQUIRED_TEXT = {
     "LATEST_STATUS_PATH",
   ],
   "deploy/self-hosted/.env.production.example": [
-    "VITE_APP_MODE=production",
     "VITE_SELF_HOSTED_API_BASE_URL=https://dermatolog.example.test",
   ],
   ".github/workflows/stage4m-production-deployment-verification.yml": [

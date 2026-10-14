@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
-import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
-import AdminHomePage from "@/pages/admin/AdminHomePage";
-import AdminServicesPage from "@/pages/admin/AdminServicesPage";
-import SysAuditPage from "@/pages/sys/SysAuditPage";
-import SysUsersPage from "@/pages/sys/SysUsersPage";
+import AdminClinicsPage from "./AdminClinicsPage";
+import AdminDoctorsPage from "./AdminDoctorsPage";
+import AdminHomePage from "./AdminHomePage";
+import AdminServicesPage from "./AdminServicesPage";
+import SysAuditPage from "../sys/SysAuditPage";
+import SysUsersPage from "../sys/SysUsersPage";
 
 const sessionMock = vi.hoisted(() => ({
   roles: ["system_admin"] as string[],

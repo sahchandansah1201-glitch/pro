@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import VisitsPageDemo from "@/pages/doctor/VisitsPageDemo";
 import VisitsPageLive from "@/pages/doctor/VisitsPageLive";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 export default function VisitsPage() {
-  return isProductionAppMode() ? <VisitsPageLive /> : <VisitsPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <VisitsPageLive key={session.revision} />;
 }

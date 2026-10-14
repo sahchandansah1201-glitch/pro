@@ -1,67 +1,296 @@
-import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { LESION_COMPARISON_DRAFTS_STORAGE_KEY } from "@/lib/lesion-comparison-drafts";
-import {
-  SELF_HOSTED_API_BASE_URL_KEY,
-  SELF_HOSTED_API_TOKEN_KEY,
-} from "@/lib/self-hosted-api-session";
-import { CALIBRATED_VIEWER_QA_IDS, PROTECTED_RENDER_QA_IDS } from "@/lib/mock-data";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { SELF_HOSTED_API_BASE_URL_KEY, SELF_HOSTED_API_TOKEN_KEY, writeSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import LesionDetailPage from "./LesionDetailPage";
+import { LESION_COMPARISON_DRAFTS_STORAGE_KEY } from "@/lib/lesion-comparison-drafts";
 
-const j = (...p: string[]) => p.join("");
-const FORBIDDEN = [
-  j("doctor", "Version", "Text"),
-  j("patient", "Safe", "Text"),
-  j("shared", "Link"),
-  j("storage", "Path"),
-  j("photo", "Ref"),
-  j("model", "Version"),
-  j("heatmap", "Ref"),
-  j("external", "User", "Ref"),
-  j("protected", "Analysis", "Link"),
-];
-
-const renderAt = (path: string) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/patients/:id/lesions/:lesionId" element={<LesionDetailPage />} />
-        <Route path="*" element={<div>fallback</div>} />
-      </Routes>
-    </MemoryRouter>,
-  );
-
+const patientId = "a1111111-1111-4111-8111-111111111111";
+const lesionId = "a2222222-2222-4222-8222-222222222222";
+const previousImageId = "a3333333-3333-4333-8333-333333333333";
+const currentImageId = "a4444444-4444-4444-8444-444444444444";
+const visitId = "a7777777-7777-4777-8777-777777777777";
+const route = `/patients/${patientId}/lesions/${lesionId}`;
+const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status, headers: { "Content-Type": "application/json" },
+});
+function writeSession(token = "synthetic-lesion-token") {
+  writeSelfHostedApiSession({ apiBaseUrl: "http://localhost:3001", apiToken: token,
+    user: { id: token, displayName: "Тестовый врач", roles: ["doctor"] } });
+}
+function history(label = "Контрольный очаг") {
+  return {
+    clinicId: "a5555555-5555-4555-8555-555555555555", patientId, lesionId,
+    label, bodyZone: "Кисть правой руки", bodySurface: "front", status: "monitoring",
+    summary: { visitCount: 2, imageCount: 2, candidatePairCount: 1, comparablePairCount: 1, warningPairCount: 0, blockedPairCount: 0, assessmentCount: 0 },
+    visits: [
+      { visitId: "a6666666-6666-4666-8666-666666666666", startedAt: "2026-08-01T08:00:00Z", status: "signed", signedAt: "2026-08-01T09:00:00Z", imageCount: 1 },
+      { visitId, startedAt: "2026-09-01T08:00:00Z", status: "in_progress", signedAt: null, imageCount: 1 },
+    ],
+    images: [
+      { id: previousImageId, visitId: "a6666666-6666-4666-8666-666666666666", kind: "dermoscopy", capturedAt: "2026-08-01T08:20:00Z" },
+      { id: currentImageId, visitId, kind: "dermoscopy", capturedAt: "2026-09-01T08:20:00Z" },
+    ],
+    candidatePairs: [{ previousVisitId: "a6666666-6666-4666-8666-666666666666", currentVisitId: visitId,
+      previousImageId, currentImageId, kind: "dermoscopy", status: "ready", reasons: [] }],
+    boundaries: {},
+  };
+}
+function liveResponse(input: RequestInfo | URL, label = "Контрольный очаг") {
+  const url = String(input);
+  if (url.endsWith("/longitudinal-history")) return jsonResponse({ item: history(label) });
+  if (url.endsWith(`/patients/${patientId}`)) return jsonResponse({ item: {
+    id: patientId, code: "TEST-001", fullName: "Тестовый пациент", birthDate: "1985-04-10",
+    sex: "female", phototype: "II", imagingConsent: true, createdAt: "2026-09-01T08:00:00Z",
+  } });
+  return jsonResponse({ error: { code: "not_found" } }, 404);
+}
+function RouteActions() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate("/patients/p-004/lesions/l-008")}>Неверная ссылка</button>;
+}
+const renderAt = (path: string) => render(<MemoryRouter initialEntries={[path]}><RouteActions /><Routes>
+  <Route path="/patients/:id/lesions/:lesionId" element={<LesionDetailPage />} />
+  <Route path="*" element={<div>fallback</div>} />
+</Routes></MemoryRouter>);
 const selectComparePair = (...imageIds: string[]) => {
-  for (const imageId of imageIds) {
-    const row = document.querySelector<HTMLElement>(`[data-image-id="${imageId}"]`);
-    if (!row) throw new Error(`Image row not found: ${imageId}`);
+  for (const id of imageIds) {
+    const row = document.querySelector<HTMLElement>(`[data-image-id="${id}"]`);
+    if (!row) throw new Error("Image row not found");
     fireEvent.click(within(row).getByRole("button", { name: /Сравнить/ }));
   }
 };
+async function renderLive(handler?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> | Response) {
+  writeSession();
+  const fetchMock = vi.fn(handler ?? ((input) => liveResponse(input)));
+  vi.stubGlobal("fetch", fetchMock);
+  const rendered = renderAt(route);
+  await screen.findByText(/Контрольный очаг/);
+  return { ...rendered, fetchMock };
+}
+async function openComparison(handler?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> | Response) {
+  const rendered = await renderLive(handler);
+  selectComparePair(previousImageId, currentImageId);
+  fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+  return { ...rendered, dialog: screen.getByRole("dialog", { name: /Полноэкранное сравнение/ }) };
+}
+beforeEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); window.localStorage.clear(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("LesionDetailPage", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    window.localStorage.clear();
+  it("stops a pending QA review chain before a second write after the account changes", async () => {
+    let finishSave: () => void = () => {};
+    const pending = new Promise<void>((resolve) => { finishSave = resolve; });
+    const { dialog, fetchMock } = await openComparison(async (input, init) => {
+      if (init?.method === "PATCH") {
+        await pending;
+        return jsonResponse({ item: { ...JSON.parse(String(init.body)), id: "synthetic-qa", visitId } });
+      }
+      return liveResponse(input);
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Нужен переснимок" }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1));
+    await act(async () => { writeSession("synthetic-next-doctor"); });
+    await screen.findByText(/Контрольный очаг/);
+    await act(async () => { finishSave(); });
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1);
+    expect(screen.queryByText(/Технический разбор просмотра сохранён в системе клиники/)).not.toBeInTheDocument();
   });
 
-  it("p-004/l-008: показывает образование, снимки и ссылку на визит", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-    expect(screen.getByText(/Очаг B/)).toBeInTheDocument();
-    // Текущий визит содержит пару снимков; технические image IDs не выводятся врачу.
-    expect(document.querySelector('[data-image-id="i-011"]')).toBeTruthy();
-    expect(document.querySelector('[data-image-id="i-012"]')).toBeTruthy();
-    expect(screen.getAllByText(/Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Оценка врача")).toBeInTheDocument();
-    expect(screen.queryByText("a-005")).toBeNull();
-    // ссылка на визит
-    const link = screen.getAllByRole("link", { name: /визит/i }).find((a) =>
-      a.getAttribute("href")?.includes("/patients/p-004/visits/v-005"),
-    );
-    expect(link).toBeTruthy();
-    expect(screen.queryByText(/таймлайн снимков, сравнение/i)).toBeNull();
+  it("persists a recapture review only after saving technical QA through real endpoints", async () => {
+    const { dialog, fetchMock } = await openComparison((input, init) => {
+      if (init?.method === "PATCH") return jsonResponse({ item: {
+        ...JSON.parse(String(init.body)), id: "synthetic-qa", visitId,
+        review: { status: String(input).endsWith("/review") ? "needs_recapture" : "unreviewed", reasons: ["repeat_capture_required"] },
+        patientDeliveryAllowed: false, medicalMeasurementAllowed: false, protectedFieldsExposed: false,
+      } });
+      return liveResponse(input);
+    });
+    const review = within(dialog).getByRole("region", { name: "Технический разбор просмотра" });
+    fireEvent.click(within(review).getByRole("button", { name: "Нужен переснимок" }));
+    await within(review).findByText(/Технический разбор просмотра сохранён в системе клиники/);
+    const writes = fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH");
+    expect(writes).toHaveLength(2);
+    expect(String(writes[0][0])).toMatch(/\/lesion-comparison-viewer-qa$/);
+    expect(String(writes[1][0])).toMatch(/\/lesion-comparison-viewer-qa\/review$/);
+    expect(String(writes[1][1]?.body)).toContain("needs_recapture");
+    expect(dialog).toHaveTextContent("Выдача пациенту: выключена");
   });
+
+  it("retains a structured comparison draft for a real image pair without patient delivery", async () => {
+    const handler = (input: RequestInfo | URL, init?: RequestInit) => init?.method === "PATCH"
+      ? jsonResponse({ item: { ...JSON.parse(String(init.body)), id: "synthetic-draft", visitId, patientDeliveryAllowed: false, protectedFieldsExposed: false } }) : liveResponse(input);
+    const { unmount } = await renderLive(handler);
+    selectComparePair(previousImageId, currentImageId);
+    const review = screen.getByRole("region", { name: "Рабочий разбор пары" });
+    fireEvent.click(within(review).getByRole("button", { name: "Запросить переснимок" }));
+    fireEvent.click(within(review).getByRole("button", { name: "Сохранить черновик решения" }));
+    await within(review).findByText(/Журнал проверки сохранён в системе клиники/);
+    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY)).toContain("retake");
+    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY)).not.toMatch(/storagePath|signedUrl|patientSafeText/);
+    unmount();
+    await renderLive(handler);
+    selectComparePair(previousImageId, currentImageId);
+    expect(screen.getByRole("region", { name: "Рабочий разбор пары" })).toHaveTextContent("Черновик решения загружен");
+  });
+
+  it("hides the ready patient and image record immediately after navigation to a legacy ID", async () => {
+    await renderLive();
+    expect(document.querySelector("[data-image-id]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Неверная ссылка" }));
+    expect(screen.getByText("Образование не найдено")).toBeInTheDocument();
+    expect(screen.queryByText(/Контрольный очаг|Тестовый пациент/)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-image-id]")).toBeNull();
+  });
+  it("keeps calibration and reviewer approval blocked when real image metadata is unknown", async () => {
+    const { dialog } = await openComparison();
+    const calibration = within(dialog).getByRole("region", { name: "Калибровка просмотра" });
+    expect(calibration).toHaveTextContent("Калибровка: не готова");
+    expect(calibration).not.toHaveTextContent(/FotoFinder|2048×2048|3000×2000/);
+    expect(within(dialog).getByText(/Измерения отключены/)).toBeInTheDocument();
+    const review = within(dialog).getByRole("region", { name: "Технический разбор просмотра" });
+    expect(within(review).getByRole("button", { name: "Технически готово" })).toBeDisabled();
+    expect(dialog).toHaveTextContent("Выдача пациенту: выключена");
+    expect(dialog).not.toHaveTextContent(/signedUrl|storagePath|меланома|рак кожи/);
+  });
+
+  it("loads protected previews only through the authenticated proxy and revokes their URLs", async () => {
+    let count = 0;
+    const createObjectURL = vi.fn(() => `blob:synthetic-preview-${++count}`);
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    const { dialog, unmount, fetchMock } = await openComparison((input) => String(input).endsWith("/render")
+      ? new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "image/png" } }) : liveResponse(input));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Подготовить защищённые превью" }));
+    await within(dialog).findByText(/Защищённые превью загружены через систему клиники/);
+    expect(within(dialog).getByAltText("Защищённый снимок A")).toHaveAttribute("src", "blob:synthetic-preview-1");
+    const renderCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/render"));
+    expect(renderCalls).toHaveLength(2);
+    for (const [input, init] of renderCalls) {
+      expect(String(input)).toContain(`/patients/${patientId}/lesions/${lesionId}/images/`);
+      expect(init).toEqual(expect.objectContaining({ method: "GET", credentials: "include" }));
+    }
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:synthetic-preview-1");
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:synthetic-preview-2");
+  });
+
+  it("saves technical geometry and calibration restrictions through the real QA API contract", async () => {
+    const { dialog, fetchMock } = await openComparison((input, init) => {
+      if (init?.method === "PATCH") return jsonResponse({ item: { ...JSON.parse(String(init.body)), id: "synthetic-qa", visitId, patientDeliveryAllowed: false, protectedFieldsExposed: false } });
+      return liveResponse(input);
+    });
+    const geometry = within(dialog).getByRole("region", { name: "Техническая геометрия" });
+    fireEvent.click(within(geometry).getByRole("button", { name: "Поставить маркер A" }));
+    const calibration = within(dialog).getByRole("region", { name: "Калибровка просмотра" });
+    fireEvent.click(within(calibration).getByRole("button", { name: "Зафиксировать ограничение калибровки" }));
+    await within(calibration).findByText(/Проверка просмотра сохранена в системе клиники/);
+    const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
+    expect(String(write?.[0])).toBe("http://localhost:3001/api/v1/visits/a6666666-6666-4666-8666-666666666666/lesion-comparison-viewer-qa");
+    expect(String(write?.[1]?.body)).toContain("technicalMarkers");
+    expect(String(write?.[1]?.body)).not.toMatch(/storagePath|signedUrl|patientSafeText/);
+  });
+  it.each([401, 403, 500])("shows a safe working error for HTTP %s without patient fixtures", async (status) => {
+    writeSession();
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: { code: "unavailable", message: "internal-secret" } }, status)));
+    renderAt(route);
+    expect(await screen.findByText("Не удалось загрузить образование")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Очаг B|internal-secret|Новиков/);
+    expect(document.querySelector("[data-image-id]")).toBeNull();
+  });
+
+  it("retries real patient and history APIs after network failure", async () => {
+    writeSession();
+    let failed = true;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => { if (failed) throw new Error("synthetic network failure"); return liveResponse(input); }));
+    renderAt(route);
+    await screen.findByText("Не удалось загрузить образование");
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
+    expect(await screen.findByText(/Контрольный очаг/)).toBeInTheDocument();
+    expect(screen.queryByText(/Очаг B/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a valid pending request empty and discards its result after navigation to an invalid ID", async () => {
+    writeSession();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => { await gate; return liveResponse(input); }));
+    renderAt(route);
+    expect(screen.getByText("Загружаем карточку образования")).toBeInTheDocument();
+    expect(document.querySelector("[data-image-id]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Неверная ссылка" }));
+    expect(screen.getByText("Образование не найдено")).toBeInTheDocument();
+    await act(async () => { release(); });
+    expect(screen.queryByText(/Контрольный очаг|Тестовый пациент/)).not.toBeInTheDocument();
+  });
+
+  it.each([`/patients/${patientId}/lesions/l-008`, `/patients/p-004/lesions/${lesionId}`, "/patients/bad/lesions/bad"])("rejects malformed or mixed route %s without any lookup", (path) => {
+    writeSession();
+    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+    renderAt(path);
+    expect(screen.getByText("Образование не найдено")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-image-id]")).toBeNull();
+  });
+
+  it("does not substitute an empty successful payload with a training record", async () => {
+    writeSession();
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ item: null })));
+    renderAt(route);
+    expect(await screen.findByText("Не удалось загрузить образование")).toBeInTheDocument();
+    expect(document.querySelector("[data-image-id]")).toBeNull();
+  });
+  it("discards late protected previews after the working account changes", async () => {
+    let resolveImages: (response: Response) => void = () => {};
+    const pendingImages = new Promise<Response>((resolve) => { resolveImages = resolve; });
+    const createObjectURL = vi.fn(() => "blob:synthetic-old-preview");
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    const { dialog } = await openComparison((input) => String(input).endsWith("/render") ? pendingImages.then((r) => r.clone()) : liveResponse(input));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Подготовить защищённые превью" }));
+    await act(async () => { writeSession("synthetic-other-account"); });
+    await screen.findByText(/Контрольный очаг/);
+    await act(async () => { resolveImages(new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "Content-Type": "image/png" } })); });
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(document.querySelector('img[src="blob:synthetic-old-preview"]')).toBeNull();
+  });
+  it("discards a late QA response after the working account changes on the same route", async () => {
+    let resolveQa: (response: Response) => void = () => {};
+    const pendingQa = new Promise<Response>((resolve) => { resolveQa = resolve; });
+    await renderLive((input) => String(input).endsWith("/longitudinal-qa") ? pendingQa : liveResponse(input));
+    fireEvent.click(screen.getByRole("button", { name: "Обновить рабочую проверку" }));
+    expect(screen.getByText("Рабочая проверка обновляется из системы клиники.")).toBeInTheDocument();
+    await act(async () => { writeSession("synthetic-other-account"); });
+    await screen.findByText(/Контрольный очаг/);
+    await act(async () => { resolveQa(jsonResponse({ item: {
+      patientId, lesionId, blockers: [{ code: "old", label: "Старый результат проверки", count: 1, nextAction: "review" }],
+    } })); });
+    expect(screen.queryByText("Старый результат проверки")).not.toBeInTheDocument();
+    expect(screen.queryByText("Рабочая проверка обновлена. Выдача пациенту: выключена.")).not.toBeInTheDocument();
+  });
+  it("rejects legacy training IDs without looking up a fixture or calling the backend", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-lesion-token");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderAt("/patients/p-004/lesions/l-008");
+    expect(screen.getByText("Образование не найдено")).toBeInTheDocument();
+    expect(screen.queryByText(/Очаг B|Соколова|Новиков/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-image-id="i-011"]')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+
+  it("requires a working session for valid lesion IDs without showing patient data", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderAt("/patients/a1111111-1111-4111-8111-111111111111/lesions/a2222222-2222-4222-8222-222222222222");
+    expect(screen.getByText("Войдите в систему клиники, чтобы открыть образование.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Войти в систему клиники" })).toHaveAttribute("href", "/self-hosted/login");
+    expect(screen.queryByRole("button", { name: /Сравнить/ })).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
 
   it("loads a real UUID lesion route from the clinic system and exposes its comparable pair", async () => {
     const patientId = "a1111111-1111-4111-8111-111111111111";
@@ -219,6 +448,7 @@ describe("LesionDetailPage", () => {
     expect(document.body.textContent ?? "").not.toMatch(/storagePath|signedUrl|rawToken/i);
   });
 
+
   it("fails closed when the clinic response belongs to another lesion route", async () => {
     const patientId = "c1111111-1111-4111-8111-111111111111";
     const lesionId = "c2222222-2222-4222-8222-222222222222";
@@ -268,287 +498,19 @@ describe("LesionDetailPage", () => {
     expect(screen.queryByText("Чужая карточка")).toBeNull();
   });
 
-  it("shows a longitudinal lesion history across visits with technical comparison boundaries", () => {
-    renderAt("/patients/p-004/lesions/l-008");
 
-    const history = screen.getByRole("region", { name: /Продольная история очага/ });
-    expect(within(history).getByText(/Визитов с фото: 2/)).toBeInTheDocument();
-    expect(within(history).getByText(/Снимков: 4/)).toBeInTheDocument();
-    expect(within(history).getByText(/Сопоставимых пар: 0/)).toBeInTheDocument();
-    expect(within(history).getByText(/Ограничений: 1/)).toBeInTheDocument();
-    expect(within(history).getByText(/Визит 20\.02\.2026/)).toBeInTheDocument();
-    expect(within(history).getByText(/Визит 09\.03\.2026/)).toBeInTheDocument();
-    expect(history.textContent ?? "").not.toMatch(/\bv-011\b|\bv-005\b/);
-    expect(within(history).getAllByText(/Снимок 20\.02\.2026 → Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
-    expect(within(history).getByText(/Нужна техническая проверка/)).toBeInTheDocument();
-    expect(within(history).getByText(/Не сопоставимо/)).toBeInTheDocument();
-    expect(within(history).getByText(/Не является оценкой динамики или клиническим выводом/)).toBeInTheDocument();
-    expect(history.textContent ?? "").not.toMatch(
-      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
-    );
+  it("shows not-found for a missing working record without retrying a fixture lookup", async () => {
+    writeSession();
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: { code: "not_found" } }, 404)));
+    renderAt(route);
+    expect(await screen.findByText("Образование не найдено")).toBeInTheDocument();
+    expect(screen.queryByText(/Очаг B|Тестовый пациент/)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-image-id]")).toBeNull();
   });
+  it("supports local zoom, pan and technical annotation in full-screen comparison without patient delivery", async () => {
+    await renderLive();
 
-  it("shows a longitudinal QA gate before dynamic interpretation", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    const qaGate = screen.getByRole("region", { name: /Готовность продольной проверки/ });
-    expect(within(qaGate).getByText(/Динамика заблокирована/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Технически готово/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Нужен переснимок/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Не создаёт вывод о динамике/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
-    expect(qaGate.textContent ?? "").not.toMatch(
-      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
-    );
-  });
-
-  it("loads longitudinal readiness gate from clinic system without protected identifiers", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          item: {
-            patientId: PROTECTED_RENDER_QA_IDS.patientId,
-            lesionId: PROTECTED_RENDER_QA_IDS.lesionId,
-            label: "Очаг защищённого доступа",
-            readiness: {
-              status: "technical_ready",
-              visitCount: 2,
-              imageCount: 4,
-              candidatePairCount: 2,
-              reviewedPairCount: 2,
-              technicalReadyPairCount: 2,
-              needsRecaptureCount: 0,
-              notSuitableForComparisonCount: 0,
-              unreviewedPairCount: 0,
-              missingCaptureMetadataCount: 0,
-              calibrationBlockedCount: 0,
-              markerMissingCount: 0,
-              technicalRolloutReady: true,
-              dynamicConclusionAllowed: true,
-            },
-            blockers: [],
-            nextActions: ["continue_review"],
-            boundaries: {
-              patientDeliveryAllowed: true,
-              medicalMeasurementAllowed: true,
-              protectedFieldsExposed: true,
-              pairKeysExposed: true,
-              imageIdsExposed: true,
-              storagePathsExposed: true,
-              signedUrlsIssued: true,
-              rawImageBytesExposed: true,
-              doctorOnlyTextExposed: true,
-              clinicalConclusionGenerated: true,
-            },
-          },
-        }),
-        { headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    renderAt(`/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`);
-
-    const qaGate = screen.getByRole("region", { name: /Готовность продольной проверки/ });
-    fireEvent.click(within(qaGate).getByRole("button", { name: /Обновить рабочую проверку/ }));
-
-    expect(await within(qaGate).findByText(/Рабочая проверка обновлена/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Техническая проверка готова/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Вывод о динамике: выключен/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/longitudinal-qa`,
-      expect.objectContaining({ method: "GET" }),
-    );
-    expect(qaGate.textContent ?? "").not.toMatch(
-      /pairKey|imageIds|i-011|i-012|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
-    );
-  });
-
-  it("p-004/l-007: снимок есть, но структурированной оценки нет", () => {
-    renderAt("/patients/p-004/lesions/l-007");
-    expect(screen.getByText(/Послеоперационная зона/)).toBeInTheDocument();
-    expect(document.querySelector('[data-image-id="i-010"]')).toBeTruthy();
-    expect(
-      screen.getByText(/Структурированная оценка не зафиксирована/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Оценок по образованию пока нет/)).toBeInTheDocument();
-  });
-
-  it("неизвестный lesionId — безопасный not-found", () => {
-    renderAt("/patients/p-004/lesions/l-zzz");
-    expect(screen.getByText(/Образование не найдено/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /К карточке пациента/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("неизвестный пациент — not-found", () => {
-    renderAt("/patients/p-zzz/lesions/l-008");
-    expect(screen.getByText(/Пациент не найден/)).toBeInTheDocument();
-  });
-
-  it("кнопки демо-действий меняют только локальное состояние", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-    const row = document.querySelector<HTMLElement>('[data-image-id="i-011"]')!;
-    const openBtn = within(row).getByRole("button", { name: /Открыть снимок/ });
-    fireEvent.click(openBtn);
-    expect(openBtn).toHaveAttribute("aria-pressed", "true");
-    expect(within(row).getByText(/Открыт в просмотрщике/)).toBeInTheDocument();
-
-    const compareBtn = within(row).getByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareBtn);
-    expect(compareBtn).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("показывает связь данных, ленту дат и предупреждение о несопоставимых снимках", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    expect(screen.getByText(/Связь данных/)).toBeInTheDocument();
-    expect(screen.getByText(/Карта, снимки и отчёт связаны/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Служебный код скрыт/i).length).toBeGreaterThan(0);
-    expect(screen.queryByText("l-008")).toBeNull();
-    expect(screen.getByText(/Лента дат очага/)).toBeInTheDocument();
-    expect(screen.getAllByText(/FotoFinder Handyscope/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Устройство не указано/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/С предупреждением/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Нужен переснимок/).length).toBeGreaterThan(0);
-
-    selectComparePair("i-011", "i-012");
-
-    expect(screen.getByText(/Сравнение по датам/)).toBeInTheDocument();
-    expect(screen.getByText(/условия съёмки не подтверждены/i)).toBeInTheDocument();
-  });
-
-  it("shows a richer Comparison Matrix with capture-condition differences and safety boundary", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    const matrix = screen.getByRole("table", { name: /Матрица сравнения/ });
-    expect(within(matrix).getAllByText(/Снимок A/).length).toBeGreaterThan(0);
-    expect(within(matrix).getAllByText(/Снимок B/).length).toBeGreaterThan(0);
-    expect(within(matrix).getByText(/Внутренний код скрыт/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Дата/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Тип снимка/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Источник/)).toBeInTheDocument();
-    expect(within(matrix).getByText("Устройство")).toBeInTheDocument();
-    expect(within(matrix).getByText(/Качество/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Сопоставимость/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Недостаточно данных об условиях/)).toBeInTheDocument();
-    expect(screen.getByText(/Нельзя оценивать динамику без врачебной проверки/i)).toBeInTheDocument();
-  });
-
-  it("turns a non-comparable image pair into doctor actions without unsafe copy", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
-    expect(within(review).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
-    expect(within(review).getAllByText(/Не сопоставимо/).length).toBeGreaterThan(0);
-    expect(within(review).getByText(/Не указаны источник или устройство/)).toBeInTheDocument();
-    expect(within(review).getByText(/Есть технические замечания/)).toBeInTheDocument();
-    expect(within(review).getByText(/Не оценивайте динамику/i)).toBeInTheDocument();
-
-    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
-    expect(within(review).getAllByText(/Переснимок запрошен/).length).toBeGreaterThan(0);
-
-    fireEvent.click(within(review).getByRole("button", { name: /Исключить из сравнения/ }));
-    expect(within(review).getAllByText(/Пара исключена из сравнения/).length).toBeGreaterThan(0);
-
-    fireEvent.click(within(review).getByRole("button", { name: /Добавить ограничение в отчёт/ }));
-    expect(within(review).getAllByText(/Ограничение добавлено в черновик отчёта/).length).toBeGreaterThan(0);
-
-    expect(review.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
-  });
-
-  it("opens a full-screen comparison view for the selected pair", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const focus = within(dialog).getByRole("region", { name: /Рабочий шаг сравнения/ });
-    expect(within(focus).getByText(/Что делать сейчас/)).toBeInTheDocument();
-    expect(within(focus).getByText(/Следующий шаг: Закрыть условия съёмки/)).toBeInTheDocument();
-    expect(within(focus).getByText(/Ближайшее действие:/)).toBeInTheDocument();
-    expect(within(focus).getAllByText(/Открыть контроль условий/).length).toBeGreaterThan(0);
-    expect(within(focus).getByText(/Первое ограничение: Тип снимка · разный тип снимка/)).toBeInTheDocument();
-    expect(within(focus).getByText(/Прогресс проверки: 1\/8/)).toBeInTheDocument();
-    expect(within(focus).getByRole("link", { name: /Открыть контроль условий/ })).toHaveAttribute(
-      "href",
-      "#comparison-capture-qa",
-    );
-    expect(within(focus).getByRole("list", { name: /Этапы сравнения снимков/ })).toBeInTheDocument();
-    expect(within(dialog).getByText(/Снимок A/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Снимок B/)).toBeInTheDocument();
-    expect(dialog.textContent ?? "").not.toContain("i-011");
-    expect(dialog.textContent ?? "").not.toContain("i-012");
-    expect(within(dialog).getByText(/Условия съёмки/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Не сопоставимо/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Не оценивайте динамику/)).toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole("button", { name: /Запросить переснимок/ }));
-    expect(within(dialog).getByText(/Переснимок запрошен/)).toBeInTheDocument();
-
-    expect(dialog.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
-  });
-
-  it("shows capture-condition QA details without clinical conclusions", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const captureQa = within(dialog).getByRole("region", { name: /Контроль условий съёмки/ });
-
-    expect(within(captureQa).getByText(/Контроль условий съёмки/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Итог: нужна повторяемая съёмка/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Тип снимка/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/разный тип снимка/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Источник/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/разные источники/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText("Устройство")).toBeInTheDocument();
-    expect(within(captureQa).getByText(/FotoFinder Handyscope \/ Устройство не указано/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Качество/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/минимум 67%/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Замечания качества/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/размытие, тени/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/Не является клинической оценкой динамики/)).toBeInTheDocument();
-    expect(captureQa.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|лечение|token|storage/i);
-  });
-
-  it("marks same-device QA UUID previews as technically repeatable", () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    renderAt(
-      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
-    );
-
-    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const captureQa = within(dialog).getByRole("region", { name: /Контроль условий съёмки/ });
-
-    expect(within(captureQa).getByText(/Итог: условия технически повторяемы/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/один тип снимка/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/один источник/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/одно устройство/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/минимум 89%/i)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/нет замечаний качества/i)).toBeInTheDocument();
-    expect(captureQa.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|лечение|token|storage/i);
-  });
-
-  it("supports local zoom, pan and technical annotation in full-screen comparison without patient delivery", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
+    selectComparePair(previousImageId, currentImageId);
 
     fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
 
@@ -558,8 +520,8 @@ describe("LesionDetailPage", () => {
     expect(within(tools).getByText(/Смещение x0 \/ y0/)).toBeInTheDocument();
     expect(within(tools).getByText(/Измерения отключены/)).toBeInTheDocument();
     expect(within(tools).getByText(/Защищённые превью врача/)).toBeInTheDocument();
-    expect(within(tools).getByRole("button", { name: /Подготовить защищённые превью/ })).toBeDisabled();
-    expect(within(tools).getByText(/Система клиники не подключена/)).toBeInTheDocument();
+    expect(within(tools).getByRole("button", { name: /Подготовить защищённые превью/ })).not.toBeDisabled();
+    expect(within(tools).getByText(/вход настроен/)).toBeInTheDocument();
 
     fireEvent.click(within(tools).getByRole("button", { name: /Увеличить/ }));
     fireEvent.click(within(tools).getByRole("button", { name: /Сместить вправо/ }));
@@ -580,10 +542,10 @@ describe("LesionDetailPage", () => {
     );
   });
 
-  it("supports normalized technical geometry markers without medical measurement", () => {
-    renderAt("/patients/p-004/lesions/l-008");
+  it("supports normalized technical geometry markers without medical measurement", async () => {
+    await renderLive();
 
-    selectComparePair("i-011", "i-012");
+    selectComparePair(previousImageId, currentImageId);
     fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
 
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
@@ -612,552 +574,5 @@ describe("LesionDetailPage", () => {
     );
   });
 
-  it("shows calibration readiness gates without enabling measurements", () => {
-    renderAt("/patients/p-004/lesions/l-008");
 
-    selectComparePair("i-011", "i-012");
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
-
-    expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Профиль устройства/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/FotoFinder Handyscope \/ Устройство не указано/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Размер кадра/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/2048×2048 \/ 3000×2000/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Масштабная шкала/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Измерения в миллиметрах недоступны/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Не используйте маркеры как размер очага/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
-
-    fireEvent.click(within(calibration).getByRole("button", { name: /Зафиксировать ограничение калибровки/ }));
-    expect(within(calibration).getByText(/Ограничение калибровки зафиксировано локально/)).toBeInTheDocument();
-
-    expect(dialog.textContent ?? "").not.toMatch(
-      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
-    );
-  });
-
-  it("saves technical marker and calibration QA to self-hosted backend without patient delivery", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          item: {
-            id: "viewer-qa-1",
-            visitId: "v-005",
-            lesionId: "l-008",
-            pairKey: "l-008:i-011+i-012",
-            imageIds: ["i-011", "i-012"],
-            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
-            calibrationStatus: "not_ready",
-            calibrationReasons: ["scale_marker_missing"],
-            captureMetadataStatus: "needs_review",
-            medicalMeasurementAllowed: false,
-            patientDeliveryAllowed: false,
-            protectedFieldsExposed: false,
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
-
-    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
-    fireEvent.click(within(calibration).getByRole("button", { name: /Зафиксировать ограничение калибровки/ }));
-
-    expect(await within(calibration).findByText(/Проверка просмотра сохранена в системе клиники/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    const body = JSON.stringify(fetchMock.mock.calls[0]?.[1]);
-    expect(body).toContain("technicalMarkers");
-    expect(body).toContain("scale_marker_missing");
-    expect(body).not.toMatch(
-      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
-    );
-    expect(dialog.textContent ?? "").toMatch(/Выдача пациенту: выключена/);
-  });
-
-  it("persists a technical viewing review after saving the viewing check", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          item: {
-            id: "viewer-qa-1",
-            visitId: "v-005",
-            lesionId: "l-008",
-            pairKey: "l-008:i-011+i-012",
-            imageIds: ["i-011", "i-012"],
-            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
-            calibrationStatus: "not_ready",
-            calibrationReasons: ["scale_marker_missing"],
-            captureMetadataStatus: "needs_review",
-            review: url.includes("/review")
-              ? {
-                  status: "needs_recapture",
-                  reasons: ["repeat_capture_required"],
-                  reviewedAt: "2026-05-19T10:50:00.000Z",
-                  reviewedByUserId: "doctor-1",
-                }
-              : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
-            medicalMeasurementAllowed: false,
-            patientDeliveryAllowed: false,
-            protectedFieldsExposed: false,
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const review = within(tools).getByRole("region", { name: /Технический разбор просмотра/ });
-
-    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
-    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
-    fireEvent.click(within(review).getByRole("button", { name: /Нужен переснимок/ }));
-
-    expect(await within(review).findByText(/Технический разбор просмотра сохранён в системе клиники/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa/review",
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    const reviewBody = JSON.stringify(fetchMock.mock.calls[1]?.[1]);
-    expect(reviewBody).toContain("needs_recapture");
-    expect(reviewBody).toContain("repeat_capture_required");
-    expect(reviewBody).not.toMatch(
-      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|patientSafeText/i,
-    );
-    expect(within(review).getByText(/Решение техническое: не диагноз, не динамика, не измерение/)).toBeInTheDocument();
-    expect(within(review).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
-  });
-
-  it("keeps clinic-system previews non-calibrated until a scale marker exists", () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    renderAt(
-      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
-    );
-
-    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
-
-    expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/одно устройство: FotoFinder Handyscope/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/один размер: 2048×2048/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getAllByText(/миллиметры недоступны/).length).toBeGreaterThan(0);
-
-    expect(dialog.textContent ?? "").not.toMatch(
-      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
-    );
-  });
-
-  it("accepts clinical-grade reviewer workflow only after calibrated technical review gates", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      const reviewerWorkflow = url.endsWith("/reviewer-workflow")
-        ? {
-            status: "reviewer_accepted",
-            reasons: ["calibrated_reviewer_workflow_ready"],
-            reviewedAt: "2026-05-19T10:55:00.000Z",
-            reviewedByUserId: "doctor-1",
-            gate: {
-              technicalReviewReady: true,
-              calibrationReady: true,
-              captureMetadataReady: true,
-              markerGateReady: true,
-              measurementPolicyApproved: true,
-              productionAnalysisPolicyApproved: true,
-              reviewerAssignmentReady: true,
-              secondReviewReady: true,
-              medicalMeasurementAllowed: true,
-              patientDeliveryAllowed: true,
-              clinicalConclusionGenerated: true,
-            },
-          }
-        : {
-            status: "technical_gate_blocked",
-            reasons: [],
-            reviewedAt: null,
-            reviewedByUserId: null,
-            gate: {
-              technicalReviewReady: false,
-              calibrationReady: true,
-              captureMetadataReady: true,
-              markerGateReady: true,
-              measurementPolicyApproved: url.endsWith("/measurement-policy"),
-              productionAnalysisPolicyApproved: url.endsWith("/production-analysis-policy"),
-              reviewerAssignmentReady: url.endsWith("/reviewer-assignment"),
-              secondReviewReady: url.endsWith("/reviewer-assignment"),
-              medicalMeasurementAllowed: false,
-              patientDeliveryAllowed: false,
-              clinicalConclusionGenerated: false,
-            },
-          };
-      return new Response(
-        JSON.stringify({
-          item: {
-            id: "viewer-qa-calibrated",
-            visitId: CALIBRATED_VIEWER_QA_IDS.visitId,
-            lesionId: CALIBRATED_VIEWER_QA_IDS.lesionId,
-            pairKey: `${CALIBRATED_VIEWER_QA_IDS.lesionId}:${CALIBRATED_VIEWER_QA_IDS.imageAId}+${CALIBRATED_VIEWER_QA_IDS.imageBId}`,
-            imageIds: [CALIBRATED_VIEWER_QA_IDS.imageAId, CALIBRATED_VIEWER_QA_IDS.imageBId],
-            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
-            calibrationStatus: "ready",
-            calibrationReasons: [],
-            captureMetadataStatus: "ready",
-            review: url.endsWith("/review") || url.endsWith("/reviewer-workflow")
-              ? {
-                  status: "technical_ready",
-                  reasons: ["technical_review_ready"],
-                  reviewedAt: "2026-05-19T10:50:00.000Z",
-                  reviewedByUserId: "doctor-1",
-                }
-              : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
-            reviewerWorkflow,
-            measurementPolicy: url.endsWith("/measurement-policy") || url.endsWith("/reviewer-workflow")
-              || url.endsWith("/reviewer-assignment")
-              || url.endsWith("/production-analysis-policy")
-              ? {
-                  status: "approved_for_technical_review",
-                  reasons: ["technical_measurement_policy_approved_no_mm_output"],
-                  reviewedAt: "2026-05-19T10:53:00.000Z",
-                  reviewedByUserId: "doctor-1",
-                  medicalMeasurementAllowed: true,
-                  patientDeliveryAllowed: true,
-                  clinicalOutputGenerated: true,
-                }
-              : {
-                  status: "not_approved",
-                  reasons: [],
-                  reviewedAt: null,
-                  reviewedByUserId: null,
-                  medicalMeasurementAllowed: false,
-                  patientDeliveryAllowed: false,
-                  clinicalOutputGenerated: false,
-                },
-            productionAnalysisPolicy: url.endsWith("/production-analysis-policy") || url.endsWith("/reviewer-workflow")
-              ? {
-                  status: "approved_for_production_analysis",
-                  reasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
-                  reviewedAt: "2026-05-19T11:04:00.000Z",
-                  reviewedByUserId: "doctor-1",
-                  medicalMeasurementAllowed: true,
-                  patientDeliveryAllowed: true,
-                  clinicalOutputGenerated: true,
-                }
-              : {
-                  status: "not_approved",
-                  reasons: [],
-                  reviewedAt: null,
-                  reviewedByUserId: null,
-                  medicalMeasurementAllowed: false,
-                  patientDeliveryAllowed: false,
-                  clinicalOutputGenerated: false,
-                },
-            reviewerAssignment: url.endsWith("/reviewer-assignment") || url.endsWith("/reviewer-workflow")
-              || url.endsWith("/production-analysis-policy")
-              ? {
-                  status: "second_review_completed",
-                  reasons: ["second_review_required_for_clinical_grade_workflow"],
-                  assignedAt: "2026-05-19T10:57:00.000Z",
-                  reviewerIdentityExposed: true,
-                  patientDeliveryAllowed: true,
-                  medicalMeasurementAllowed: true,
-                }
-              : {
-                  status: "unassigned",
-                  reasons: [],
-                  assignedAt: null,
-                  reviewerIdentityExposed: false,
-                  patientDeliveryAllowed: false,
-                  medicalMeasurementAllowed: false,
-                },
-            secondReview: url.endsWith("/reviewer-assignment") || url.endsWith("/reviewer-workflow")
-              || url.endsWith("/production-analysis-policy")
-              ? {
-                  status: "completed",
-                  reasons: ["second_review_completed_metadata_only"],
-                  reviewedAt: "2026-05-19T10:58:00.000Z",
-                  reviewerIdentityExposed: true,
-                  patientDeliveryAllowed: true,
-                  medicalMeasurementAllowed: true,
-                }
-              : {
-                  status: "not_required",
-                  reasons: [],
-                  reviewedAt: null,
-                  reviewerIdentityExposed: false,
-                  patientDeliveryAllowed: false,
-                  medicalMeasurementAllowed: false,
-                },
-            medicalMeasurementAllowed: true,
-            patientDeliveryAllowed: true,
-            protectedFieldsExposed: true,
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderAt(
-      `/patients/${CALIBRATED_VIEWER_QA_IDS.patientId}/lesions/${CALIBRATED_VIEWER_QA_IDS.lesionId}`,
-    );
-
-    selectComparePair(CALIBRATED_VIEWER_QA_IDS.imageAId, CALIBRATED_VIEWER_QA_IDS.imageBId);
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
-    const review = within(tools).getByRole("region", { name: /Технический разбор просмотра/ });
-    const policy = within(tools).getByRole("region", { name: /Политика измерений/ });
-    const assignment = within(tools).getByRole("region", { name: /Назначение проверяющего/ });
-    const analysisPolicy = within(tools).getByRole("region", { name: /Правила рабочего анализа/ });
-    const workflow = within(tools).getByRole("region", { name: /Врачебный порядок проверки/ });
-
-    expect(within(calibration).getByText(/Калибровка: готова/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/шкала обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/миллиметры доступны для проверки просмотра/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
-
-    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
-    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
-    fireEvent.click(within(review).getByRole("button", { name: /^Технически готово$/ }));
-    expect(await within(review).findByText(/Технический разбор просмотра сохранён в системе клиники/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
-
-    fireEvent.click(within(policy).getByRole("button", { name: /Утвердить технические правила/ }));
-    expect(await within(policy).findByText(/Правила измерений сохранены в системе клиники/)).toBeInTheDocument();
-    expect(within(policy).getByText(/Измерения остаются выключены/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
-
-    fireEvent.click(within(assignment).getByRole("button", { name: /Повторная проверка завершена/ }));
-    expect(await within(assignment).findByText(/Назначение проверяющего сохранено в системе клиники/)).toBeInTheDocument();
-    expect(within(assignment).getByText(/контакты проверяющего.*не выводятся/i)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
-
-    fireEvent.click(within(analysisPolicy).getByRole("button", { name: /Утвердить правила анализа/ }));
-    expect(await within(analysisPolicy).findByText(/Правила анализа сохранены в системе клиники/)).toBeInTheDocument();
-    expect(within(analysisPolicy).getByText(/Клинический вывод о динамике: выключен/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Проверка: готова/)).toBeInTheDocument();
-
-    fireEvent.click(within(workflow).getByRole("button", { name: /Порядок проверки принят/ }));
-    expect(await within(workflow).findByText(/Врачебный порядок проверки сохранён в системе клиники/)).toBeInTheDocument();
-    expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageAId);
-    expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageBId);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-workflow`,
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/measurement-policy`,
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-assignment`,
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/production-analysis-policy`,
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(
-      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|diagnosis|treatment|dynamicConclusion|clinicalDynamicConclusion|patientSafeText/i,
-    );
-    expect(within(workflow).getByText(/Не диагноз, не динамика, не медицинское измерение/)).toBeInTheDocument();
-    expect(within(workflow).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
-  });
-
-  it("loads protected previews from the production UUID QA fixture through backend proxy", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const previewUrls = ["blob:protected-preview-a", "blob:protected-preview-b"];
-    const createObjectURL = vi.fn(() => previewUrls.shift() ?? "blob:protected-preview-fallback");
-    const revokeObjectURL = vi.fn();
-    Object.defineProperty(URL, "createObjectURL", {
-      configurable: true,
-      value: createObjectURL,
-    });
-    Object.defineProperty(URL, "revokeObjectURL", {
-      configurable: true,
-      value: revokeObjectURL,
-    });
-    const fetchMock = vi.fn(async () =>
-      new Response(new Uint8Array([1, 2, 3, 4]), {
-        status: 200,
-        headers: { "Content-Type": "image/png" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { unmount } = renderAt(
-      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
-    );
-
-    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
-    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
-
-    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
-    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const readiness = within(tools).getByRole("region", { name: /Готовность закрытого просмотра/ });
-    expect(within(readiness).getByText(/Вход в систему клиники/)).toBeInTheDocument();
-    expect(within(readiness).getByText(/Внутренние коды/)).toBeInTheDocument();
-    expect(within(readiness).getByText(/Защищённая передача/)).toBeInTheDocument();
-    expect(within(readiness).getByText(/Выдача пациенту/)).toBeInTheDocument();
-
-    const loadButton = within(tools).getByRole("button", { name: /Подготовить защищённые превью/ });
-    expect(loadButton).not.toBeDisabled();
-    fireEvent.click(loadButton);
-
-    expect(await within(tools).findByText(/Защищённые превью загружены через систему клиники/)).toBeInTheDocument();
-    expect(within(dialog).getByAltText(/Защищённый снимок A/)).toHaveAttribute("src", "blob:protected-preview-a");
-    expect(within(dialog).getByAltText(/Защищённый снимок B/)).toHaveAttribute("src", "blob:protected-preview-b");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/images/${PROTECTED_RENDER_QA_IDS.imageAId}/render`,
-      expect.objectContaining({ method: "GET", credentials: "include" }),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/images/${PROTECTED_RENDER_QA_IDS.imageBId}/render`,
-      expect.objectContaining({ method: "GET", credentials: "include" }),
-    );
-    expect(dialog.textContent ?? "").not.toMatch(
-      /storagePath|object_bucket|object_key|signed_url|qrToken|sessionId|doctorVersionText|patientSafeText|меланома|рак кожи/i,
-    );
-
-    unmount();
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:protected-preview-a");
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:protected-preview-b");
-  });
-
-  it("persists a structured doctor comparison draft without patient delivery", () => {
-    const { unmount } = renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
-    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
-    fireEvent.click(within(review).getByRole("button", { name: /Сохранить черновик решения/ }));
-
-    expect(within(review).getByText(/Черновик решения сохранён/)).toBeInTheDocument();
-    expect(within(review).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
-    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY)).toContain("retake");
-    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY) ?? "").not.toMatch(
-      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи/i,
-    );
-
-    unmount();
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    const restoredReview = screen.getByRole("region", { name: /Рабочий разбор пары/ });
-    expect(within(restoredReview).getByText(/Черновик решения загружен/)).toBeInTheDocument();
-    expect(within(restoredReview).getAllByText(/Переснимок запрошен/).length).toBeGreaterThan(0);
-    expect(within(restoredReview).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
-  });
-
-  it("saves the comparison draft to self-hosted backend when the doctor session is configured", async () => {
-    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
-    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          item: {
-            id: "draft-1",
-            visitId: "v-005",
-            lesionId: "l-008",
-            pairKey: "l-008:i-011+i-012",
-            imageIds: ["i-011", "i-012"],
-            action: "retake",
-            comparability: "not_comparable",
-            reasons: ["Разные условия съёмки"],
-            patientDeliveryAllowed: false,
-            protectedFieldsExposed: false,
-            savedAt: "2026-06-02T00:00:00.000Z",
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderAt("/patients/p-004/lesions/l-008");
-
-    selectComparePair("i-011", "i-012");
-
-    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
-    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
-    fireEvent.click(within(review).getByRole("button", { name: /Сохранить черновик решения/ }));
-
-    expect(await within(review).findByText(/Журнал проверки сохранён в системе клиники/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-draft",
-      expect.objectContaining({ method: "PATCH" }),
-    );
-    const requestInit = fetchMock.mock.calls[0]?.[1];
-    expect(JSON.stringify(requestInit)).not.toMatch(
-      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи/i,
-    );
-  });
-
-  it("links the lesion to the full Body Map in the source visit", () => {
-    renderAt("/patients/p-004/lesions/l-008");
-
-    const bodyMapLink = screen.getByRole("link", { name: /Открыть на карте тела/ });
-    expect(bodyMapLink).toHaveAttribute(
-      "href",
-      "/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008",
-    );
-  });
-
-  it("в DOM нет запрещённых токенов", () => {
-    const { container } = renderAt("/patients/p-004/lesions/l-008");
-    const html = container.innerHTML;
-    for (const t of FORBIDDEN) {
-      expect(html, `forbidden token ${t}`).not.toContain(t);
-    }
-    expect(html).not.toMatch(/mock:\/\//);
-  });
 });

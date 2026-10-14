@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
 import { ROLE_STORAGE_KEY } from "@/context/role-context";
+import { writeSelfHostedApiSession, clearSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -93,6 +94,7 @@ function renderControlled() {
 beforeEach(() => {
   vi.unstubAllEnvs();
   navigateMock.mockReset();
+  clearSelfHostedApiSession();
   try {
     window.localStorage.removeItem(ROLE_STORAGE_KEY);
   } catch {
@@ -101,31 +103,44 @@ beforeEach(() => {
 });
 
 describe("LoginPage", () => {
-  it("redirects the production entry point to self-hosted login without showing demo roles", async () => {
+  it.each([["doctor", "clinic_admin"], ["clinic_admin", "doctor"]])("keeps self-hosted account precedence over Supabase %s when its role is %s", async (supabaseRole, selfHostedRole) => {
+    writeSelfHostedApiSession({ apiToken: "synthetic-dual-session", user: {
+      id: "synthetic-self-hosted", displayName: "Сотрудник системы клиники", roles: [selfHostedRole],
+    } });
+    renderPage(authValue({ status: "authenticated", accessToken: "synthetic-supabase", user: makeUser({ app_metadata: { role: supabaseRole } }) }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/self-hosted/login", { replace: true, state: null }));
+  });
+  it("never offers training roles beside a configured real login", () => {
+    renderPage();
+    expect(screen.getByRole("heading", { name: "Вход в Дерматолог Про" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ассистент/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Выбрать учебную роль")).not.toBeInTheDocument();
+  });
+
+  it("does not let the retired mode replace a configured real login", async () => {
     vi.stubEnv("VITE_APP_MODE", "production");
 
     renderPage();
 
-    await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith("/self-hosted/login", { replace: true }),
-    );
+    expect(screen.getByRole("heading", { name: "Вход в Дерматолог Про" })).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.queryByText(/Выбрать учебную роль/)).not.toBeInTheDocument();
   });
 
-  it("demo role picker still works and navigates for the selected role", () => {
+  it("does not expose a training employee as a login action", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: /Ассистент/ }));
-    expect(navigateMock).toHaveBeenCalledWith("/capture", { replace: true });
+    expect(screen.queryByRole("button", { name: /Ассистент/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Соколова Ирина Андреевна")).not.toBeInTheDocument();
   });
 
-  it("keeps the demo picker visible alongside the real login form", () => {
+  it("keeps the configured real login without a training picker", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: /Вход в Дерматолог Про/ })).toBeInTheDocument();
-    expect(screen.getByText(/Выбрать учебную роль/)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Дерматолог/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Выбрать учебную роль/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Войти$/ })).toBeInTheDocument();
   });
 
-  it("after real sign-in with no role metadata, falls back to doctor and navigates /desk", async () => {
+  it("after real sign-in with no role metadata, returns to the unassigned home", async () => {
     const { setAuth } = renderControlled();
     fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "doc@x.co" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
@@ -142,9 +157,9 @@ describe("LoginPage", () => {
     });
 
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
   it("maps app_metadata.role=clinic_admin and navigates to /admin", async () => {
@@ -166,10 +181,10 @@ describe("LoginPage", () => {
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/admin", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("clinic_admin");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
-  it("falls back to user_metadata.role when app_metadata.role missing", async () => {
+  it("does not trust user_metadata.role when app_metadata is missing", async () => {
     const { setAuth } = renderControlled();
     fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@x" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
@@ -186,12 +201,12 @@ describe("LoginPage", () => {
     });
 
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith("/operator", { replace: true }),
+      expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("operator");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
-  it("unknown role falls back to doctor", async () => {
+  it("unknown role stays unassigned", async () => {
     const { setAuth } = renderControlled();
     fireEvent.change(screen.getByLabelText(/эл. почта/i), { target: { value: "a@x" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
@@ -208,9 +223,9 @@ describe("LoginPage", () => {
     });
 
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
   it("already-authenticated visit with app_metadata.role=clinic_admin navigates /admin", async () => {
@@ -224,10 +239,10 @@ describe("LoginPage", () => {
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/admin", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("clinic_admin");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
-  it("already-authenticated visit with unknown role falls back to doctor /desk", async () => {
+  it("already-authenticated visit with unknown role stays unassigned at home", async () => {
     renderPage(
       authValue({
         status: "authenticated",
@@ -236,9 +251,9 @@ describe("LoginPage", () => {
       }),
     );
     await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      expect(navigateMock).toHaveBeenCalledWith("/", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBeNull();
   });
 
   describe("return-to (Stage 1H-B)", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
+import { KeyRound, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { isProductionAppMode } from "@/lib/app-mode";
 import { formatDateTime } from "@/lib/format";
 import { clearSelfHostedApiSession, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
@@ -19,9 +18,6 @@ import {
   rotateAdminServiceKey,
   type AdminServiceKeyDTO,
 } from "@/lib/self-hosted-admin-api";
-
-const DEMO_BANNER =
-  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
 
 const SERVICE_KEY_SCOPES = [
   { value: "device:write", label: "Передача снимков с приборов" },
@@ -46,40 +42,6 @@ function statusLabel(status: AdminServiceKeyDTO["status"]): string {
 
 function statusTone(status: AdminServiceKeyDTO["status"]): "default" | "secondary" {
   return status === "revoked" ? "secondary" : "default";
-}
-
-function DemoSysApiKeysPage() {
-  const [note, setNote] = useState<string | null>(null);
-
-  return (
-    <div className="flex h-full flex-col">
-      <PageHeader title="Служебные ключи" subtitle="Доступы для интеграций и внутренних служб." />
-      <div className="space-y-3 p-3 sm:p-4">
-        <div role="status" className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-900">
-          {DEMO_BANNER}
-        </div>
-        <Card className="p-3">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden />
-            <div>
-              <h2 className="text-[14px] font-semibold">Учебная витрина ключей</h2>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                В учебном режиме настоящие ключи не создаются и не сохраняются.
-              </p>
-              <Button className="mt-3 min-h-11" variant="outline" onClick={() => setNote("Рабочие ключи создаются только после входа в систему клиники.")}>
-                Проверить действие
-              </Button>
-            </div>
-          </div>
-        </Card>
-        {note && (
-          <div role="status" aria-live="polite" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-            {note}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function SysApiKeysPageLive() {
@@ -423,5 +385,6 @@ function SysApiKeysPageLive() {
 }
 
 export default function SysApiKeysPage() {
-  return isProductionAppMode() ? <SysApiKeysPageLive /> : <DemoSysApiKeysPage />;
+  const session = useSelfHostedApiSession();
+  return <SysApiKeysPageLive key={session.revision} />;
 }

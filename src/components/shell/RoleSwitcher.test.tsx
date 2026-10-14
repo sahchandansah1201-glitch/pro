@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
 import { ROLE_STORAGE_KEY } from "@/context/role-context";
+import { writeSelfHostedApiSession, readSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -43,6 +44,8 @@ function renderSwitcher(value: AuthContextValue = authValue()) {
 
 beforeEach(() => {
   navigateMock.mockReset();
+  window.localStorage.clear();
+  vi.unstubAllEnvs();
   try {
     window.localStorage.removeItem(ROLE_STORAGE_KEY);
   } catch {
@@ -51,32 +54,81 @@ beforeEach(() => {
 });
 
 describe("RoleSwitcher", () => {
-  it("renders the role select in anonymous state without a logout button", () => {
+  it("waits for pending authentication before allowing logout of a selected account", () => {
+    writeSelfHostedApiSession({ apiToken: "synthetic-selected-token", user: {
+      id: "synthetic-doctor", displayName: "Тестовый врач", roles: ["doctor"],
+    } });
+    renderSwitcher(authValue({ status: "loading" }));
+    const button = screen.getByRole("button", { name: "Выйти из рабочей системы" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(readSelfHostedApiSession().apiToken).toBe("synthetic-selected-token");
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+  it("signs out the restored account after loading completes without clearing the selected account early", async () => {
+    writeSelfHostedApiSession({ apiToken: "synthetic-selected-token", user: {
+      id: "synthetic-doctor", displayName: "Тестовый врач", roles: ["doctor"],
+    } });
+    const signOut = vi.fn(async () => ({ error: null }));
+    const view = (value: AuthContextValue) => (
+      <MemoryRouter><AuthContext.Provider value={value}><RoleProvider><RoleSwitcher /></RoleProvider></AuthContext.Provider></MemoryRouter>
+    );
+    const rendered = render(view(authValue({ status: "loading", signOut })));
+    fireEvent.click(screen.getByRole("button", { name: "Выйти из рабочей системы" }));
+    expect(readSelfHostedApiSession().apiToken).toBe("synthetic-selected-token");
+    expect(signOut).not.toHaveBeenCalled();
+    rendered.rerender(view(authValue({ status: "authenticated", accessToken: "synthetic-restored-token", signOut })));
+    fireEvent.click(screen.getByRole("button", { name: "Выйти из рабочей системы" }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+    expect(readSelfHostedApiSession().apiToken).toBeNull();
+    expect(navigateMock).toHaveBeenCalledWith("/self-hosted/login", { replace: true });
+  });
+  it("signs out a dormant Supabase session before clearing the selected self-hosted account", async () => {
+    writeSelfHostedApiSession({ apiBaseUrl: "http://localhost:8080", apiToken: "synthetic-dual-token", user: {
+      id: "synthetic-doctor", displayName: "Тестовый врач", roles: ["doctor"],
+    } });
+    const signOut = vi.fn(async () => ({ error: null }));
+    renderSwitcher(authValue({ status: "authenticated", accessToken: "synthetic-supabase", signOut }));
+    fireEvent.click(screen.getByRole("button", { name: "Выйти из рабочей системы" }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+    expect(readSelfHostedApiSession().apiToken).toBeNull();
+    expect(readSelfHostedApiSession().apiBaseUrl).toBe("http://localhost:8080");
+    expect(navigateMock).toHaveBeenCalledWith("/self-hosted/login", { replace: true });
+  });
+  it("never renders an arbitrary role picker", () => {
+    renderSwitcher();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("keeps the selected account if the other real session cannot sign out", async () => {
+    writeSelfHostedApiSession({ apiToken: "synthetic-kept-token", user: {
+      id: "synthetic-admin", displayName: "Тестовый администратор", roles: ["clinic_admin"],
+    } });
+    renderSwitcher(authValue({ status: "authenticated", accessToken: "synthetic-supabase", signOut: async () => ({ error: new Error("synthetic failure") }) }));
+    fireEvent.click(screen.getByRole("button", { name: "Выйти из рабочей системы" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось выйти");
+    expect(readSelfHostedApiSession().apiToken).toBe("synthetic-kept-token");
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+  it("renders no role select or logout without a working account", () => {
     renderSwitcher();
     expect(
-      screen.getByRole("combobox", { name: /учебный режим/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("combobox"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /выйти/i })).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["system_admin", "Сисадмин", "Системный администратор"],
-    ["clinic_admin", "Админ клиники", "Администратор клиники"],
-  ])("показывает короткую роль %s на мобильном экране и сохраняет полное доступное имя", (role, short, full) => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, role);
+  it("keeps a stale training administrator role out of the account controls", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "system_admin");
     renderSwitcher();
-
-    expect(
-      screen.getByRole("combobox", { name: new RegExp(`Текущая роль: ${full}`, "i") }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(short)).toHaveClass("sm:hidden");
-    expect(screen.getByText(full)).toHaveClass("hidden", "sm:block");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.getByText("Нет рабочего входа")).toBeInTheDocument();
   });
 
-  it("does not show the session chip when anonymous", () => {
+  it("marks the account as disconnected when anonymous", () => {
     renderSwitcher();
     expect(screen.queryByText(/Вход активен/)).not.toBeInTheDocument();
-    expect(screen.queryByTestId("auth-session-chip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("auth-session-chip")).toHaveAttribute("aria-label", "Рабочий вход не подключён");
   });
 
   it("shows Выйти when authenticated", () => {
@@ -94,11 +146,11 @@ describe("RoleSwitcher", () => {
     );
     const chip = screen.getByTestId("auth-session-chip");
     expect(chip).toBeInTheDocument();
-    expect(chip).toHaveTextContent(/Вход активен/);
+    expect(chip).toHaveTextContent("doc@x.co");
     expect(chip.getAttribute("aria-label")).toMatch(/doc@x\.co/);
   });
 
-  it("clicking Выйти calls signOut, resets role to doctor and navigates /login", async () => {
+  it("clicking Выйти calls signOut, does not invent a role and navigates /login", async () => {
     const signOut = vi.fn(async () => ({ error: null }));
     window.localStorage.setItem(ROLE_STORAGE_KEY, "operator");
     renderSwitcher(authValue({ status: "authenticated", accessToken: "tok", signOut }));
@@ -109,7 +161,7 @@ describe("RoleSwitcher", () => {
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/login", { replace: true }),
     );
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("operator");
   });
 
   it("disables Выйти while signOut is pending", async () => {
@@ -167,6 +219,6 @@ describe("RoleSwitcher", () => {
     expect(
       screen.queryByText(/Не удалось выйти\. Попробуйте ещё раз\./),
     ).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("operator");
   });
 });

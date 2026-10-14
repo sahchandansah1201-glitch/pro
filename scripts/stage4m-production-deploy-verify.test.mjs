@@ -62,7 +62,7 @@ test("Stage 4M first-boot plan includes env, build, compose config, start, healt
   assert.match(out, /ops:stage4l:verify-env/);
   assert.match(out, /npm run build/);
   assert.match(out, /\.stage4m-build\/frontend-next/);
-  assert.match(out, /VITE_APP_MODE=production/);
+  assert.match(out, /working-only authentication/);
   assert.match(out, /docker compose --env-file deploy\/self-hosted\/\.env\.production/);
   assert.match(out, /config --quiet/);
   assert.match(out, /up -d --build/);
@@ -267,7 +267,6 @@ test("Stage 4M production frontend build injects required Vite env from env file
     );
     assert.equal(result.ok, true);
     assert.equal(buildCalls.length, 1);
-    assert.equal(buildCalls[0].VITE_APP_MODE, "production");
     assert.equal(buildCalls[0].VITE_SELF_HOSTED_API_BASE_URL, "https://pro.example.test");
     assert.equal(buildCalls[0].VITE_CLINICAL_BODY_ATLAS_SOURCE, "daz-hires-local");
   } finally {
@@ -406,7 +405,7 @@ test("Stage 4M safe frontend build preserves current dist when staged build fail
   }
 });
 
-test("Stage 4M production frontend build rejects missing production mode", () => {
+test("Stage 4M production frontend build rejects missing clinical atlas configuration", () => {
   const root = mkdtempSync(join(tmpdir(), "stage4m-env-missing-"));
   try {
     const envFile = join(root, ".env.production");
@@ -428,7 +427,7 @@ test("Stage 4M production frontend build rejects missing production mode", () =>
           },
         },
       ),
-      /Production frontend build env is missing: VITE_APP_MODE/,
+      /Production frontend build env is missing: VITE_CLINICAL_BODY_ATLAS_SOURCE/,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

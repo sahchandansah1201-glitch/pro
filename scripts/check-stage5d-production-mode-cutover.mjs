@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 // Stage 5D · production mode cutover guard.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
-  "src/lib/app-mode.ts",
-  "src/lib/app-mode.test.ts",
+  "src/WorkingOnlyCutover.test.tsx",
+  "src/WorkingClinicalCutover.test.tsx",
+  "src/pages/sys/WorkingAccessEvents.test.tsx",
+  "src/pages/Login.test.tsx",
+  "src/context/RoleContext.test.tsx",
   "src/lib/self-hosted-role.ts",
   "src/lib/self-hosted-role.test.ts",
   "src/components/shell/AppLayout.tsx",
@@ -17,6 +20,10 @@ const REQUIRED_FILES = [
   "src/components/shell/RoleGuard.test.tsx",
   "src/components/shell/RoleHome.tsx",
   "src/components/shell/RoleHome.test.tsx",
+  "src/pages/Login.tsx",
+  "src/components/shell/RoleSwitcher.tsx",
+  "src/context/RoleContext.tsx",
+  "src/context/role-context.ts",
   "docs/backend/stage-5d-production-mode-cutover.md",
   ".github/workflows/stage5d-production-mode-cutover.yml",
   "scripts/preflight-all.mjs",
@@ -24,22 +31,15 @@ const REQUIRED_FILES = [
 ];
 
 const REQUIRED_TEXT = {
-  "src/lib/app-mode.ts": [
-    "VITE_APP_MODE",
-    "\"production\"",
-    "\"demo\"",
-    "isProductionAppMode",
-  ],
   "src/lib/self-hosted-role.ts": [
     "selfHostedRoles",
     "selfHostedHomePath",
     "canSelfHostedSessionAccessPath",
   ],
   "src/components/shell/AppLayout.tsx": [
-    "!productionMode ? <DemoNotice /> : null",
-    "productionMode ? (",
-    "ProductionSessionChip",
-    "clearSelfHostedApiSession",
+    "roles.some",
+    "RoleSwitcher",
+    "useRole",
   ],
   "src/components/shell/AppLayout.test.tsx": [
     "hides demo shell controls",
@@ -47,19 +47,19 @@ const REQUIRED_TEXT = {
     "VITE_APP_MODE",
   ],
   "src/components/shell/RoleGuard.tsx": [
-    "if (productionMode)",
+    "isSelfHostedApiConfigured(selfHostedSession)",
     "to=\"/self-hosted/login\"",
     "canSelfHostedSessionAccessPath",
     "ProductionNoAccessScreen",
   ],
   "src/components/shell/RoleHome.tsx": [
-    "isProductionAppMode",
+    "isSupabaseConfigured",
     "selfHostedHomePath",
     "to=\"/self-hosted/login\"",
   ],
   "docs/backend/stage-5d-production-mode-cutover.md": [
     "Stage 5D",
-    "VITE_APP_MODE=production",
+    "working-only authentication",
     "npm run preflight:stage5d",
     "managed runtime: none",
     "managed database: none",
@@ -69,6 +69,15 @@ const REQUIRED_TEXT = {
     "npm run preflight:stage5d",
     "GITHUB_STEP_SUMMARY",
   ],
+};
+
+const FORBIDDEN_ENTRY_TEXT = {
+  "src/pages/Login.tsx": [/\bDEMO_USERS\b/, /\bsetRole\b/, /Выбрать учебную роль/],
+  "src/context/RoleContext.tsx": [/\bsetRole\b/, /\buserForRole\b/, /\blocalStorage\b/],
+  "src/context/role-context.ts": [/\bsetRole\b/],
+  "src/components/shell/RoleSwitcher.tsx": [/\bSelect\b/, /\bsetRole\b/, /\bROLES\b/],
+  "src/components/shell/AppLayout.tsx": [/\bDemoNotice\b/],
+  "src/components/shell/RoleGuard.tsx": [/\bonSwitchRole\b/, /\bNoAccessScreen\b/],
 };
 
 const FORBIDDEN_RUNTIME_PATTERNS = [
@@ -82,7 +91,6 @@ const FORBIDDEN_RUNTIME_PATTERNS = [
 ];
 
 const PROTECTED_RUNTIME_FILES = [
-  "src/lib/app-mode.ts",
   "src/lib/self-hosted-role.ts",
   "src/components/shell/AppLayout.tsx",
   "src/components/shell/AppSidebar.tsx",
@@ -112,6 +120,25 @@ function scanRuntimeCoupling(errors, root) {
   }
 }
 
+export function retiredModeReferences(content) {
+  return [/\bVITE_APP_MODE\b/, /\bisProductionAppMode\b/, /\bisDemoAppMode\b/, /\bgetAppMode\b/, /["']@\/lib\/app-mode["']/]
+    .filter((pattern) => pattern.test(content)).map(String);
+}
+
+function scanRetiredMode(errors, root) {
+  if (existsSync(join(root, "src/lib/app-mode.ts"))) errors.push("Removed runtime selector src/lib/app-mode.ts has returned");
+  const visit = (directory) => {
+    for (const entry of readdirSync(join(root, directory), { withFileTypes: true })) {
+      const file = `${directory}/${entry.name}`;
+      if (entry.isDirectory()) visit(file);
+      else if (/\.[cm]?[jt]sx?$/.test(file) && !/\.test\.[jt]sx?$/.test(file)) {
+        for (const marker of retiredModeReferences(read(root, file))) errors.push(`${file} contains retired mode selector: ${marker}`);
+      }
+    }
+  };
+  visit("src");
+}
+
 function validatePackageScripts(errors, root) {
   const packageJson = read(root, "package.json");
   for (const script of ['"test:stage5d"', '"check:stage5d"', '"preflight:stage5d"']) {
@@ -133,6 +160,14 @@ export function collectStage5DChecks({ root = process.cwd() } = {}) {
     else errors.push(`Missing required file (text check): ${file}`);
   }
   scanRuntimeCoupling(errors, root);
+  scanRetiredMode(errors, root);
+  for (const [file, patterns] of Object.entries(FORBIDDEN_ENTRY_TEXT)) {
+    if (!existsSync(join(root, file))) continue;
+    const content = read(root, file);
+    for (const pattern of patterns) {
+      if (pattern.test(content)) errors.push(`${file} contains removed training authority: ${pattern}`);
+    }
+  }
   validatePackageScripts(errors, root);
   return {
     ok: errors.length === 0,

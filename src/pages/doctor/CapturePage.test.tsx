@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-import CapturePage from "./CapturePage";
+import CapturePage from "../../../test-fixtures/legacy-ui/doctor/CapturePage";
 
 function renderCapture() {
   return render(
@@ -20,6 +20,18 @@ function selectTab(name: RegExp) {
 }
 
 describe("CapturePage · Batch B capture workflow", () => {
+  it("explains that file capture adds a learning image rather than uploading a file", () => {
+    renderCapture();
+
+    expect(screen.getByText("Учебная съёмка. Выберите пациента и визит. Добавьте учебный снимок."))
+      .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Пациент, визит и параметры снимка" }))
+      .toBeInTheDocument();
+    selectTab(/Файл/);
+    expect(screen.getByRole("button", { name: "Добавить учебный снимок" }))
+      .toBeInTheDocument();
+  });
+
   it("uses native Russian capture wording without technical device or transfer terms", () => {
     const { container } = renderCapture();
 
@@ -58,7 +70,7 @@ describe("CapturePage · Batch B capture workflow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Серия без привязки/ }));
     selectTab(/Файл/);
-    fireEvent.click(screen.getByRole("button", { name: /Добавить файл/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Добавить учебный снимок/ }));
 
     const queue = screen.getByRole("region", { name: /Очередь снимков/ });
     expect(within(queue).getByText(/без образования/i)).toBeInTheDocument();
@@ -82,7 +94,7 @@ describe("CapturePage · Batch B capture workflow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Серия без привязки/ }));
     selectTab(/Файл/);
-    fireEvent.click(screen.getByRole("button", { name: /Добавить файл/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Добавить учебный снимок/ }));
 
     const queue = screen.getByRole("region", { name: /Очередь снимков/ });
     const localizationLink = within(queue).getByRole("link", { name: /Локализация на карте тела/ });

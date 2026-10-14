@@ -29,6 +29,28 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     vi.restoreAllMocks();
   });
 
+  it("retains the full queue identity and visit destination for long names", async () => {
+    const patientFullName = "Учебная Пациентка Александра Константиновна Проверочная";
+    const clinicName = "Учебная клиника проверки длинных названий — без рабочих данных";
+    const visitId = "10000000-0000-4000-8000-000000000301";
+    vi.stubGlobal("fetch", vi.fn(async (input) => new Response(JSON.stringify(
+      String(input).includes("/doctor/dashboard") ? {
+        dashboard: {
+          kpis: { visitsToday: 0, activeVisits: 0, awaitingConclusion: 1, patientsInScope: 1,
+            assetsNeedReview: 0, devicesTotal: 0, devicesActive30d: 0 },
+          upcoming: [], recentPatients: [], assetIssues: [], devices: [],
+          awaitingConclusions: [{ id: visitId, patientId: "p-1", patientFullName, clinicName,
+            status: "signed", startedAt: "2026-10-12T06:00:00Z", signedAt: "2026-10-12T06:00:00Z" }],
+        },
+      } : { kpis: {}, leads: [], appointments: [], filters: {} },
+    ), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<MemoryRouter><DeskPage /></MemoryRouter>);
+    expect(await screen.findByText(patientFullName)).toBeVisible();
+    expect(screen.getByText(clinicName)).toBeVisible();
+    expect(screen.getByRole("link", { name: `Открыть визит пациента ${patientFullName}` }))
+      .toHaveAttribute("href", `/patients/p-1/visits/${visitId}`);
+  });
+
   it("loads production dashboard from self-hosted backend without mock fallback", async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       if (url.endsWith("/api/v1/leads") && init?.method === "POST") {
@@ -262,7 +284,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       screen.getByRole("region", { name: "Сводка рабочего дня" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Сегодня и заключения" }),
+      screen.getByRole("heading", { name: "Визиты и отчёты" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Качество и пациенты" }),
@@ -272,6 +294,8 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     ).toBeInTheDocument();
     expect(document.querySelector("#desk-visits")).toBeTruthy();
     expect(document.querySelector("#desk-reports")).toBeTruthy();
+    expect(screen.getAllByText("Подписанные визиты без подписанного отчёта")).toHaveLength(2);
+    expect(screen.getByText("В очереди нет визитов.")).toBeInTheDocument();
     expect(document.querySelector("#desk-photo-quality")).toBeTruthy();
     expect(document.querySelector("#desk-recent-patients")).toBeTruthy();
     expect(document.querySelector("#desk-leads")).toBeTruthy();

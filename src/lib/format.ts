@@ -14,6 +14,11 @@ const DATE_TIME_FMT = new Intl.DateTimeFormat("ru-RU", {
   minute: "2-digit",
 });
 
+/** ISO-дата местного календаря. Без аргумента — текущая дата. */
+export function formatLocalIsoDate(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);

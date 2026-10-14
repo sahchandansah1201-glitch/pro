@@ -47,6 +47,8 @@ interface ClinicalBodyMapCanvasProps {
   onModelReadyChange?: (ready: boolean) => void;
 }
 
+const AUTOMATIC_IMAGE_RETRY_LIMIT = 1;
+
 function scalpShape(regionId: string) {
   switch (regionId) {
     case "scalp-anterior":
@@ -184,6 +186,23 @@ export function ClinicalBodyMapCanvas({
     : 0;
   const atlasReady = atlasStatus === "ready";
 
+  const handleImageError = () => {
+    if (atlasAttempt < AUTOMATIC_IMAGE_RETRY_LIMIT) {
+      setAtlasLoadState({
+        atlasKey,
+        status: "loading",
+        attempt: atlasAttempt + 1,
+      });
+      return;
+    }
+
+    setAtlasLoadState({
+      atlasKey,
+      status: "error",
+      attempt: atlasAttempt,
+    });
+  };
+
   useEffect(() => {
     onModelReadyChange?.(atlasReady);
   }, [atlasReady, onModelReadyChange]);
@@ -265,7 +284,7 @@ export function ClinicalBodyMapCanvas({
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-muted-foreground">
-        Коснитесь нужного места на модели или выберите область из списка.
+        Нажмите на модель, чтобы указать место очага. Меняйте масштаб колесом мыши или кнопками. Для перемещения увеличенной модели удерживайте левую кнопку мыши.
       </p>
       {atlasStatus !== "error" ? (
         <div
@@ -320,7 +339,7 @@ export function ClinicalBodyMapCanvas({
             view={view}
             imageKey={`${atlasKey}:${atlasAttempt}`}
             onImageLoad={() => setAtlasLoadState({ atlasKey, status: "ready", attempt: atlasAttempt })}
-            onImageError={() => setAtlasLoadState({ atlasKey, status: "error", attempt: atlasAttempt })}
+            onImageError={handleImageError}
           />
         <defs>
           <clipPath id={clipId}>
@@ -428,11 +447,11 @@ export function ClinicalBodyMapCanvas({
           {hoveredRegion?.label ?? "не выбрана"}
         </span>
       </div>
-      <label className="block text-[11px] text-muted-foreground">
+      <label className="sr-only focus-within:not-sr-only focus-within:block focus-within:rounded-sm focus-within:border focus-within:border-border focus-within:bg-surface focus-within:p-2 focus-within:text-[12px] focus-within:text-foreground">
         Выбрать область с клавиатуры
         <select
-          className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-[12px] text-foreground"
           aria-label="Выбрать анатомическую область"
+          className="mt-1 min-h-11 w-full rounded-sm border border-border bg-background px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           disabled={!atlasReady}
           value=""
           onChange={(event) => {

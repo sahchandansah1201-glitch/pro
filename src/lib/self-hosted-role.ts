@@ -19,9 +19,8 @@ export function selfHostedRoles(session: Pick<SelfHostedApiSession, "user">): Ro
 
 export function primarySelfHostedRole(
   session: Pick<SelfHostedApiSession, "user">,
-  fallback: Role = "doctor",
-): Role {
-  return selfHostedRoles(session)[0] ?? fallback;
+): Role | null {
+  return selfHostedRoles(session)[0] ?? null;
 }
 
 export function selfHostedRoleLabel(session: Pick<SelfHostedApiSession, "user">): string {
@@ -32,7 +31,8 @@ export function selfHostedRoleLabel(session: Pick<SelfHostedApiSession, "user">)
 }
 
 export function selfHostedHomePath(session: Pick<SelfHostedApiSession, "user">): string {
-  return ROLE_BY_ID[primarySelfHostedRole(session)].home;
+  const role = primarySelfHostedRole(session);
+  return role ? ROLE_BY_ID[role].home : "/self-hosted/login";
 }
 
 export function canSelfHostedSessionAccessPath(

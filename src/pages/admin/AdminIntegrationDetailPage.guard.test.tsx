@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AdminIntegrationDetailPage, {
   ALLOWED_SOURCE_FIELDS,
-} from "./AdminIntegrationDetailPage";
+} from "../../../test-fixtures/legacy-ui/admin/AdminIntegrationDetailPage";
 import { getIntegrations } from "@/lib/mock-data";
 
 /**

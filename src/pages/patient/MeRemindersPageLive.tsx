@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Bell } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,6 +26,11 @@ export default function MeRemindersPageLive() {
   const [followUpsMessage, setFollowUpsMessage] = useState<string | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!overview) return;
@@ -72,6 +77,7 @@ export default function MeRemindersPageLive() {
         preferredChannel,
       },
     });
+    if (!mounted.current) return;
     if (!result.ok) {
       setSaveStatus("error");
       setSaveMessage(result.error.message);
@@ -97,6 +103,7 @@ export default function MeRemindersPageLive() {
       followUpId,
       payload: { body },
     });
+    if (!mounted.current) return;
     setReplyBusyId(null);
     if (!result.ok) {
       setFollowUpsStatus("error");
@@ -110,6 +117,7 @@ export default function MeRemindersPageLive() {
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
     });
+    if (!mounted.current) return;
     if (next.ok) setFollowUps(next.value || []);
   }
 

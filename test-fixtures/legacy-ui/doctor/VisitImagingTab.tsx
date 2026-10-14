@@ -1,0 +1,1946 @@
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Link } from "react-router-dom";
+import {
+  Camera,
+  FileUp,
+  HardDrive,
+  Smartphone,
+  QrCode,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ChevronRight,
+  RefreshCw,
+  MapPin,
+  CloudUpload,
+  ExternalLink,
+  Loader2,
+  XCircle,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  ClinicalImagePlaceholder,
+  ClinicalImagePreview,
+} from "@/components/doctor/ClinicalImagePreview";
+import {
+  ClinicalImageQualityChip,
+  ClinicalImageQualityPanel,
+} from "@/components/doctor/ClinicalImageQuality";
+import { isClinicalImageReviewNeeded } from "@/lib/clinical-image-quality";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { getImagesByVisitId } from "@/lib/mock-data";
+import { formatDateTime } from "@/lib/format";
+import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+import {
+  getAssetDownloadUrl,
+  listVisitAssets,
+  uploadVisitAsset,
+  type AssetsApiError,
+  type SafeAssetDTO,
+} from "@/lib/clinical-assets-api";
+import {
+  createSelfHostedAssetUploadIdentity,
+  getSelfHostedAssetDownloadUrl,
+  listSelfHostedVisitAssets,
+  uploadSelfHostedVisitAsset,
+} from "@/lib/self-hosted-asset-api";
+import {
+  isSelfHostedApiConfigured,
+  selfHostedSessionIdentityKey,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import {
+  safeAssetToClinicalImage,
+  TECHNICAL_QUALITY_NOT_ASSESSED,
+} from "@/lib/safe-clinical-image-adapter";
+
+// Stage 2E-A: client-side preflight allow-list. Server-side validation
+// remains the final authority — this is purely UX guidance.
+const ACCEPTED_IMAGE_MIME = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+const MAX_UPLOAD_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_LABEL = "25 МБ";
+
+function isAcceptedImageFile(file: File) {
+  const type = (file.type || "").toLowerCase();
+  return type.startsWith("image/") && ACCEPTED_IMAGE_MIME.includes(type);
+}
+
+function oversizedImageFile(files: File[]) {
+  return files.find((file) => file.size > MAX_UPLOAD_IMAGE_BYTES) ?? null;
+}
+
+const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
+  overview: "Обзор",
+  dermoscopy: "Дерматоскопия",
+  macro: "Макро",
+  body_map: "Карта тела",
+};
+
+const SOURCE_LABEL: Record<ClinicalImage["source"], string> = {
+  phone: "Телефон",
+  file: "Файл",
+  camera: "Камера",
+  device_bridge: "Прибор",
+  local_transfer: "Локальный перенос",
+};
+
+type KindFilter = "all" | ClinicalImage["kind"];
+type SourceFilter = "all" | ClinicalImage["source"];
+type QualityFilter = "all" | "needs_review";
+// "all" | "unlinked" | lesionId
+type LesionFilter = string;
+
+interface Props {
+  visit: Visit;
+  patientId: string;
+  lesions: Lesion[];
+  initialLesionId?: string | null;
+  initialImageId?: string | null;
+  onOpenBodyMap?: (lesionId: string) => void;
+  /**
+   * Bearer JWT for the clinical assets API. When omitted the imaging tab
+   * stays in demo mode and the API panel renders a muted "not configured"
+   * status without attempting any network call.
+   */
+  apiToken?: string | null;
+  /** Origin of the Supabase project. Optional for the same reason as the token. */
+  apiBaseUrl?: string | null;
+}
+
+interface RetakeRequest {
+  requestId: number;
+  lesionId: string | null;
+  kind: ClinicalImage["kind"];
+}
+
+export function VisitImagingTab({
+  visit,
+  patientId,
+  lesions,
+  initialLesionId,
+  initialImageId,
+  onOpenBodyMap,
+  apiToken,
+  apiBaseUrl,
+}: Props) {
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
+  const selfHostedAssetIdentityKey = selfHostedSessionIdentityKey(
+    selfHostedSession,
+    [visit.id],
+  );
+  const [selfHostedAssetState, setSelfHostedAssetState] = useState<{
+    identityKey: string;
+    assets: SafeAssetDTO[];
+  }>({ identityKey: "", assets: [] });
+  const handleSelfHostedAssetsChange = useCallback(
+    (assets: SafeAssetDTO[]) => {
+      setSelfHostedAssetState({ identityKey: selfHostedAssetIdentityKey, assets });
+    },
+    [selfHostedAssetIdentityKey],
+  );
+  const allImages = useMemo(() => {
+    const currentSelfHostedAssets = selfHostedAssetState.identityKey === selfHostedAssetIdentityKey
+      ? selfHostedAssetState.assets
+      : [];
+    return (selfHostedConfigured
+      ? currentSelfHostedAssets
+          .filter((asset) => asset.kind === "overview" || asset.kind === "dermoscopy")
+          .map(safeAssetToClinicalImage)
+      : [...getImagesByVisitId(visit.id)]
+    ).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  }, [selfHostedAssetIdentityKey, selfHostedAssetState, selfHostedConfigured, visit.id]);
+
+  const lesionMap = useMemo(() => {
+    const m = new Map<string, Lesion>();
+    for (const l of lesions) m.set(l.id, l);
+    return m;
+  }, [lesions]);
+
+  const [lesionFilter, setLesionFilter] = useState<LesionFilter>(
+    initialLesionId && lesions.some((l) => l.id === initialLesionId) ? initialLesionId : "all",
+  );
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all");
+
+  // React to URL-driven lesion changes after mount.
+  useEffect(() => {
+    if (initialLesionId && lesions.some((l) => l.id === initialLesionId)) {
+      setLesionFilter(initialLesionId);
+    }
+  }, [initialLesionId, lesions]);
+
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null);
+  const [retakeRequest, setRetakeRequest] = useState<RetakeRequest | null>(null);
+  const showCaptureNotice = (label: string) =>
+    setCaptureNotice(`Учебный режим: источник «${label}» выбран, реальный захват будет подключён позже.`);
+
+  const filtered = useMemo(() => {
+    return allImages.filter((img) => {
+      if (lesionFilter === "unlinked" && img.lesionId !== null) return false;
+      if (lesionFilter !== "all" && lesionFilter !== "unlinked" && img.lesionId !== lesionFilter) return false;
+      if (kindFilter !== "all" && img.kind !== kindFilter) return false;
+      if (sourceFilter !== "all" && img.source !== sourceFilter) return false;
+      if (qualityFilter === "needs_review" && !isClinicalImageReviewNeeded(img)) return false;
+      return true;
+    });
+  }, [allImages, lesionFilter, kindFilter, sourceFilter, qualityFilter]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialImageId && allImages.some((image) => image.id === initialImageId)
+      ? initialImageId
+      : allImages[0]?.id ?? null,
+  );
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    if (!initialImageId) return;
+    const image = allImages.find((item) => item.id === initialImageId);
+    if (!image) return;
+    setSelectedId(image.id);
+    if (image.lesionId && lesions.some((lesion) => lesion.id === image.lesionId)) {
+      setLesionFilter(image.lesionId);
+    }
+  }, [allImages, initialImageId, lesions]);
+
+  // Fix 1: keep viewer selection in sync with active filters.
+  // Pure derivation — actual state sync happens in useEffect below.
+  const effectiveSelectedId =
+    selectedId && filtered.some((i) => i.id === selectedId)
+      ? selectedId
+      : filtered[0]?.id ?? null;
+
+  const selected = effectiveSelectedId
+    ? allImages.find((i) => i.id === effectiveSelectedId) ?? null
+    : null;
+
+  const comparisonCandidates = useMemo(
+    () => selected
+      ? allImages.filter((image) =>
+          image.id !== selected.id
+          && image.lesionId === selected.lesionId
+          && image.kind === selected.kind)
+      : [],
+    [allImages, selected],
+  );
+
+  // Compare only another image of the same lesion and capture kind.
+  const effectiveCompareId =
+    compareId && comparisonCandidates.some((image) => image.id === compareId)
+      ? compareId
+      : null;
+
+  // Sync state to derived values after render.
+  useEffect(() => {
+    if (effectiveSelectedId !== selectedId) {
+      setSelectedId(effectiveSelectedId);
+    }
+  }, [effectiveSelectedId, selectedId]);
+
+  useEffect(() => {
+    if (compareId && compareId !== effectiveCompareId) {
+      setCompareId(null);
+    }
+  }, [compareId, effectiveCompareId]);
+
+  const compare = effectiveCompareId
+    ? allImages.find((i) => i.id === effectiveCompareId) ?? null
+    : null;
+
+  const resolveSelfHostedImage = useCallback(
+    (assetId: string) => getSelfHostedAssetDownloadUrl({
+      token: selfHostedSession.apiToken,
+      baseUrl: selfHostedSession.apiBaseUrl,
+      assetId,
+    }),
+    [selfHostedSession.apiBaseUrl, selfHostedSession.apiToken],
+  );
+
+  const requestRetake = useCallback(() => {
+    if (!selected) return;
+    if (!selfHostedConfigured) {
+      showCaptureNotice("Повтор снимка");
+      return;
+    }
+    setCaptureNotice(null);
+    setRetakeRequest((previous) => ({
+      requestId: (previous?.requestId ?? 0) + 1,
+      lesionId: selected.lesionId,
+      kind: selected.kind,
+    }));
+  }, [selected, selfHostedConfigured]);
+
+  // Counts for compact summary.
+  const summary = useMemo(() => {
+    const total = allImages.length;
+    const dermoscopy = allImages.filter((i) => i.kind === "dermoscopy").length;
+    const lowQuality = allImages.filter(isClinicalImageReviewNeeded).length;
+    const unlinked = allImages.filter((i) => i.lesionId === null || i.kind === "body_map").length;
+    return { total, dermoscopy, lowQuality, unlinked };
+  }, [allImages]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Patch 3: Capture toolbar — приглушённый фон без тени, отделяет управляющую зону. */}
+      <section className="surface-toolbar">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[12px] font-medium text-muted-foreground">Добавление снимков</span>
+            <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
+            <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл — учебный пример" onClick={() => setCaptureNotice("Это учебный пример. Файл не загружается.")} />
+            <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Связь с устройством" onClick={() => showCaptureNotice("Связь с устройством")} />
+            <CaptureBtn icon={<QrCode className="h-3.5 w-3.5" />} label="Перенос снимков — учебный пример" onClick={() => setCaptureNotice("Это учебный пример. Перенос снимков не выполняется.")} />
+          </div>
+          <SummaryStrip summary={summary} />
+        </div>
+        {captureNotice && (
+          <div className="border-t border-border bg-surface px-3 py-1.5 text-[12px] text-muted-foreground">
+            {captureNotice}
+          </div>
+        )}
+      </section>
+
+      {/* Patch 3: Filters — 2 группы (Что показывать | Откуда/качество), разделитель + счётчик справа. */}
+      <section className="surface-toolbar">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-2">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Образование"
+              value={lesionFilter}
+              onChange={setLesionFilter}
+              options={[
+                { value: "all", label: "Все образования" },
+                { value: "unlinked", label: "Карта тела / без привязки" },
+                ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
+              ]}
+            />
+            <FilterSelect
+              label="Тип"
+              value={kindFilter}
+              onChange={(v) => setKindFilter(v as KindFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "overview", label: "Обзор" },
+                { value: "dermoscopy", label: "Дерматоскопия" },
+                { value: "macro", label: "Макро" },
+                { value: "body_map", label: "Карта тела" },
+              ]}
+            />
+          </div>
+
+          <div className="hidden h-8 w-px self-end bg-border md:block" aria-hidden />
+
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Источник"
+              value={sourceFilter}
+              onChange={(v) => setSourceFilter(v as SourceFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "phone", label: "Телефон" },
+                { value: "camera", label: "Камера" },
+                { value: "device_bridge", label: "Прибор" },
+                { value: "local_transfer", label: "Локальный перенос" },
+                { value: "file", label: "Файл" },
+              ]}
+            />
+            <FilterSelect
+              label="Качество"
+              value={qualityFilter}
+              onChange={(v) => setQualityFilter(v as QualityFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "needs_review", label: "Требуют проверки" },
+              ]}
+            />
+          </div>
+
+          <div className="ml-auto self-end text-[13px] tabular-nums text-muted-foreground">
+            Показано <span className="font-semibold text-foreground">{filtered.length}</span> из {allImages.length}
+          </div>
+        </div>
+      </section>
+
+      {/* Main: grid + viewer */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        {/* Grid */}
+        <section className="surface-card lg:col-span-7">
+          <div className="section-bar">
+            <h2 className="h-section">Снимки визита</h2>
+            <span className="h-section-hint">{filtered.length} шт.</span>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="px-4 pb-4 text-[13px] text-muted-foreground">
+              По выбранным фильтрам снимков нет. Сбросьте фильтры или выберите другой источник.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-3">
+              {filtered.map((img) => {
+                const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+                const isSel = img.id === effectiveSelectedId;
+                const isCmp = img.id === effectiveCompareId;
+                return (
+                  <li key={img.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(img.id)}
+                      className={`group flex w-full flex-col overflow-hidden rounded-md border text-left transition-colors ${
+                        isSel
+                          ? "border-primary ring-1 ring-primary"
+                          : isCmp
+                            ? "border-info"
+                            : "border-border hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      <ClinicalImagePlaceholder
+                        image={img}
+                        kindLabel={KIND_LABEL[img.kind]}
+                        sourceLabel={SOURCE_LABEL[img.source]}
+                      />
+                      {/* Patch 3: 3 строки вместо 5 — тип+лесион, источник·дата+чип, issues одной строкой. */}
+                      <div className="flex flex-col gap-1 px-2 py-2">
+                        <div className="flex min-w-0 items-baseline justify-between gap-2">
+                          <span className="truncate text-[13px] font-medium text-foreground">
+                            {KIND_LABEL[img.kind]}
+                          </span>
+                          <span className="shrink-0 truncate text-[12px] text-muted-foreground">
+                            {lesion ? lesion.label : "без привязки"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[12px] text-muted-foreground">
+                            {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
+                          </span>
+                          <ClinicalImageQualityChip image={img} compact />
+                        </div>
+                        {img.quality.issues.length > 0 && (
+                          <div className="truncate text-[12px] text-warning">
+                            {img.quality.issues.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Viewer + compare + timeline */}
+        <section className="surface-card lg:col-span-5">
+          <div className="section-bar">
+            <h2 className="h-section">Просмотр</h2>
+            {selected && <ClinicalImageQualityChip image={selected} />}
+          </div>
+          {!selected ? (
+            <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимок не выбран.</div>
+          ) : (
+            <div className="flex flex-col gap-3 px-3 pb-3">
+              {/* Zoom toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-2 py-1.5">
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label="Уменьшить">
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="w-12 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label="Увеличить">
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <CompareSelect
+                  selectedId={selected.id}
+                  compareId={effectiveCompareId}
+                  onChange={setCompareId}
+                  images={comparisonCandidates}
+                  lesionMap={lesionMap}
+                />
+              </div>
+
+              {/* Preview(s) */}
+              <div
+                className={`grid gap-2 ${compare ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
+              >
+                <ClinicalImagePreview
+                  image={selected}
+                  zoom={zoom}
+                  title="Основной"
+                  kindLabel={KIND_LABEL[selected.kind]}
+                  sourceLabel={SOURCE_LABEL[selected.source]}
+                  capturedAtLabel={formatDateTime(selected.capturedAt)}
+                  resolveDownloadUrl={selfHostedConfigured ? resolveSelfHostedImage : undefined}
+                />
+                {compare && (
+                  <ClinicalImagePreview
+                    image={compare}
+                    zoom={zoom}
+                    title="Сравнение"
+                    kindLabel={KIND_LABEL[compare.kind]}
+                    sourceLabel={SOURCE_LABEL[compare.source]}
+                    capturedAtLabel={formatDateTime(compare.capturedAt)}
+                    resolveDownloadUrl={selfHostedConfigured ? resolveSelfHostedImage : undefined}
+                  />
+                )}
+              </div>
+
+              {/* Quality panel */}
+              <ClinicalImageQualityPanel image={selected} />
+
+              {/* Metadata */}
+              <ImageMeta image={selected} lesionMap={lesionMap} />
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                {selected.lesionId ? (
+                  <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
+                    <Link to={`/patients/${patientId}/lesions/${selected.lesionId}`}>
+                      Открыть образование <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  </Button>
+                ) : (
+                  <span className="text-[12px] text-muted-foreground">Снимок не привязан к образованию.</span>
+                )}
+                {selected.lesionId && onOpenBodyMap && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-11 text-[12px]"
+                    onClick={() => onOpenBodyMap(selected.lesionId!)}
+                  >
+                    <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на карте тела
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="min-h-11 text-[12px]"
+                  onClick={requestRetake}
+                >
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Timeline */}
+      <section className="surface-card">
+        <div className="section-bar">
+          <h2 className="h-section">Хронология снимков</h2>
+          <span className="h-section-hint">{allImages.length} событий</span>
+        </div>
+        {allImages.length === 0 ? (
+          <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимков визита нет.</div>
+        ) : (
+          <ol className="divide-y divide-border">
+            {allImages.map((img) => {
+              const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+              const isSel = img.id === effectiveSelectedId;
+              return (
+                <li key={img.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(img.id)}
+                    className={`block w-full min-h-[44px] px-4 py-2 text-left ${
+                      isSel ? "bg-surface-muted" : "hover:bg-surface-muted"
+                    }`}
+                  >
+                    {/* Mobile: 2-line stacked */}
+                    <div className="flex flex-col gap-0.5 sm:hidden">
+                      <div className="flex items-center justify-between gap-2 text-[13px]">
+                        <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
+                        <ClinicalImageQualityChip image={img} compact />
+                      </div>
+                      <div className="text-[13px] text-foreground">
+                        {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
+                      </div>
+                    </div>
+                    {/* Desktop: dense single row */}
+                    <div className="hidden grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 text-[12px] sm:grid">
+                      <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
+                      <span className="min-w-0 truncate">
+                        {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
+                      </span>
+                      <ClinicalImageQualityChip image={img} compact />
+                    </div>
+                  </button>
+
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      {/* Stage 1E-E · панель снимков. Network calls live in
+          src/lib/clinical-assets-api.ts; this component only consumes them. */}
+      <ApiAssetsPanel
+        visitId={visit.id}
+        apiToken={apiToken ?? null}
+        apiBaseUrl={apiBaseUrl ?? null}
+        selfHostedApiToken={selfHostedConfigured ? selfHostedSession.apiToken : null}
+        selfHostedApiBaseUrl={selfHostedConfigured ? selfHostedSession.apiBaseUrl : null}
+        onAssetsChange={handleSelfHostedAssetsChange}
+        retakeRequest={retakeRequest}
+      />
+    </div>
+  );
+}
+
+// ───────── панель снимков ─────────
+
+interface ApiAssetsPanelProps {
+  visitId: string;
+  apiToken: string | null;
+  apiBaseUrl: string | null;
+  selfHostedApiToken?: string | null;
+  selfHostedApiBaseUrl?: string | null;
+  onAssetsChange?: (assets: SafeAssetDTO[]) => void;
+  retakeRequest?: RetakeRequest | null;
+}
+
+type ErrorContext = "list" | "download" | "upload";
+type UploadItemStatus =
+  | "queued"
+  | "uploading"
+  | "uploaded"
+  | "failed"
+  | "cancelled"
+  | "skipped";
+
+interface UploadQueueItem {
+  id: string;
+  file: File;
+  name: string;
+  idempotencyKey: string;
+  capturedAt: string;
+  status: UploadItemStatus;
+  context: Pick<RetakeRequest, "lesionId" | "kind"> | null;
+}
+
+const UPLOAD_ITEM_STATUS_LABEL: Record<UploadItemStatus, string> = {
+  queued: "Ожидает",
+  uploading: "Загружается",
+  uploaded: "Загружен",
+  failed: "Ошибка",
+  cancelled: "Отменён",
+  skipped: "Не загружен",
+};
+
+function isRetryableUploadStatus(status: UploadItemStatus) {
+  return status === "failed" || status === "skipped";
+}
+
+function ApiAssetsPanel({
+  visitId,
+  apiToken,
+  apiBaseUrl,
+  selfHostedApiToken = null,
+  selfHostedApiBaseUrl = null,
+  onAssetsChange,
+  retakeRequest = null,
+}: ApiAssetsPanelProps) {
+  const selfHostedConfigured = Boolean(selfHostedApiToken && selfHostedApiBaseUrl);
+  const legacyConfigured = Boolean(apiToken && apiBaseUrl);
+  const configured = selfHostedConfigured || legacyConfigured;
+  const activeToken = selfHostedConfigured ? selfHostedApiToken : apiToken;
+  const activeBaseUrl = selfHostedConfigured ? selfHostedApiBaseUrl : apiBaseUrl;
+  const activeApiLabel = selfHostedConfigured ? "система клиники" : "система снимков";
+  const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<AssetsApiError | null>(null);
+  const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [uploadItems, setUploadItems] = useState<UploadQueueItem[]>([]);
+  const [uploadItemsExpanded, setUploadItemsExpanded] = useState(true);
+  const [uploadResultAnnouncement, setUploadResultAnnouncement] = useState<
+    string | null
+  >(null);
+  const [openingAssetId, setOpeningAssetId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  const uploadItemsRef = useRef<UploadQueueItem[]>([]);
+  const uploadBatchSeqRef = useRef(0);
+  const lastRetakeRequestRef = useRef(0);
+  const [uploadContext, setUploadContext] = useState<Pick<RetakeRequest, "lesionId" | "kind"> | null>(null);
+
+  const setUploadItemsSync = useCallback(
+    (
+      next:
+        | UploadQueueItem[]
+        | ((prev: UploadQueueItem[]) => UploadQueueItem[]),
+    ) => {
+      setUploadItems((prev) => {
+        const value = typeof next === "function" ? next(prev) : next;
+        uploadItemsRef.current = value;
+        return value;
+      });
+    },
+    [],
+  );
+
+  const updateUploadItemStatus = useCallback(
+    (id: string, status: UploadItemStatus) => {
+      setUploadItemsSync((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status } : item)),
+      );
+    },
+    [setUploadItemsSync],
+  );
+
+  const retryableUploadCount = useMemo(
+    () =>
+      uploadItems.filter((item) => isRetryableUploadStatus(item.status)).length,
+    [uploadItems],
+  );
+  const uploadedUploadCount = useMemo(
+    () => uploadItems.filter((item) => item.status === "uploaded").length,
+    [uploadItems],
+  );
+  const allUploadItemsUploaded =
+    uploadItems.length > 0 && uploadedUploadCount === uploadItems.length;
+  const canClearUploadedUploadItems =
+    uploadedUploadCount > 0 && uploadItems.length > uploadedUploadCount;
+
+  const listActiveAssets = useCallback(
+    () =>
+      selfHostedConfigured
+        ? listSelfHostedVisitAssets({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+          })
+        : listVisitAssets({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured, visitId],
+  );
+
+  const uploadActiveAsset = useCallback(
+    (
+      item: UploadQueueItem,
+      signal: AbortSignal,
+    ) =>
+      selfHostedConfigured
+        ? uploadSelfHostedVisitAsset({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+            file: item.file,
+            idempotencyKey: item.idempotencyKey,
+            kind: item.context?.kind ?? "overview",
+            source: "file",
+            lesionId: item.context?.lesionId ?? null,
+            capturedAt: item.capturedAt,
+            signal,
+          })
+        : uploadVisitAsset({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+            file: item.file,
+            kind: item.context?.kind ?? "overview",
+            source: "file",
+            lesionId: item.context?.lesionId ?? undefined,
+            signal,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured, visitId],
+  );
+
+  const getActiveAssetDownloadUrl = useCallback(
+    (assetId: string) =>
+      selfHostedConfigured
+        ? getSelfHostedAssetDownloadUrl({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            assetId,
+          })
+        : getAssetDownloadUrl({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            assetId,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured],
+  );
+
+  // Initial load + manual reload trigger.
+  useEffect(() => {
+    if (!configured) {
+      setAssets(null);
+      onAssetsChange?.([]);
+      return;
+    }
+    let cancelled = false;
+    setAssets(null);
+    onAssetsChange?.([]);
+    setBusy(true);
+    busyRef.current = true;
+    setError(null);
+    setErrorContext(null);
+    listActiveAssets()
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          const nextAssets = res.value ?? [];
+          setAssets(nextAssets);
+          onAssetsChange?.(nextAssets);
+        } else {
+          setAssets([]);
+          onAssetsChange?.([]);
+          setError(res.error);
+          setErrorContext("list");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusy(false);
+          busyRef.current = false;
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configured, listActiveAssets, onAssetsChange, reloadTick]);
+
+  const handleUploadClick = useCallback(() => {
+    if (!configured) {
+      setStatus("Загрузка снимков доступна после входа в систему клиники.");
+      return;
+    }
+    setUploadContext(null);
+    fileInputRef.current?.click();
+  }, [configured]);
+
+  useEffect(() => {
+    if (!retakeRequest || retakeRequest.requestId === lastRetakeRequestRef.current) return;
+    lastRetakeRequestRef.current = retakeRequest.requestId;
+    if (!configured) {
+      setStatus("Пересъёмка доступна после входа в систему клиники.");
+      return;
+    }
+    setUploadContext({ lesionId: retakeRequest.lesionId, kind: retakeRequest.kind });
+    setStatus("Выберите новый файл. Новый снимок будет привязан к тому же образованию и типу съёмки.");
+    regionRef.current?.scrollIntoView({ block: "center" });
+    queueMicrotask(() => fileInputRef.current?.click());
+  }, [configured, retakeRequest]);
+
+  const processFiles = useCallback(
+    async (
+      files: File[],
+      existingItems?: UploadQueueItem[],
+      requestedContext: Pick<RetakeRequest, "lesionId" | "kind"> | null = null,
+    ) => {
+      if (files.length === 0) return;
+      // Guard against duplicate uploads while one is pending. The button
+      // is disabled while busy, but drag/drop has no built-in disable.
+      if (busyRef.current) return;
+      if (files.some((file) => !isAcceptedImageFile(file))) {
+        setUploadItemsSync([]);
+        setUploadItemsExpanded(true);
+        setUploadResultAnnouncement(null);
+        setError(null);
+        setErrorContext(null);
+        setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
+        return;
+      }
+      const tooLarge = oversizedImageFile(files);
+      if (tooLarge) {
+        setUploadItemsSync([]);
+        setUploadItemsExpanded(true);
+        setUploadResultAnnouncement(null);
+        setError(null);
+        setErrorContext(null);
+        setStatus(
+          `Файл слишком большой: ${tooLarge.name}. Максимум ${MAX_UPLOAD_IMAGE_LABEL}.`,
+        );
+        return;
+      }
+      const items =
+        existingItems ??
+        files.map((file, idx) => {
+          const batch = uploadBatchSeqRef.current;
+          const uploadIdentity = createSelfHostedAssetUploadIdentity();
+          return {
+            id: `${batch}-${idx}-${file.name}-${file.size}-${file.lastModified}`,
+            file,
+            name: file.name,
+            idempotencyKey: uploadIdentity.idempotencyKey,
+            capturedAt: uploadIdentity.capturedAt,
+            status: "queued" as UploadItemStatus,
+            context: requestedContext,
+          };
+        });
+      uploadBatchSeqRef.current += 1;
+      if (existingItems) {
+        const retryIds = new Set(existingItems.map((item) => item.id));
+        setUploadItemsSync((prev) =>
+          prev.map((item) =>
+            retryIds.has(item.id) ? { ...item, status: "queued" } : item,
+          ),
+        );
+      } else {
+        setUploadItemsSync(items);
+      }
+      setUploadItemsExpanded(true);
+      setUploadResultAnnouncement(null);
+      const controller = new AbortController();
+      uploadAbortRef.current = controller;
+      setBusy(true);
+      busyRef.current = true;
+      setUploading(true);
+      setUploadProgress({ current: 0, total: files.length });
+      setError(null);
+      setErrorContext(null);
+      let uploadedCount = 0;
+      let shouldReload = false;
+      try {
+        for (const [idx, file] of files.entries()) {
+          const item = items[idx];
+          updateUploadItemStatus(item.id, "uploading");
+          setUploadProgress({ current: idx + 1, total: files.length });
+          setStatus(
+            files.length === 1
+              ? `Загружаем: ${file.name}`
+              : `Загружаем ${idx + 1} из ${files.length}: ${file.name}`,
+          );
+          const res = await uploadActiveAsset(item, controller.signal);
+          if (controller.signal.aborted) {
+            const cancelledIds = new Set(items.slice(idx).map((x) => x.id));
+            setUploadItemsSync((prev) =>
+              prev.map((x) =>
+                cancelledIds.has(x.id) ? { ...x, status: "cancelled" } : x,
+              ),
+            );
+            setStatus(
+              uploadedCount > 0
+                ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
+                : "Загрузка отменена.",
+            );
+            setUploadResultAnnouncement(
+              uploadedCount > 0
+                ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
+                : "Загрузка отменена.",
+            );
+            shouldReload = uploadedCount > 0;
+            return;
+          }
+          if (!res.ok) {
+            // Do not clear `assets` — keep already-rendered rows visible.
+            updateUploadItemStatus(item.id, "failed");
+            const skippedIds = new Set(items.slice(idx + 1).map((x) => x.id));
+            setUploadItemsSync((prev) =>
+              prev.map((x) =>
+                skippedIds.has(x.id) ? { ...x, status: "skipped" } : x,
+              ),
+            );
+            setError(res.error);
+            setErrorContext("upload");
+            setStatus(
+              uploadedCount > 0
+                ? `Загружено снимков: ${uploadedCount}. Ошибка на файле: ${file.name}`
+                : null,
+            );
+            setUploadResultAnnouncement(
+              uploadedCount > 0
+                ? `Загружено снимков: ${uploadedCount}. Ошибка на файле: ${file.name}`
+                : `Ошибка загрузки файла: ${file.name}`,
+            );
+            return;
+          }
+          uploadedCount += 1;
+          updateUploadItemStatus(item.id, "uploaded");
+        }
+        if (uploadedCount > 0) {
+          setStatus(
+            uploadedCount === 1
+              ? "Снимок загружен."
+              : `Загружено снимков: ${uploadedCount}.`,
+          );
+          setUploadResultAnnouncement(
+            uploadedCount === 1
+              ? "Снимок загружен."
+              : `Загружено снимков: ${uploadedCount}.`,
+          );
+          setUploadItemsExpanded(false);
+          shouldReload = true;
+        }
+      } finally {
+        setBusy(false);
+        busyRef.current = false;
+        setUploading(false);
+        setUploadProgress(null);
+        if (uploadAbortRef.current === controller) uploadAbortRef.current = null;
+        if (shouldReload) setReloadTick((n) => n + 1);
+      }
+    },
+    [
+      uploadActiveAsset,
+      setUploadItemsSync,
+      updateUploadItemStatus,
+    ],
+  );
+
+  const handleCancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+  }, []);
+
+  const handleRetryFailedUploads = useCallback(() => {
+    const retryItems = uploadItemsRef.current.filter((item) =>
+      isRetryableUploadStatus(item.status),
+    );
+    void processFiles(
+      retryItems.map((item) => item.file),
+      retryItems,
+    );
+  }, [processFiles]);
+
+  const handleClearUploadItems = useCallback(() => {
+    setUploadItemsSync([]);
+    setUploadItemsExpanded(true);
+    setUploadResultAnnouncement("Очередь загрузки очищена.");
+  }, [setUploadItemsSync]);
+
+  const handleClearUploadedUploadItems = useCallback(() => {
+    const uploadedCount = uploadItemsRef.current.filter(
+      (item) => item.status === "uploaded",
+    ).length;
+    const nextItems = uploadItemsRef.current.filter(
+      (item) => item.status !== "uploaded",
+    );
+    setUploadItemsSync(nextItems);
+    setUploadItemsExpanded(true);
+    setUploadResultAnnouncement(
+      `Скрыты успешно загруженные снимки: ${uploadedCount}. Остались проблемные файлы: ${nextItems.length}.`,
+    );
+  }, [setUploadItemsSync]);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      e.target.value = "";
+      const requestedContext = uploadContext;
+      setUploadContext(null);
+      await processFiles(files, undefined, requestedContext);
+    },
+    [processFiles, uploadContext],
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (!configured || busyRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(true);
+    },
+    [configured],
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      if (!configured) {
+        setStatus("Загрузка снимков доступна после входа в систему клиники.");
+        return;
+      }
+      if (busyRef.current) return;
+      setUploadContext(null);
+      await processFiles(Array.from(e.dataTransfer?.files ?? []), undefined, null);
+    },
+    [configured, processFiles],
+  );
+
+  const handleRefresh = useCallback(() => {
+    setStatus(null);
+    setError(null);
+    setErrorContext(null);
+    setReloadTick((n) => n + 1);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setPendingRetryFocus(true);
+    setStatus(null);
+    setError(null);
+    setErrorContext(null);
+    // Synchronously mark busy so the focus effect waits for the retry
+    // round-trip to complete before deciding where to land focus.
+    setBusy(true);
+    busyRef.current = true;
+    setReloadTick((n) => n + 1);
+  }, []);
+
+  const [preview, setPreview] = useState<
+    { asset: SafeAssetDTO; downloadUrl: string } | null
+  >(null);
+  const [previewRefreshing, setPreviewRefreshing] = useState(false);
+  const [previewRefreshError, setPreviewRefreshError] =
+    useState<AssetsApiError | null>(null);
+  // Stage 2E-E: remember the opener so we can return focus on close.
+  const previewOpenerRef = useRef<HTMLElement | null>(null);
+
+  const restorePreviewOpenerFocus = useCallback(() => {
+    const opener = previewOpenerRef.current;
+    previewOpenerRef.current = null;
+    if (opener && typeof opener.focus === "function" && opener.isConnected) {
+      // Defer to allow Radix or the alert render pass to settle first.
+      queueMicrotask(() => {
+        if (opener.isConnected) opener.focus();
+      });
+    }
+  }, []);
+
+  // Stage 2E-G: focus return after list retry.
+  const regionRef = useRef<HTMLElement | null>(null);
+  const retryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const firstOpenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [pendingRetryFocus, setPendingRetryFocus] = useState(false);
+
+  useEffect(() => {
+    if (!pendingRetryFocus || busy) return;
+    let target: HTMLElement | null = null;
+    if (error && errorContext === "list") {
+      target = retryButtonRef.current;
+    } else if (assets && assets.length > 0) {
+      target = firstOpenButtonRef.current;
+    } else {
+      target = regionRef.current;
+    }
+    setPendingRetryFocus(false);
+    if (target && typeof target.focus === "function" && target.isConnected) {
+      target.focus();
+    }
+  }, [pendingRetryFocus, busy, error, errorContext, assets]);
+
+  const handleOpen = useCallback(
+    async (asset: SafeAssetDTO, opener?: HTMLElement | null) => {
+      if (busyRef.current) return;
+      previewOpenerRef.current =
+        opener ?? (typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null);
+      setBusy(true);
+      busyRef.current = true;
+      setOpeningAssetId(asset.id);
+      setError(null);
+      setErrorContext(null);
+      setPreviewRefreshError(null);
+      setStatus("Подготовка ссылки…");
+      const res = await getActiveAssetDownloadUrl(asset.id);
+      setBusy(false);
+      busyRef.current = false;
+      setOpeningAssetId(null);
+      if (res.ok && res.value) {
+        setStatus(null);
+        setPreviewRefreshError(null);
+        setPreview({ asset, downloadUrl: res.value.downloadUrl });
+      } else if (!res.ok) {
+        setError(res.error);
+        setErrorContext("download");
+        setStatus(null);
+        restorePreviewOpenerFocus();
+      }
+    },
+    [getActiveAssetDownloadUrl, restorePreviewOpenerFocus],
+  );
+
+  const handleClosePreview = useCallback(() => {
+    setPreview(null);
+    setPreviewRefreshError(null);
+    restorePreviewOpenerFocus();
+  }, [restorePreviewOpenerFocus]);
+
+  const handleRefreshPreview = useCallback(async () => {
+    if (!preview || busyRef.current) return;
+    setPreviewRefreshing(true);
+    setPreviewRefreshError(null);
+    setBusy(true);
+    busyRef.current = true;
+    setStatus("Подготовка ссылки…");
+    const res = await getActiveAssetDownloadUrl(preview.asset.id);
+    setBusy(false);
+    busyRef.current = false;
+    setPreviewRefreshing(false);
+    setStatus(null);
+    if (res.ok && res.value) {
+      setPreview({ asset: preview.asset, downloadUrl: res.value.downloadUrl });
+    } else if (!res.ok) {
+      setPreviewRefreshError(res.error);
+    }
+  }, [getActiveAssetDownloadUrl, preview]);
+
+  const handleOpenInNewTab = useCallback(() => {
+    if (preview) {
+      window.open(preview.downloadUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [preview]);
+
+  return (
+    <section className="surface-card" aria-label="Снимки визита" tabIndex={-1} ref={regionRef}>
+      <div className="section-bar">
+        <h2 className="h-section">Снимки визита</h2>
+        <span className="h-section-hint">
+          {configured
+            ? assets
+              ? `${assets.length} шт.`
+              : busy
+                ? "загрузка…"
+                : "—"
+            : "учебный режим"}
+        </span>
+      </div>
+
+      {configured && (
+        <p className="px-3 pb-2 text-[12px] text-muted-foreground">
+          Подключено: {activeApiLabel}. В списке показаны только данные снимков.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]"
+          onClick={handleUploadClick}
+          disabled={busy}
+          aria-label="Загрузить снимок"
+        >
+          <CloudUpload className="h-3.5 w-3.5" /> Загрузить снимок
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]"
+          onClick={handleRefresh}
+          disabled={!configured || busy}
+          aria-label="Обновить список снимков"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          )}
+          Обновить
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+          className="hidden"
+          onChange={handleFileChange}
+          aria-hidden
+          tabIndex={-1}
+        />
+        <div
+          role="button"
+          tabIndex={configured && !busy ? 0 : -1}
+          aria-label="Перетащите снимок сюда для загрузки"
+          aria-disabled={!configured || busy}
+          onClick={handleUploadClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleUploadClick();
+            }
+          }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          data-active={dragActive ? "true" : "false"}
+          className={`flex min-h-11 flex-1 min-w-[180px] flex-wrap items-center gap-x-2 gap-y-0 rounded-md border border-dashed px-2 py-1.5 text-[12px] transition-colors ${
+            dragActive
+              ? "border-primary bg-primary/5 text-foreground"
+              : "border-border text-muted-foreground hover:border-muted-foreground/50"
+          } ${!configured || busy ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+        >
+          <span>Перетащите снимок сюда</span>
+          <span aria-hidden>·</span>
+          <span>Файлы JPEG, PNG, WebP или HEIC до {MAX_UPLOAD_IMAGE_LABEL}</span>
+        </div>
+        {uploading && (
+          <span
+            className="text-[12px] text-muted-foreground"
+            data-testid="upload-busy-indicator"
+            aria-live="polite"
+          >
+            Идёт загрузка…
+          </span>
+        )}
+        {uploading && uploadProgress && uploadProgress.total > 1 && (
+          <span
+            role="progressbar"
+            aria-label="Прогресс загрузки снимков"
+            aria-valuemin={0}
+            aria-valuemax={uploadProgress.total}
+            aria-valuenow={uploadProgress.current}
+            className="text-[12px] text-muted-foreground"
+          >
+            Загрузка {uploadProgress.current} из {uploadProgress.total}
+          </span>
+        )}
+        {uploading && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-[12px]"
+            onClick={handleCancelUpload}
+            aria-label="Отменить загрузку снимков"
+          >
+            <XCircle className="h-3.5 w-3.5" aria-hidden /> Отменить
+          </Button>
+        )}
+      </div>
+
+      {!configured && (
+        <p className="px-3 pb-3 text-[12px] text-muted-foreground">
+          Учебный режим: система снимков не подключена для текущей сессии.
+          Загрузка и ссылки доступны только после входа в систему клиники.
+        </p>
+      )}
+
+      {status && (
+        <p
+          className="px-3 pb-2 text-[12px] text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {status}
+        </p>
+      )}
+
+      {uploadResultAnnouncement && (
+        <p
+          className="sr-only"
+          aria-live="polite"
+          data-testid="upload-result-announcement"
+        >
+          {uploadResultAnnouncement}
+        </p>
+      )}
+
+      {error && errorContext && (
+        <div
+          className="flex flex-wrap items-center gap-2 px-3 pb-2"
+          role="alert"
+          aria-live="assertive"
+        >
+          <p className="text-[12px] text-warning">
+            {assetsErrorMessage(error, errorContext)}
+          </p>
+          {errorContext === "list" && (
+            <Button
+              ref={retryButtonRef}
+              size="sm"
+              variant="secondary"
+              className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
+              onClick={handleRetry}
+              disabled={busy}
+              aria-label="Повторить загрузку списка снимков"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить загрузку списка снимков
+            </Button>
+          )}
+        </div>
+      )}
+
+      {uploadItems.length > 0 && (
+        <div className="px-3 pb-2">
+          {allUploadItemsUploaded && !uploadItemsExpanded ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-[12px] text-muted-foreground">
+              <span>
+                Все выбранные снимки загружены: {uploadedUploadCount}.
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[12px]"
+                onClick={() => setUploadItemsExpanded(true)}
+                aria-label="Показать статусы загрузки снимков"
+              >
+                Показать статусы
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[12px]"
+                onClick={handleClearUploadItems}
+                aria-label="Очистить завершённую очередь загрузки снимков"
+              >
+                Очистить
+              </Button>
+            </div>
+          ) : (
+            <ul
+              aria-label="Статусы загрузки снимков"
+              aria-live="polite"
+              className="space-y-1 text-[12px]"
+            >
+              {uploadItems.map((item) => {
+                const label = UPLOAD_ITEM_STATUS_LABEL[item.status];
+                return (
+                  <li
+                    key={item.id}
+                    aria-label={`${item.name}: ${label}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-muted-foreground"
+                  >
+                    <span className="truncate">{item.name}</span>
+                    <span className="font-medium text-foreground">{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {allUploadItemsUploaded && uploadItemsExpanded && !uploading && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 h-8 px-2 text-[12px]"
+              onClick={() => setUploadItemsExpanded(false)}
+              aria-label="Скрыть загруженные статусы"
+            >
+              Скрыть загруженные
+            </Button>
+          )}
+          {canClearUploadedUploadItems && !uploading && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 h-8 px-2 text-[12px]"
+              onClick={handleClearUploadedUploadItems}
+              aria-label="Скрыть успешно загруженные снимки"
+            >
+              Скрыть загруженные
+            </Button>
+          )}
+          {retryableUploadCount > 0 && !uploading && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-2 h-8 gap-1.5 text-[12px]"
+              onClick={handleRetryFailedUploads}
+              aria-label="Повторить снимки с ошибкой"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
+            </Button>
+          )}
+        </div>
+      )}
+
+      {configured && assets && assets.length === 0 && !busy && (
+        <p className="px-3 pb-3 text-[12px] text-muted-foreground">
+          В системе клиники ещё нет снимков для этого визита.
+        </p>
+      )}
+
+      {configured && assets && assets.length > 0 && (
+        <ul className="divide-y divide-border">
+          {assets.map((a, idx) => {
+            const openingThisAsset = openingAssetId === a.id;
+            const actionLabel = assetActionLabel(a);
+            return (
+              <li
+                key={a.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+              >
+                <div className="min-w-0 text-[12px]">
+                  <div className="truncate font-medium text-foreground">
+                    {KIND_LABEL[a.kind]} · {SOURCE_LABEL[a.source]}
+                  </div>
+                  <div className="truncate text-muted-foreground">
+                    Снято: {formatDateTime(a.capturedAt)} · {assetQualityLabel(a)}
+                  </div>
+                </div>
+                <Button
+                  ref={idx === 0 ? firstOpenButtonRef : undefined}
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-11 gap-1.5 text-[12px]"
+                  onClick={(e) => handleOpen(a, e.currentTarget)}
+                  disabled={busy}
+                  aria-busy={openingThisAsset || undefined}
+                  aria-label={
+                    openingThisAsset
+                      ? `Готовим снимок: ${actionLabel}`
+                      : `Открыть снимок: ${actionLabel}`
+                  }
+                >
+                  {openingThisAsset ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {openingThisAsset ? "Готовим…" : "Открыть"}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <AssetPreviewDialog
+        preview={preview}
+        onClose={handleClosePreview}
+        onOpenInNewTab={handleOpenInNewTab}
+        onRefresh={handleRefreshPreview}
+        refreshing={previewRefreshing}
+        refreshError={previewRefreshError}
+      />
+    </section>
+  );
+}
+
+interface AssetPreviewDialogProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string } | null;
+  onClose: () => void;
+  onOpenInNewTab: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshError: AssetsApiError | null;
+}
+
+function AssetPreviewDialog({
+  preview,
+  onClose,
+  onOpenInNewTab,
+  onRefresh,
+  refreshing,
+  refreshError,
+}: AssetPreviewDialogProps) {
+  const open = preview !== null;
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const refreshButtonRef = useRef<HTMLButtonElement | null>(null);
+  const openInNewTabButtonRef = useRef<HTMLButtonElement | null>(null);
+  const wasRefreshingRef = useRef(false);
+  const [refreshAnnouncement, setRefreshAnnouncement] = useState<string | null>(null);
+
+  // Reset image-load state whenever the previewed asset changes (or closes).
+  useEffect(() => {
+    setImageError(false);
+    setImageLoaded(false);
+    setRefreshAnnouncement(null);
+  }, [preview?.asset.id, preview?.downloadUrl]);
+
+  const isLoading = preview !== null && ((!imageLoaded && !imageError) || refreshing);
+
+  useEffect(() => {
+    if (!preview) {
+      wasRefreshingRef.current = refreshing;
+      setRefreshAnnouncement(null);
+      return;
+    }
+    if (refreshing) {
+      setRefreshAnnouncement("Обновляем ссылку.");
+    }
+    if (wasRefreshingRef.current && !refreshing) {
+      const failed = Boolean(refreshError && imageError);
+      setRefreshAnnouncement(
+        failed ? "Не удалось обновить ссылку." : "Ссылка обновлена.",
+      );
+      const target =
+        failed ? refreshButtonRef.current : openInNewTabButtonRef.current;
+      queueMicrotask(() => {
+        if (target?.isConnected) target.focus();
+      });
+    }
+    wasRefreshingRef.current = refreshing;
+  }, [preview, refreshing, refreshError, imageError]);
+
+  return (
+    <Dialog modal open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Просмотр снимка</DialogTitle>
+          <DialogDescription>
+            {preview
+              ? `${KIND_LABEL[preview.asset.kind]} · ${SOURCE_LABEL[preview.asset.source]} · ${formatDateTime(preview.asset.capturedAt)} · ${assetQualityLabel(preview.asset)}`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {preview && (
+          <div className="flex flex-col gap-3">
+            {refreshError && (
+              <p
+                className="rounded-sm bg-warning/10 px-3 py-2 text-[12px] text-warning"
+                role="alert"
+                aria-live="assertive"
+              >
+                {assetsErrorMessage(refreshError, "download")}
+              </p>
+            )}
+            {refreshAnnouncement && (
+              <p
+                className="sr-only"
+                role="status"
+                aria-live="polite"
+                data-testid="preview-refresh-announcement"
+              >
+                {refreshAnnouncement}
+              </p>
+            )}
+            <AssetPreviewImageFrame
+              preview={preview}
+              imageError={imageError}
+              isLoading={isLoading}
+              refreshing={refreshing}
+              onImageLoad={() => setImageLoaded(true)}
+              onImageError={() => setImageError(true)}
+            />
+            <AssetPreviewActions
+              preview={preview}
+              imageError={imageError}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              onOpenInNewTab={onOpenInNewTab}
+              onClose={onClose}
+              refreshButtonRef={refreshButtonRef}
+              openInNewTabButtonRef={openInNewTabButtonRef}
+            />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface AssetPreviewImageFrameProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string };
+  imageError: boolean;
+  isLoading: boolean;
+  refreshing: boolean;
+  onImageLoad: () => void;
+  onImageError: () => void;
+}
+
+function AssetPreviewImageFrame({
+  preview,
+  imageError,
+  isLoading,
+  refreshing,
+  onImageLoad,
+  onImageError,
+}: AssetPreviewImageFrameProps) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-md border border-border bg-surface-sunken"
+      aria-busy={isLoading}
+    >
+      {imageError ? (
+        <p
+          className="px-3 py-6 text-center text-[13px] text-warning"
+          role="alert"
+        >
+          Не удалось отобразить изображение. Откройте его в новой вкладке.
+        </p>
+      ) : (
+        <>
+          {isLoading && (
+            <div
+              className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-sunken/80 text-[12px] text-muted-foreground"
+              role="status"
+              aria-live="polite"
+              data-testid="preview-loading"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              <span>
+                {refreshing ? "Обновляем ссылку…" : "Загружаем изображение…"}
+              </span>
+            </div>
+          )}
+          <img
+            src={preview.downloadUrl}
+            alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
+            className="block max-h-[60vh] w-full object-contain"
+            onLoad={onImageLoad}
+            onError={onImageError}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+interface AssetPreviewActionsProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string };
+  imageError: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
+  onOpenInNewTab: () => void;
+  onClose: () => void;
+  refreshButtonRef: Ref<HTMLButtonElement>;
+  openInNewTabButtonRef: Ref<HTMLButtonElement>;
+}
+
+function AssetPreviewActions({
+  preview,
+  imageError,
+  refreshing,
+  onRefresh,
+  onOpenInNewTab,
+  onClose,
+  refreshButtonRef,
+  openInNewTabButtonRef,
+}: AssetPreviewActionsProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {imageError && (
+        <Button
+          ref={refreshButtonRef}
+          size="sm"
+          variant="secondary"
+          className="min-h-11 gap-1.5 text-[12px]"
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label={`Получить новую ссылку для снимка: ${assetActionLabel(preview.asset)}`}
+        >
+          {refreshing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {refreshing ? "Обновляем…" : "Получить новую ссылку"}
+        </Button>
+      )}
+      <Button
+        ref={openInNewTabButtonRef}
+        size="sm"
+        variant="secondary"
+        className="min-h-11 gap-1.5 text-[12px]"
+        onClick={onOpenInNewTab}
+      >
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Открыть в новой вкладке
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="min-h-11 text-[12px]"
+        onClick={onClose}
+      >
+        Закрыть
+      </Button>
+    </div>
+  );
+}
+
+
+function assetActionLabel(asset: SafeAssetDTO): string {
+  return `${KIND_LABEL[asset.kind]} · ${SOURCE_LABEL[asset.source]} · ${formatDateTime(asset.capturedAt)}`;
+}
+
+function assetQualityLabel(asset: SafeAssetDTO): string {
+  if (asset.qualityIssues.includes(TECHNICAL_QUALITY_NOT_ASSESSED)) {
+    return "качество не оценено";
+  }
+  return `качество ${Math.round(asset.qualityScore * 100)}%`;
+}
+
+function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
+  if (err.kind === "validation") {
+    if (ctx === "upload") return "Файл не прошёл техническую проверку. Проверьте формат и размер.";
+    return "Система клиники не смогла проверить запрос. Обновите страницу и повторите действие.";
+  }
+  if (ctx === "list") {
+    if (err.kind === "network") return "Сбой сети при загрузке снимков.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для просмотра снимков.";
+      if (err.status === 404) return "Визит или снимки не найдены.";
+      return "Не удалось загрузить снимки.";
+    }
+    return "Не удалось загрузить снимки.";
+  }
+  if (ctx === "download") {
+    if (err.kind === "network") return "Сбой сети при подготовке ссылки.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для открытия снимка.";
+      if (err.status === 404) return "Снимок не найден.";
+      return "Не удалось подготовить ссылку.";
+    }
+    return "Не удалось подготовить ссылку.";
+  }
+  // upload
+  if (err.kind === "network") return "Сбой сети при загрузке снимка.";
+  if (err.kind === "http") {
+    if (err.status === 401 || err.status === 403) return "Недостаточно прав для загрузки снимка.";
+    if (err.status === 422) return "Проверьте файл и параметры снимка.";
+    return "Не удалось загрузить снимок.";
+  }
+  return "Не удалось загрузить снимок.";
+}
+
+// ───────── Subcomponents ─────────
+
+function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <Button size="sm" variant="secondary" className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]" onClick={onClick}>
+      {icon}
+      {label}
+    </Button>
+  );
+}
+
+function SummaryStrip({ summary }: { summary: { total: number; dermoscopy: number; lowQuality: number; unlinked: number } }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+      <SummaryItem label="Всего" value={summary.total} />
+      <SummaryItem label="Дерматоскопия" value={summary.dermoscopy} />
+      <SummaryItem label="Требуют проверки" value={summary.lowQuality} tone={summary.lowQuality > 0 ? "warning" : "muted"} />
+      <SummaryItem label="Без привязки" value={summary.unlinked} />
+    </div>
+  );
+}
+
+function SummaryItem({ label, value, tone = "muted" }: { label: string; value: number; tone?: "muted" | "warning" }) {
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-semibold tabular-nums ${tone === "warning" ? "text-warning" : "text-foreground"}`}>{value}</span>
+    </span>
+  );
+}
+
+interface Option {
+  value: string;
+  label: string;
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Option[];
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="min-h-11 rounded-md border border-border bg-surface px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring sm:text-[12px]"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function CompareSelect({
+  selectedId,
+  compareId,
+  onChange,
+  images,
+  lesionMap,
+}: {
+  selectedId: string;
+  compareId: string | null;
+  onChange: (id: string | null) => void;
+  images: ClinicalImage[];
+  lesionMap: Map<string, Lesion>;
+}) {
+  const candidates = images.filter((i) => i.id !== selectedId);
+  return (
+    <label className="flex items-center gap-1.5 text-[12px]">
+      <span className="text-muted-foreground">Сравнить с</span>
+      <select
+        value={compareId ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="min-h-[44px] rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">— нет —</option>
+        {candidates.map((img) => {
+          const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+          return (
+            <option key={img.id} value={img.id}>
+              {KIND_LABEL[img.kind]} · {lesion ? lesion.label : "без привязки"} · {formatDateTime(img.capturedAt)}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+}
+
+function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<string, Lesion> }) {
+  const lesion = image.lesionId ? lesionMap.get(image.lesionId) ?? null : null;
+  const e = image.exifMeta;
+  const rows: Array<[string, React.ReactNode]> = [
+    ["Тип", KIND_LABEL[image.kind]],
+    ["Источник", SOURCE_LABEL[image.source]],
+    ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Карта тела / без привязки"],
+    ["Снято", formatDateTime(image.capturedAt)],
+    ["Устройство", image.deviceId ? "код скрыт" : "не указано"],
+    ["Размер", e.width > 0 && e.height > 0 ? `${e.width} × ${e.height}` : "не указан"],
+    ["ISO", e.iso ?? "—"],
+    ["Выдержка", e.shutter ?? "—"],
+    ["Диафрагма", e.aperture ?? "—"],
+    ["Фокус", e.focalLength ?? "—"],
+  ];
+  return (
+    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+      {rows.map(([term, value]) => (
+        <div key={term} className="flex items-baseline justify-between gap-2 border-b border-dashed border-border/60 pb-1 last:border-b-0 last:pb-0">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="min-w-0 truncate text-right">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function clampZoom(z: number): number {
+  return Math.max(0.6, Math.min(2, +z.toFixed(2)));
+}
+
+// Avoid unused-import warning: Camera reserved for future native camera path.
+void Camera;

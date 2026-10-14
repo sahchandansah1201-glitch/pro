@@ -312,8 +312,8 @@ export default function DeskPageLive() {
   const currentAction: CurrentAction =
     dashboard.awaitingConclusions.length > 0
       ? {
-          nextStep: "Закрыть заключения",
-          actionLabel: "Открыть очередь заключений",
+          nextStep: "Проверить отчёты",
+          actionLabel: "Открыть очередь отчётов",
           href: "#desk-reports",
         }
       : dashboard.assetIssues.length > 0
@@ -402,9 +402,9 @@ export default function DeskPageLive() {
               hint="из системы клиники"
             />
             <Kpi
-              label="Ждут заключения"
+              label="Ждут отчёта"
               value={dashboard.kpis.awaitingConclusion}
-              hint="подписанные без отчёта"
+              hint="Подписанные визиты без подписанного отчёта"
             />
             <Kpi
               label="Активные визиты"
@@ -422,7 +422,7 @@ export default function DeskPageLive() {
         <section aria-labelledby="desk-today-heading" className="space-y-3">
           <BandHeader
             id="desk-today-heading"
-            title="Сегодня и заключения"
+            title="Визиты и отчёты"
             hint="сначала визиты, затем очередь отчётов"
           />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -446,29 +446,29 @@ export default function DeskPageLive() {
             <Card
               id="desk-reports"
               className="lg:col-span-5"
-              title="Ждут заключения"
-              hint="подписанные без отчёта"
+              title="Ждут отчёта"
+              hint="Подписанные визиты без подписанного отчёта"
             >
               {dashboard.awaitingConclusions.length === 0 ? (
-                <Empty text="Все подписанные визиты оформлены." />
+                <Empty text="В очереди нет визитов." />
               ) : (
                 <ul className="divide-y divide-border">
                   {dashboard.awaitingConclusions.map((visit) => (
                     <li
                       key={visit.id}
-                      className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-2"
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-row font-medium">
+                        <div className="break-words text-row font-medium">
                           {visit.patientFullName || "Пациент"}
                         </div>
-                        <div className="truncate text-meta tabular-nums">
+                        <div className="whitespace-nowrap text-meta tabular-nums">
                           {formatMaybeDate(visit.signedAt || visit.startedAt)}
                         </div>
+                        <span className="block break-words text-meta">
+                          {visit.clinicName || "Клиника"}
+                        </span>
                       </div>
-                      <span className="text-meta">
-                        {visit.clinicName || "Клиника"}
-                      </span>
                       <VisitLink visit={visit} />
                     </li>
                   ))}
@@ -541,8 +541,8 @@ export default function DeskPageLive() {
                 onSubmit={submitCreateLead}
                 className="border-b border-border px-4 py-3"
               >
-                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(180px,0.65fr)_140px_auto] xl:items-end">
-                  <div className="min-w-0 flex-1">
+                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:items-end">
+                  <div className="min-w-0 sm:col-span-2">
                     <label
                       className="mb-1 block text-[12px] font-medium"
                       htmlFor="stage5l-lead-summary"

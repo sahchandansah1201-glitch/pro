@@ -3,8 +3,15 @@ name: stage5d-production-mode-cutover
 on:
   pull_request:
     paths:
-      - "src/lib/app-mode.ts"
-      - "src/lib/app-mode.test.ts"
+      - "src/WorkingOnlyCutover.test.tsx"
+      - "src/WorkingClinicalCutover.test.tsx"
+      - "src/pages/sys/WorkingAccessEvents.test.tsx"
+      - "src/pages/Login.tsx"
+      - "src/pages/Login.test.tsx"
+      - "src/context/RoleContext.tsx"
+      - "src/context/RoleContext.test.tsx"
+      - "src/components/shell/RoleSwitcher.tsx"
+      - "src/components/shell/RoleSwitcher.test.tsx"
       - "src/lib/self-hosted-role.ts"
       - "src/lib/self-hosted-role.test.ts"
       - "src/components/shell/AppLayout.tsx"
@@ -23,7 +30,12 @@ on:
       - ".github/workflows/stage5d-production-mode-cutover.yml"
   push:
     paths:
-      - "src/lib/app-mode.ts"
+      - "src/WorkingOnlyCutover.test.tsx"
+      - "src/WorkingClinicalCutover.test.tsx"
+      - "src/pages/sys/WorkingAccessEvents.test.tsx"
+      - "src/pages/Login.tsx"
+      - "src/context/RoleContext.tsx"
+      - "src/components/shell/RoleSwitcher.tsx"
       - "src/lib/self-hosted-role.ts"
       - "src/components/shell/AppLayout.tsx"
       - "src/components/shell/AppSidebar.tsx"
@@ -53,9 +65,9 @@ jobs:
             echo "## Stage 5D production mode cutover"
             echo
             echo "- Preflight: npm run preflight:stage5d"
-            echo "- Production flag: VITE_APP_MODE=production"
-            echo "- Demo banner/switcher: disabled in production shell"
-            echo "- Route access: self-hosted backend session roles"
+            echo "- Global mode selector: removed; working-only authentication"
+            echo "- Training entry, role selection and fallback: removed"
+            echo "- Route access: actual authenticated provider roles"
             echo "- Managed runtime: none"
             echo "- Managed database: none"
           } >> "$GITHUB_STEP_SUMMARY"

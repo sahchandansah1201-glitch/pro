@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   GOVERNANCE_DECISION_RECEIPT_STORAGE_KEY,
@@ -23,8 +23,11 @@ export function useGovernanceDecisionReceipt({
   onStatus,
 }: UseGovernanceDecisionReceiptOptions) {
   const [decisionReceipt, setDecisionReceipt] = useState<GovernanceDecisionReceipt | null>(null);
+  const contextRevision = useRef(0);
 
   useEffect(() => {
+    contextRevision.current += 1;
+    setDecisionReceipt(null);
     if (loading) return;
     let cancelled = false;
     void governanceContextFingerprint(session).then((contextFingerprint) => {
@@ -54,11 +57,15 @@ export function useGovernanceDecisionReceipt({
     });
     return () => {
       cancelled = true;
+      contextRevision.current += 1;
     };
   }, [blockerCount, loading, openGateCount, session]);
 
   async function saveGovernanceDecision() {
+    if (loading) return;
+    const revision = contextRevision.current;
     const contextFingerprint = await governanceContextFingerprint(session);
+    if (revision !== contextRevision.current) return;
     if (!contextFingerprint) {
       window.sessionStorage.removeItem(GOVERNANCE_DECISION_RECEIPT_STORAGE_KEY);
       setDecisionReceipt(null);

@@ -1,40 +1,22 @@
 import { useState, type FormEvent } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { LogOut, Search, ShieldCheck } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/shell/AppSidebar";
-import { DemoNotice } from "@/components/shell/DemoNotice";
 import { RoleSwitcher } from "@/components/shell/RoleSwitcher";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useRole } from "@/context/role-context";
-import {
-  clearSelfHostedApiSession,
-  isSelfHostedApiConfigured,
-  useSelfHostedApiSession,
-} from "@/lib/self-hosted-api-session";
-import { isProductionAppMode } from "@/lib/app-mode";
-import { selfHostedRoleLabel, selfHostedRoles } from "@/lib/self-hosted-role";
 
 /**
  * AppShell — каркас рабочего места врача.
  * Desktop-first, плотный продуктовый UI, фиксированный верхний тулбар.
  */
 export function AppLayout() {
-  const { label } = useRole();
+  const { label, roles } = useRole();
   const navigate = useNavigate();
-  const productionMode = isProductionAppMode();
-  const selfHostedSession = useSelfHostedApiSession();
   const [globalSearch, setGlobalSearch] = useState("");
-  const productionLabel = isSelfHostedApiConfigured(selfHostedSession)
-    ? selfHostedRoleLabel(selfHostedSession)
-    : "Нужен рабочий вход";
-  const canSearchPatients =
-    !productionMode ||
-    selfHostedRoles(selfHostedSession).some((role) =>
-      ["doctor", "private_doctor", "assistant"].includes(role),
-    );
+  const canSearchPatients = roles.some((role) => ["doctor", "private_doctor", "assistant"].includes(role));
 
   const handleGlobalSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,20 +31,19 @@ export function AppLayout() {
         <AppSidebar />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {!productionMode ? <DemoNotice /> : null}
 
           <header className="workstation-toolbar">
             <SidebarTrigger />
             <div className="mx-2 hidden h-5 w-px bg-border md:block" />
             <div className="hidden text-[13px] text-muted-foreground md:block">
               Рабочее место ·{" "}
-              <span className="text-foreground">{productionMode ? productionLabel : label}</span>
+              <span className="text-foreground">{label}</span>
             </div>
 
             {canSearchPatients ? (
               <form
                 role="search"
-                aria-label="Глобальный поиск"
+                aria-label="Поиск пациентов"
                 className="ml-3 hidden max-w-md flex-1 md:flex"
                 onSubmit={handleGlobalSearch}
               >
@@ -70,9 +51,9 @@ export function AppLayout() {
                   <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Поиск пациента, визита, заявки…"
+                    placeholder="Поиск пациента…"
                     className="h-11 pl-7 text-[13px]"
-                    aria-label="Глобальный поиск"
+                    aria-label="Поиск пациентов"
                     value={globalSearch}
                     onChange={(event) => setGlobalSearch(event.target.value)}
                   />
@@ -81,15 +62,7 @@ export function AppLayout() {
             ) : null}
 
             <div className="ml-auto flex items-center gap-2">
-              {productionMode ? (
-                <ProductionSessionChip
-                  displayName={selfHostedSession.user?.displayName ?? null}
-                  roleLabel={productionLabel}
-                  connected={isSelfHostedApiConfigured(selfHostedSession)}
-                />
-              ) : (
-                <RoleSwitcher />
-              )}
+              <RoleSwitcher />
             </div>
           </header>
 
@@ -99,47 +72,5 @@ export function AppLayout() {
         </div>
       </div>
     </SidebarProvider>
-  );
-}
-
-function ProductionSessionChip({
-  displayName,
-  roleLabel,
-  connected,
-}: {
-  displayName: string | null;
-  roleLabel: string;
-  connected: boolean;
-}) {
-  const handleLogout = () => {
-    clearSelfHostedApiSession();
-    window.location.assign("/self-hosted/login");
-  };
-
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span
-        data-testid="production-session-chip"
-        className="hidden max-w-[260px] items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
-        title={connected ? `${displayName ?? "Пользователь"} · ${roleLabel}` : "Нужен рабочий вход"}
-        aria-label={connected ? `Рабочий вход активен: ${displayName ?? roleLabel}` : "Рабочий вход не подключён"}
-      >
-        <ShieldCheck className={connected ? "h-3 w-3 text-success" : "h-3 w-3 text-muted-foreground"} aria-hidden />
-        <span className="truncate">{connected ? (displayName ?? roleLabel) : "Нет рабочего входа"}</span>
-      </span>
-      {connected ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="min-h-11 min-w-11 px-3 text-[12px]"
-          onClick={handleLogout}
-          aria-label="Выйти из рабочей системы"
-        >
-          <LogOut className="h-3.5 w-3.5" aria-hidden />
-          <span className="hidden sm:inline">Выйти</span>
-        </Button>
-      ) : null}
-    </div>
   );
 }

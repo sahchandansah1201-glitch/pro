@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -35,7 +35,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RiskBadge } from "@/components/clinical/RiskBadge";
 import { ClinicalBodyAtlas } from "@/components/clinical/ClinicalBodyAtlas";
 import { formatCardNumber } from "@/lib/card-number";
 import {
@@ -46,15 +45,6 @@ import {
 } from "@/lib/clinical-body-atlas";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { getBodyMapProfile } from "@/pages/doctor/body-map-model";
-import {
-  getAssessmentsByLesionId,
-  getClinicById,
-  getDevices,
-  getImagesByLesionId,
-  getLesionById,
-  getPatientById,
-  getVisitsByPatientId,
-} from "@/lib/mock-data";
 import {
   buildLesionComparisonDraftKey,
   clearLesionComparisonDraft,
@@ -101,7 +91,7 @@ import {
   isImageQualityNotAssessed,
   isImageSourceNotAssessed,
 } from "@/lib/clinical-image-technical-state";
-import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+import type { Assessment, ClinicalImage, Lesion, Visit } from "@/lib/domain";
 import {
   ComparisonWorkflowPanel,
   type ComparisonWorkflowStep,
@@ -354,9 +344,8 @@ const REVIEWER_ASSIGNMENT_SECOND_ID = "10000000-0000-4000-8000-000000000202";
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
-const DEVICE_LABEL_BY_ID = new Map(getDevices().map((device) => [device.id, device.model]));
 const deviceDisplayLabel = (deviceId: string | null | undefined) =>
-  deviceId ? (DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано") : "Устройство не указано";
+  deviceId ? "устройство указано" : "Устройство не указано";
 const imageDeviceDisplayLabel = (image: ClinicalImage) =>
   isImageDeviceNotAssessed(image) ? "Устройство не указано" : deviceDisplayLabel(image.deviceId);
 const imageSourceDisplayLabel = (image: ClinicalImage) =>
@@ -365,11 +354,6 @@ const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
   marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
 const imageDisplayMeta = (image: ClinicalImage) =>
   `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${imageDeviceDisplayLabel(image)}`;
-const systemHintDisclaimer = (value: string) =>
-  value.replace(
-    /AI-поддержка принятия решений/gi,
-    "Подсказка системы для принятия решений",
-  );
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string | null | undefined) =>
@@ -643,7 +627,7 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
 function buildLongitudinalVisitGroups(
   images: ClinicalImage[],
   visits: Visit[],
-  assessments: ReturnType<typeof getAssessmentsByLesionId>,
+  assessments: Assessment[],
 ): LongitudinalVisitGroup[] {
   const visitMap = new Map(visits.map((visit) => [visit.id, visit]));
   const assessmentCounts = new Map<string, number>();
@@ -1986,17 +1970,17 @@ export default function LesionDetailPage() {
   }>();
   const selfHostedSession = useSelfHostedApiSession();
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
-  const demoPatient = getPatientById(id);
-  const demoLesion = getLesionById(lesionId);
+  const validRoute = isUuid(id) && isUuid(lesionId);
   const shouldLoadLive = Boolean(
-    selfHostedConfigured && isUuid(id) && isUuid(lesionId) && (!demoPatient || !demoLesion),
+    selfHostedConfigured && validRoute,
   );
   const liveRouteKey = selfHostedSessionIdentityKey(
     selfHostedSession,
     [id, lesionId],
   );
+  const activeRouteKey = useRef(liveRouteKey);
   const [liveBundle, setLiveBundle] = useState<LiveLesionBundle | null>(null);
-  const [liveLoadStatus, setLiveLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [liveLoadStatus, setLiveLoadStatus] = useState<"idle" | "loading" | "ready" | "error" | "not_found">("idle");
   const [liveLoadRouteKey, setLiveLoadRouteKey] = useState("");
   const [liveLoadMessage, setLiveLoadMessage] = useState("");
   const [liveLoadRevision, setLiveLoadRevision] = useState(0);
@@ -2009,12 +1993,8 @@ export default function LesionDetailPage() {
   const effectiveLiveLoadStatus = shouldLoadLive && liveLoadRouteKey !== liveRouteKey
     ? "loading"
     : liveLoadStatus;
-  const patient = shouldLoadLive
-    ? liveBundleMatchesRoute ? liveBundle?.patient ?? null : null
-    : demoPatient;
-  const lesion = shouldLoadLive
-    ? liveBundleMatchesRoute ? liveBundle?.lesion ?? null : null
-    : demoLesion;
+  const patient = shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.patient ?? null : null;
+  const lesion = shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.lesion ?? null : null;
 
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -2075,6 +2055,7 @@ export default function LesionDetailPage() {
   const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
+    activeRouteKey.current = liveRouteKey;
     if (!shouldLoadLive) {
       setLiveBundle(null);
       setLiveLoadStatus("idle");
@@ -2103,7 +2084,7 @@ export default function LesionDetailPage() {
       if (cancelled) return;
       if (!patientResult.ok || !patientResult.value || !historyResult.ok || !historyResult.value) {
         setLiveBundle(null);
-        setLiveLoadStatus("error");
+        setLiveLoadStatus(patientResult.error?.status === 404 || historyResult.error?.status === 404 ? "not_found" : "error");
         setLiveLoadMessage(
           selfHostedPublicErrorText(
             patientResult.error ?? historyResult.error,
@@ -2130,6 +2111,7 @@ export default function LesionDetailPage() {
     });
     return () => {
       cancelled = true;
+      activeRouteKey.current = "";
     };
   }, [
     id,
@@ -2143,21 +2125,16 @@ export default function LesionDetailPage() {
 
   const images = useMemo(
     () =>
-      [...(shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.images ?? [] : shouldLoadLive ? [] : getImagesByLesionId(lesionId))].sort((a, b) =>
+      [...(liveBundleMatchesRoute ? liveBundle?.images ?? [] : [])].sort((a, b) =>
         a.capturedAt.localeCompare(b.capturedAt),
       ),
-    [lesionId, liveBundle, liveBundleMatchesRoute, shouldLoadLive],
+    [liveBundle, liveBundleMatchesRoute],
   );
-  const assessments = useMemo(
-    () =>
-      [...(shouldLoadLive ? [] : getAssessmentsByLesionId(lesionId))].sort((a, b) =>
-        a.decidedAt.localeCompare(b.decidedAt),
-      ),
-    [lesionId, shouldLoadLive],
-  );
+  // The longitudinal API supplies counts, not structured assessment records.
+  const assessments: Assessment[] = [];
   const visits = useMemo(
-    () => (shouldLoadLive && liveBundleMatchesRoute ? liveBundle?.visits ?? [] : shouldLoadLive ? [] : patient ? getVisitsByPatientId(patient.id) : []),
-    [liveBundle, liveBundleMatchesRoute, patient, shouldLoadLive],
+    () => (liveBundleMatchesRoute ? liveBundle?.visits ?? [] : []),
+    [liveBundle, liveBundleMatchesRoute],
   );
 
   const compareImages = compareIds
@@ -2202,6 +2179,7 @@ export default function LesionDetailPage() {
         compareImages.map((img) => img.id),
       )
     : null;
+  const activePreviewKey = useRef("");
   const canLoadProtectedImages = Boolean(
     comparePair &&
     selfHostedConfigured &&
@@ -2240,6 +2218,7 @@ export default function LesionDetailPage() {
   ];
 
   useEffect(() => {
+    activePreviewKey.current = JSON.stringify([liveRouteKey, selectedPairDraftKey]);
     setProtectedRenderStatus("idle");
     setProtectedRenderMessage("");
     setViewerQaStatus("idle");
@@ -2278,7 +2257,7 @@ export default function LesionDetailPage() {
     } else {
       setComparisonDraftStatus("idle");
     }
-  }, [selectedPairDraftKey]);
+  }, [selectedPairDraftKey, liveRouteKey]);
 
   useEffect(
     () => () => revokePreviewUrls(protectedImageUrls),
@@ -2289,10 +2268,24 @@ export default function LesionDetailPage() {
     setProductionLongitudinalQa(null);
     setLongitudinalQaLoadStatus("idle");
     setLongitudinalQaMessage("");
-  }, [id, lesionId]);
+  }, [id, lesionId, liveRouteKey]);
 
+  if (!validRoute) {
+    return <LesionNotFound title="Образование не найдено" hint="Ссылка на карточку неверна. Откройте образование из карточки пациента." />;
+  }
+  if (!selfHostedConfigured) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Карточка образования" subtitle="Войдите в систему клиники, чтобы открыть образование." />
+        <div className="p-4"><Button asChild className="min-h-11"><Link to="/self-hosted/login">Войти в систему клиники</Link></Button></div>
+      </div>
+    );
+  }
   if (shouldLoadLive && effectiveLiveLoadStatus === "loading") {
     return <LesionNotFound title="Загружаем карточку образования" hint="Получаем безопасную историю из системы клиники…" />;
+  }
+  if (shouldLoadLive && effectiveLiveLoadStatus === "not_found") {
+    return <LesionNotFound title="Образование не найдено" hint="Запись не найдена или недоступна для текущей клиники." />;
   }
   if (shouldLoadLive && effectiveLiveLoadStatus === "error") {
     return (
@@ -2310,7 +2303,7 @@ export default function LesionDetailPage() {
     return (
       <LesionNotFound
         title="Пациент не найден"
-        hint="Карточка пациента отсутствует в демо-данных."
+        hint="Карточка пациента не загружена из системы клиники."
       />
     );
   }
@@ -2421,6 +2414,10 @@ export default function LesionDetailPage() {
     };
   };
 
+  const comparisonRequestIsCurrent = () =>
+    activeRouteKey.current === liveRouteKey &&
+    activePreviewKey.current === JSON.stringify([liveRouteKey, selectedPairDraftKey]);
+
   const saveViewerQa = async (payload: ViewerQaSavePayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaStatus("local_only");
@@ -2447,6 +2444,7 @@ export default function LesionDetailPage() {
       visitId: latestVisit.id,
       payload: apiPayload,
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setViewerQaStatus("saved");
       setViewerQaMessage(
@@ -2495,6 +2493,7 @@ export default function LesionDetailPage() {
       visitId: latestVisit.id,
       payload: apiPayload,
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (!saveResult.ok) {
       setViewerQaReviewStatus("error");
       setViewerQaReviewMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед разбором."));
@@ -2512,6 +2511,7 @@ export default function LesionDetailPage() {
         reviewReasons: payload.reviewReasons,
       },
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (reviewResult.ok) {
       setViewerQaReviewStatus("saved");
       setViewerQaReviewMessage(
@@ -2568,6 +2568,7 @@ export default function LesionDetailPage() {
       visitId: latestVisit.id,
       payload: apiPayload,
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (!saveResult.ok) {
       setMeasurementPolicyBackendStatus("error");
       setMeasurementPolicyMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед разбором правил."));
@@ -2585,6 +2586,7 @@ export default function LesionDetailPage() {
         measurementPolicyReasons: payload.measurementPolicyReasons,
       },
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setMeasurementPolicyBackendStatus("saved");
       setMeasurementPolicyStatus(
@@ -2638,6 +2640,7 @@ export default function LesionDetailPage() {
       visitId: latestVisit.id,
       payload: apiPayload,
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (!saveResult.ok) {
       setProductionAnalysisPolicyBackendStatus("error");
       setProductionAnalysisPolicyMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед правилами анализа."));
@@ -2658,6 +2661,7 @@ export default function LesionDetailPage() {
             payload.productionAnalysisPolicyReasons,
         },
       });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setProductionAnalysisPolicyBackendStatus("saved");
       setProductionAnalysisPolicyStatus(
@@ -2710,6 +2714,7 @@ export default function LesionDetailPage() {
       visitId: latestVisit.id,
       payload: apiPayload,
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (!saveResult.ok) {
       setReviewerAssignmentBackendStatus("error");
       setReviewerAssignmentMessage(selfHostedPublicErrorText(saveResult.error, "Черновик проверки просмотра не сохранён перед назначением проверяющего."));
@@ -2731,6 +2736,7 @@ export default function LesionDetailPage() {
         secondReviewerUserId: payload.secondReviewerUserId,
       },
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setReviewerAssignmentBackendStatus("saved");
       setReviewerAssignmentStatus(
@@ -2791,6 +2797,7 @@ export default function LesionDetailPage() {
           workflowReasons: payload.workflowReasons,
         },
       });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setViewerQaReviewerWorkflowStatus("saved");
       setViewerQaReviewerWorkflowMessage(
@@ -2841,6 +2848,7 @@ export default function LesionDetailPage() {
         reasons: draft.reasons,
       },
     });
+    if (!comparisonRequestIsCurrent()) return;
     if (result.ok) {
       setComparisonBackendStatus("saved");
       setComparisonBackendMessage(
@@ -2879,6 +2887,7 @@ export default function LesionDetailPage() {
 
     setProtectedRenderStatus("loading");
     setProtectedRenderMessage("Загрузка через систему клиники.");
+    const requestPreviewKey = JSON.stringify([liveRouteKey, selectedPairDraftKey]);
     const results = await Promise.all(
       comparePair.map((image) =>
         downloadSelfHostedProtectedLesionImage({
@@ -2890,6 +2899,7 @@ export default function LesionDetailPage() {
         }),
       ),
     );
+    if (activeRouteKey.current !== liveRouteKey || activePreviewKey.current !== requestPreviewKey) return;
     const failed = results.find((result) => !result.ok || !result.value);
     if (failed) {
       setProtectedRenderStatus("error");
@@ -2925,12 +2935,14 @@ export default function LesionDetailPage() {
     setLongitudinalQaMessage(
       "Рабочая проверка обновляется из системы клиники.",
     );
+    const requestRouteKey = liveRouteKey;
     const result = await getSelfHostedLesionLongitudinalQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
       patientId: patient.id,
       lesionId: lesion.id,
     });
+    if (activeRouteKey.current !== requestRouteKey) return;
     if (result.ok && result.value) {
       setProductionLongitudinalQa(result.value);
       setLongitudinalQaLoadStatus("loaded");
@@ -3594,77 +3606,9 @@ export default function LesionDetailPage() {
 
         <Card className="p-3 sm:p-4">
           <h2 className="text-[13px] font-semibold">Оценки (хронология)</h2>
-          {assessments.length === 0 ? (
-            <p className="mt-2 text-[12px] text-muted-foreground">
-              Оценок по образованию пока нет.
-            </p>
-          ) : (
-            <ul className="mt-2 divide-y divide-border">
-              {assessments.map((a) => {
-                const v = visitById(a.visitId);
-                const clinic = v
-                  ? (getClinicById(v.clinicId)?.name ?? "—")
-                  : "—";
-                return (
-                  <li
-                    key={a.id}
-                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                        <span className="font-medium">Оценка врача</span>
-                        <span className="text-muted-foreground tabular-nums">
-                          {formatDateTime(a.decidedAt)}
-                        </span>
-                        <RiskBadge level={a.aiSupport.riskLevel} />
-                        <span className="text-[11px] text-muted-foreground">
-                          Подсказка системы · уверенность{" "}
-                          {(a.aiSupport.confidence * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[12px] text-muted-foreground">
-                        Оценка ABCD:{" "}
-                        <span className="tabular-nums">
-                          {a.abcd.total.toFixed(1)}
-                        </span>
-                        {" · "}7 признаков:{" "}
-                        <span className="tabular-nums">
-                          {a.sevenPoint.total}
-                        </span>
-                        {v && (
-                          <>
-                            {" "}
-                            · {clinic} · {VISIT_STATUS[v.status]}
-                          </>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[13px]">
-                        Врачебный текст скрыт на обзорном экране.
-                      </p>
-                      <p className="text-[12px] text-muted-foreground">
-                        План наблюдения скрыт до открытия визита.
-                      </p>
-                      <p className="mt-1 text-[11px] italic text-muted-foreground">
-                        {systemHintDisclaimer(a.aiSupport.disclaimer)}
-                      </p>
-                    </div>
-                    {v && (
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 min-h-[44px] sm:min-h-[32px]"
-                      >
-                        <Link to={`/patients/${patient.id}/visits/${v.id}`}>
-                          К визиту
-                        </Link>
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Структурированные оценки в этой карточке не загружены.
+          </p>
         </Card>
       </div>
 

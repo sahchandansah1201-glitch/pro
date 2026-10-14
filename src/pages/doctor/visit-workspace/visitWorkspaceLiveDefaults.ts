@@ -1,0 +1,421 @@
+import type {
+  FollowUpOperationsSummary,
+  FollowUpOutcomeQualitySummary,
+  FollowUpClinicReviewSummary,
+  FollowUpSopValidationSummary,
+  FollowUpSopPolicyTemplateSummary,
+  FollowUpSopPolicyApplicationSummary,
+  FollowUpSopPolicyExceptionClosureSummary,
+  FollowUpSopPolicyAuditRollupSummary,
+  FollowUpSopPolicyGovernanceReadinessSummary,
+  FollowUpSopPolicyGovernanceClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary,
+  FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
+} from "@/lib/self-hosted-follow-up-api";
+
+export const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
+  totalOpen: 0,
+  overdue: 0,
+  waitingPatient: 0,
+  escalated: 0,
+  deliveryFailed: 0,
+  deliveryPending: 0,
+};
+
+export const EMPTY_OUTCOME_SUMMARY: FollowUpOutcomeQualitySummary = {
+  totalFollowUps: 0,
+  closedFollowUps: 0,
+  openOverdue: 0,
+  openEscalated: 0,
+  closedWithEvidence: 0,
+  closedMissingEvidence: 0,
+  qualityReviewed: 0,
+  qualityPending: 0,
+  qualityNeedsAttention: 0,
+  patientReached: 0,
+  clinicalEscalations: 0,
+  deliveryFailures: 0,
+};
+
+export const EMPTY_CLINIC_REVIEW_SUMMARY: FollowUpClinicReviewSummary = {
+  totalFollowUps: 0,
+  retentionDue: 0,
+  retentionReviewed: 0,
+  retentionArchived: 0,
+  clinicReviewScheduled: 0,
+  clinicReviewCompleted: 0,
+  clinicNeedsPolicyReview: 0,
+  qualityNeedsAttention: 0,
+  closedMissingEvidence: 0,
+  localReviewEvents: 0,
+};
+
+export const EMPTY_SOP_VALIDATION_SUMMARY: FollowUpSopValidationSummary = {
+  totalFollowUps: 0,
+  sopRequired: 0,
+  sopValidated: 0,
+  sopExceptions: 0,
+  sopBlocked: 0,
+  clinicNeedsPolicyReview: 0,
+  qualityNeedsAttention: 0,
+  openEscalated: 0,
+  closedMissingEvidence: 0,
+  localSopEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_TEMPLATE_SUMMARY: FollowUpSopPolicyTemplateSummary = {
+  totalTemplates: 0,
+  activeTemplates: 0,
+  inactiveTemplates: 0,
+  exceptionsAllowed: 0,
+  requiredByDefault: 0,
+  localPolicyEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_APPLICATION_SUMMARY: FollowUpSopPolicyApplicationSummary = {
+  totalFollowUps: 0,
+  activeTemplates: 0,
+  appliedTemplates: 0,
+  notChecked: 0,
+  inSync: 0,
+  drifted: 0,
+  missingTemplate: 0,
+  reviewRequired: 0,
+  needsPolicyApplication: 0,
+  localApplicationEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY: FollowUpSopPolicyExceptionClosureSummary = {
+  totalFollowUps: 0,
+  openExceptions: 0,
+  closedExceptions: 0,
+  acceptedExceptions: 0,
+  rejectedExceptions: 0,
+  unresolvedDrift: 0,
+  unclosedValidationExceptions: 0,
+  closedWithLocalResolution: 0,
+  localExceptionEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY: FollowUpSopPolicyAuditRollupSummary = {
+  totalFollowUps: 0,
+  auditReady: 0,
+  needsAuditReview: 0,
+  reviewedAudits: 0,
+  needsFollowUp: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  missingPolicyTemplate: 0,
+  localPolicyAuditEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceReadinessSummary = {
+  totalFollowUps: 0,
+  governanceReady: 0,
+  needsGovernanceReview: 0,
+  reviewedGovernance: 0,
+  governanceNeedsFollowUp: 0,
+  reviewedPolicyAudits: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  localGovernanceEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceClosureSummary = {
+  totalFollowUps: 0,
+  closureReady: 0,
+  needsClosureReview: 0,
+  closedGovernanceReviews: 0,
+  closureNeedsFollowUp: 0,
+  reviewedGovernance: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  localGovernanceClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceSummary = {
+  totalFollowUps: 0,
+  evidenceReady: 0,
+  needsEvidenceReview: 0,
+  exportedGovernanceEvidence: 0,
+  evidenceNeedsFollowUp: 0,
+  closedGovernanceReviews: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  localGovernanceEvidenceEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationSummary = {
+  totalFollowUps: 0,
+  reconciliationReady: 0,
+  needsReconciliation: 0,
+  reconciledGovernanceEvidence: 0,
+  evidenceMismatches: 0,
+  reconciliationNeedsFollowUp: 0,
+  exportedGovernanceEvidence: 0,
+  closedGovernanceReviews: 0,
+  localGovernanceEvidenceReconciliationEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary = {
+  totalFollowUps: 0,
+  reconciliationClosureReady: 0,
+  needsReconciliationClosure: 0,
+  closedReconciliationEvidence: 0,
+  reconciliationClosureExceptions: 0,
+  reconciliationClosureNeedsRework: 0,
+  reconciledGovernanceEvidence: 0,
+  openReconciliationMismatches: 0,
+  localGovernanceEvidenceReconciliationClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary = {
+  totalFollowUps: 0,
+  closureReceiptReady: 0,
+  needsClosureReceipt: 0,
+  receivedClosureReceipts: 0,
+  closureReceiptExceptions: 0,
+  closureReceiptNeedsRework: 0,
+  closedReconciliationEvidence: 0,
+  reconciledGovernanceEvidence: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary = {
+  totalFollowUps: 0,
+  archiveReadinessReady: 0,
+  needsArchiveReadiness: 0,
+  archivedLocal: 0,
+  archiveReadinessExceptions: 0,
+  archiveReadinessNeedsRework: 0,
+  receivedClosureReceipts: 0,
+  closedReconciliationEvidence: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary = {
+  totalFollowUps: 0,
+  archiveClosureReady: 0,
+  needsArchiveClosure: 0,
+  closedLocalArchives: 0,
+  archiveClosureExceptions: 0,
+  archiveClosureNeedsRework: 0,
+  archiveReadinessMarked: 0,
+  receivedClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptReady: 0,
+  needsArchiveClosureReceipt: 0,
+  receivedArchiveClosureReceipts: 0,
+  archiveClosureReceiptExceptions: 0,
+  archiveClosureReceiptNeedsRework: 0,
+  closedLocalArchives: 0,
+  archiveReadinessMarked: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReady: 0,
+  needsArchiveClosureReceiptHandoff: 0,
+  handedOffArchiveClosureReceipts: 0,
+  archiveClosureReceiptHandoffExceptions: 0,
+  archiveClosureReceiptHandoffNeedsRework: 0,
+  receivedArchiveClosureReceipts: 0,
+  closedLocalArchives: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReady: 0,
+  needsArchiveClosureReceiptHandoffReceipt: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  archiveClosureReceiptHandoffReceiptExceptions: 0,
+  archiveClosureReceiptHandoffReceiptNeedsRework: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliation: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationNeedsRework: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosure: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureNeedsRework: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNeedsRework: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNeedsRework: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNeedsRework: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipt: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptNeedsRework: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoff: 0,
+  handedOffArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffs: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNeedsRework: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipt: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNeedsRework: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliation: 0,
+  reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNeedsRework: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosure: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureNeedsRework: 0,
+  reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureEvents: 0,
+};
+
+export const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipt: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptNeedsRework: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptEvents: 0,
+};

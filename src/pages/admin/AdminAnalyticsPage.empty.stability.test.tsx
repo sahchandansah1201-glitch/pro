@@ -68,7 +68,7 @@ describe("AdminAnalyticsPage · стабильность aria-live/role при �
       getAnalysisCards: () => [],
       getClinics: () => [],
     }));
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   afterEach(() => {

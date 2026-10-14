@@ -35,7 +35,7 @@ const REQUIRED_TEXT = {
     "Дерматолог Про — рабочий вход",
     "loginToSelfHostedBackend",
     "writeSelfHostedApiSession",
-    "/patients",
+    'navigate("/", { replace: true })',
   ],
   "src/pages/SelfHostedLoginPage.test.tsx": [
     "logs into the self-hosted backend",

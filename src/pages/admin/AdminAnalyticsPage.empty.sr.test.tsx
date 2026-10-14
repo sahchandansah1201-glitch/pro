@@ -60,7 +60,7 @@ describe("AdminAnalyticsPage · empty-states · screen reader text", () => {
       getAnalysisCards: () => [],
       getClinics: () => [],
     }));
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   afterEach(() => {

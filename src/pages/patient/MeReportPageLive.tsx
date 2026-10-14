@@ -91,8 +91,15 @@ export default function MeReportPageLive() {
   const [photoAccess, setPhotoAccess] = useState<PhotoAccessState>({ status: "idle" });
   const [error, setError] = useState<string | null>(null);
   const photoObjectUrls = useRef<Record<number, string>>({});
+  const photoGeneration = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   function clearPreparedPhotoUrls() {
+    photoGeneration.current += 1;
     for (const objectUrl of Object.values(photoObjectUrls.current)) {
       URL.revokeObjectURL(objectUrl);
     }
@@ -128,7 +135,7 @@ export default function MeReportPageLive() {
         reportId: id,
       });
       if (cancelled) return;
-      if (result.ok) {
+      if (result.ok && result.value.id === id) {
         setReport(result.value);
         setError(null);
         setStatus("ready");
@@ -140,7 +147,8 @@ export default function MeReportPageLive() {
             visitId: result.value.visitId,
           });
           if (cancelled) return;
-          if (photoResult.ok) {
+          if (photoResult.ok && photoResult.value.visitId === result.value.visitId &&
+              (!photoResult.value.reportId || photoResult.value.reportId === id)) {
             setPhotoProtocol(photoResult.value);
             setPhotoDownloads({});
             setPhotoAccess({ status: "idle" });
@@ -158,7 +166,7 @@ export default function MeReportPageLive() {
         setPhotoDownloads({});
         setPhotoAccess({ status: "idle" });
         setPhotoStatus("idle");
-        setError(result.error.message);
+        setError(result.ok ? "Отчёт не найден." : result.error.message);
         setStatus("error");
       }
     }
@@ -170,6 +178,7 @@ export default function MeReportPageLive() {
 
   async function confirmPhotoAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (photoAccess.status === "submitting" || photoAccess.status === "ending") return;
     const credential = photoAccessCredential.trim();
     const visitId = photoProtocol?.visitId || report?.visitId;
     if (!visitId) {
@@ -180,6 +189,7 @@ export default function MeReportPageLive() {
       setPhotoAccess({ status: "denied", message: "Введите одноразовый код доступа." });
       return;
     }
+    clearPreparedPhotoUrls();
     setPhotoAccess({ status: "submitting", message: "Проверяем код доступа в системе клиники." });
     const result = await exchangeSelfHostedPatientPortalPhotoProtocolAccess({
       apiBaseUrl: session.apiBaseUrl,
@@ -187,9 +197,14 @@ export default function MeReportPageLive() {
       visitId,
       payload: { credential },
     });
+    if (!mounted.current) return;
     setPhotoAccessCredential("");
     if (!result.ok) {
       setPhotoAccess({ status: "denied", message: result.error.message || "Доступ сейчас не подтверждён." });
+      return;
+    }
+    if (result.value.visitId !== visitId) {
+      setPhotoAccess({ status: "denied", message: "Доступ сейчас не подтверждён." });
       return;
     }
     if (result.value.status === "confirmed" && result.value.sessionBoundary.sessionEstablished) {
@@ -212,17 +227,18 @@ export default function MeReportPageLive() {
       setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: система клиники не подтвердила визит." });
       return;
     }
+    clearPreparedPhotoUrls();
     setPhotoAccess({ status: "ending", message: "Завершаем доступ к фотографиям." });
     const result = await endSelfHostedPatientPortalPhotoProtocolAccessSession({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
       visitId,
     });
+    if (!mounted.current) return;
     if (!result.ok) {
       setPhotoAccess({ status: "denied", message: result.error.message || "Не удалось завершить доступ к фото." });
       return;
     }
-    clearPreparedPhotoUrls();
     setPhotoAccess({
       status: "ended",
       message: result.value.sessionEnded
@@ -267,12 +283,14 @@ export default function MeReportPageLive() {
       ...current,
       [photo.sequence]: { status: "loading" },
     }));
+    const generation = photoGeneration.current;
     const result = await fetchSelfHostedPatientPortalPhotoProtocolPhoto({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
       visitId,
       sequence: photo.sequence,
     });
+    if (!mounted.current || generation !== photoGeneration.current) return;
     if (!result.ok) {
       setPhotoDownloads((current) => ({
         ...current,
@@ -389,7 +407,7 @@ export default function MeReportPageLive() {
                               inputMode="text"
                               autoComplete="one-time-code"
                               value={photoAccessCredential}
-                              disabled={photoAccess.status === "submitting" || isPhotoProtocolRevoked(photoProtocol)}
+                              disabled={photoAccess.status === "submitting" || photoAccess.status === "ending" || isPhotoProtocolRevoked(photoProtocol)}
                               onChange={(event) => setPhotoAccessCredential(event.target.value)}
                             />
                           </label>
@@ -397,7 +415,7 @@ export default function MeReportPageLive() {
                             type="submit"
                             variant="secondary"
                             className="min-h-[44px] sm:min-h-[36px]"
-                            disabled={photoAccess.status === "submitting" || isPhotoProtocolRevoked(photoProtocol)}
+                            disabled={photoAccess.status === "submitting" || photoAccess.status === "ending" || isPhotoProtocolRevoked(photoProtocol)}
                           >
                             {photoAccess.status === "submitting" && (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />

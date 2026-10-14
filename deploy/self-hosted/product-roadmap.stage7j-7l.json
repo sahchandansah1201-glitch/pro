@@ -47,12 +47,12 @@
         "id": "production_cutover_ui",
         "status": "confirmed",
         "evidence": [
-          "src/lib/app-mode.ts",
+          "src/WorkingOnlyCutover.test.tsx",
           "src/pages/SelfHostedLoginPage.tsx",
           "docs/backend/stage-5d-production-mode-cutover.md",
           "docs/backend/stage-5f-production-patient-workspace-cutover.md"
         ],
-        "summary": "Production mode routes are wired to self-hosted API contracts while demo/dev keeps mock data separated."
+        "summary": "Working routes use self-hosted sessions and API contracts. Retired interface fixtures are test-only."
       },
       {
         "id": "external_intake_and_slots_foundation",

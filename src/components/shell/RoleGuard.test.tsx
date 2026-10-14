@@ -1,5 +1,4 @@
-// Stage 1H-A · RoleGuard tests covering both the demo-only and the
-// auth-aware code paths.
+// Real-entry guards. Backend enforcement is tested separately.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -107,23 +106,35 @@ beforeEach(() => {
   }
 });
 
-describe("RoleGuard · unconfigured (demo) mode", () => {
-  it("renders children when current demo role is allowed", () => {
-    renderAt("/desk", authValue(), "doctor");
-    expect(screen.getByTestId("protected")).toBeInTheDocument();
+describe("RoleGuard real entry", () => {
+  it("waits for pending authentication before allowing an account change", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-selected-token");
+    window.localStorage.setItem(SELF_HOSTED_API_USER_KEY, JSON.stringify({ id: "u", roles: ["doctor"] }));
+    renderAt("/sys/users", authValue({ status: "loading" }));
+    const button = screen.getByRole("button", { name: "Сменить вход в систему клиники" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("synthetic-selected-token");
+    expect(screen.queryByTestId("self-hosted-login")).not.toBeInTheDocument();
   });
-
-  it("shows the demo no-access screen when role is not allowed", () => {
-    renderAt("/sys/users", authValue(), "doctor");
-    expect(screen.getByText(/Нет доступа в учебном режиме/)).toBeInTheDocument();
+  it("does not mount a protected view from a status flag without its token", () => {
+    configured = true;
+    renderAt("/sys/users", authValue({ status: "authenticated", user: { id: "u", app_metadata: { role: "system_admin" } } as never }));
+    expect(screen.getByTestId("login-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("protected-sys")).not.toBeInTheDocument();
   });
+  it("blocks an anonymous stale training identity before mounting the loader", () => {
+    renderAt("/patients/patient-1", authValue(), "doctor");
+    expect(screen.getByTestId("self-hosted-login")).toBeInTheDocument();
+    expect(patientLoader).not.toHaveBeenCalled();
+  });
+});
 
-  it("обозначает название учебного состояния запрета заголовком первого уровня", () => {
-    renderAt("/sys/users", authValue(), "doctor");
-
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Нет доступа в учебном режиме" }),
-    ).toBeInTheDocument();
+describe("RoleGuard · no configured backend", () => {
+  it.each(["doctor", "system_admin", "private_doctor"])("ignores stale training role %s", (role) => {
+    renderAt("/desk", authValue(), role);
+    expect(screen.getByTestId("self-hosted-login")).toBeInTheDocument();
+    expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
   });
 });
 
@@ -146,20 +157,20 @@ describe("RoleGuard · configured + auth-aware", () => {
     configured = true;
     renderAt(
       "/desk",
-      authValue({ status: "authenticated", accessToken: "tok" }),
-      "doctor",
+      authValue({ status: "authenticated", accessToken: "tok", user: { id: "u-1", app_metadata: { role: "doctor" } } as never }),
+      "system_admin",
     );
     expect(screen.getByTestId("protected")).toBeInTheDocument();
   });
 
-  it("still shows the demo no-access screen for authenticated + disallowed role", () => {
+  it("denies a real account without an assigned system administrator role", () => {
     configured = true;
     renderAt(
       "/sys/users",
       authValue({ status: "authenticated", accessToken: "tok" }),
       "doctor",
     );
-    expect(screen.getByText(/Нет доступа в учебном режиме/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Нет доступа" })).toBeInTheDocument();
   });
 });
 

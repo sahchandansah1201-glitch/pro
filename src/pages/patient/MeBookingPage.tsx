@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import MeBookingPageDemo from "./MeBookingPageDemo";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import MeBookingPageLive from "./MeBookingPageLive";
 
 export default function MeBookingPage() {
-  return isProductionAppMode() ? <MeBookingPageLive /> : <MeBookingPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <MeBookingPageLive key={session.revision} />;
 }

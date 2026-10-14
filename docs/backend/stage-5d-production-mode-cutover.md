@@ -1,8 +1,10 @@
 # Stage 5D — Production mode cutover
 
-Stage 5D makes the browser shell explicitly mode-aware. The product can
-still run in demo mode for development and presentation work, but a
-production build no longer behaves as a demo-first application.
+Current local migration, 13 October 2026: working-only authentication.
+The runtime mode selector has been removed. Actual authenticated sessions
+select the provider. Training entry, role selection and fixture fallback
+are not available. Historical tests are stored outside the runtime source.
+The remaining mode-switch sections below describe the superseded Stage 5D.
 
 ## 1. Product boundary
 

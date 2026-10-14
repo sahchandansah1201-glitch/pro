@@ -6,7 +6,7 @@ vi.mock("@/lib/api-session", () => ({
   useApiSession: () => ({ apiToken: null, apiBaseUrl: null }),
 }));
 
-import VisitWorkspacePage from "./VisitWorkspacePage";
+import VisitWorkspacePage from "../../../test-fixtures/legacy-ui/doctor/VisitWorkspacePage";
 
 describe("VisitWorkspacePage · мобильные подписи полей", () => {
   it("группирует все термины и значения первичного приёма в списки описаний", () => {

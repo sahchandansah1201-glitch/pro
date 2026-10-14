@@ -32,8 +32,8 @@ const REQUIRED_TEXT = {
     "Готовность входа",
     "fetchSelfHostedBootstrapStatus",
     "buildProductionBootstrapChecklist",
-    "isProductionAppMode",
-    "navigate(productionMode ? \"/\" : \"/patients\"",
+    "writeSelfHostedApiSession",
+    'navigate("/", { replace: true })',
   ],
   "docs/backend/stage-5e-production-auth-bootstrap-ux.md": [
     "Stage 5E",

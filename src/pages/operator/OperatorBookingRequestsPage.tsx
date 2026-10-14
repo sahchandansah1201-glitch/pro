@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import OperatorBookingRequestsPageDemo from "@/pages/operator/OperatorBookingRequestsPageDemo";
 import OperatorBookingRequestsPageLive from "@/pages/operator/OperatorBookingRequestsPageLive";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 export default function OperatorBookingRequestsPage() {
-  return isProductionAppMode() ? <OperatorBookingRequestsPageLive /> : <OperatorBookingRequestsPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <OperatorBookingRequestsPageLive key={session.revision} />;
 }

@@ -20,6 +20,10 @@ function session(roles: string[]): Pick<SelfHostedApiSession, "user"> {
 }
 
 describe("self-hosted-role", () => {
+  it("has no doctor fallback for an unassigned working user", () => {
+    expect(primarySelfHostedRole(session([]))).toBeNull();
+    expect(selfHostedHomePath(session([]))).toBe("/self-hosted/login");
+  });
   it("normalizes known backend roles and drops unknown values", () => {
     expect(selfHostedRoles(session(["doctor", "unknown", "doctor", "system_admin"]))).toEqual([
       "doctor",

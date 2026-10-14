@@ -29,6 +29,13 @@ test("Stage 6A validates the bundled production acceptance manifest", () => {
   assert.ok(manifest.acceptanceDomains.length >= 11);
 });
 
+test("Stage 6A uses working-only cutover evidence instead of the removed demo flag", () => {
+  const manifest = validateAcceptanceManifest(readAcceptanceManifest());
+  const domain = manifest.acceptanceDomains.find(item => item.key === "production_mode");
+  assert.ok(domain.evidenceFiles.includes("src/WorkingOnlyCutover.test.tsx"));
+  assert.ok(!domain.evidenceFiles.includes("src/lib/app-mode.ts"));
+});
+
 test("Stage 6A builds an accepted baseline from repository evidence", () => {
   const report = buildProductionAcceptanceBaseline({
     manifest: readAcceptanceManifest(),

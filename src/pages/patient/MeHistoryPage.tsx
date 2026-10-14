@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import MeHistoryPageDemo from "./MeHistoryPageDemo";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import MeHistoryPageLive from "./MeHistoryPageLive";
 
 export default function MeHistoryPage() {
-  return isProductionAppMode() ? <MeHistoryPageLive /> : <MeHistoryPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <MeHistoryPageLive key={session.revision} />;
 }

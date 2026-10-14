@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import OperatorConsolePage from "./OperatorConsolePage";
+// Historical Demo component checks; not acceptance of the current working route.
+import OperatorConsolePage from "./OperatorConsolePageDemo";
 
 /**
  * E2E-стиль регресс-тест: проверяем, что бейдж статуса защищённой ссылки

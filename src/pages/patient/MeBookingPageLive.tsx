@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { CalendarClock } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,11 @@ export default function MeBookingPageLive() {
   const [reason, setReason] = useState("");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   async function submitBookingRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +38,7 @@ export default function MeBookingPageLive() {
         reason,
       },
     });
+    if (!mounted.current) return;
     if (!result.ok) {
       setSubmitStatus("error");
       setSubmitMessage(result.error.message);

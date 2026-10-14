@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import OperatorConsolePageDemo from "@/pages/operator/OperatorConsolePageDemo";
 import OperatorConsolePageLive from "@/pages/operator/OperatorConsolePageLive";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 export default function OperatorConsolePage() {
-  return isProductionAppMode() ? <OperatorConsolePageLive /> : <OperatorConsolePageDemo />;
+  const session = useSelfHostedApiSession();
+  return <OperatorConsolePageLive key={session.revision} />;
 }

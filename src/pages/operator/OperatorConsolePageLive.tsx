@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Headphones, ServerCog } from "lucide-react";
 
@@ -77,6 +77,12 @@ export default function OperatorConsolePageLive() {
   const [error, setError] = useState<SelfHostedApiError | null>(null);
   const [actionStatus, setActionStatus] = useState("Очередь заявок готова.");
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; loadSequence.current += 1; };
+  }, []);
 
   const baseArgs = useMemo(
     () => ({
@@ -88,6 +94,8 @@ export default function OperatorConsolePageLive() {
   const isConfigured = isSelfHostedApiConfigured(session);
 
   const loadOverview = useCallback(async () => {
+    if (!mounted.current) return;
+    const sequence = ++loadSequence.current;
     if (!isConfigured) {
       setLoadStatus("error");
       setError({
@@ -104,6 +112,7 @@ export default function OperatorConsolePageLive() {
       search,
       limit: 20,
     });
+    if (!mounted.current || sequence !== loadSequence.current) return;
     if (result.ok && result.value) {
       setOverview(result.value);
       setError(null);
@@ -114,6 +123,8 @@ export default function OperatorConsolePageLive() {
       setLoadStatus("error");
     }
   }, [baseArgs, isConfigured, search, statusFilter]);
+  const currentLoader = useRef(loadOverview);
+  useLayoutEffect(() => { currentLoader.current = loadOverview; });
 
   useEffect(() => {
     void loadOverview();
@@ -129,11 +140,12 @@ export default function OperatorConsolePageLive() {
         safeSummary: draftSummary,
       },
     });
+    if (!mounted.current) return;
     setBusyKey(null);
     if (result.ok) {
       setDraftSummary("");
       setActionStatus("Заявка создана.");
-      await loadOverview();
+      await currentLoader.current();
     } else {
       setActionStatus(publicLeadMessage(result.error));
     }
@@ -146,13 +158,14 @@ export default function OperatorConsolePageLive() {
       leadId: lead.id,
       status,
     });
+    if (!mounted.current) return;
     setBusyKey(null);
     setActionStatus(
       result.ok
         ? `Заявка: статус ${STATUS_LABEL[status].toLowerCase()}.`
         : publicLeadMessage(result.error),
     );
-    if (result.ok) await loadOverview();
+    if (result.ok) await currentLoader.current();
   }
 
   async function bookLead(lead: SelfHostedLeadOverviewDTO) {
@@ -170,13 +183,14 @@ export default function OperatorConsolePageLive() {
         chiefComplaint: lead.safeSummary,
       },
     });
+    if (!mounted.current) return;
     setBusyKey(null);
     setActionStatus(
       result.ok
         ? "Заявка записана на визит."
         : publicLeadMessage(result.error),
     );
-    if (result.ok) await loadOverview();
+    if (result.ok) await currentLoader.current();
   }
 
   const subtitle = session.user?.displayName

@@ -1,6 +1,6 @@
 // Stage 1E-E · UI tests for the панель снимков inside VisitImagingTab.
-// The component preserves demo behaviour and only activates the API
-// surface when an explicit token + baseUrl are passed via props.
+// Runtime tests use native sessions or explicit API credentials.
+// Three educational UI assertions use the named historical fixture.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import { VisitImagingTab } from "./VisitImagingTab";
+import { VisitImagingTab as HistoricalVisitImagingTab } from "../../../test-fixtures/legacy-ui/doctor/VisitImagingTab";
 import { LESIONS, VISITS, getLesionsByPatientId } from "@/lib/mock-data";
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
@@ -38,10 +39,16 @@ function renderTab(extra: Record<string, unknown> = {}) {
   );
 }
 
+function renderHistoricalTab(extra: Record<string, unknown> = {}) {
+  return render(<MemoryRouter><HistoricalVisitImagingTab visit={visit} patientId={patientId} lesions={lesions} {...extra} /></MemoryRouter>);
+}
+
 describe("VisitImagingTab · existing imaging surface preserved", () => {
-  it("renders capture toolbar and the API assets section", () => {
-    renderTab();
-    expect(screen.getByText(/Захват/)).toBeInTheDocument();
+  it("historical snapshot renders its educational capture toolbar and API assets section", () => {
+    renderHistoricalTab();
+    expect(screen.getByText("Добавление снимков")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Файл — учебный пример" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Перенос снимков — учебный пример" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Хронология снимков" })).toBeInTheDocument();
     expect(screen.queryByText("Таймлайн снимков")).toBeNull();
     expect(screen.getByRole("region", { name: /Снимки визита/i })).toBeInTheDocument();
@@ -64,8 +71,8 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
     expect(html).not.toMatch(/\bexif\b/i);
   });
 
-  it("selects the exact image requested by body-map navigation", () => {
-    renderTab({ initialLesionId: "l-001", initialImageId: "i-002" });
+  it("historical snapshot selects the educational image requested by body-map navigation", () => {
+    renderHistoricalTab({ initialLesionId: "l-001", initialImageId: "i-002" });
 
     expect(screen.getByTestId("selected-image-preview")).toHaveAttribute(
       "data-image-id",
@@ -413,9 +420,9 @@ describe("VisitImagingTab · primary self-hosted comparison and retake", () => {
   });
 });
 
-describe("VisitImagingTab · API panel · demo (no token) mode", () => {
-  it("shows demo-mode notice and upload click surfaces a non-blocking status", async () => {
-    renderTab();
+describe("Historical VisitImagingTab · API panel · demo (no token) mode", () => {
+  it("historical snapshot shows demo notice and non-blocking status", async () => {
+    renderHistoricalTab();
     const region = screen.getByRole("region", { name: /Снимки визита/i });
     expect(within(region).getAllByText(/учебный режим/i).length).toBeGreaterThan(0);
     expect(within(region).getByText(/система снимков не подключена/i))
@@ -886,7 +893,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const alert = await within(region).findByRole("alert");
     expect(alert).toHaveTextContent(/Недостаточно прав для просмотра снимков\./);
 
-    const retry = within(region).getByRole("button", { name: /Повторить загрузку снимков/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку списка снимков/ });
     expect(retry).toHaveClass("min-h-11");
     await userEvent.click(retry);
 
@@ -911,7 +918,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("alert");
 
-    const retry = within(region).getByRole("button", { name: /Повторить загрузку снимков/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку списка снимков/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -941,7 +948,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.click(openBtn);
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить загрузку снимков/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку списка снимков/ })).not.toBeInTheDocument();
   });
 
   it("upload 422 error does NOT render Повторить", async () => {
@@ -966,7 +973,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.upload(fileInput, new File(["x"], "x.jpg", { type: "image/jpeg" }));
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить загрузку снимков/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку списка снимков/ })).not.toBeInTheDocument();
   });
 });
 
@@ -2740,9 +2747,9 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     expect(alert.getAttribute("aria-live")).toBe("assertive");
 
     const retry = within(region).getByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
-    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку снимков");
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку списка снимков");
     expect(retry).toHaveTextContent(/Повторить/);
   });
 
@@ -2771,7 +2778,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     const alert = await within(region).findByRole("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(
-      within(region).queryByRole("button", { name: /Повторить загрузку снимков/ }),
+      within(region).queryByRole("button", { name: /Повторить загрузку списка снимков/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -2797,7 +2804,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     const alert = await within(region).findByRole("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(
-      within(region).queryByRole("button", { name: /Повторить загрузку снимков/ }),
+      within(region).queryByRole("button", { name: /Повторить загрузку списка снимков/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -2822,7 +2829,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     await within(region).findByRole("alert");
 
     const retry = within(region).getByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -2852,7 +2859,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     expect(firstAlert.getAttribute("aria-live")).toBe("assertive");
 
     await userEvent.click(
-      within(region).getByRole("button", { name: "Повторить загрузку снимков" }),
+      within(region).getByRole("button", { name: "Повторить загрузку списка снимков" }),
     );
 
     await waitFor(() => expect(calls).toBe(2));
@@ -2900,7 +2907,7 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     await userEvent.click(retry);
 
@@ -2924,7 +2931,7 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     await userEvent.click(retry);
 
@@ -2934,7 +2941,7 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     await waitFor(() => expect(region).toHaveFocus());
   });
 
-  it("retry failure keeps focus on 'Повторить загрузку снимков'", async () => {
+  it("retry failure keeps focus on 'Повторить загрузку списка снимков'", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -2947,13 +2954,13 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     await userEvent.click(retry);
 
     await waitFor(() => {
       const next = within(region).getByRole("button", {
-        name: "Повторить загрузку снимков",
+        name: "Повторить загрузку списка снимков",
       });
       expect(next).toHaveFocus();
     });
@@ -2971,9 +2978,9 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
-    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку снимков");
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку списка снимков");
     expect(retry).toHaveTextContent(/Повторить/);
   });
 
@@ -3026,7 +3033,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     retry.focus();
     expect(retry).toHaveFocus();
@@ -3053,7 +3060,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -3077,7 +3084,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -3085,7 +3092,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     await waitFor(() => expect(calls).toBe(2));
     await waitFor(() => {
       expect(
-        within(region).getByRole("button", { name: "Повторить загрузку снимков" }),
+        within(region).getByRole("button", { name: "Повторить загрузку списка снимков" }),
       ).toHaveFocus();
     });
   });
@@ -3114,7 +3121,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     await userEvent.click(retry);
 
@@ -3149,7 +3156,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку снимков",
+      name: "Повторить загрузку списка снимков",
     });
     await userEvent.click(retry);
 

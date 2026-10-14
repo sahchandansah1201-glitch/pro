@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import MeHomePage from "./MeHomePage";
-import MeHistoryPage from "./MeHistoryPage";
-import MeReportPage from "./MeReportPage";
-import MeReportsPage from "./MeReportsPage";
-import MeBookingPage from "./MeBookingPage";
-import MeRemindersPage from "./MeRemindersPage";
+// Historical Demo component checks; not acceptance of the current working routes.
+import MeHomePage from "./MeHomePageDemo";
+import MeHistoryPage from "./MeHistoryPageDemo";
+import MeReportPage from "./MeReportPageDemo";
+import MeReportsPage from "./MeReportsPageDemo";
+import MeBookingPage from "./MeBookingPageDemo";
+import MeRemindersPage from "./MeRemindersPageDemo";
 
 // Запрещённые токены строим динамически, чтобы исходник теста сам не содержал литералов.
 const j = (...p: string[]) => p.join("");

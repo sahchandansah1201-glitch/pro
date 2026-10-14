@@ -21,9 +21,9 @@ const REQUIRED_FILES = [
 
 const REQUIRED_TEXT = {
   "src/pages/operator/OperatorConsolePage.tsx": [
-    "isProductionAppMode",
+    "useSelfHostedApiSession",
     "OperatorConsolePageLive",
-    "OperatorConsolePageDemo",
+    "key={session.revision}",
   ],
   "src/pages/operator/OperatorConsolePageDemo.tsx": [
     "OperatorConsolePageDemo",

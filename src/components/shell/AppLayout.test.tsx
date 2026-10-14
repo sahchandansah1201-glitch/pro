@@ -25,6 +25,13 @@ const authValue: AuthContextValue = {
   signOut: noop,
 };
 
+function writeWorkingRoles(roles: string[]) {
+  window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-navigation-token");
+  window.localStorage.setItem(SELF_HOSTED_API_USER_KEY, JSON.stringify({
+    id: "synthetic-navigation-user", displayName: "Тестовый сотрудник", roles,
+  }));
+}
+
 function renderLayout(initialEntry = "/") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -56,26 +63,36 @@ beforeEach(() => {
 });
 
 describe("AppLayout production mode", () => {
-  it("renders demo shell controls by default", () => {
+  it("never shows training controls or clinical navigation without a real session", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "system_admin");
     renderLayout();
-    expect(screen.getByText(/Учебный режим\. Переключение ролей/)).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /учебный режим/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Учебный режим/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Пациенты" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Сотрудники и доступ" })).not.toBeInTheDocument();
+  });
+  it("shows no training controls by default", () => {
+    renderLayout();
+    expect(screen.queryByText(/Учебный режим/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
-  it("shows full Body Map entry in the doctor sidebar", () => {
+  it("keeps the doctor visit body map contextual rather than linking to a training patient", () => {
+    writeWorkingRoles(["doctor"]);
     renderLayout();
-    const link = screen.getByRole("link", { name: /Карта тела/ });
-    expect(link).toHaveAttribute("href", "/patients/p-004/visits/v-005?tab=bodymap");
+    expect(screen.queryByRole("link", { name: /Карта тела/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Пациенты" })).toHaveAttribute("href", "/patients");
   });
 
   it("shows the doctor reports center entry in the doctor sidebar", () => {
+    writeWorkingRoles(["doctor"]);
     renderLayout();
     const link = screen.getByRole("link", { name: /^Отчёты$/ });
     expect(link).toHaveAttribute("href", "/reports");
   });
 
   it("shows patient lesion history entry only in patient sidebar", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "patient");
+    writeWorkingRoles(["patient"]);
     const { unmount } = renderLayout();
     expect(screen.getByRole("link", { name: /История очагов/ })).toHaveAttribute(
       "href",
@@ -83,13 +100,13 @@ describe("AppLayout production mode", () => {
     );
 
     unmount();
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
+    writeWorkingRoles(["doctor"]);
     renderLayout();
     expect(screen.queryByRole("link", { name: /История очагов/ })).not.toBeInTheDocument();
   });
 
   it("shows the admin operating center entry for clinic admin", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
+    writeWorkingRoles(["clinic_admin"]);
     renderLayout();
     const link = screen.getByRole("link", { name: /Операционный центр/ });
     expect(link).toHaveAttribute("href", "/admin");
@@ -105,16 +122,16 @@ describe("AppLayout production mode", () => {
   });
 
   it("merges the operator support group with shared help instead of duplicating it", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "operator");
+    writeWorkingRoles(["operator"]);
     renderLayout("/operator");
 
     expect(screen.getAllByText("Поддержка")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: /Очередь диалогов/ })).toHaveAttribute("href", "/operator");
+    expect(screen.getByRole("link", { name: "Заявки" })).toHaveAttribute("href", "/operator");
     expect(screen.getByRole("link", { name: /Справка/ })).toHaveAttribute("href", "/help");
   });
 
   it("marks only the most specific admin sidebar entry as active", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
+    writeWorkingRoles(["clinic_admin"]);
     renderLayout("/admin/governance");
 
     expect(screen.getByRole("link", { name: /Операционный центр/ })).toHaveAttribute(
@@ -127,21 +144,19 @@ describe("AppLayout production mode", () => {
     );
   });
 
-  it("marks body map active without also marking the generic patients entry active", () => {
+  it("marks patients active for its contextual body map route", () => {
+    writeWorkingRoles(["doctor"]);
     renderLayout("/patients/p-004/visits/v-005?tab=bodymap");
 
     expect(screen.getByRole("link", { name: /^Пациенты$/ })).toHaveAttribute(
       "data-active",
-      "false",
-    );
-    expect(screen.getByRole("link", { name: /Карта тела/ })).toHaveAttribute(
-      "data-active",
       "true",
     );
+    expect(screen.queryByRole("link", { name: /Карта тела/ })).not.toBeInTheDocument();
   });
 
   it("shows the private practice center entry only for private doctor", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "private_doctor");
+    writeWorkingRoles(["private_doctor"]);
     const { unmount } = renderLayout();
     expect(screen.getByRole("link", { name: /Центр практики/ })).toHaveAttribute(
       "href",
@@ -149,7 +164,7 @@ describe("AppLayout production mode", () => {
     );
 
     unmount();
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
+    writeWorkingRoles(["doctor"]);
     renderLayout();
     expect(screen.queryByRole("link", { name: /Центр практики/ })).not.toBeInTheDocument();
   });
@@ -213,10 +228,10 @@ describe("AppLayout production mode", () => {
     );
     renderLayout("/desk");
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Глобальный поиск" }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: "Поиск пациентов" }), {
       target: { value: "Тестовый пациент" },
     });
-    fireEvent.submit(screen.getByRole("search", { name: "Глобальный поиск" }));
+    fireEvent.submit(screen.getByRole("search", { name: "Поиск пациентов" }));
 
     expect(screen.getByTestId("content")).toHaveTextContent(
       "/patients?search=%D0%A2%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D1%8B%D0%B9%20%D0%BF%D0%B0%D1%86%D0%B8%D0%B5%D0%BD%D1%82",
@@ -224,6 +239,7 @@ describe("AppLayout production mode", () => {
   });
 
   it("closes the mobile navigation after a route is selected", async () => {
+    writeWorkingRoles(["doctor"]);
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     renderLayout();
 

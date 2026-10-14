@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import AnalysisPublicPage from "./AnalysisPublicPage";
+import AnalysisPublicPage from "../../../test-fixtures/legacy-ui/public/AnalysisPublicPage";
 
 // Демо-токены из mock-data:
 // pal-tok-ac002-demo expires 2026-06-03 (после demo-now 2026-05-04) — валидна

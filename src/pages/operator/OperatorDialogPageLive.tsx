@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, RefreshCw, ShieldCheck } from "lucide-react";
 
@@ -35,6 +35,12 @@ export default function OperatorDialogPageLive() {
   const [validationMessage, setValidationMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; loadSequence.current += 1; };
+  }, []);
 
   const baseArgs = useMemo(
     () => ({
@@ -46,6 +52,8 @@ export default function OperatorDialogPageLive() {
   const isConfigured = isSelfHostedApiConfigured(session);
 
   const loadRequest = useCallback(async () => {
+    if (!mounted.current) return;
+    const sequence = ++loadSequence.current;
     if (!isConfigured) {
       setError({
         kind: "not_configured",
@@ -61,7 +69,8 @@ export default function OperatorDialogPageLive() {
       ...baseArgs,
       requestId: id,
     });
-    if (result.ok && result.value) {
+    if (!mounted.current || sequence !== loadSequence.current) return;
+    if (result.ok && result.value && result.value.id === id) {
       setRequest(result.value);
       setClinicNote(result.value.clinicNote || "");
       setError(null);
@@ -70,7 +79,9 @@ export default function OperatorDialogPageLive() {
     }
 
     setRequest(null);
-    setError(result.error);
+    setError(result.ok
+      ? { kind: "http", status: 404, code: "not_found", message: "Обращение недоступно." }
+      : result.error);
     setLoadStatus("error");
   }, [baseArgs, id, isConfigured]);
 
@@ -98,9 +109,10 @@ export default function OperatorDialogPageLive() {
         clinicNote: note,
       },
     });
+    if (!mounted.current) return;
     setSaving(false);
 
-    if (result.ok && result.value) {
+    if (result.ok && result.value && result.value.id === id) {
       setRequest(result.value);
       setClinicNote(result.value.clinicNote || note);
       setActionMessage(
@@ -113,7 +125,9 @@ export default function OperatorDialogPageLive() {
     }
 
     setActionMessage("");
-    setError(result.error);
+    setError(result.ok
+      ? { kind: "http", status: 404, code: "not_found", message: "Обращение недоступно." }
+      : result.error);
   }
 
   const subtitle = session.user?.displayName

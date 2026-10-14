@@ -39,7 +39,7 @@ describe("AdminAnalyticsPage — пустые состояния (полност
       getAnalysisCards: () => [],
       getClinics: () => [],
     }));
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   afterEach(() => {
@@ -85,7 +85,7 @@ describe("AdminAnalyticsPage — пустые состояния по перио
     cleanup();
     vi.resetModules();
     vi.doUnmock("@/lib/mock-data");
-    AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
   });
 
   it("в «Все данные» нет пустых состояний (на демо-моках есть данные во всех секциях)", () => {

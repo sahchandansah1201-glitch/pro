@@ -22,8 +22,10 @@ const REQUIRED_TEXT = {
     "ProductionClinicalWorkspaceEmptyState",
     "Рабочая запись клиники: показаны только данные этого визита",
     "createSelfHostedVisitLesion",
-    "productionMode ? [] : getAssessmentsByVisitId",
-    "productionMode ? [] : getImagesByLesionId",
+    "const visitAssessments = [];",
+    "getSelfHostedVisitAssessment",
+    "const selImages = [];",
+    "listSelfHostedVisitLesions",
   ],
   "src/pages/doctor/VisitWorkspacePage.test.tsx": [
     "Stage 5G · production clinical workspace completion",

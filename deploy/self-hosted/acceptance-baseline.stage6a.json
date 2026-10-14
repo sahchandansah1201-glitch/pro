@@ -47,7 +47,7 @@
       "stage": "5D-5G",
       "status": "ready",
       "evidenceFiles": [
-        "src/lib/app-mode.ts",
+        "src/WorkingOnlyCutover.test.tsx",
         "src/lib/self-hosted-role.ts",
         "src/components/shell/AppLayout.tsx",
         "src/components/shell/RoleGuard.tsx",

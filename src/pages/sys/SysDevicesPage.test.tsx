@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import SysDevicesPage from "./SysDevicesPage";
@@ -8,6 +8,7 @@ import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
   SELF_HOSTED_API_USER_KEY,
+  writeSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 
 function renderPage() {
@@ -27,7 +28,134 @@ function writeLiveSession() {
   );
 }
 
+function registryResponse(input: RequestInfo | URL, name = "Рабочее устройство") {
+  const url = String(input);
+  if (url.includes("/api/v1/device-bridges")) return new Response(JSON.stringify({ items: [] }), { status: 200 });
+  if (url.includes("/api/v1/devices")) return new Response(JSON.stringify({ items: [{
+    id: "d-004", model: name, serial: "TEST-SERIAL", firmware: "test", status: "connected",
+    magnification: "test", polarization: "polarized", calibrationProfile: "test", calibrationDueAt: "2099-01-01", bridgeId: null,
+  }] }), { status: 200 });
+  return new Response(JSON.stringify({ error: { code: "service_unavailable" } }), { status: 503 });
+}
+
 describe("SysDevicesPage", () => {
+  it.each(["recovery", "replay"])("discards a pending %s result after the account changes", async (action) => {
+    writeLiveSession();
+    let finishAction: () => void = () => {};
+    const pending = new Promise<void>((resolve) => { finishAction = resolve; });
+    const command = { id: "synthetic-command", commandType: "bridge_health_check", status: "failed" };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = new URL(String(input)).pathname;
+      if (init?.method === "POST") { await pending; return new Response(JSON.stringify({ command: { ...command, status: "queued" } }), { status: 200 }); }
+      if ((init?.headers as Record<string, string>).Authorization === "Bearer jwt-device-test") {
+        if (path.endsWith("/recovery")) return new Response(JSON.stringify({ items: [command], summary: {} }), { status: 200 });
+        if (path.endsWith("/audit")) return new Response(JSON.stringify({ items: [{ ...command, id: "synthetic-event", commandId: command.id, action: "complete" }], summary: {} }), { status: 200 });
+      }
+      return registryResponse(input);
+    });
+    renderPage();
+    await screen.findAllByText("Рабочее устройство");
+    const region = screen.getByRole("region", { name: action === "recovery" ? "Восстановление команд моста устройств" : "Аудит и повтор команд моста устройств" });
+    fireEvent.click(within(region).getByRole("button", { name: "Повторить" }));
+    await act(async () => { writeSelfHostedApiSession({ apiToken: "synthetic-current-account", user: { id: "current", displayName: "current", roles: ["system_admin"] } }); });
+    await screen.findAllByText("Рабочее устройство");
+    await act(async () => { finishAction(); });
+    expect(screen.queryByText(/Команда возвращена в очередь|Повтор команды поставлен в очередь/)).not.toBeInTheDocument();
+  });
+
+  it.each(["account", "unmount"])("discards an old audit export after %s changes", async (change) => {
+    writeLiveSession();
+    let finishExport: () => void = () => {};
+    const pending = new Promise<void>((resolve) => { finishExport = resolve; });
+    const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:synthetic-export") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/audit/export")) {
+        await pending;
+        return new Response(JSON.stringify({ export: { filename: "synthetic-audit.csv", content: "synthetic-event" } }), { status: 200 });
+      }
+      if (path.endsWith("/audit")) return new Response(JSON.stringify({ items: [], summary: {} }), { status: 200 });
+      return registryResponse(input);
+    });
+    const { unmount } = renderPage();
+    await screen.findAllByText("Рабочее устройство");
+    fireEvent.click(screen.getByRole("button", { name: "Скачать журнал" }));
+    if (change === "account") {
+      await act(async () => { writeSelfHostedApiSession({ apiToken: "synthetic-next-account", user: { id: "next", displayName: "next", roles: ["system_admin"] } }); });
+      await screen.findAllByText("Рабочее устройство");
+    } else unmount();
+    await act(async () => { finishExport(); });
+    expect(download).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Экспорт журнала команд моста устройств скачан/)).not.toBeInTheDocument();
+  });
+
+  it("filters actual registry rows by their returned connection status", async () => {
+    writeLiveSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (new URL(String(input)).pathname === "/api/v1/devices") return new Response(JSON.stringify({ items: [
+        { id: "connected-device", serial: "TEST-CONNECTED", model: "Подключённое устройство", status: "connected", calibrationDueAt: "2099-01-01", bridgeId: null },
+        { id: "offline-device", serial: "TEST-OFFLINE", model: "Отключённое устройство", status: "offline", calibrationDueAt: "2099-01-01", bridgeId: null },
+      ] }), { status: 200 });
+      return registryResponse(input);
+    });
+    renderPage();
+    await screen.findAllByText("Подключённое устройство");
+    await screen.findAllByText("Отключённое устройство");
+    fireEvent.click(screen.getByRole("tab", { name: "Не в сети" }));
+    expect(screen.queryByText("Подключённое устройство")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Отключённое устройство").length).toBeGreaterThan(0);
+  });
+
+  it.each([401, 403, 404, 500])("never replaces HTTP %s with a training device", async (status) => {
+    writeLiveSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ error: { code: "unavailable", message: "internal-secret" } }), { status }));
+    renderPage();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить устройства.");
+    expect(screen.queryByText("DermLite DL5")).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("internal-secret");
+  });
+
+  it("retries the real registry and uses its due date without the training calibration override", async () => {
+    writeLiveSession();
+    let failed = true;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => failed
+      ? new Response(JSON.stringify({ error: { code: "unavailable" } }), { status: 503 }) : registryResponse(input));
+    renderPage();
+    await screen.findByRole("alert");
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
+    await screen.findAllByText("Рабочее устройство");
+    fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
+    expect(screen.queryByText("Рабочее устройство")).not.toBeInTheDocument();
+  });
+
+  it("hides ready rows and command panels while a new account loads and discards its late old response", async () => {
+    writeLiveSession();
+    let resolveOld: () => void = () => {};
+    let resolveCurrent: () => void = () => {};
+    const oldGate = new Promise<void>((resolve) => { resolveOld = resolve; });
+    const currentGate = new Promise<void>((resolve) => { resolveCurrent = resolve; });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const token = (init?.headers as Record<string, string>).Authorization;
+      if (token === "Bearer synthetic-old-pending") { await oldGate; return registryResponse(input, "Старая учётная запись"); }
+      if (token === "Bearer synthetic-current") { await currentGate; return registryResponse(input, "Текущая учётная запись"); }
+      return registryResponse(input);
+    });
+    renderPage();
+    await screen.findAllByText("Рабочее устройство");
+    await act(async () => { writeSelfHostedApiSession({ apiToken: "synthetic-old-pending", user: { id: "old", displayName: "old", roles: ["system_admin"] } }); });
+    expect(screen.queryByText("Рабочее устройство")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Наблюдение службы моста устройств" })).not.toBeInTheDocument();
+    await act(async () => { writeSelfHostedApiSession({ apiToken: "synthetic-current", user: { id: "current", displayName: "current", roles: ["system_admin"] } }); });
+    await act(async () => { resolveOld(); });
+    expect(screen.queryByText("Старая учётная запись")).not.toBeInTheDocument();
+    await act(async () => { resolveCurrent(); });
+    await screen.findAllByText("Текущая учётная запись");
+    expect(screen.queryByText("Старая учётная запись")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  });
   beforeEach(() => {
     window.localStorage.clear();
     vi.restoreAllMocks();
@@ -43,14 +171,35 @@ describe("SysDevicesPage", () => {
     expect(recoveryStateLabel("raw_recovery_state")).toBe("неизвестно");
   });
 
-  it("renders demo registry without backend calls when self-hosted session is missing", () => {
+  it("requires a working session instead of inventing a device registry", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     renderPage();
 
-    expect(screen.getByText(/Учебный режим\. Рабочие роли, аудит, ключи и мост устройств/)).toBeInTheDocument();
-    expect(screen.getAllByText("DermLite DL5").length).toBeGreaterThan(0);
+    expect(screen.getByText("Войдите в систему клиники, чтобы загрузить устройства.")).toBeInTheDocument();
+    expect(screen.queryByText("DermLite DL5")).not.toBeInTheDocument();
+    expect(screen.queryByText(/учебн/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Проверить мост" })).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not show invented devices or bridge actions while loading", () => {
+    writeLiveSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>(() => {}));
+    renderPage();
+    expect(screen.getByText("Загружаем реестр устройств из рабочей системы.")).toBeInTheDocument();
+    expect(screen.queryByText("DermLite DL5")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Проверить мост" })).not.toBeInTheDocument();
+  });
+
+  it("shows a failed registry request with retry instead of fake devices", async () => {
+    writeLiveSession();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: { code: "service_unavailable" } }), { status: 503 }));
+    renderPage();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось загрузить устройства");
+    expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+    expect(screen.queryByText("DermLite DL5")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Проверить мост" })).not.toBeInTheDocument();
   });
 
   it("loads self-hosted bridge and device registry with bearer token", async () => {
@@ -785,7 +934,7 @@ describe("SysDevicesPage", () => {
     const { container } = renderPage();
 
     expect(
-      await screen.findByText("Рабочая база временно недоступна или обновляется. Повторите действие позже."),
+      await screen.findByText("Рабочая база временно недоступна или обновляется. Повторите действие после завершения обновления."),
     ).toBeInTheDocument();
     expect(container.innerHTML).not.toContain("Database unavailable");
     expect(container.innerHTML).not.toContain("self-hosted backend");

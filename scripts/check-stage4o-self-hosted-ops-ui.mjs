@@ -45,7 +45,7 @@ const REQUIRED_TEXT = {
     "/sys/self-hosted-ops",
     "Скачать предпросмотр",
     "self-hosted|PostgreSQL|backend-owned",
-    "clinic_admin demo role is blocked by route guard",
+    "clinic_admin working role is blocked by route guard",
   ],
   "docs/backend/stage-4o-self-hosted-ops-ui.md": [
     "Stage 4O",

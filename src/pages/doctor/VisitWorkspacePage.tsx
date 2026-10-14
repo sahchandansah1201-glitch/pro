@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
@@ -7,15 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DEMO_USERS } from "@/lib/users";
-import {
-  getAssessmentsByVisitId,
-  getClinicById,
-  getImagesByLesionId,
-  getLesionsByPatientId,
-  getPatientById,
-  getVisitById,
-} from "@/lib/mock-data";
 import { consentLabel, formatAge, formatDate, formatDateTime } from "@/lib/format";
 import { formatCardNumber } from "@/lib/card-number";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
@@ -23,9 +14,6 @@ import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { useApiSession } from "@/lib/api-session";
 import { VisitWorkspaceLiveActions } from "@/pages/doctor/VisitWorkspaceLiveActions";
 import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanner";
-import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
-import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
-import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import {
   clinicalBodyAtlasSource,
   clinicalBodyProfileAssetName,
@@ -40,7 +28,6 @@ import {
 import { LongitudinalQaSummary } from "@/pages/doctor/visit-workspace/LongitudinalQaSummary";
 import { ProductionClinicalDecisionSummary } from "@/pages/doctor/visit-workspace/ProductionClinicalDecisionSummary";
 import { ClinicalReportCompletionSummary } from "@/pages/doctor/visit-workspace/ClinicalReportCompletionSummary";
-import { LesionSourcePhotoPanel } from "@/pages/doctor/visit-workspace/LesionSourcePhotoPanel";
 import {
   ClinicalBodyMapCanvas,
   type ClinicalBodyRegionPlacement,
@@ -55,7 +42,6 @@ import {
   timelineReasonLabel,
 } from "@/pages/doctor/visit-workspace/visitWorkspaceLabels";
 import { buildLongitudinalClinicalValidationCounts, buildProductionDatasetEvidenceCounts, buildProductionReviewerEvidenceCounts, buildProductionReviewerGovernanceCounts, buildProductionReviewerRollbackEvidenceCounts, EMPTY_LONGITUDINAL_CLINICAL_VALIDATION_COUNTS, EMPTY_PRODUCTION_DATASET_EVIDENCE_COUNTS, EMPTY_PRODUCTION_REVIEWER_COUNTS, isLongitudinalClinicalValidationDecisionReady, isProductionDatasetEvidenceDecisionReady, isProductionReviewerEvidenceDecisionReady, isProductionReviewerGovernanceDecisionReady, isProductionReviewerRollbackEvidenceDecisionReady } from "@/pages/doctor/visit-workspace/productionTimelineEvidenceGates";
-import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
@@ -136,17 +122,7 @@ import {
   selfHostedVisitDetailToPatient,
   selfHostedVisitToDomain,
 } from "@/lib/self-hosted-clinical-adapter";
-import {
-  BODY_MAP_DEMO_NOW,
-  BODY_MAP_VIEWS,
-  BODY_MAP_VIEW_BUTTON_LABEL,
-  bodyMapSurfaceHint,
-  bodyMapSurfaceLabel,
-  bodyMapProfileLabel,
-  bodyMapViewLabel,
-  getBodyMapProfile,
-} from "@/pages/doctor/body-map-model";
-import { getDemoLesionSourceLocalization } from "@/pages/doctor/lesion-source-localization";
+import { BODY_MAP_VIEWS, BODY_MAP_VIEW_BUTTON_LABEL, bodyMapSurfaceHint, bodyMapSurfaceLabel, bodyMapProfileLabel, bodyMapViewLabel, getBodyMapProfile } from "@/pages/doctor/body-map-model";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -169,7 +145,7 @@ const SEX_LABEL_SHORT: Record<NonNullable<Patient["sex"]>, string> = {
 
 function staffName(id: string | null | undefined, fallback = "сотрудник клиники"): string {
   if (!id) return "—";
-  return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? fallback;
+  return fallback;
 }
 
 type LiveWorkspaceState =
@@ -210,8 +186,13 @@ function resolvePoint(l: Lesion): BodyMapPoint {
 }
 
 export default function VisitWorkspacePage() {
+  const session = useSelfHostedApiSession();
   const { id, visitId } = useParams<{ id: string; visitId: string }>();
-  const productionMode = isProductionAppMode();
+  return <WorkingVisitWorkspace key={`${session.revision}:${id}:${visitId}`} />;
+}
+
+function WorkingVisitWorkspace() {
+  const { id, visitId } = useParams<{ id: string; visitId: string }>();
   const selfHostedSession = useSelfHostedApiSession();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
   const [liveState, setLiveState] = useState<LiveWorkspaceState>({ kind: "idle" });
@@ -281,6 +262,11 @@ export default function VisitWorkspacePage() {
         });
         return;
       }
+      if ((lesionsResult.value ?? []).some((lesion) =>
+        (lesion.patientId != null && lesion.patientId !== id) || (lesion.visitId != null && lesion.visitId !== visitId))) {
+        setLiveState({ kind: "error", message: "Полученные очаги не соответствуют этому пациенту и визиту. Данные не показаны." });
+        return;
+      }
       setLiveState({
         kind: "ready",
         visit: visitResult.value,
@@ -292,12 +278,13 @@ export default function VisitWorkspacePage() {
     };
   }, [
     liveBackend,
+    id,
     selfHostedSession.apiBaseUrl,
     selfHostedSession.apiToken,
     visitId,
   ]);
 
-  if (productionMode && !liveBackend) {
+  if (!liveBackend) {
     return (
       <ProductionWorkspaceState
         title="Требуется вход в систему клиники"
@@ -306,7 +293,7 @@ export default function VisitWorkspacePage() {
     );
   }
 
-  if (liveBackend && liveState.kind === "loading") {
+  if (visitId && (liveState.kind === "idle" || liveState.kind === "loading")) {
     return <ProductionWorkspaceState title="Загружаем рабочее место визита" text="Читаем визит из системы клиники…" />;
   }
 
@@ -320,10 +307,10 @@ export default function VisitWorkspacePage() {
   const liveVisit = liveBackend && liveState.kind === "ready"
     ? selfHostedVisitToDomain(liveState.visit)
     : undefined;
-  const patient = livePatient ?? (id ? getPatientById(id) : undefined);
-  const visit = liveVisit ?? (visitId ? getVisitById(visitId) : undefined);
+  const patient = livePatient;
+  const visit = liveVisit;
 
-  if (!patient || !visit || visit.patientId !== patient.id) {
+  if (!patient || !visit || patient.id !== id || visit.id !== visitId || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
         <PageHeader title="Визит не найден" subtitle="Карточка визита отсутствует в системе клиники." />
@@ -338,8 +325,8 @@ export default function VisitWorkspacePage() {
 
   const lesions = liveBackend && liveState.kind === "ready"
     ? liveState.lesions.map((lesion) => selfHostedLesionToDomain(lesion, patient.id))
-    : getLesionsByPatientId(patient.id);
-  const clinic = getClinicById(visit.clinicId);
+    : [];
+  const clinic = liveState.kind === "ready" ? liveState.visit.clinic : undefined;
 
   const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
   type TabKey = (typeof validTabs)[number];
@@ -387,7 +374,7 @@ export default function VisitWorkspacePage() {
         }
       />
 
-      {productionMode ? (
+      {(
         <div
           role="status"
           aria-live="polite"
@@ -396,7 +383,7 @@ export default function VisitWorkspacePage() {
           <span className="font-medium text-foreground">Источник данных: система клиники</span>
           {" · "}рабочее место визита показывает только данные системы клиники.
         </div>
-      ) : null}
+      )}
 
       <VisitWorkspaceLiveBanner visitId={visit.id} />
 
@@ -426,7 +413,6 @@ export default function VisitWorkspacePage() {
             patient={patient}
             visit={visit}
             lesions={lesions}
-            productionMode={productionMode}
             apiBaseUrl={selfHostedSession.apiBaseUrl}
             apiToken={selfHostedSession.apiToken}
             initialLesionId={lesionParam}
@@ -449,48 +435,35 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {(
             <ProductionClinicalWorkspacePanel
               kind="assessment"
               visitId={visit.id}
               apiBaseUrl={selfHostedSession.apiBaseUrl}
               apiToken={selfHostedSession.apiToken}
             />
-          ) : (
-            <VisitAssessmentTab
-              visit={visit}
-              lesions={lesions}
-              selectedLesionId={lesionParam}
-              onSelectLesion={(lesionId) => updateNav("assessment", lesionId)}
-              onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
-              onOpenConclusion={(lesionId) => updateNav("conclusion", lesionId)}
-            />
           )}
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {(
             <ProductionClinicalWorkspacePanel
               kind="conclusion"
               visitId={visit.id}
               apiBaseUrl={selfHostedSession.apiBaseUrl}
               apiToken={selfHostedSession.apiToken}
             />
-          ) : (
-            <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
           )}
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {(
             <ProductionClinicalWorkspacePanel
               kind="report"
               visitId={visit.id}
               apiBaseUrl={selfHostedSession.apiBaseUrl}
               apiToken={selfHostedSession.apiToken}
             />
-          ) : (
-            <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
           )}
         </TabsContent>
       </Tabs>
@@ -4401,7 +4374,7 @@ function ProductionClinicalWorkspaceEmptyState({
 // ───────── Intake ─────────
 
 function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
-  const clinic = getClinicById(visit.clinicId);
+  const clinic = undefined;
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
       <Section title="Жалоба и параметры визита" className="lg:col-span-7">
@@ -4470,11 +4443,6 @@ function bodyMapZoomLevels() {
     : BODY_MAP_STANDARD_ZOOM_LEVELS;
 }
 
-function bodyMapStepZoom(current: number, direction: -1 | 1, levels: readonly number[]) {
-  if (direction > 0) return levels.find((level) => level > current) ?? levels.at(-1) ?? current;
-  return [...levels].reverse().find((level) => level < current) ?? levels[0] ?? current;
-}
-
 interface PendingPoint {
   view: View;
   x: number;
@@ -4487,22 +4455,10 @@ function formatBodyMapPosition(point: Pick<BodyMapPoint, "x" | "y">) {
   return `горизонталь ${Math.round(point.x * 100)}% · вертикаль ${Math.round(point.y * 100)}%`;
 }
 
-interface LocalLesionDraft {
-  id: string;
-  label: string;
-  bodyRegionId: string;
-  bodyZone: string;
-  status: Lesion["status"];
-  mapPoint: BodyMapPoint;
-  note: string;
-  createdAt: string;
-}
-
 interface BodyMapTabProps {
   patient: Patient;
   visit: Visit;
   lesions: Lesion[];
-  productionMode?: boolean;
   apiBaseUrl?: string | null;
   apiToken?: string | null;
   initialLesionId?: string | null;
@@ -4513,9 +4469,7 @@ interface BodyMapTabProps {
 function BodyMapTab(props: BodyMapTabProps) {
   const profile = getBodyMapProfile(
     props.patient,
-    props.productionMode
-      ? (props.visit.startedAt || currentClinicalBodyAtlasIso())
-      : BODY_MAP_DEMO_NOW,
+    (props.visit.startedAt || currentClinicalBodyAtlasIso()),
   );
   if (!profile) {
     return (
@@ -4553,7 +4507,6 @@ function BodyMapTabReady({
   patient,
   visit,
   lesions,
-  productionMode = false,
   apiBaseUrl,
   apiToken,
   initialLesionId,
@@ -4563,9 +4516,9 @@ function BodyMapTabReady({
 }: BodyMapTabProps & { profile: ClinicalBodyProfile }) {
   const profileLabel = bodyMapProfileLabel(profile);
   const atlasSource = clinicalBodyAtlasSource();
+  const atlasNativeWidth = atlasSource === "daz-hires-local" ? 2880 : 720;
   const zoomLevels = bodyMapZoomLevels();
   const minZoom = zoomLevels[0];
-  const maxZoom = zoomLevels[zoomLevels.length - 1];
 
   const placedLesions = useMemo(() => {
     return lesions.map((l, i) => ({
@@ -4583,50 +4536,46 @@ function BodyMapTabReady({
   const [view, setView] = useState<View>(initialView);
   const [zoom, setZoom] = useState(1);
   const [bodyMapModelReady, setBodyMapModelReady] = useState(false);
-  const { isPanning, panViewportProps } = useBodyMapViewportPan(zoom > 1 && bodyMapModelReady);
+  const {
+    isPanning,
+    maximumZoom: maxZoom,
+    viewportRef: mapViewportRef,
+    changeZoom,
+    changeZoomByStep,
+    resetViewport,
+    panViewportProps,
+  } = useBodyMapViewportPan({
+    panEnabled: zoom > 1 && bodyMapModelReady,
+    zoomEnabled: bodyMapModelReady,
+    zoom,
+    zoomLevels,
+    nativeImageWidth: atlasNativeWidth,
+    onZoom: setZoom,
+  });
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
   const [pending, setPending] = useState<PendingPoint | null>(null);
   const [draftLabel, setDraftLabel] = useState("Новый очаг");
   const [draftStatus, setDraftStatus] = useState<Lesion["status"]>("active");
-  const [draftNote, setDraftNote] = useState("");
   const [zoneDraft, setZoneDraft] = useState("");
   const [anatomyDetailDraft, setAnatomyDetailDraft] = useState("");
-  const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
   const [productionPlacementNotice, setProductionPlacementNotice] = useState("");
   const [pendingIdempotencyKey, setPendingIdempotencyKey] = useState("");
   const [savingPlacement, setSavingPlacement] = useState(false);
   const [editingLesionId, setEditingLesionId] = useState<string | null>(null);
-  const mapViewportRef = useRef<HTMLDivElement | null>(null);
   const pendingEditorRef = useRef<HTMLDivElement | null>(null);
-  const pendingZoomFocusRef = useRef<{ x: number; y: number } | null>(null);
-  const handleBodyMapModelReadyChange = useCallback((ready: boolean) => { setBodyMapModelReady(ready); if (!ready) { setZoom(1); const viewport = mapViewportRef.current; if (viewport) { viewport.scrollLeft = 0; viewport.scrollTop = 0; } } }, []);
-  const changeZoom = (nextZoom: number) => {
-    const viewport = mapViewportRef.current;
-    if (viewport) {
-      pendingZoomFocusRef.current = {
-        x: (viewport.scrollLeft + viewport.clientWidth / 2) / Math.max(viewport.scrollWidth, 1),
-        y: (viewport.scrollTop + viewport.clientHeight / 2) / Math.max(viewport.scrollHeight, 1),
-      };
+  const handleBodyMapModelReadyChange = useCallback((ready: boolean) => {
+    setBodyMapModelReady(ready);
+    if (!ready) {
+      setZoom(1);
+      resetViewport();
     }
-    setZoom(nextZoom);
-  };
+  }, [resetViewport]);
 
   const focusPendingEditor = () => {
     const editor = pendingEditorRef.current;
     editor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     editor?.focus();
   };
-  useLayoutEffect(() => {
-    const viewport = mapViewportRef.current;
-    const focus = pendingZoomFocusRef.current;
-    if (!viewport || !focus) return;
-    viewport.scrollLeft = Math.max(0, focus.x * viewport.scrollWidth - viewport.clientWidth / 2);
-    viewport.scrollTop = Math.max(0, focus.y * viewport.scrollHeight - viewport.clientHeight / 2);
-    pendingZoomFocusRef.current = null;
-  }, [zoom]);
-
-  const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
-  const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
 
   // React to external (URL) lesion changes.
   useEffect(() => {
@@ -4638,29 +4587,22 @@ function BodyMapTabReady({
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
     if (!selected) return;
-    if (isLocalId(selected)) {
-      const d = localDrafts.find((x) => x.id === selected);
-      if (d) setView((current) => (current === d.mapPoint.view ? current : d.mapPoint.view));
-      return;
-    }
+
     const p = placedLesions.find((x) => x.lesion.id === selected)?.point;
     if (!p) return;
     setView((current) => (current === p.view ? current : p.view));
-  }, [selected, placedLesions, localDrafts]);
+  }, [selected, placedLesions]);
 
   // Drop pending placement when projection changes.
   useEffect(() => {
     setPending(null);
   }, [view]);
 
-  const visiblePoints = placedLesions.filter((p) => p.point.view === view && (!productionMode || p.binding.exact));
-  const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
+  const visiblePoints = placedLesions.filter((p) => p.point.view === view && (p.binding.exact));
+  const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
   const selectedPlacementBinding = selectedLesion ? bodyMapPlacementBinding(selectedLesion, profile) : null;
-  const sourceLocalization = selectedLesion && !productionMode
-    ? getDemoLesionSourceLocalization(selectedLesion.id)
-    : null;
-  const visitAssessments = productionMode ? [] : getAssessmentsByVisitId(visit.id);
-  const selImages = selectedLesion && !productionMode ? getImagesByLesionId(selectedLesion.id) : [];
+  const visitAssessments = [];
+  const selImages = [];
   const selImageCount = selImages.length;
   const selAssessment = selectedLesion ? visitAssessments.find((a) => a.lesionId === selectedLesion.id) : undefined;
   const selKinds = Array.from(new Set(selImages.map((i) => i.kind)));
@@ -4671,7 +4613,7 @@ function BodyMapTabReady({
 
   const handlePlace = (np: ClinicalBodyRegionPlacement) => {
     let idempotencyKey = "";
-    if (productionMode && !editingLesionId) {
+    if (!editingLesionId) {
       try {
         idempotencyKey = createSelfHostedIdempotencyKey();
       } catch {
@@ -4693,7 +4635,6 @@ function BodyMapTabReady({
     if (!editingLesionId) {
       setDraftLabel("Новый очаг");
       setDraftStatus("active");
-      setDraftNote("");
     }
     setProductionPlacementNotice("");
     setPendingIdempotencyKey(idempotencyKey);
@@ -4701,34 +4642,13 @@ function BodyMapTabReady({
 
   const cancelPending = () => {
     setPending(null);
-    setDraftNote("");
     setAnatomyDetailDraft("");
     setPendingIdempotencyKey("");
     setEditingLesionId(null);
   };
 
-  const addLocalDraft = () => {
-    if (!pending) return;
-    const id = `local-lesion-${localDrafts.length + 1}`;
-    const draft: LocalLesionDraft = {
-      id,
-      label: draftLabel.trim() || "Новый очаг",
-      bodyRegionId: pending.regionId,
-      bodyZone: zoneDraft.trim() || pending.zone,
-      status: draftStatus,
-      mapPoint: { view: pending.view, x: pending.x, y: pending.y },
-      note: draftNote,
-      createdAt: BODY_MAP_DEMO_NOW,
-    };
-    setLocalDrafts((prev) => [...prev, draft]);
-    setSelected(id);
-    setPending(null);
-    setDraftNote("");
-    setAnatomyDetailDraft("");
-  };
-
   const saveProductionPlacement = async () => {
-    if (!pending || !productionMode || savingPlacement) return;
+    if (!pending || savingPlacement) return;
     setSavingPlacement(true);
     setProductionPlacementNotice("Сохраняем очаг в системе клиники…");
     const placementPayload = {
@@ -4794,8 +4714,6 @@ function BodyMapTabReady({
     setPendingIdempotencyKey("");
     setProductionPlacementNotice("Укажите новое точное место на модели и подтвердите анатомическую область.");
   };
-
-  const localDraftsForView = localDrafts.filter((d) => d.mapPoint.view === view);
   const anatomyDetailOptions = pending
     ? clinicalBodyRegionDetailOptions(pending.regionId)
     : [];
@@ -4811,7 +4729,7 @@ function BodyMapTabReady({
           <div className="min-w-0">
             <h2 className="text-[13px] font-semibold text-foreground">Полная карта тела</h2>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              Создание очага, выбор поверхности, привязка к снимкам и переход в съёмку.
+              Укажите место очага на модели. Затем свяжите очаг со снимками.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Проекция карты тела">
@@ -4832,15 +4750,15 @@ function BodyMapTabReady({
             ))}
           </div>
           <div className="text-[12px] text-muted-foreground">
-            <div>Профиль карты: {profileLabel}</div>
-            <div>Исходник {atlasSource === "daz-hires-local" ? "2880×4320" : "720×1200"} · увеличение до {Math.round(maxZoom * 100)}% без программного растяжения</div>
+            <div>Модель тела: {profileLabel}</div>
+            <div>Исходник {atlasSource === "daz-hires-local" ? "2880×4320" : "720×1200"} · доступный масштаб для этого окна: до {Math.round(maxZoom * 100)}%</div>
           </div>
           <div className="flex items-center gap-1" role="group" aria-label="Масштаб карты тела">
             <Button
               size="sm"
               variant="ghost"
               className="h-11 w-11 p-0"
-              onClick={() => changeZoom(bodyMapStepZoom(zoom, -1, zoomLevels))}
+              onClick={() => changeZoomByStep(-1)}
               aria-label="Уменьшить карту тела"
               disabled={!bodyMapModelReady || zoom <= minZoom}
             >
@@ -4859,7 +4777,7 @@ function BodyMapTabReady({
               size="sm"
               variant="ghost"
               className="h-11 w-11 p-0"
-              onClick={() => changeZoom(bodyMapStepZoom(zoom, 1, zoomLevels))}
+              onClick={() => changeZoomByStep(1)}
               aria-label="Увеличить карту тела"
               disabled={!bodyMapModelReady || zoom >= maxZoom}
             >
@@ -4895,8 +4813,9 @@ function BodyMapTabReady({
             zoom > 1 && bodyMapModelReady ? (isPanning ? "cursor-grabbing select-none" : "cursor-grab") : ""
           }`}
         >
-          <div data-testid="body-map-zoom-surface" className="mx-auto xl:!w-[var(--body-map-desktop-width)]" style={{ width: `${320 * zoom}px`, "--body-map-desktop-width": `${400 * zoom}px` } as CSSProperties}>
+          <div data-testid="body-map-zoom-surface" className="mx-auto lg:!w-[var(--body-map-desktop-width)]" style={{ width: `${320 * zoom}px`, maxWidth: `${atlasNativeWidth}px`, "--body-map-desktop-width": `${Math.round(zoom * 100)}%` } as CSSProperties}>
             <ClinicalBodyMapCanvas
+                demoPoints={[]}
               profile={profile}
               view={view}
               points={visiblePoints.map((p) => ({
@@ -4915,15 +4834,6 @@ function BodyMapTabReady({
               } : null}
               zoom={zoom}
               onModelReadyChange={handleBodyMapModelReadyChange}
-              demoPoints={localDraftsForView.map((d, i) => ({
-                id: d.id,
-                num: i + 1,
-                x: d.mapPoint.x,
-                y: d.mapPoint.y,
-                selected: d.id === selected,
-                onSelect: () => setSelected(d.id),
-                label: d.label,
-              }))}
               onPlace={handlePlace}
             />
           </div>
@@ -4951,7 +4861,7 @@ function BodyMapTabReady({
           ) : (
             <ul className="divide-y divide-border">
               {placedLesions.map(({ lesion, num, point, binding }) => {
-                const lImages = productionMode ? [] : getImagesByLesionId(lesion.id);
+                const lImages = [];
                 const imageCount = lImages.length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
                 const lNeedsReview = lImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
@@ -4989,29 +4899,11 @@ function BodyMapTabReady({
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-muted-foreground">
                         <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5">{LESION_STATUS[lesion.status]}</span>
-                        <span>Снимков: {imageCount}</span>
+                        <span>Снимки: не загружено</span>
                       </div>
                     </div>
-                    {!productionMode && (imageCount === 0 || !a || lNeedsReview) && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {imageCount === 0 && (
-                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                            нет снимков
-                          </span>
-                        )}
-                        {!a && (
-                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                            нет оценки
-                          </span>
-                        )}
-                        {lNeedsReview && (
-                          <span className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-foreground">
-                            нужен пересмотр
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {productionMode && !binding.exact && (
+                    {false}
+                    {!binding.exact && (
                       <BodyMapPlacementBindingWarning
                         onRefine={() => startProductionCorrection(lesion)}
                       />
@@ -5023,65 +4915,10 @@ function BodyMapTabReady({
           )}
         </div>
 
-        {localDrafts.length > 0 && (
-          <div className="border-t border-border bg-surface">
-            <div className="bg-surface-muted px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-              Локальные учебные очаги ({localDrafts.length})
-            </div>
-            <ul className="divide-y divide-border">
-              {localDrafts.map((d, i) => {
-                const isSel = d.id === selected;
-                return (
-                  <li
-                    key={d.id}
-                    data-body-region-id={d.bodyRegionId}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Выбрать локальный учебный очаг ${i + 1}: ${d.label}`}
-                    aria-pressed={isSel}
-                    className={`cursor-pointer px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
-                    onClick={() => {
-                      setSelected(d.id);
-                      setView(d.mapPoint.view);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      setSelected(d.id);
-                      setView(d.mapPoint.view);
-                    }}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div className="flex min-w-0 items-baseline gap-2">
-                        <span
-                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed text-[11px] tabular-nums ${
-                            isSel ? "border-primary bg-primary/10 text-primary" : "border-primary/60 bg-surface text-primary"
-                          }`}
-                        >
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate font-medium">{d.label}</div>
-                          <div className="truncate text-[12px] text-muted-foreground">
-                            {d.bodyZone} · {bodyMapViewLabel(d.mapPoint.view)}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
-                        локально, не сохранено
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-
         {pending && (
           <div ref={pendingEditorRef} data-testid="body-map-pending-editor" tabIndex={-1} className="border-t border-border bg-surface p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
             <div className="text-[13px] font-semibold">
-              {productionMode ? (editingLesionId ? "Исправление положения очага" : "Новый очаг") : "Новый учебный очаг"}
+              {(editingLesionId ? "Исправление положения очага" : "Новый очаг")}
             </div>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
@@ -5119,10 +4956,10 @@ function BodyMapTabReady({
                   setZoneDraft(e.target.value);
                   setAnatomyDetailDraft("");
                 }}
-                readOnly={productionMode}
+                readOnly
                 className="mt-1 min-h-11 text-[12px]"
               />
-              {productionMode && (
+              {(
                 <span className="mt-1 block">Название задаёт анатомический справочник; конкретный палец подтверждает врач.</span>
               )}
             </label>
@@ -5147,26 +4984,15 @@ function BodyMapTabReady({
                 ))}
               </select>
             </label>
-            {!productionMode && (
-              <label className="mt-2 block text-[12px] text-muted-foreground">
-                Комментарий врача
-                <Textarea
-                  value={draftNote}
-                  onChange={(e) => setDraftNote(e.target.value)}
-                  className="mt-1 min-h-[60px] text-[12px]"
-                />
-              </label>
-            )}
+            {false}
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="min-h-11 text-[12px]"
-                onClick={productionMode ? () => { void saveProductionPlacement(); } : addLocalDraft}
+                onClick={() => { void saveProductionPlacement(); }}
                 disabled={savingPlacement}
               >
-                {productionMode
-                  ? (savingPlacement ? "Сохраняем…" : editingLesionId ? "Сохранить исправление" : "Сохранить в системе клиники")
-                  : "Сохранить учебный очаг"}
+                {(savingPlacement ? "Сохраняем…" : editingLesionId ? "Сохранить исправление" : "Сохранить в системе клиники")}
               </Button>
               <Button
                 size="sm"
@@ -5178,43 +5004,7 @@ function BodyMapTabReady({
               </Button>
             </div>
             <p className="mt-2 text-[12px] text-muted-foreground">
-              {productionMode
-                ? "Координата, проекция и подтверждённая область будут сохранены в записи визита."
-                : "Учебный очаг не сохранён в данные визита."}
-            </p>
-          </div>
-        )}
-
-        {selectedDraft && (
-          <div className="border-t border-border bg-surface p-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold">{selectedDraft.label}</div>
-                <div className="truncate text-[12px] text-muted-foreground">
-                  {selectedDraft.bodyZone} · проекция {bodyMapViewLabel(selectedDraft.mapPoint.view)}
-                </div>
-              </div>
-              <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
-                локально, не сохранено
-              </span>
-            </div>
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
-              <Stat term="Позиция" value={formatBodyMapPosition(selectedDraft.mapPoint)} />
-              <Stat term="Снимков" value="—" />
-              <Stat term="4 признака" value="—" />
-              <Stat term="7 баллов" value="—" />
-            </dl>
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-              <Stat term="Статус" value={LESION_STATUS[selectedDraft.status]} />
-              <Stat term="Запись" value="локальная" />
-            </dl>
-            {selectedDraft.note && (
-              <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[12px]">
-                {selectedDraft.note}
-              </div>
-            )}
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Это учебный очаг. Он существует только в интерфейсе текущего визита.
+              {"Координата, проекция и подтверждённая область будут сохранены в записи визита."}
             </p>
           </div>
         )}
@@ -5230,11 +5020,11 @@ function BodyMapTabReady({
               </div>
               <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
                 <Link to={`/patients/${patient.id}/lesions/${selectedLesion.id}`}>
-                  Открыть <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
+                  Открыть очаг <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                 </Link>
               </Button>
             </div>
-            {productionMode && selectedPlacementBinding?.exact && (
+            {selectedPlacementBinding?.exact && (
               <Button
                 type="button"
                 size="sm"
@@ -5247,17 +5037,11 @@ function BodyMapTabReady({
             )}
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
               <Stat term="Позиция" value={formatBodyMapPosition(resolvePoint(selectedLesion))} />
-              <Stat term="Снимков" value={selImageCount} />
+              <Stat term="Снимков" value="не загружено" />
               <Stat term="4 признака" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
               <Stat term="7 баллов" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
             </dl>
-            {sourceLocalization ? (
-              <LesionSourcePhotoPanel
-                localization={sourceLocalization}
-                onOpenSource={(imageId) => onOpenImaging(selectedLesion.id, imageId)}
-                onOpenCapture={() => onOpenImaging(selectedLesion.id)}
-              />
-            ) : null}
+            {null}
             <div className="mt-2 rounded-md border border-border bg-surface-muted px-2.5 py-2">
               <div className="flex items-baseline justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-[12px] font-semibold">
@@ -5272,11 +5056,11 @@ function BodyMapTabReady({
                         : "bg-[hsl(158_55%_28%)] text-white"
                   }`}
                 >
-                  {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество хорошее"}
+                  Метаданные не загружены
                 </span>
               </div>
               <dl className="mt-1.5 grid grid-cols-2 gap-x-2 text-[11px]">
-                <Stat term="Всего" value={selImageCount} />
+                <Stat term="Всего" value="не загружено" />
                 <Stat term="Последний" value={selLatestAt ? formatDate(selLatestAt) : "—"} />
               </dl>
               {selKinds.length > 0 && (
@@ -5302,14 +5086,10 @@ function BodyMapTabReady({
                 Локальная навигация по визиту. Без обращений к хранилищу и без диагноза.
               </p>
             </div>
-            {productionMode ? (
+            {(
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Рабочее место клиники показывает только рабочие данные. Карта тела показывает только
                 размещение очага из системы клиники; оценки и отчёты ждут рабочие контракты.
-              </p>
-            ) : (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Клинические значения по четырём признакам и 7-балльной шкале — данные из учебных оценок этого визита, без автоматического диагноза.
               </p>
             )}
           </div>

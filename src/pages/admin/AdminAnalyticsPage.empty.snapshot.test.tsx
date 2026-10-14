@@ -21,7 +21,7 @@ vi.mock("@/lib/mock-data", () => ({
 let AdminAnalyticsPage: React.ComponentType;
 
 beforeAll(async () => {
-  AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+  AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
 });
 
 function renderEmpty() {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, fireEvent, act, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AdminAnalyticsPage from "./AdminAnalyticsPage";
+import AdminAnalyticsPage from "../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage";
 
 /**
  * Тесты skeleton-загрузки секций /admin/analytics.

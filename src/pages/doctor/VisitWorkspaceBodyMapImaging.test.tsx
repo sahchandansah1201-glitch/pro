@@ -10,7 +10,7 @@ vi.mock("@/lib/api-session", () => ({
   useApiSession: () => apiSessionMock.current,
 }));
 
-import VisitWorkspacePage from "./VisitWorkspacePage";
+import VisitWorkspacePage from "../../../test-fixtures/legacy-ui/doctor/VisitWorkspacePage";
 
 const renderAt = (path: string) =>
   render(
@@ -56,6 +56,22 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       .toHaveTextContent("100%");
   });
 
+  it("zooms the ready body model gradually with the mouse wheel", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
+    markAtlasReady();
+
+    const viewport = screen.getByTestId("body-map-viewport");
+    fireEvent.wheel(viewport, { deltaY: -40, clientX: 240, clientY: 280 });
+    expect(screen.getByRole("status", { name: "Текущий масштаб карты тела" }))
+      .toHaveTextContent("100%");
+    fireEvent.wheel(viewport, { deltaY: -40, clientX: 240, clientY: 280 });
+
+    expect(screen.getByRole("status", { name: "Текущий масштаб карты тела" }))
+      .toHaveTextContent("110%");
+    expect(screen.getByTestId("body-map-zoom-surface").style.getPropertyValue("--body-map-desktop-width"))
+      .toBe("110%");
+  });
+
   it("disables zoom and pan until a failed model has loaded successfully again", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap");
     markAtlasReady();
@@ -94,7 +110,14 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
       clientY: 240,
     }));
 
-    fireEvent.error(document.querySelector('[data-part="atlas-image"]') as SVGImageElement);
+    const failedImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+    fireEvent.error(failedImage);
+
+    expect(screen.getByRole("status", { name: "Состояние модели" }))
+      .toHaveTextContent("Модель загружается…");
+    const automaticRetryImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+    expect(automaticRetryImage).not.toBe(failedImage);
+    fireEvent.error(automaticRetryImage);
 
     expect(screen.getByRole("status", { name: "Текущий масштаб карты тела" }))
       .toHaveTextContent("100%");
@@ -365,7 +388,7 @@ describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", ()
   it("clicking 'К снимкам этого очага' switches to Imaging tab with lesion preselected", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
-    expect(screen.getByText(/Захват/)).toBeInTheDocument();
+    expect(screen.getByText("Добавление снимков")).toBeInTheDocument();
     const selects = screen.getAllByRole("combobox") as HTMLSelectElement[];
     const lesionSelect = selects.find((s) => s.value === "l-008");
     expect(lesionSelect).toBeTruthy();

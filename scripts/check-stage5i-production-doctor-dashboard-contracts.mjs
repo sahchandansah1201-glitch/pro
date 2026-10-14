@@ -53,9 +53,9 @@ const REQUIRED_TEXT = {
     "/api/v1/doctor/dashboard",
   ],
   "src/pages/doctor/DeskPage.tsx": [
-    "isProductionAppMode",
+    "useSelfHostedApiSession",
     "DeskPageLive",
-    "DeskPageDemo",
+    "key={session.revision}",
   ],
   "src/pages/doctor/DeskPageLive.tsx": [
     "getSelfHostedDoctorDashboard",

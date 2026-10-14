@@ -1,16 +1,14 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Stethoscope, ShieldAlert } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 
-import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
-import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
-import { DEMO_USERS } from "@/lib/users";
-import { Button } from "@/components/ui/button";
+import { ROLE_BY_ID } from "@/lib/roles";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { roleFromAuthUser } from "@/lib/auth-role";
 import { canRoleAccess } from "@/lib/access";
-import { isProductionAppMode } from "@/lib/app-mode";
+import { isSupabaseConfigured } from "@/lib/supabase-client";
+import { isSelfHostedApiConfigured, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 /** Accept only same-origin absolute paths starting with a single "/". */
 function safeFromPath(value: unknown): string | null {
@@ -21,45 +19,33 @@ function safeFromPath(value: unknown): string | null {
   return value;
 }
 
-/**
- * Учебный вход с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
- * Stage 1G-C: над учебным выбором роли смонтирована рабочая форма входа.
- * Stage 1H-A: уже аутентифицированных пользователей редиректим на роль-home.
- * Stage 1H-B: при наличии безопасного location.state.from возвращаем туда,
- * если маппированная роль имеет доступ к этому маршруту.
- */
+/** Real entry only. Server authorization remains the security boundary. */
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setRole } = useRole();
-  const { status, user } = useAuth();
-  const productionMode = isProductionAppMode();
-
-  const pick = (r: Role) => {
-    setRole(r);
-    navigate(ROLE_BY_ID[r].home, { replace: true });
-  };
+  const { status, accessToken, user } = useAuth();
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedEntry = isSelfHostedApiConfigured(selfHostedSession) || !isSupabaseConfigured();
 
   const handleRealLoginSuccess = () => {
     // No-op: real navigation is handled by the auth-state effect below.
   };
 
   useEffect(() => {
-    if (productionMode) {
-      navigate("/self-hosted/login", { replace: true });
+    if (selfHostedEntry) {
+      navigate("/self-hosted/login", { replace: true, state: location.state });
       return;
     }
-    if (status !== "authenticated") return;
+    if (status !== "authenticated" || !accessToken) return;
     const mapped = roleFromAuthUser(user);
-    setRole(mapped);
     const fromState = (location.state as { from?: unknown } | null)?.from;
     const from = safeFromPath(fromState);
     const target =
-      from && canRoleAccess(mapped, from) ? from : ROLE_BY_ID[mapped].home;
+      mapped ? (from && canRoleAccess(mapped, from) ? from : ROLE_BY_ID[mapped].home) : "/";
     navigate(target, { replace: true });
-  }, [productionMode, status, user, setRole, navigate, location.state]);
+  }, [selfHostedEntry, status, accessToken, user, navigate, location.state]);
 
-  if (productionMode) return null;
+  if (selfHostedEntry) return null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-muted p-6">
@@ -72,19 +58,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div
-          role="status"
-          className="mb-4 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
-          style={{
-            background: "hsl(var(--warning) / 0.08)",
-            borderColor: "hsl(var(--warning) / 0.30)",
-            color: "hsl(var(--warning))",
-          }}
-        >
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>Учебный режим. Доступ не является реальной защитой.</span>
-        </div>
-
         <section aria-labelledby="login-real-heading" className="mb-6">
           <h2
             id="login-real-heading"
@@ -95,29 +68,6 @@ export default function LoginPage() {
           <LoginForm onSuccess={handleRealLoginSuccess} />
         </section>
 
-        <div className="text-[12px] uppercase tracking-wide text-muted-foreground">
-          Выбрать учебную роль
-        </div>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {ROLES.map((r) => {
-            const u = DEMO_USERS[r.id];
-            return (
-              <Button
-                key={r.id}
-                variant="outline"
-                className="h-auto justify-start py-2 text-left"
-                onClick={() => pick(r.id)}
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-[13px] font-medium">{r.label}</span>
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    {u.fullName}
-                  </span>
-                </div>
-              </Button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

@@ -1,23 +1,13 @@
-// UX-only for учебный role access; the real-entry gate added in Stage 1H-A
-// is the only auth-aware piece here.
-//
-// RoleGuard показывает аккуратный экран "Нет доступа в демо-режиме",
-// если активная демо-роль не имеет права на маршрут. Это UX-симуляция.
-//
-// Stage 1H-A: когда рабочий вход сконфигурирован, неаутентифицированных
-// пользователей редиректим на /login до проверки учебной роли. Когда вход
-// не сконфигурирован — поведение прежнее, чисто учебное.
-
-import { useEffect, useRef } from "react";
+// Route visibility only. Each backend must enforce authorization independently.
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Loader2 } from "lucide-react";
 
-import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
-import { isProductionAppMode } from "@/lib/app-mode";
 import { canRoleAccess } from "@/lib/access";
-import { ROLES } from "@/lib/roles";
+import { ROLE_BY_ID } from "@/lib/roles";
+import { roleFromAuthUser } from "@/lib/auth-role";
 import { Button } from "@/components/ui/button";
 import {
   clearSelfHostedApiSession,
@@ -32,12 +22,11 @@ import {
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
   const { pathname, search, hash } = useLocation();
-  const { role, setRole, label } = useRole();
-  const { status } = useAuth();
+  const { status, user, accessToken, signOut } = useAuth();
   const selfHostedSession = useSelfHostedApiSession();
-  const productionMode = isProductionAppMode();
 
-  if (productionMode) {
+  const configured = isSupabaseConfigured();
+  if (isSelfHostedApiConfigured(selfHostedSession) || !configured) {
     if (!isSelfHostedApiConfigured(selfHostedSession)) {
       const from = `${pathname}${search}${hash}`;
       return <Navigate to="/self-hosted/login" replace state={{ from }} />;
@@ -48,23 +37,30 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
         roleLabel={selfHostedRoleLabel(selfHostedSession)}
         clinicalRoute={isClinicalRoute(pathname)}
         homePath={selfHostedHomePath(selfHostedSession)}
+        authLoading={status === "loading"}
+        onSignOut={status === "authenticated" && accessToken ? signOut : undefined}
       />
     );
   }
 
-  const configured = isSupabaseConfigured();
-
   if (configured) {
     if (status === "loading") return <AuthLoadingScreen />;
-    if (status === "anonymous") {
+    if (status === "anonymous" || !accessToken) {
       const from = `${pathname}${search}${hash}`;
       return <Navigate to="/login" replace state={{ from }} />;
     }
   }
 
-  if (canRoleAccess(role, pathname)) return <>{children}</>;
+  const role = roleFromAuthUser(user);
+  if (role && canRoleAccess(role, pathname)) return <>{children}</>;
 
-  return <NoAccessScreen currentLabel={label} onSwitchRole={setRole} />;
+  return <ProductionNoAccessScreen
+    roleLabel={role ? ROLE_BY_ID[role].label : "роль не назначена"}
+    clinicalRoute={isClinicalRoute(pathname)}
+    homePath={role ? ROLE_BY_ID[role].home : "/"}
+    loginPath="/login"
+    onSignOut={signOut}
+  />;
 }
 
 function isClinicalRoute(pathname: string): boolean {
@@ -77,21 +73,41 @@ function ProductionNoAccessScreen({
   roleLabel,
   clinicalRoute,
   homePath,
+  loginPath = "/self-hosted/login",
+  onSignOut,
+  authLoading = false,
 }: {
   roleLabel: string;
   clinicalRoute: boolean;
   homePath: string;
+  loginPath?: string;
+  onSignOut?: () => Promise<{ error: Error | null }>;
+  authLoading?: boolean;
 }) {
   const navigate = useNavigate();
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
 
-  function switchAccount() {
-    clearSelfHostedApiSession();
-    navigate("/self-hosted/login");
+  async function switchAccount() {
+    if (leaving || authLoading) return;
+    setLeaving(true);
+    try {
+      if (onSignOut) {
+        const { error } = await onSignOut();
+        if (error) throw error;
+      }
+      clearSelfHostedApiSession();
+      navigate(loginPath);
+    } catch {
+      setLogoutError("Не удалось выйти. Попробуйте ещё раз.");
+    } finally {
+      setLeaving(false);
+    }
   }
 
   return (
@@ -118,6 +134,7 @@ function ProductionNoAccessScreen({
           </p>
         )}
 
+        {logoutError && <p role="alert" className="text-[12px] text-destructive">{logoutError}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
           {clinicalRoute ? (
             <>
@@ -128,7 +145,8 @@ function ProductionNoAccessScreen({
                 size="sm"
                 variant="secondary"
                 className="min-h-11 text-[12px]"
-                onClick={switchAccount}
+                onClick={() => { void switchAccount(); }}
+                disabled={leaving || authLoading}
               >
                 Войти под другой учётной записью
               </Button>
@@ -138,7 +156,7 @@ function ProductionNoAccessScreen({
               <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
                 Назад
               </Button>
-              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
+              <Button size="sm" className="min-h-11 text-[12px]" onClick={() => { void switchAccount(); }} disabled={leaving || authLoading}>
                 Сменить вход в систему клиники
               </Button>
             </>
@@ -159,60 +177,6 @@ function AuthLoadingScreen() {
       <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         <span>Проверяем вход…</span>
-      </div>
-    </div>
-  );
-}
-
-function NoAccessScreen({
-  currentLabel,
-  onSwitchRole,
-}: {
-  currentLabel: string;
-  onSwitchRole: (r: ReturnType<typeof useRole>["role"]) => void;
-}) {
-  const navigate = useNavigate();
-
-  return (
-    <div className="flex h-full items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
-        <div className="mb-3 flex items-center gap-2 text-warning">
-          <Lock className="h-4 w-4" aria-hidden />
-          <h1 className="text-[13px] font-semibold">Нет доступа в учебном режиме</h1>
-        </div>
-        <p className="text-[13px] text-muted-foreground">
-          Текущая роль <span className="text-foreground">{currentLabel}</span> не входит в
-          число ролей, для которых открыт этот раздел. Это учебный просмотр интерфейса;
-          переключите роль, чтобы увидеть нужный рабочий экран.
-        </p>
-
-        <div className="mt-4 space-y-1.5">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Сменить учебную роль
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLES.map((r) => (
-              <Button
-                key={r.id}
-                variant="outline"
-                size="sm"
-                className="min-h-11 min-w-11 text-[12px]"
-                onClick={() => onSwitchRole(r.id)}
-              >
-                {r.short}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" className="min-h-11 text-[12px]" onClick={() => navigate(-1)}>
-            Назад
-          </Button>
-          <Button size="sm" className="min-h-11 text-[12px]" onClick={() => navigate("/")}>
-            На стартовый экран роли
-          </Button>
-        </div>
       </div>
     </div>
   );

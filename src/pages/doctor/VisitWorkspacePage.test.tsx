@@ -18,7 +18,7 @@ vi.mock("@/lib/api-session", () => ({
   useApiSession: () => apiSessionMock.current,
 }));
 
-import VisitWorkspacePage from "./VisitWorkspacePage";
+import VisitWorkspacePage from "../../../test-fixtures/legacy-ui/doctor/VisitWorkspacePage";
 import {
   isLongitudinalClinicalValidationDecisionReady,
   isProductionDatasetEvidenceDecisionReady,

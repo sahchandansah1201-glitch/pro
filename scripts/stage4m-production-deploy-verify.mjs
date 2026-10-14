@@ -24,11 +24,9 @@ const SAFE_BUILD_OUT_DIR = ".stage4m-build/frontend-next";
 const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
 const STAGE4L_RESTORE_CONFIRM = "RESTORE_SELF_HOSTED_DATA";
 const REQUIRED_PRODUCTION_BUILD_ENV = {
-  VITE_APP_MODE: "production",
   VITE_CLINICAL_BODY_ATLAS_SOURCE: "daz-hires-local",
 };
 const REQUIRED_PRODUCTION_FRONTEND_KEYS = [
-  "VITE_APP_MODE",
   "VITE_SELF_HOSTED_API_BASE_URL",
   "VITE_CLINICAL_BODY_ATLAS_SOURCE",
 ];
@@ -291,7 +289,7 @@ function buildFrontendStep(options) {
     {
       envFromFile: options.envFile,
       safeFrontendBuild: true,
-      note: "uses VITE_APP_MODE=production and VITE_SELF_HOSTED_API_BASE_URL, builds into staging, verifies index.html, then publishes to dist without erasing the current frontend on failure",
+      note: "uses working-only authentication and VITE_SELF_HOSTED_API_BASE_URL, builds into staging, verifies index.html, then publishes to dist without erasing the current frontend on failure",
     },
   ];
 }

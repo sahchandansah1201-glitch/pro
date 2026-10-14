@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
-import CockpitPage from "@/pages/doctor/CockpitPage";
+import CockpitPage from "../../../test-fixtures/legacy-ui/doctor/CockpitPage";
 
 function renderCockpit() {
   return render(

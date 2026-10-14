@@ -23,7 +23,7 @@ describe("ClinicalBodyMapCanvas", () => {
     );
 
     expect(screen.getByText(
-      "Коснитесь нужного места на модели или выберите область из списка.",
+      "Нажмите на модель, чтобы указать место очага. Меняйте масштаб колесом мыши или кнопками. Для перемещения увеличенной модели удерживайте левую кнопку мыши.",
     )).toBeInTheDocument();
     expect(screen.queryByText("наведите указатель на модель")).not.toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe("ClinicalBodyMapCanvas", () => {
     expect(onPlace).not.toHaveBeenCalled();
   });
 
-  it("shows an image error and retries from the loading state", () => {
+  it("retries one transient image error before showing the recoverable error state", () => {
     const onPlace = vi.fn();
     render(
       <ClinicalBodyMapCanvas
@@ -103,6 +103,13 @@ describe("ClinicalBodyMapCanvas", () => {
     const firstImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
     fireEvent.error(firstImage);
 
+    expect(screen.getByRole("status", { name: "Состояние модели" }))
+      .toHaveTextContent("Модель загружается…");
+    const automaticRetryImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+    expect(automaticRetryImage).not.toBe(firstImage);
+
+    fireEvent.error(automaticRetryImage);
+
     expect(screen.getByRole("alert", { name: "Состояние модели" }))
       .toHaveTextContent("Не удалось загрузить модель");
     expect(document.querySelector('[data-part="atlas-image"]')).not.toBeInTheDocument();
@@ -121,7 +128,7 @@ describe("ClinicalBodyMapCanvas", () => {
     expect(screen.getByRole("status", { name: "Состояние модели" }))
       .toHaveTextContent("Модель загружается…");
     const retryImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
-    expect(retryImage).not.toBe(firstImage);
+    expect(retryImage).not.toBe(automaticRetryImage);
     expect(document.querySelector('[data-marker-id="lesion-1"]')).not.toBeInTheDocument();
     expect(screen.getByLabelText("Выбрать анатомическую область")).toBeDisabled();
 
@@ -131,6 +138,29 @@ describe("ClinicalBodyMapCanvas", () => {
     expect(document.querySelector('[data-marker-id="lesion-1"]')).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Точное положение метки" })).toBeInTheDocument();
     expect(screen.getByLabelText("Выбрать анатомическую область")).toBeEnabled();
+  });
+
+  it("ignores a late image error from the previous projection", () => {
+    const props = {
+      profile,
+      points: [],
+      demoPoints: [],
+      pending: null,
+      onPlace: vi.fn(),
+    };
+    const { rerender } = render(<ClinicalBodyMapCanvas {...props} view="front" />);
+    const previousImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+
+    rerender(<ClinicalBodyMapCanvas {...props} view="back" />);
+    const currentImage = document.querySelector('[data-part="atlas-image"]') as SVGImageElement;
+    fireEvent.load(currentImage);
+    expect(screen.getByRole("status", { name: "Состояние модели" }))
+      .toHaveTextContent("Модель готова");
+
+    fireEvent.error(previousImage);
+
+    expect(screen.getByRole("status", { name: "Состояние модели" }))
+      .toHaveTextContent("Модель готова");
   });
 
   it("fails closed on the background and resolves a patient-side region", () => {
@@ -201,6 +231,24 @@ describe("ClinicalBodyMapCanvas", () => {
         y: 0.705,
       }),
     );
+  });
+
+  it("reveals the region selector when keyboard focus reaches it", () => {
+    render(
+      <ClinicalBodyMapCanvas
+        profile={profile}
+        view="front"
+        points={[]}
+        demoPoints={[]}
+        pending={null}
+        onPlace={vi.fn()}
+      />,
+    );
+
+    const selector = screen.getByLabelText("Выбрать анатомическую область");
+    expect(selector.closest("label"))
+      .toHaveClass("sr-only", "focus-within:not-sr-only");
+    expect(selector).toHaveClass("focus-visible:ring-2", "focus-visible:ring-ring");
   });
 
   it("fine-tunes a keyboard placement inside the selected region", () => {

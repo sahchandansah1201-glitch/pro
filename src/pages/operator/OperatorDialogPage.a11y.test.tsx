@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import OperatorDialogPage from "./OperatorDialogPage";
+// Historical Demo component checks; not acceptance of the current working route.
+import OperatorDialogPage from "./OperatorDialogPageDemo";
 
 const renderAt = (path: string) =>
   render(

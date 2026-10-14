@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import BotMiniAppBookingPage from "./BotMiniAppBookingPage";
+// Historical demo assertions only. Production uses the Live-only wrapper.
+import BotMiniAppBookingPage from "./BotMiniAppBookingPageDemo";
 import { CLINICS, getAppointments, getLeads } from "@/lib/mock-data";
 
 const j = (...p: string[]) => p.join("");

@@ -1,19 +1,61 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarClock, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
-import { createSelfHostedPatientPortalBookingRequest } from "@/lib/self-hosted-patient-portal-api";
-import { usePatientPortalOverview } from "@/pages/patient/usePatientPortalOverview";
+import { createSelfHostedPatientPortalBookingRequest, fetchSelfHostedPatientPortal, type SelfHostedPatientPortalOverview } from "@/lib/self-hosted-patient-portal-api";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 function toIsoDateTime(value: string): string {
   return value ? new Date(value).toISOString() : "";
 }
 
+function bookingStatusLabel(status: string): string {
+  switch (status) {
+    case "requested": return "Ожидает подтверждения";
+    case "reviewing": return "Клиника рассматривает заявку";
+    case "booked": return "Запись подтверждена";
+    case "cancelled": return "Отменена";
+    default: return "Уточните статус в клинике";
+  }
+}
+
 export default function BotMiniAppBookingPageLive() {
-  const { session, status, overview, error, reload } = usePatientPortalOverview();
+  const session = useSelfHostedApiSession();
+  const [status, setStatus] = useState<"missing_session" | "loading" | "ready" | "error">(() => session.apiToken ? "loading" : "missing_session");
+  const [overview, setOverview] = useState<SelfHostedPatientPortalOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const loadRevision = useRef(0);
+  const reload = useCallback(async () => {
+    if (!mounted.current) return;
+    const revision = ++loadRevision.current;
+    setOverview(null);
+    if (!session.apiToken) {
+      setStatus("missing_session");
+      setError(null);
+      return;
+    }
+    setStatus("loading");
+    const result = await fetchSelfHostedPatientPortal({ apiBaseUrl: session.apiBaseUrl, apiToken: session.apiToken });
+    if (!mounted.current || revision !== loadRevision.current) return;
+    if (!result.ok || !result.value.patient.id.trim()) {
+      setStatus("error");
+      setError(result.error?.status === 401 ? "Сессия завершена. Войдите снова." : result.error?.status === 403 ? "Доступ к записи закрыт. Обратитесь в клинику." : "Не удалось загрузить данные записи. Повторите попытку.");
+      return;
+    }
+    setOverview(result.value);
+    setStatus("ready");
+    setError(null);
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  useEffect(() => {
+    mounted.current = true;
+    void reload();
+    return () => { mounted.current = false; loadRevision.current += 1; };
+  }, [reload]);
   const [preferredFrom, setPreferredFrom] = useState("");
   const [preferredTo, setPreferredTo] = useState("");
   const [reason, setReason] = useState("");
@@ -23,6 +65,7 @@ export default function BotMiniAppBookingPageLive() {
 
   async function submitBookingRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!mounted.current || status !== "ready" || submitStatus === "saving") return;
     setSubmitStatus("saving");
     setSubmitMessage("Отправляем заявку в клинику.");
     const result = await createSelfHostedPatientPortalBookingRequest({
@@ -34,9 +77,10 @@ export default function BotMiniAppBookingPageLive() {
         reason,
       },
     });
-    if (!result.ok) {
+    if (!mounted.current) return;
+    if (!result.ok || !result.value.id.trim()) {
       setSubmitStatus("error");
-      setSubmitMessage(result.error.message);
+      setSubmitMessage(result.error?.status === 401 ? "Сессия завершена. Войдите снова." : result.error?.status === 403 ? "Доступ к записи закрыт. Обратитесь в клинику." : "Не удалось подтвердить отправку заявки. Проверьте список заявок перед повтором.");
       return;
     }
     setLastReason(reason);
@@ -76,8 +120,16 @@ export default function BotMiniAppBookingPageLive() {
           </Card>
         )}
 
-        {status === "loading" && <Card className="p-4 text-[13px] text-muted-foreground">Загружаем данные записи…</Card>}
-        {status === "error" && <Card className="p-4 text-[13px] text-destructive" role="alert">{error}</Card>}
+        {status === "loading" && <Card className="p-4 text-[13px] text-muted-foreground" role="status">Загружаем данные записи…</Card>}
+        {status === "error" && (
+          <Card className="p-4 text-[13px]" role="alert">
+            <p className="text-destructive">{error}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button className="min-h-[44px]" onClick={() => void reload()}>Повторить загрузку</Button>
+              <Button asChild variant="outline" className="min-h-[44px]"><Link to="/self-hosted/login">Войти снова</Link></Button>
+            </div>
+          </Card>
+        )}
 
         {overview && (
           <>
@@ -168,7 +220,7 @@ export default function BotMiniAppBookingPageLive() {
                     <li key={request.id} className="grid gap-1 p-4 text-[13px]">
                       <div className="font-medium">{request.reason || "Запрос на запись"}</div>
                       <div className="text-muted-foreground">
-                        {formatDateTime(request.preferredFrom)} · {request.status}
+                        {formatDateTime(request.preferredFrom)} · {bookingStatusLabel(request.status)}
                       </div>
                     </li>
                   ))}

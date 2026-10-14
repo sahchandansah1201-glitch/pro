@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
@@ -10,14 +11,16 @@ import {
 } from "@/lib/self-hosted-api-session";
 import SelfHostedLoginPage from "./SelfHostedLoginPage";
 
-function renderPage() {
+function renderPage(auth: AuthContextValue | null = null) {
   return render(
     <MemoryRouter initialEntries={["/self-hosted/login"]}>
+      <AuthContext.Provider value={auth}>
       <Routes>
         <Route path="/self-hosted/login" element={<SelfHostedLoginPage />} />
         <Route path="/" element={<div data-testid="home-route">Home</div>} />
         <Route path="/patients" element={<div data-testid="patients-route">Пациенты</div>} />
       </Routes>
+      </AuthContext.Provider>
     </MemoryRouter>,
   );
 }
@@ -52,6 +55,50 @@ describe("SelfHostedLoginPage", () => {
     expect(document.body.textContent).not.toMatch(/production|self-hosted|backend|readiness|bootstrap/i);
   });
 
+  it("waits for pending authentication before allowing logout", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-selected-token");
+    const noop = async () => ({ error: null });
+    renderPage({ status: "loading", session: null, user: null, accessToken: null, apiBaseUrl: null,
+      signInWithPassword: noop, signInWithGoogle: noop, signOut: noop });
+    expect(screen.getByRole("button", { name: "Выйти из системы клиники" })).toBeDisabled();
+    expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("synthetic-selected-token");
+  });
+
+  it("prevents a new sign-in while the other real account is signing out", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-selected-token");
+    let resolveSignOut: (value: { error: null }) => void = () => {};
+    const noop = async () => ({ error: null });
+    renderPage({ status: "authenticated", session: null, user: null,
+      accessToken: "synthetic-dormant-token", apiBaseUrl: null,
+      signInWithPassword: noop, signInWithGoogle: noop,
+      signOut: () => new Promise((resolve) => { resolveSignOut = resolve; }) });
+    await userEvent.click(screen.getByRole("button", { name: "Выйти из системы клиники" }));
+    expect(screen.getByRole("button", { name: "Войти" })).toBeDisabled();
+    resolveSignOut({ error: null });
+    await waitFor(() => expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull());
+  });
+
+  it.each([true, false])("does not leave a dormant real account behind on logout (failure: %s)", async (failed) => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-selected-token");
+    const signOut = vi.fn(async () => ({ error: failed ? new Error("synthetic failure") : null }));
+    const noop = async () => ({ error: null });
+    renderPage({ status: "authenticated", session: null, user: null,
+      accessToken: "synthetic-dormant-token", apiBaseUrl: null,
+      signInWithPassword: noop, signInWithGoogle: noop, signOut });
+
+    await userEvent.click(screen.getByRole("button", { name: "Выйти из системы клиники" }));
+
+    expect(signOut).toHaveBeenCalledTimes(1);
+    if (failed) {
+      expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось выйти");
+      expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("synthetic-selected-token");
+    } else {
+      await waitFor(() => expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull());
+    }
+    expect(window.localStorage.getItem(SELF_HOSTED_API_BASE_URL_KEY)).toBe("http://localhost:8080");
+  });
+
   it("lets the user show and hide the password without changing it", async () => {
     renderPage();
 
@@ -68,7 +115,7 @@ describe("SelfHostedLoginPage", () => {
     expect(passwordInput).toHaveValue("test-password");
   });
 
-  it("logs into the self-hosted backend, stores the session and redirects to /patients", async () => {
+  it("logs into the self-hosted backend through role-aware home without a mode setting", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({
         stage: "4D",
@@ -95,7 +142,7 @@ describe("SelfHostedLoginPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("patients-route")).toBeInTheDocument();
+      expect(screen.getByTestId("home-route")).toBeInTheDocument();
     });
     expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBe("jwt-1");
     expect(window.localStorage.getItem(SELF_HOSTED_API_BASE_URL_KEY)).toBe(

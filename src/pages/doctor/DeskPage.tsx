@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import DeskPageDemo from "@/pages/doctor/DeskPageDemo";
 import DeskPageLive from "@/pages/doctor/DeskPageLive";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 export default function DeskPage() {
-  return isProductionAppMode() ? <DeskPageLive /> : <DeskPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <DeskPageLive key={session.revision} />;
 }

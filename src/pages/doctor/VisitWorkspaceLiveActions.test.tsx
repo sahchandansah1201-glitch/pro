@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -79,6 +80,233 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(operations).toBeInTheDocument();
     expect(operations).not.toHaveAttribute("open");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("folds secondary indicators without hiding the nonzero-data signal", async () => {
+    configureSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
+      item: { qualityNeedsAttention: 1, sopBlocked: 1, needsArchiveReadiness: 1 },
+      items: [], templates: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    fireEvent.click(screen.getByText("Показать операционный контроль"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Обновить очередь" }));
+    const disclosure = await screen.findByText("Дополнительные показатели и правила");
+    const details = disclosure.closest("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(details?.querySelectorAll("dt")).toHaveLength(92);
+    expect(screen.getByRole("region", { name: "Операционный контроль" }).querySelectorAll("dt")).toHaveLength(98);
+    await waitFor(() => expect(disclosure.closest("summary")).toHaveTextContent(/Ненулевых служебных показателей: [1-9]/));
+    expect(disclosure.closest("summary")).toBeVisible();
+  });
+
+  it("requires confirmation and permits safe cancellation before archiving a lesion", async () => {
+    configureSession();
+    let finishArchive!: (response: Response) => void;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>((resolve) => { finishArchive = resolve; }));
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    const trigger = screen.getByRole("button", { name: "Архивировать очаг" });
+    await userEvent.click(trigger);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    let dialog = screen.getByRole("alertdialog", { name: "Архивировать очаг?" });
+    expect(dialog).toHaveTextContent("L1");
+    expect(dialog).toHaveTextContent("спина");
+    const cancel = within(dialog).getByRole("button", { name: "Отмена" });
+    await waitFor(() => expect(cancel).toHaveFocus());
+    await userEvent.click(cancel);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    await userEvent.click(trigger);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    await userEvent.click(trigger);
+    dialog = screen.getByRole("alertdialog", { name: "Архивировать очаг?" });
+    await userEvent.dblClick(within(dialog).getByRole("button", { name: "Архивировать" }));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole("button", { name: "Архивирование…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Отмена" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    finishArchive(jsonResponse({ id: LESION_ID, label: "L1", status: "archived" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("status")).toHaveTextContent("Очаг L1 архивирован в системе клиники.");
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe(`${BASE}/api/v1/lesions/${LESION_ID}`);
+    expect(init?.method).toBe("DELETE");
+  });
+
+  it.each([
+  "closedFollowUps",
+  "closedWithEvidence",
+  "closedMissingEvidence",
+  "qualityNeedsAttention",
+  "retentionDue",
+  "retentionReviewed",
+  "clinicReviewScheduled",
+  "clinicReviewCompleted",
+  "clinicNeedsPolicyReview",
+  "totalTemplates",
+  "activeTemplates",
+  "localPolicyEvents",
+  "appliedTemplates",
+  "needsPolicyApplication",
+  "reviewRequired",
+  "openExceptions",
+  "unresolvedDrift",
+  "closedExceptions",
+  "auditReady",
+  "needsAuditReview",
+  "reviewedAudits",
+  "governanceReady",
+  "needsGovernanceReview",
+  "reviewedGovernance",
+  "closureReady",
+  "needsClosureReview",
+  "closedGovernanceReviews",
+  "evidenceReady",
+  "needsEvidenceReview",
+  "exportedGovernanceEvidence",
+  "reconciliationReady",
+  "needsReconciliation",
+  "reconciledGovernanceEvidence",
+  "reconciliationClosureReady",
+  "needsReconciliationClosure",
+  "closedReconciliationEvidence",
+  "closureReceiptReady",
+  "needsClosureReceipt",
+  "receivedClosureReceipts",
+  "archiveReadinessReady",
+  "needsArchiveReadiness",
+  "archivedLocal",
+  "archiveClosureReady",
+  "needsArchiveClosure",
+  "closedLocalArchives",
+  "archiveClosureReceiptReady",
+  "needsArchiveClosureReceipt",
+  "receivedArchiveClosureReceipts",
+  "archiveClosureReceiptHandoffReady",
+  "needsArchiveClosureReceiptHandoff",
+  "handedOffArchiveClosureReceipts",
+  "archiveClosureReceiptHandoffReceiptReady",
+  "needsArchiveClosureReceiptHandoffReceipt",
+  "receivedArchiveClosureReceiptHandoffReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliation",
+  "reconciledArchiveClosureReceiptHandoffReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosure",
+  "closedArchiveClosureReceiptHandoffReceiptReconciliations",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt",
+  "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness",
+  "archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure",
+  "closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipt",
+  "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoff",
+  "handedOffArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffs",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipt",
+  "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliation",
+  "reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosure",
+  "closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures",
+  "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptReady",
+  "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipt",
+  "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipts",
+  "sopRequired",
+  "sopValidated",
+  "sopExceptions",
+  "sopBlocked",
+  "openEscalated"
+])("signals positive secondary API metric %s while details stay folded", async (metric) => {
+    configureSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
+      item: { [metric]: 1 }, items: [], templates: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    fireEvent.click(screen.getByText("Показать операционный контроль"));
+    const label = screen.getByText("Дополнительные показатели и правила");
+    fireEvent.click(screen.getByRole("button", { name: "Обновить очередь" }));
+    await waitFor(() => expect(label.closest("summary")).toHaveTextContent(/Ненулевых служебных показателей: [1-9]/));
+    expect(label.closest("details")).not.toHaveAttribute("open");
+    expect(label.closest("summary")).toBeVisible();
+  });
+
+  it.each(["mismatch", "ready"])("signals a hidden %s even when numeric indicators are zero", async (hiddenState) => {
+    configureSession();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => new Response(JSON.stringify(
+      String(input).includes("/operations?") ? {
+        items: [{
+          id: "follow-up-hidden-mismatch", visitId: VISIT_ID, patientId: "p-1", clinicId: "c-1",
+          reason: "Синтетический контроль", status: "planned", priority: "normal",
+          dueAt: "2026-05-14T09:00:00.000Z",
+          triageState: "resolved", deliveryState: "delivered", qualityReviewState: "reviewed",
+          sopPolicyAuditState: hiddenState === "ready" ? "ready" : "reviewed",
+          sopPolicyGovernanceEvidenceReconciliationState: hiddenState === "mismatch" ? "mismatch" : "reconciled",
+        }],
+      } : { item: {}, items: [], templates: [] },
+    ), { status: 200, headers: { "Content-Type": "application/json" } }));
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    fireEvent.click(screen.getByText("Показать операционный контроль"));
+    fireEvent.click(screen.getByRole("button", { name: "Обновить очередь" }));
+    await screen.findByText("Синтетический контроль");
+    const summary = screen.getByText("Полный статус контроля").closest("summary");
+    expect(summary).toHaveTextContent("есть незавершённые проверки");
+    expect(summary?.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Дополнительные показатели и правила").closest("summary"))
+      .toHaveTextContent("Ненулевых служебных показателей: 0");
+    const advanced = screen.getByText("Дополнительные действия").closest("details");
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced?.querySelectorAll("button")).toHaveLength(52);
+    expect(screen.getByText("Отметить сверку как архивную")).not.toBeVisible();
+    await userEvent.click(screen.getByText("Дополнительные действия"));
+    expect(screen.getByText("Отметить сверку как архивную")).toBeVisible();
+    expect(advanced?.closest("article")?.querySelectorAll("button")).toHaveLength(60);
+  });
+
+  it("closes a stale archive confirmation without sending a request", async () => {
+    configureSession();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const view = render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    await userEvent.click(screen.getByRole("button", { name: "Архивировать очаг" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    view.rerender(<VisitWorkspaceLiveActions visit={visit} lesions={[]} />);
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Выбранный очаг изменился.");
+    expect(screen.getByRole("heading", { name: "Существующий очаг" })).toHaveFocus();
+  });
+
+  it("shows a label fallback and a safe archive error without an automatic retry", async () => {
+    configureSession();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "forbidden", message: "Действие запрещено для этой роли." },
+    }), { status: 403, headers: { "Content-Type": "application/json" } }));
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={[{ ...lesions[0], label: "", bodyZone: "" }]} />);
+    const trigger = screen.getByRole("button", { name: "Архивировать очаг" });
+    await userEvent.click(trigger);
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Очаг без метки");
+    expect(dialog).not.toHaveTextContent(LESION_ID);
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Архивировать$/ }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Недостаточно прав для действия в системе клиники.");
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(trigger).toBeEnabled();
   });
 
   it("keeps visit action controls at least 44 pixels tall for touch", () => {
@@ -279,7 +507,8 @@ describe("VisitWorkspaceLiveActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Создать очаг" }));
     await waitFor(() => expect(screen.getByText(/создан в системе клиники/i)).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Архивировать" }));
+    fireEvent.click(screen.getByRole("button", { name: "Архивировать очаг" }));
+    fireEvent.click(within(screen.getByRole("alertdialog", { name: "Архивировать очаг?" })).getByRole("button", { name: "Архивировать" }));
     await waitFor(() => expect(screen.getByText(/архивирован в системе клиники/i)).toBeInTheDocument());
 
     fireEvent.change(document.getElementById("stage4h-patient-text") as HTMLTextAreaElement, {
@@ -1005,6 +1234,7 @@ describe("VisitWorkspaceLiveActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Проверка клиники" }));
     await waitFor(() => expect(screen.getByText("Проверка клиники завершена локально.")).toBeInTheDocument());
 
+    fireEvent.click(screen.getByText("Дополнительные действия"));
     fireEvent.click(screen.getByRole("button", { name: "Правила проверены" }));
     await waitFor(() => expect(screen.getByText("Проверка правил подтверждена локально.")).toBeInTheDocument());
 
@@ -1082,10 +1312,12 @@ describe("VisitWorkspaceLiveActions", () => {
       { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "received" },
     );
     await clickAndExpectPatch(
-      "Архивировать сверку",
+      "Отметить сверку как архивную",
       "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness",
       { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState: "archived" },
     );
+    expect(screen.getByText("Сверка отмечена как архивная в системе клиники."))
+      .toBeInTheDocument();
     await clickAndExpectPatch(
       "Закрыть архив сверки",
       "/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure",

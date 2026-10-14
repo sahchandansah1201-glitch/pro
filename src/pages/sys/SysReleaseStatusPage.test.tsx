@@ -7,9 +7,15 @@ import {
   within,
 } from "@testing-library/react";
 
-import SysReleaseStatusPage from "./SysReleaseStatusPage";
+import { HistoricalSysReleaseStatusPage } from "../../../test-fixtures/legacy-ui/sys/SysReleaseStatusPage";
+import WorkingReleaseStatusPage from "./SysReleaseStatusPage";
 
 const appModeMock = vi.hoisted(() => ({ production: false }));
+
+// Historical transition only. Actual working assertions use the runtime page.
+function SysReleaseStatusPage() {
+  return appModeMock.production ? <WorkingReleaseStatusPage /> : <HistoricalSysReleaseStatusPage />;
+}
 
 vi.mock("@/lib/app-mode", () => ({
   isProductionAppMode: () => appModeMock.production,

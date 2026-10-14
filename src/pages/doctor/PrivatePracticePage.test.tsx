@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import PrivatePracticePage from "./PrivatePracticePage";
+import PrivatePracticePage, { HistoricalPrivatePracticePage } from "../../../test-fixtures/legacy-ui/doctor/PrivatePracticePage";
 import { canRoleAccess } from "@/lib/access";
 import { ROLE_BY_ID } from "@/lib/roles";
 
@@ -174,12 +174,14 @@ describe("PrivatePracticePage · private doctor practice center", () => {
     });
   });
 
-  it("keeps the demo practice surface only in demo mode", () => {
-    renderPage();
+  it("preserves the retired demo practice surface only in the historical fixture", () => {
+    render(<MemoryRouter><HistoricalPrivatePracticePage /></MemoryRouter>);
 
     expect(screen.getByRole("heading", { name: "Центр частной практики" })).toBeInTheDocument();
     expect(screen.getByText(/Учебный режим: показаны рабочие очереди частного врача/i)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Рабочий день" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Записи на приём" })).toBeInTheDocument();
+    expect(screen.getByText(/^Замечаний: \d+$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Запланированных и подтверждённых записей: \d+$/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Очередь частной практики" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Финансы и оплата" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Заявки на запись" })).toBeInTheDocument();

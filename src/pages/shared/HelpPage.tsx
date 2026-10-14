@@ -25,7 +25,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "/me/reports/:id": "Заключение",
   "/me/booking": "Запись на приём",
   "/me/reminders": "Напоминания",
-  "/bot-sim": "Помощник записи",
   "/bot-sim/miniapp/booking": "Форма записи",
   "/operator": "Очередь оператора",
   "/operator/dialogs/:id": "Диалог с пользователем",
@@ -156,7 +155,6 @@ const PATIENT: RouteRef[] = [
 ];
 
 const BOT: RouteRef[] = [
-  { path: "/bot-sim", description: "Помощник записи: путь от фото к заявке." },
   { path: "/bot-sim/miniapp/booking", description: "Форма записи на приём." },
   { path: "/operator", description: "Консоль оператора поддержки." },
   { path: "/operator/dialogs/:id", description: "Диалог с пользователем помощника записи." },

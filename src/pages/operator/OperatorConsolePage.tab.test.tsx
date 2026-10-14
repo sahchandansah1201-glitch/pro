@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import OperatorConsolePage from "./OperatorConsolePage";
+// Historical Demo component checks; not acceptance of the current working route.
+import OperatorConsolePage from "./OperatorConsolePageDemo";
 
 /**
  * Клавиатурная навигация: при последовательном нажатии Tab фокус должен

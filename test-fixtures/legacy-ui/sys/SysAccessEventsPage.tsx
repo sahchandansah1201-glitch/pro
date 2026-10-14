@@ -1,0 +1,2275 @@
+// Historical test-only snapshot. Never import from product runtime.
+import WorkingPage from "@/pages/sys/SysAccessEventsPage";
+import { historicalUi } from "../historicalUi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Download, Eye, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { useRole } from "@/context/role-context";
+import {
+  ACCESS_EVENT_EXPORT_COLUMNS,
+  ACCESS_EVENTS_EXPORT_LIMIT,
+  DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS,
+  accessEventsCsvFilename,
+  accessEventsXlsxFilename,
+  buildAccessEventsCsv,
+  buildAccessEventsXlsxBlob,
+  buildTableXlsxBlob,
+  limitAccessEventExportRows,
+  type AccessEventExportColumnKey,
+  type XlsxCellValue,
+} from "@/lib/admin-access-events";
+import { isProductionAppMode } from "../app-mode";
+import { blobFromParts } from "@/lib/blob-utils";
+import { formatCardNumber } from "@/lib/card-number";
+import { formatDateTime } from "@/lib/format";
+import { adminApiErrorText, listAdminAuditEvents } from "@/lib/self-hosted-admin-api";
+import {
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import { selfHostedRoles } from "@/lib/self-hosted-role";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase-client";
+import { useListPagination } from "@/lib/use-list-pagination";
+import {
+  FILTERS,
+  SOURCE_FILTERS,
+  actionLabel,
+  buildDemoRows,
+  contextLabel,
+  entityBucket,
+  entityLabel,
+  filterLabel,
+  fromAdminAuditEvent,
+  fromViewRow,
+  rowDate,
+  sourceLabel,
+  type AccessEventsViewRow,
+  type AccessEventRow,
+  type FilterKey,
+  type SourceFilter,
+} from "./accessEventsViewModel";
+
+type ExportScope = "all_pages" | "current_page" | "custom_range";
+type ExportLogFilter = "all" | "csv" | "xlsx" | "success" | "cancelled" | "error" | "repeated";
+type ExportStatusKind = "info" | "error";
+
+const ACCESS_EVENTS_LIMIT = ACCESS_EVENTS_EXPORT_LIMIT;
+const REFRESH_COOLDOWN_MS = 10_000;
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
+const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings";
+const EXPORT_LOG_FILTER_STORAGE_KEY = "derma-pro:sys-access-events:export-log-filter";
+const EXPORT_LOG_STORAGE_KEY = "derma-pro:sys-access-events:export-log";
+const EXPORT_LOG_PAGE_SIZE = 3;
+
+const EXPORT_LOG_FILTERS: { key: ExportLogFilter; label: string }[] = [
+  { key: "all", label: "Все экспорты" },
+  { key: "csv", label: "Таблица" },
+  { key: "xlsx", label: "Книга" },
+  { key: "success", label: "Готовые" },
+  { key: "cancelled", label: "Отменённые" },
+  { key: "error", label: "С ошибкой" },
+  { key: "repeated", label: "Повторные" },
+];
+
+interface AccessEventsFilterState {
+  query: string;
+  filter: FilterKey;
+  sourceFilter: SourceFilter;
+  entityFilter: string;
+  clinicFilter: string;
+  actorFilter: string;
+  actionFilter: string;
+  patientCodeFilter: string;
+  dateFrom: string;
+  dateTo: string;
+  pageSize: number;
+}
+
+interface AccessEventsExportSettings {
+  exportScope: ExportScope;
+  customRangeFrom: string;
+  customRangeTo: string;
+  selectedExportColumns: AccessEventExportColumnKey[];
+}
+
+const DEFAULT_FILTER_STATE: AccessEventsFilterState = {
+  query: "",
+  filter: "all",
+  sourceFilter: "all",
+  entityFilter: "all",
+  clinicFilter: "all",
+  actorFilter: "all",
+  actionFilter: "all",
+  patientCodeFilter: "",
+  dateFrom: "",
+  dateTo: "",
+  pageSize: 10,
+};
+
+const DEFAULT_EXPORT_SETTINGS: AccessEventsExportSettings = {
+  exportScope: "all_pages",
+  customRangeFrom: "1",
+  customRangeTo: "",
+  selectedExportColumns: [...DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS],
+};
+
+function isFilterKey(value: unknown): value is FilterKey {
+  return typeof value === "string" && FILTERS.some((f) => f.key === value);
+}
+
+function isSourceFilter(value: unknown): value is SourceFilter {
+  return typeof value === "string" && SOURCE_FILTERS.some((f) => f.key === value);
+}
+
+function isExportScope(value: unknown): value is ExportScope {
+  return value === "all_pages" || value === "current_page" || value === "custom_range";
+}
+
+function isExportColumnKey(value: unknown): value is AccessEventExportColumnKey {
+  return typeof value === "string" && ACCESS_EVENT_EXPORT_COLUMNS.some((column) => column.key === value);
+}
+
+function isPageSize(value: unknown): value is (typeof PAGE_SIZE_OPTIONS)[number] {
+  return typeof value === "number" && PAGE_SIZE_OPTIONS.includes(value as (typeof PAGE_SIZE_OPTIONS)[number]);
+}
+
+function storedString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function storedExportColumns(value: unknown): AccessEventExportColumnKey[] {
+  if (!Array.isArray(value)) return [...DEFAULT_EXPORT_SETTINGS.selectedExportColumns];
+  const columns = value.filter(isExportColumnKey);
+  return columns.length > 0 ? columns : [...DEFAULT_EXPORT_SETTINGS.selectedExportColumns];
+}
+
+function readFilterState(): AccessEventsFilterState {
+  if (typeof window === "undefined") return DEFAULT_FILTER_STATE;
+  try {
+    const raw = window.localStorage.getItem(FILTER_STATE_STORAGE_KEY);
+    if (!raw) return DEFAULT_FILTER_STATE;
+    const parsed = JSON.parse(raw) as Partial<AccessEventsFilterState>;
+    return {
+      query: storedString(parsed.query),
+      filter: isFilterKey(parsed.filter) ? parsed.filter : "all",
+      sourceFilter: isSourceFilter(parsed.sourceFilter) ? parsed.sourceFilter : "all",
+      entityFilter: storedString(parsed.entityFilter, "all"),
+      clinicFilter: storedString(parsed.clinicFilter, "all"),
+      actorFilter: storedString(parsed.actorFilter, "all"),
+      actionFilter: storedString(parsed.actionFilter, "all"),
+      patientCodeFilter: storedString(parsed.patientCodeFilter),
+      dateFrom: storedString(parsed.dateFrom),
+      dateTo: storedString(parsed.dateTo),
+      pageSize: isPageSize(parsed.pageSize) ? parsed.pageSize : DEFAULT_FILTER_STATE.pageSize,
+    };
+  } catch {
+    return DEFAULT_FILTER_STATE;
+  }
+}
+
+function writeFilterState(state: AccessEventsFilterState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FILTER_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures; filtering must keep working in private or restricted contexts.
+  }
+}
+
+function readExportSettings(): AccessEventsExportSettings {
+  if (typeof window === "undefined") return DEFAULT_EXPORT_SETTINGS;
+  try {
+    const raw = window.localStorage.getItem(EXPORT_SETTINGS_STORAGE_KEY);
+    if (!raw) return DEFAULT_EXPORT_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<AccessEventsExportSettings>;
+    return {
+      exportScope: isExportScope(parsed.exportScope) ? parsed.exportScope : DEFAULT_EXPORT_SETTINGS.exportScope,
+      customRangeFrom: storedString(parsed.customRangeFrom, DEFAULT_EXPORT_SETTINGS.customRangeFrom),
+      customRangeTo: storedString(parsed.customRangeTo, DEFAULT_EXPORT_SETTINGS.customRangeTo),
+      selectedExportColumns: storedExportColumns(parsed.selectedExportColumns),
+    };
+  } catch {
+    return DEFAULT_EXPORT_SETTINGS;
+  }
+}
+
+function writeExportSettings(state: AccessEventsExportSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_SETTINGS_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Export settings are a convenience only; the page must remain usable without storage.
+  }
+}
+
+function isExportLogFilter(value: unknown): value is ExportLogFilter {
+  return typeof value === "string" && EXPORT_LOG_FILTERS.some((f) => f.key === value);
+}
+
+function readExportLogFilter(): ExportLogFilter {
+  if (typeof window === "undefined") return "all";
+  try {
+    const raw = window.localStorage.getItem(EXPORT_LOG_FILTER_STORAGE_KEY);
+    return isExportLogFilter(raw) ? raw : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function writeExportLogFilter(value: ExportLogFilter): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_LOG_FILTER_STORAGE_KEY, value);
+  } catch {
+    // Filter persistence is best-effort; never block the UI.
+  }
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadText(filename: string, text: string) {
+  downloadBlob(filename, blobFromParts(["\ufeff", text], "text/csv;charset=utf-8"));
+}
+
+interface QueryLogEntry {
+  id: string;
+  at: string;
+  action: string;
+  result: string;
+}
+
+type ExportFormat = "CSV" | "XLSX";
+
+function exportFormatLabel(format: ExportFormat): string {
+  return format === "CSV" ? "Табличный файл" : "Книга";
+}
+function exportReadyLabel(format: ExportFormat): string {
+  return format === "CSV" ? "Табличный файл готов" : "Книга готова";
+}
+type ExportLogStatus = "success" | "cancelled" | "error";
+
+interface ExportProgressState {
+  format: ExportFormat;
+  percent: number;
+  label: string;
+  active: boolean;
+}
+
+interface ExportLogEntry {
+  id: string;
+  at: string;
+  format: ExportFormat;
+  status: ExportLogStatus;
+  rowCount: number;
+  filterLabel: string;
+  scopeLabel: string;
+  columnCount: number;
+  query: string;
+  filename: string;
+  rows: AccessEventRow[];
+  columns: AccessEventExportColumnKey[];
+  repeated: boolean;
+  message: string;
+}
+
+interface ExportLogDraft {
+  format: ExportFormat;
+  status: ExportLogStatus;
+  rowCount: number;
+  filterLabel: string;
+  scopeLabel: string;
+  columnCount: number;
+  query: string;
+  filename: string;
+  rows: AccessEventRow[];
+  columns: AccessEventExportColumnKey[];
+  repeated?: boolean;
+  message: string;
+}
+
+interface ExportRunContext extends ExportLogDraft {
+  runId: string;
+  cancelled: boolean;
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function waitForUi(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+function parsePositiveInt(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function repeatFilename(filename: string): string {
+  return filename.replace(/(\.csv|\.xlsx)$/i, "-repeat$1");
+}
+
+function exportStatusLabel(status: ExportLogStatus): string {
+  if (status === "cancelled") return "Отменён";
+  if (status === "error") return "Ошибка";
+  return "Готов";
+}
+
+function isExportFormat(value: unknown): value is ExportFormat {
+  return value === "CSV" || value === "XLSX";
+}
+
+function isExportLogStatus(value: unknown): value is ExportLogStatus {
+  return value === "success" || value === "cancelled" || value === "error";
+}
+
+function safeAccessEventRow(value: unknown): AccessEventRow | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Partial<AccessEventRow>;
+  if (typeof row.createdAt !== "string" || typeof row.clinicName !== "string") return null;
+  if (typeof row.actorLabel !== "string" || typeof row.action !== "string") return null;
+  if (typeof row.entity !== "string" || (row.source !== "api" && row.source !== "demo")) return null;
+  return {
+    id: storedString(row.id),
+    createdAt: row.createdAt,
+    clinicName: row.clinicName,
+    actorLabel: row.actorLabel,
+    action: row.action,
+    entity: row.entity,
+    entityId: typeof row.entityId === "string" ? row.entityId : null,
+    patientCode: typeof row.patientCode === "string" ? row.patientCode : null,
+    visitId: typeof row.visitId === "string" ? row.visitId : null,
+    lesionLabel: typeof row.lesionLabel === "string" ? row.lesionLabel : null,
+    source: row.source,
+  };
+}
+
+function safeExportLogEntry(value: unknown): ExportLogEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const entry = value as Partial<ExportLogEntry>;
+  if (!isExportFormat(entry.format) || !isExportLogStatus(entry.status)) return null;
+  if (!Array.isArray(entry.rows)) return null;
+  const rows = entry.rows.map(safeAccessEventRow).filter((row): row is AccessEventRow => row !== null);
+  const columns = storedExportColumns(entry.columns);
+  return {
+    id: storedString(entry.id, `${storedString(entry.at)}-${entry.format}`),
+    at: storedString(entry.at, new Date().toISOString()),
+    format: entry.format,
+    status: entry.status,
+    rowCount: typeof entry.rowCount === "number" ? Math.max(0, entry.rowCount) : rows.length,
+    filterLabel: storedString(entry.filterLabel, "Все"),
+    scopeLabel: storedString(entry.scopeLabel, "все страницы"),
+    columnCount: typeof entry.columnCount === "number" ? Math.max(0, entry.columnCount) : columns.length,
+    query: storedString(entry.query, "—"),
+    filename: storedString(entry.filename),
+    rows,
+    columns,
+    repeated: entry.repeated === true,
+    message: storedString(entry.message),
+  };
+}
+
+function readExportLog(): ExportLogEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(EXPORT_LOG_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(safeExportLogEntry).filter((entry): entry is ExportLogEntry => entry !== null).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+function writeExportLog(entries: ExportLogEntry[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_LOG_STORAGE_KEY, JSON.stringify(entries.slice(0, 5)));
+  } catch {
+    // Export history is useful but non-critical; ignore storage failures.
+  }
+}
+
+function exportLogMatrix(entries: ExportLogEntry[]): XlsxCellValue[][] {
+  return [
+    ["at", "format", "status", "rows", "columns", "scope", "filter", "query", "repeated", "filename"],
+    ...entries.map((entry) => [
+      entry.at,
+      entry.format,
+      exportStatusLabel(entry.status),
+      String(entry.rowCount),
+      String(entry.columnCount),
+      entry.scopeLabel,
+      entry.filterLabel,
+      entry.query,
+      entry.repeated ? "да" : "нет",
+      entry.filename,
+    ]),
+  ];
+}
+
+function csvLogCell(value: XlsxCellValue): string {
+  return `"${(value ?? "—").replaceAll('"', '""')}"`;
+}
+
+function exportLogCsv(entries: ExportLogEntry[]): string {
+  return exportLogMatrix(entries)
+    .map((row) => row.map(csvLogCell).join(","))
+    .join("\n");
+}
+
+function exportLogFilename(format: "csv" | "xlsx", filter: ExportLogFilter, count: number): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `access-events-export-log-${date}-${filter}-${count}-rows.${format}`;
+}
+
+export function HistoricalSysAccessEventsPage() {
+  const { role } = useRole();
+  const productionMode = isProductionAppMode();
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
+  const canReadProductionAccessEvents =
+    productionMode && selfHostedConfigured && selfHostedRoles(selfHostedSession).includes("system_admin");
+  const canReadAccessEvents = productionMode ? canReadProductionAccessEvents : role === "system_admin";
+  const supabaseConfigured = isSupabaseConfigured();
+  const exportRunRef = useRef<ExportRunContext | null>(null);
+  const [storedFilters] = useState(readFilterState);
+  const [storedExportSettings] = useState(readExportSettings);
+  const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
+  const [source, setSource] = useState<AccessEventRow["source"]>("demo");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState(storedFilters.query);
+  const [filter, setFilter] = useState<FilterKey>(storedFilters.filter);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(storedFilters.sourceFilter);
+  const [entityFilter, setEntityFilter] = useState(storedFilters.entityFilter);
+  const [clinicFilter, setClinicFilter] = useState(storedFilters.clinicFilter);
+  const [actorFilter, setActorFilter] = useState(storedFilters.actorFilter);
+  const [actionFilter, setActionFilter] = useState(storedFilters.actionFilter);
+  const [patientCodeFilter, setPatientCodeFilter] = useState(storedFilters.patientCodeFilter);
+  const [dateFrom, setDateFrom] = useState(storedFilters.dateFrom);
+  const [dateTo, setDateTo] = useState(storedFilters.dateTo);
+  const [pageSize, setPageSize] = useState<number>(storedFilters.pageSize);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
+  const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
+  const detailsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
+  const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
+  const [exportLog, setExportLog] = useState<ExportLogEntry[]>(readExportLog);
+  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>(readExportLogFilter);
+  const [exportLogQuery, setExportLogQuery] = useState("");
+  const [clearExportLogRequested, setClearExportLogRequested] = useState(false);
+  const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
+  const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
+  const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
+  const [selectedExportColumns, setSelectedExportColumns] = useState<AccessEventExportColumnKey[]>(
+    storedExportSettings.selectedExportColumns,
+  );
+  const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [reloadTick, setReloadTick] = useState(0);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [exportSettingsOpen, setExportSettingsOpen] = useState(false);
+  const [exportLogOpen, setExportLogOpen] = useState(false);
+  const visibleSourceFilters = productionMode
+    ? SOURCE_FILTERS.filter((item) => item.key !== "demo")
+    : SOURCE_FILTERS;
+
+  const announceExportStatus = useCallback((message: string, kind: ExportStatusKind = "info") => {
+    setExportStatusKind(kind);
+    setExportStatus(message);
+  }, []);
+
+  const appendQueryLog = useCallback((action: string, result: string) => {
+    const at = new Date().toISOString();
+    setQueryLog((current) =>
+      [
+        {
+          id: `${at}-${Math.random().toString(36).slice(2)}`,
+          at,
+          action,
+          result,
+        },
+        ...current,
+      ].slice(0, 5),
+    );
+  }, []);
+
+  const appendExportLog = useCallback(
+    (entry: ExportLogDraft) => {
+      const at = new Date().toISOString();
+      setExportLog((current) =>
+        [
+          {
+            id: `${at}-${entry.format}-${entry.status}-${Math.random().toString(36).slice(2)}`,
+            at,
+            format: entry.format,
+            status: entry.status,
+            rowCount: entry.rowCount,
+            filterLabel: entry.filterLabel,
+            scopeLabel: entry.scopeLabel,
+            columnCount: entry.columnCount,
+            query: entry.query.trim() ? "есть" : "—",
+            filename: entry.filename,
+            rows: entry.rows,
+            columns: entry.columns,
+            repeated: entry.repeated === true,
+            message: entry.message,
+          },
+          ...current,
+        ].slice(0, 5),
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (productionMode && sourceFilter === "demo") {
+      setSourceFilter("all");
+    }
+  }, [productionMode, sourceFilter]);
+
+  useEffect(() => {
+    if (cooldownUntil <= now) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), Math.min(cooldownUntil - now, 1000));
+    return () => window.clearTimeout(timer);
+  }, [cooldownUntil, now]);
+
+  useEffect(() => {
+    writeFilterState({
+      query,
+      filter,
+      sourceFilter,
+      entityFilter,
+      clinicFilter,
+      actorFilter,
+      actionFilter,
+      patientCodeFilter,
+      dateFrom,
+      dateTo,
+      pageSize,
+    });
+  }, [
+    query,
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+    pageSize,
+  ]);
+
+  useEffect(() => {
+    writeExportSettings({
+      exportScope,
+      customRangeFrom,
+      customRangeTo,
+      selectedExportColumns,
+    });
+  }, [customRangeFrom, customRangeTo, exportScope, selectedExportColumns]);
+
+  useEffect(() => {
+    writeExportLogFilter(exportLogFilter);
+  }, [exportLogFilter]);
+
+  useEffect(() => {
+    writeExportLog(exportLog);
+  }, [exportLog]);
+
+  useEffect(() => {
+    if (productionMode) {
+      if (!canReadProductionAccessEvents) {
+        setRows([]);
+        setSource("api");
+        setError(
+          selfHostedConfigured
+            ? "Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса."
+            : "Войдите в рабочую систему, чтобы открыть события доступа.",
+        );
+        setLoading(false);
+        setLastRefreshAt(new Date().toISOString());
+        appendQueryLog("Рабочий журнал", "доступ не открыт");
+        return;
+      }
+
+      let cancelled = false;
+      setLoading(true);
+      setError(null);
+      void listAdminAuditEvents({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+      })
+        .then((result) => {
+          if (cancelled) return;
+          if (!result.ok) {
+            setRows([]);
+            setSource("api");
+            setError(adminApiErrorText(result.error));
+            setLastRefreshAt(new Date().toISOString());
+            appendQueryLog("Рабочий журнал", "ошибка загрузки");
+            return;
+          }
+          const safeRows = result.value.map(fromAdminAuditEvent);
+          setRows(safeRows);
+          setSource("api");
+          setLastRefreshAt(new Date().toISOString());
+          appendQueryLog("Рабочий журнал", `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setRows([]);
+          setSource("api");
+          setError("Сбой сети при загрузке событий доступа.");
+          setLastRefreshAt(new Date().toISOString());
+          appendQueryLog("Рабочий журнал", "сбой сети");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!supabaseConfigured || role !== "system_admin") {
+      setRows(buildDemoRows());
+      setSource("demo");
+      setError(null);
+      setLoading(false);
+      setLastRefreshAt(new Date().toISOString());
+      appendQueryLog("Учебный журнал", "локальные события загружены");
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.resolve(
+      client.rpc("list_access_events_admin", {
+        _limit: ACCESS_EVENTS_LIMIT,
+        _offset: 0,
+      }),
+    )
+      .then(({ data, error: apiError }) => {
+        if (cancelled) return;
+        if (apiError) {
+          setRows([]);
+          setSource("api");
+          setError("Не удалось загрузить события доступа. Проверьте роль system_admin и RLS.");
+          setLastRefreshAt(new Date().toISOString());
+          appendQueryLog("RPC list_access_events_admin", "ошибка загрузки");
+          return;
+        }
+        const safeRows = ((data ?? []) as AccessEventsViewRow[]).map(fromViewRow);
+        setRows(safeRows);
+        setSource("api");
+        setLastRefreshAt(new Date().toISOString());
+        appendQueryLog(
+          "RPC list_access_events_admin",
+          `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
+        );
+      })
+      .then(undefined, () => {
+        if (cancelled) return;
+        setRows([]);
+        setSource("api");
+        setError("Сбой сети при загрузке событий доступа.");
+        setLastRefreshAt(new Date().toISOString());
+        appendQueryLog("RPC list_access_events_admin", "сбой сети");
+      })
+      .then(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appendQueryLog,
+    canReadProductionAccessEvents,
+    productionMode,
+    reloadTick,
+    role,
+    selfHostedConfigured,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+    supabaseConfigured,
+  ]);
+
+  const entityOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.entity))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
+  const clinicOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((row) => row.clinicName).filter((value) => value !== "—"))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [rows],
+  );
+
+  const actorOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((row) => row.actorLabel).filter((value) => value !== "—"))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [rows],
+  );
+
+  const actionOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.action))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
+  const currentFilterLabel = filterLabel(
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+  );
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const patientCode = patientCodeFilter.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (filter !== "all" && entityBucket(row.entity) !== filter) return false;
+      if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
+      if (entityFilter !== "all" && row.entity !== entityFilter) return false;
+      if (clinicFilter !== "all" && row.clinicName !== clinicFilter) return false;
+      if (actorFilter !== "all" && row.actorLabel !== actorFilter) return false;
+      if (actionFilter !== "all" && row.action !== actionFilter) return false;
+      if (patientCode && !(row.patientCode ?? "").toLowerCase().includes(patientCode)) return false;
+      const date = rowDate(row.createdAt);
+      if (dateFrom && date && date < dateFrom) return false;
+      if (dateTo && date && date > dateTo) return false;
+      if (q) {
+        const hay = `${actionLabel(row.action)} ${entityLabel(row.entity)} ${row.action} ${row.entity} ${row.entityId ?? ""} ${row.patientCode ?? ""} ${row.clinicName}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [
+    rows,
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+    query,
+  ]);
+
+  const hasActiveFilters =
+    query !== DEFAULT_FILTER_STATE.query ||
+    filter !== DEFAULT_FILTER_STATE.filter ||
+    sourceFilter !== DEFAULT_FILTER_STATE.sourceFilter ||
+    entityFilter !== DEFAULT_FILTER_STATE.entityFilter ||
+    clinicFilter !== DEFAULT_FILTER_STATE.clinicFilter ||
+    actorFilter !== DEFAULT_FILTER_STATE.actorFilter ||
+    actionFilter !== DEFAULT_FILTER_STATE.actionFilter ||
+    patientCodeFilter !== DEFAULT_FILTER_STATE.patientCodeFilter ||
+    dateFrom !== DEFAULT_FILTER_STATE.dateFrom ||
+    dateTo !== DEFAULT_FILTER_STATE.dateTo ||
+    pageSize !== DEFAULT_FILTER_STATE.pageSize;
+
+  const advancedFilterCount = [
+    sourceFilter !== DEFAULT_FILTER_STATE.sourceFilter,
+    entityFilter !== DEFAULT_FILTER_STATE.entityFilter,
+    clinicFilter !== DEFAULT_FILTER_STATE.clinicFilter,
+    actorFilter !== DEFAULT_FILTER_STATE.actorFilter,
+    actionFilter !== DEFAULT_FILTER_STATE.actionFilter,
+    patientCodeFilter !== DEFAULT_FILTER_STATE.patientCodeFilter,
+    dateFrom !== DEFAULT_FILTER_STATE.dateFrom,
+    dateTo !== DEFAULT_FILTER_STATE.dateTo,
+    pageSize !== DEFAULT_FILTER_STATE.pageSize,
+  ].filter(Boolean).length;
+
+  const pagination = useListPagination(filteredRows, {
+    pageSize,
+    deps: [
+      filter,
+      sourceFilter,
+      entityFilter,
+      clinicFilter,
+      actorFilter,
+      actionFilter,
+      patientCodeFilter,
+      dateFrom,
+      dateTo,
+      query,
+      rows,
+      pageSize,
+    ],
+  });
+
+  const customRange = useMemo(() => {
+    const fallbackTo = filteredRows.length || 1;
+    const from = Math.min(parsePositiveInt(customRangeFrom, 1), fallbackTo);
+    const to = Math.min(parsePositiveInt(customRangeTo, fallbackTo), fallbackTo);
+    return {
+      from: Math.min(from, to),
+      to: Math.max(from, to),
+    };
+  }, [customRangeFrom, customRangeTo, filteredRows.length]);
+
+  const exportScopeLabel =
+    exportScope === "current_page"
+      ? "текущая страница"
+      : exportScope === "custom_range"
+        ? `строки ${customRange.from}–${customRange.to}`
+        : "все страницы";
+
+  const exportScopeFilenamePart =
+    exportScope === "current_page"
+      ? "current-page"
+      : exportScope === "custom_range"
+        ? `range-${customRange.from}-${customRange.to}`
+        : "all-pages";
+
+  const scopedExportRows = useMemo(() => {
+    if (exportScope === "current_page") return pagination.visible;
+    if (exportScope === "custom_range") return filteredRows.slice(customRange.from - 1, customRange.to);
+    return filteredRows;
+  }, [customRange.from, customRange.to, exportScope, filteredRows, pagination.visible]);
+
+  const exportRows = useMemo(
+    () => limitAccessEventExportRows(scopedExportRows, ACCESS_EVENTS_EXPORT_LIMIT),
+    [scopedExportRows],
+  );
+
+  const selectedExportColumnCount = selectedExportColumns.length;
+  const exportDisabled = filteredRows.length === 0 || exportRows.length === 0 || selectedExportColumnCount === 0;
+
+  const exportPreviewText =
+    selectedExportColumnCount === 0
+      ? "Выберите хотя бы одну колонку для экспорта."
+      : filteredRows.length === 0
+        ? "Нет событий для экспорта."
+        : scopedExportRows.length > exportRows.length
+          ? `Событий для выгрузки: ${exportRows.length} из ${scopedExportRows.length}. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
+          : `Событий для выгрузки: ${exportRows.length}.`;
+
+  const exportBusy = exportProgress?.active === true;
+  const exportQueryMeta = query.trim() ? "поиск применён" : "";
+
+  const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const refreshDisabled = loading || cooldownSeconds > 0;
+
+  const requestRefresh = useCallback((action = "Обновление событий") => {
+    const current = Date.now();
+    setNow(current);
+    if (cooldownUntil > current) {
+      appendQueryLog(action, "заблокировано rate limit");
+      return false;
+    }
+    setCooldownUntil(current + REFRESH_COOLDOWN_MS);
+    appendQueryLog(action, `запрошено, лимит ${ACCESS_EVENTS_LIMIT}`);
+    setReloadTick((n) => n + 1);
+    return true;
+  }, [appendQueryLog, cooldownUntil]);
+
+  const handleRefresh = useCallback(() => {
+    requestRefresh();
+  }, [requestRefresh]);
+
+  const handleManualRefresh = useCallback(() => {
+    const requested = requestRefresh("Ручное обновление событий");
+    announceExportStatus(
+      requested
+        ? "Ручное обновление запрошено."
+        : `Ручное обновление доступно через ${cooldownSeconds} секунд.`,
+    );
+  }, [announceExportStatus, cooldownSeconds, requestRefresh]);
+
+  const handleResetFilters = useCallback(() => {
+    setQuery(DEFAULT_FILTER_STATE.query);
+    setFilter(DEFAULT_FILTER_STATE.filter);
+    setSourceFilter(DEFAULT_FILTER_STATE.sourceFilter);
+    setEntityFilter(DEFAULT_FILTER_STATE.entityFilter);
+    setClinicFilter(DEFAULT_FILTER_STATE.clinicFilter);
+    setActorFilter(DEFAULT_FILTER_STATE.actorFilter);
+    setActionFilter(DEFAULT_FILTER_STATE.actionFilter);
+    setPatientCodeFilter(DEFAULT_FILTER_STATE.patientCodeFilter);
+    setDateFrom(DEFAULT_FILTER_STATE.dateFrom);
+    setDateTo(DEFAULT_FILTER_STATE.dateTo);
+    setPageSize(DEFAULT_FILTER_STATE.pageSize);
+    announceExportStatus("Фильтры сброшены.");
+    appendQueryLog("Фильтры событий", "сброшены");
+  }, [announceExportStatus, appendQueryLog]);
+
+  const handleDatePreset = useCallback(
+    (preset: "today" | "last30" | "demoMarch" | "clear") => {
+      const today = new Date();
+      if (preset === "today") {
+        const value = isoDate(today);
+        setDateFrom(value);
+        setDateTo(value);
+        announceExportStatus("Пресет даты применён: сегодня.");
+        appendQueryLog("Пресет даты", "сегодня");
+        return;
+      }
+      if (preset === "last30") {
+        setDateFrom(isoDate(addDays(today, -29)));
+        setDateTo(isoDate(today));
+        announceExportStatus("Пресет даты применён: последние 30 дней.");
+        appendQueryLog("Пресет даты", "последние 30 дней");
+        return;
+      }
+      if (preset === "demoMarch") {
+        setDateFrom("2026-03-01");
+        setDateTo("2026-03-31");
+        announceExportStatus("Пресет даты применён: март 2026.");
+        appendQueryLog("Пресет даты", "март 2026");
+        return;
+      }
+      setDateFrom("");
+      setDateTo("");
+      announceExportStatus("Фильтр даты сброшен.");
+      appendQueryLog("Пресет даты", "сброшен");
+    },
+    [announceExportStatus, appendQueryLog],
+  );
+
+  const handleToggleExportColumn = useCallback((column: AccessEventExportColumnKey) => {
+    setSelectedExportColumns((current) =>
+      current.includes(column) ? current.filter((key) => key !== column) : [...current, column],
+    );
+  }, []);
+
+  const handleSelectCoreColumns = useCallback(() => {
+    setSelectedExportColumns(["event_id", "created_at", "actor", "action", "entity", "patient_code"]);
+    announceExportStatus("Выбраны основные колонки экспорта.");
+  }, [announceExportStatus]);
+
+  const handleSelectAllColumns = useCallback(() => {
+    setSelectedExportColumns(DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS);
+    announceExportStatus("Выбраны все колонки экспорта.");
+  }, [announceExportStatus]);
+
+  useEffect(() => {
+    if (!autoRefresh || !canReadAccessEvents) return;
+    const timer = window.setInterval(() => {
+      requestRefresh("Автообновление событий");
+    }, AUTO_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, canReadAccessEvents, requestRefresh]);
+
+  const runExport = useCallback(
+    async ({
+      format,
+      rows: rowsToExport,
+      columns,
+      filterLabelValue,
+      scopeLabelValue,
+      filename,
+      queryValue,
+      repeated,
+    }: {
+      format: ExportFormat;
+      rows: AccessEventRow[];
+      columns: AccessEventExportColumnKey[];
+      filterLabelValue: string;
+      scopeLabelValue: string;
+      filename: string;
+      queryValue: string;
+      repeated?: boolean;
+    }) => {
+      if (rowsToExport.length === 0 || columns.length === 0) return;
+      const rowCount = rowsToExport.length;
+      const columnCount = columns.length;
+      const runId = `${Date.now()}-${format}-${Math.random().toString(36).slice(2)}`;
+      const runContext: ExportRunContext = {
+        runId,
+        cancelled: false,
+        format,
+        status: "success",
+        rowCount,
+        filterLabel: filterLabelValue,
+        scopeLabel: scopeLabelValue,
+        columnCount,
+        query: queryValue,
+        filename,
+        rows: rowsToExport,
+        columns,
+        repeated,
+        message: repeated ? `Повторная выгрузка готова.` : `${exportReadyLabel(format)}.`,
+      };
+      exportRunRef.current = runContext;
+      const isCancelled = () => exportRunRef.current?.runId === runId && exportRunRef.current.cancelled;
+
+      setExportProgress({
+        format,
+        percent: 20,
+        label: repeated ? "Готовим повторную выгрузку." : `Готовим ${exportFormatLabel(format).toLowerCase()}.`,
+        active: true,
+      });
+
+      try {
+        await waitForUi();
+        if (isCancelled()) return;
+
+        if (format === "CSV") {
+          const csv = buildAccessEventsCsv(rowsToExport, {
+            filterLabel: filterLabelValue,
+            query: queryValue,
+            scopeLabel: scopeLabelValue,
+            columns,
+          });
+          setExportProgress({
+            format,
+            percent: 70,
+            label: "Формируем таблицу.",
+            active: true,
+          });
+          await waitForUi();
+          if (isCancelled()) return;
+          downloadText(filename, csv);
+        } else {
+          const blob = buildAccessEventsXlsxBlob(rowsToExport, {
+            filterLabel: filterLabelValue,
+            query: queryValue,
+            scopeLabel: scopeLabelValue,
+            columns,
+          });
+          setExportProgress({
+            format,
+            percent: 70,
+            label: "Формируем книгу.",
+            active: true,
+          });
+          await waitForUi();
+          if (isCancelled()) return;
+          downloadBlob(filename, blob);
+        }
+        setExportProgress({
+          format,
+          percent: 100,
+          label: repeated ? "Повторная выгрузка готова." : `${exportReadyLabel(format)}.`,
+          active: false,
+        });
+        const successMessage = `${repeated ? "Повторная выгрузка готова" : exportReadyLabel(format)}: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`;
+        announceExportStatus(successMessage);
+        appendExportLog({
+          ...runContext,
+          status: "success",
+          message: successMessage,
+        });
+        appendQueryLog(
+          repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(format).toLowerCase()}`,
+          `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
+        );
+      } catch {
+        setExportProgress({
+          format,
+          percent: 100,
+          label: "Выгрузка завершилась ошибкой.",
+          active: false,
+        });
+        const errorMessage = `Не удалось выполнить выгрузку. Файл не сформирован.`;
+        announceExportStatus(errorMessage, "error");
+        appendExportLog({
+          ...runContext,
+          status: "error",
+          message: errorMessage,
+        });
+        appendQueryLog(
+          repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(format).toLowerCase()}`,
+          `ошибка формирования файла; диапазон: ${scopeLabelValue}`,
+        );
+      } finally {
+        if (exportRunRef.current?.runId === runId) {
+          exportRunRef.current = null;
+        }
+      }
+    },
+    [announceExportStatus, appendExportLog, appendQueryLog],
+  );
+
+  const handleCancelExport = useCallback(() => {
+    const current = exportRunRef.current;
+    if (!current || current.cancelled) return;
+    current.cancelled = true;
+    setExportProgress({
+      format: current.format,
+      percent: 100,
+      label: "Выгрузка отменена.",
+      active: false,
+    });
+    const message = `Выгрузка отменена. Файл не сформирован.`;
+    announceExportStatus(message);
+    appendExportLog({
+      ...current,
+      status: "cancelled",
+      message,
+    });
+    appendQueryLog(
+      current.repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(current.format).toLowerCase()}`,
+      `отменён пользователем; диапазон: ${current.scopeLabel}`,
+    );
+  }, [announceExportStatus, appendExportLog, appendQueryLog]);
+
+  const handleExportCsv = useCallback(async () => {
+    if (exportDisabled) return;
+    await runExport({
+      format: "CSV",
+      rows: exportRows,
+      columns: selectedExportColumns,
+      filterLabelValue: currentFilterLabel,
+      scopeLabelValue: exportScopeLabel,
+      filename: accessEventsCsvFilename(filter, query, {
+        scope: exportScopeFilenamePart,
+        rowCount: exportRows.length,
+        columnCount: selectedExportColumnCount,
+      }),
+      queryValue: exportQueryMeta,
+    });
+  }, [
+    currentFilterLabel,
+    exportDisabled,
+    exportRows,
+    exportQueryMeta,
+    exportScopeFilenamePart,
+    exportScopeLabel,
+    filter,
+    query,
+    runExport,
+    selectedExportColumnCount,
+    selectedExportColumns,
+  ]);
+
+  const handleExportXlsx = useCallback(async () => {
+    if (exportDisabled) return;
+    await runExport({
+      format: "XLSX",
+      rows: exportRows,
+      columns: selectedExportColumns,
+      filterLabelValue: currentFilterLabel,
+      scopeLabelValue: exportScopeLabel,
+      filename: accessEventsXlsxFilename(filter, query, {
+        scope: exportScopeFilenamePart,
+        rowCount: exportRows.length,
+        columnCount: selectedExportColumnCount,
+      }),
+      queryValue: exportQueryMeta,
+    });
+  }, [
+    currentFilterLabel,
+    exportDisabled,
+    exportRows,
+    exportQueryMeta,
+    exportScopeFilenamePart,
+    exportScopeLabel,
+    filter,
+    query,
+    runExport,
+    selectedExportColumnCount,
+    selectedExportColumns,
+  ]);
+
+  const handleRepeatExport = useCallback(
+    async (entry: ExportLogEntry) => {
+      await runExport({
+        format: entry.format,
+        rows: entry.rows,
+        columns: entry.columns,
+        filterLabelValue: entry.filterLabel,
+        scopeLabelValue: entry.scopeLabel,
+        filename: repeatFilename(entry.filename),
+        queryValue: entry.query === "есть" ? "поиск применён" : "",
+        repeated: true,
+      });
+    },
+    [runExport],
+  );
+
+  const filteredExportLog = useMemo(() => {
+    const q = exportLogQuery.trim().toLowerCase();
+    return exportLog
+      .filter((entry) => {
+        if (exportLogFilter === "all") return true;
+        if (exportLogFilter === "csv") return entry.format === "CSV";
+        if (exportLogFilter === "xlsx") return entry.format === "XLSX";
+        if (exportLogFilter === "repeated") return entry.repeated;
+        return entry.status === exportLogFilter;
+      })
+      .filter((entry) => {
+        if (!q) return true;
+        const haystack = [
+          entry.format,
+          exportStatusLabel(entry.status),
+          entry.scopeLabel,
+          entry.filterLabel,
+          entry.query,
+          entry.filename,
+          entry.message,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+  }, [exportLog, exportLogFilter, exportLogQuery]);
+
+  const exportLogPagination = useListPagination(filteredExportLog, {
+    pageSize: EXPORT_LOG_PAGE_SIZE,
+    deps: [exportLog, exportLogFilter, exportLogQuery],
+  });
+
+  useEffect(() => {
+    setClearExportLogRequested(false);
+  }, [exportLogFilter, exportLogQuery]);
+
+  const handleCancelClearExportLog = useCallback(() => {
+    setClearExportLogRequested(false);
+    announceExportStatus("Очистка журнала экспортов отменена.");
+  }, [announceExportStatus]);
+
+  const handleClearExportLog = useCallback(() => {
+    if (exportLog.length === 0) return;
+    if (!clearExportLogRequested) {
+      setClearExportLogRequested(true);
+      announceExportStatus("Подтвердите очистку журнала экспортов.");
+      return;
+    }
+    setExportLog([]);
+    setClearExportLogRequested(false);
+    announceExportStatus("Журнал экспортов очищен.");
+    appendQueryLog("Журнал экспортов", "очищен");
+  }, [announceExportStatus, appendQueryLog, clearExportLogRequested, exportLog.length]);
+
+  const handleExportExportLogCsv = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const filename = exportLogFilename("csv", exportLogFilter, filteredExportLog.length);
+    downloadText(filename, exportLogCsv(filteredExportLog));
+    announceExportStatus(
+      `Журнал экспортов выгружен таблицей: ${filteredExportLog.length} записей. Файл: ${filename}`,
+    );
+    appendQueryLog("Журнал экспортов", `выгружен таблицей ${filteredExportLog.length}`);
+  }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
+
+  const handleExportExportLogXlsx = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const filename = exportLogFilename("xlsx", exportLogFilter, filteredExportLog.length);
+    downloadBlob(filename, buildTableXlsxBlob(exportLogMatrix(filteredExportLog), "Export log"));
+    announceExportStatus(
+      `Журнал экспортов выгружен книгой: ${filteredExportLog.length} записей. Файл: ${filename}`,
+    );
+    appendQueryLog("Журнал экспортов", `выгружен книгой ${filteredExportLog.length}`);
+  }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
+
+  if (!canReadAccessEvents) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="События доступа" subtitle="Только для системного администратора." />
+        <div className="p-4">
+          <div
+            role="alert"
+            className="flex max-w-2xl items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+            <span>
+              {productionMode
+                ? "Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса."
+                : "Нет доступа в учебном режиме. Переключите роль на системного администратора, чтобы открыть журнал."}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const visible = pagination.visible;
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="События доступа"
+        subtitle="Действия пользователей и безопасный контекст доступа."
+        actions={
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            className="min-h-11 gap-1 sm:min-h-9"
+            onClick={handleRefresh}
+            disabled={refreshDisabled}
+            aria-busy={loading || undefined}
+            aria-label={
+              cooldownSeconds > 0
+                ? `Обновление доступно через ${cooldownSeconds} секунд`
+                : "Обновить события доступа"
+            }
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden />
+            {cooldownSeconds > 0 ? `Через ${cooldownSeconds} с` : "Обновить"}
+          </Button>
+        }
+      />
+
+      <div className="space-y-3 p-3 sm:p-4">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
+          style={{
+            background: "hsl(var(--info) / 0.08)",
+            borderColor: "hsl(var(--info) / 0.30)",
+            color: "hsl(var(--info))",
+          }}
+        >
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            {source === "api"
+              ? `Данные читаются из рабочей системы клиники. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
+              : `Учебный режим. В рабочем контуре этот экран показывает события доступа с проверкой роли в рабочей системе. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
+          </span>
+        </div>
+
+        {error ? (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
+          >
+            {error}
+          </div>
+        ) : null}
+
+        <Card className="p-3">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div role="tablist" aria-label="Фильтр событий доступа" className="flex flex-wrap gap-1">
+              {FILTERS.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => setFilter(f.key)}
+                    onKeyDown={(event) => {
+                      const currentIndex = FILTERS.findIndex((item) => item.key === f.key);
+                      let nextIndex: number;
+
+                      switch (event.key) {
+                        case "ArrowRight":
+                          nextIndex = (currentIndex + 1) % FILTERS.length;
+                          break;
+                        case "ArrowLeft":
+                          nextIndex = (currentIndex - 1 + FILTERS.length) % FILTERS.length;
+                          break;
+                        case "Home":
+                          nextIndex = 0;
+                          break;
+                        case "End":
+                          nextIndex = FILTERS.length - 1;
+                          break;
+                        default:
+                          return;
+                      }
+
+                      event.preventDefault();
+                      const tabs = event.currentTarget
+                        .closest('[role="tablist"]')
+                        ?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+                      setFilter(FILTERS[nextIndex].key);
+                      tabs?.[nextIndex]?.focus();
+                    }}
+                    className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[32px] ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-surface text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="relative block w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Поиск по действию, объекту, коду"
+                  aria-label="Поиск событий доступа"
+                  className="h-11 pl-7 text-[12px] sm:h-9"
+                />
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
+                  onClick={handleExportCsv}
+                  disabled={exportDisabled || exportBusy}
+                  aria-busy={exportProgress?.format === "CSV" && exportBusy ? true : undefined}
+                  aria-label="Скачать события доступа таблицей"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  Таблица
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
+                  onClick={handleExportXlsx}
+                  disabled={exportDisabled || exportBusy}
+                  aria-busy={exportProgress?.format === "XLSX" && exportBusy ? true : undefined}
+                  aria-label="Скачать события доступа книгой"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  Книга
+                </Button>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAdvancedFiltersOpen((open) => !open)}
+            aria-expanded={advancedFiltersOpen}
+            aria-controls="access-events-advanced-filters"
+            className="mt-2 flex min-h-11 items-center gap-1 rounded-md border border-border bg-surface px-3 text-[12px] font-medium text-foreground hover:bg-muted sm:min-h-9"
+          >
+            Расширенные фильтры
+            {advancedFilterCount > 0 ? (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+                {advancedFilterCount}
+              </span>
+            ) : null}
+          </button>
+          <div id="access-events-advanced-filters" className={advancedFiltersOpen ? "space-y-2" : "hidden"}>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Источник событий
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Источник событий"
+              >
+                {visibleSourceFilters.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Тип объекта
+              <select
+                value={entityFilter}
+                onChange={(e) => setEntityFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Тип объекта"
+              >
+                <option value="all">Все объекты</option>
+                {entityOptions.map((entity) => (
+                  <option key={entity} value={entity}>
+                    {entityLabel(entity)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Клиника
+              <select
+                value={clinicFilter}
+                onChange={(e) => setClinicFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Клиника события"
+              >
+                <option value="all">Все клиники</option>
+                {clinicOptions.map((clinic) => (
+                  <option key={clinic} value={clinic}>
+                    {clinic}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Роль
+              <select
+                value={actorFilter}
+                onChange={(e) => setActorFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Роль в событии"
+              >
+                <option value="all">Все роли</option>
+                {actorOptions.map((actor) => (
+                  <option key={actor} value={actor}>
+                    {actor}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Действие
+              <select
+                value={actionFilter}
+                onChange={(e) => setActionFilter(e.target.value)}
+                className="h-11 min-w-0 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Действие события"
+              >
+                <option value="all">Все действия</option>
+                {actionOptions.map((action) => (
+                  <option key={action} value={action}>
+                    {actionLabel(action)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Номер карты
+              <Input
+                value={patientCodeFilter}
+                onChange={(e) => setPatientCodeFilter(e.target.value)}
+                placeholder="карта 0001"
+                aria-label="Номер карты в событии"
+                className="h-11 text-[12px] sm:h-9"
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Дата с
+              <Input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Дата события с"
+                className="h-11 text-[12px] sm:h-9"
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Дата по
+              <Input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Дата события по"
+                className="h-11 text-[12px] sm:h-9"
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Размер страницы
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Размер страницы событий"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size} событий
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div
+            role="group"
+            aria-label="Пресеты даты событий доступа"
+            className="mt-2 flex flex-wrap items-center gap-2 text-[12px]"
+          >
+            <span className="text-[11px] text-muted-foreground">Пресеты даты</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+              onClick={() => handleDatePreset("today")}
+              aria-label="Показать события за сегодня"
+            >
+              Сегодня
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+              onClick={() => handleDatePreset("last30")}
+              aria-label="Показать события за последние 30 дней"
+            >
+              30 дней
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+              onClick={() => handleDatePreset("demoMarch")}
+              aria-label="Показать события за март 2026"
+            >
+              Март 2026
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+              onClick={() => handleDatePreset("clear")}
+              aria-label="Сбросить фильтр даты событий"
+              disabled={!dateFrom && !dateTo}
+            >
+              Сбросить даты
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-[11px] text-muted-foreground">
+              Активный срез: {currentFilterLabel}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <label className="flex min-h-11 items-center gap-2 text-[12px] text-muted-foreground sm:min-h-9">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => {
+                    setAutoRefresh(e.target.checked);
+                    announceExportStatus(
+                      e.target.checked
+                        ? "Автообновление включено: каждые 60 секунд."
+                        : "Автообновление выключено.",
+                    );
+                  }}
+                  aria-label="Автообновление событий доступа"
+                  className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
+                />
+                Автообновление
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                Последнее: {lastRefreshAt ? formatDateTime(lastRefreshAt) : "—"}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11 gap-1 text-[12px] sm:h-8 sm:min-h-8"
+                onClick={handleManualRefresh}
+                disabled={refreshDisabled}
+                aria-busy={loading || undefined}
+                aria-label={
+                  cooldownSeconds > 0
+                    ? `Ручное обновление доступно через ${cooldownSeconds} секунд`
+                    : "Обновить события доступа вручную"
+                }
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden />
+                Вручную
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
+                onClick={handleResetFilters}
+                disabled={!hasActiveFilters}
+                aria-label="Сбросить фильтры событий доступа"
+              >
+                Сбросить фильтры
+              </Button>
+            </div>
+          </div>
+          </div>
+        </Card>
+
+        <Card className="space-y-3 p-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() => setExportSettingsOpen((open) => !open)}
+              aria-expanded={exportSettingsOpen}
+              aria-controls="access-events-export-settings"
+              className="flex min-h-11 items-center gap-1 text-[13px] font-semibold hover:text-primary sm:min-h-9"
+            >
+              Параметры выгрузки
+            </button>
+            <span className="text-[11px] text-muted-foreground">
+              Диапазон: {exportScopeLabel}; колонок: {selectedExportColumnCount}
+            </span>
+          </div>
+          <div id="access-events-export-settings" className={exportSettingsOpen ? "grid gap-3 lg:grid-cols-[minmax(240px,320px)_1fr]" : "hidden"}>
+            <div className="space-y-2">
+              <label className="grid gap-1 text-[11px] text-muted-foreground">
+                Что экспортировать
+                <select
+                  value={exportScope}
+                  onChange={(e) => setExportScope(e.target.value as ExportScope)}
+                  className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                  aria-label="Диапазон экспорта событий"
+                >
+                  <option value="all_pages">Все страницы</option>
+                  <option value="current_page">Текущая страница</option>
+                  <option value="custom_range">Пользовательский диапазон</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-[11px] text-muted-foreground">
+                  Строка с
+                  <Input
+                    type="number"
+                    min={1}
+                    max={Math.max(filteredRows.length, 1)}
+                    value={customRangeFrom}
+                    onChange={(e) => setCustomRangeFrom(e.target.value)}
+                    disabled={exportScope !== "custom_range"}
+                    aria-label="Начало пользовательского диапазона экспорта"
+                    className="h-11 text-[12px] sm:h-9"
+                  />
+                </label>
+                <label className="grid gap-1 text-[11px] text-muted-foreground">
+                  Строка по
+                  <Input
+                    type="number"
+                    min={1}
+                    max={Math.max(filteredRows.length, 1)}
+                    value={customRangeTo}
+                    onChange={(e) => setCustomRangeTo(e.target.value)}
+                    disabled={exportScope !== "custom_range"}
+                    placeholder={String(Math.max(filteredRows.length, 1))}
+                    aria-label="Конец пользовательского диапазона экспорта"
+                    className="h-11 text-[12px] sm:h-9"
+                  />
+                </label>
+              </div>
+            </div>
+            <div
+              role="group"
+              aria-label="Колонки экспорта событий"
+              className="space-y-2 rounded-md border border-border bg-background p-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-muted-foreground">Колонки</span>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
+                    onClick={handleSelectCoreColumns}
+                    aria-label="Выбрать основные колонки экспорта"
+                  >
+                    Основные
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="min-h-11 min-w-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
+                    onClick={handleSelectAllColumns}
+                    aria-label="Выбрать все колонки экспорта"
+                  >
+                    Все
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                {ACCESS_EVENT_EXPORT_COLUMNS.map((column) => {
+                  const label =
+                    column.key === "actor" ? "Роль" : column.key === "entity" ? "Объект" : column.label;
+                  return (
+                    <label
+                      key={column.key}
+                      className="flex min-h-11 items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground sm:min-h-8"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedExportColumns.includes(column.key)}
+                        onChange={() => handleToggleExportColumn(column.key)}
+                        aria-label={`Колонка экспорта: ${label}`}
+                        className="h-11 w-11 rounded border-input sm:h-4 sm:w-4"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div
+          role="region"
+          aria-label="Предпросмотр экспорта событий доступа"
+          className="grid gap-1 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground sm:grid-cols-[160px_1fr]"
+        >
+          <div className="font-medium text-foreground">Предпросмотр экспорта</div>
+          <div>
+            {exportPreviewText} Форматы: таблица и книга. Диапазон: {exportScopeLabel}. Колонки:{" "}
+            {selectedExportColumnCount}. Срез: {currentFilterLabel}.
+          </div>
+        </div>
+
+        {exportProgress ? (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label="Статус прогресса экспорта событий доступа"
+            className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span>{exportProgress.label}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px]">{exportProgress.percent}%</span>
+                {exportProgress.active ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11 px-2 text-[11px] sm:h-7 sm:min-h-7"
+                    onClick={handleCancelExport}
+                    aria-label={`Отменить выгрузку событий доступа: ${exportFormatLabel(exportProgress.format).toLowerCase()}`}
+                  >
+                    Отменить
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            <div
+              role="progressbar"
+              aria-label={`Прогресс выгрузки: ${exportFormatLabel(exportProgress.format).toLowerCase()}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={exportProgress.percent}
+              className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                style={{ width: `${exportProgress.percent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {exportStatus ? (
+          <div
+            role={exportStatusKind === "error" ? "alert" : "status"}
+            aria-live={exportStatusKind === "error" ? "assertive" : "polite"}
+            aria-atomic="true"
+            aria-label="Статус экспорта событий доступа"
+            className={`rounded-md border px-3 py-2 text-[12px] ${
+              exportStatusKind === "error"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-border bg-surface text-muted-foreground"
+            }`}
+          >
+            {exportStatus}
+          </div>
+        ) : null}
+
+        <div className="text-[12px] text-muted-foreground" aria-live="polite">
+          Найдено: {filteredRows.length}
+        </div>
+
+        <Card
+          role="region"
+          aria-label="Журнал запросов событий доступа"
+          className="space-y-2 p-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[13px] font-semibold">Журнал запросов</h2>
+            <span className="text-[11px] text-muted-foreground">последние 5 событий</span>
+          </div>
+          <ul className="space-y-1 text-[12px] text-muted-foreground">
+            {queryLog.length > 0 ? (
+              queryLog.map((entry) => (
+                <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    {entry.action}: {entry.result}
+                  </span>
+                  <time className="font-mono text-[11px]" dateTime={entry.at}>
+                    {formatDateTime(entry.at)}
+                  </time>
+                </li>
+              ))
+            ) : (
+              <li role="status" aria-live="polite">Запросов пока нет.</li>
+            )}
+          </ul>
+        </Card>
+
+        <Card
+          role="region"
+          aria-label="Журнал экспортов событий доступа"
+          className="space-y-2 p-3"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <button
+                type="button"
+                onClick={() => setExportLogOpen((open) => !open)}
+                aria-expanded={exportLogOpen}
+                aria-controls="access-events-export-log-body"
+                className="flex min-h-11 items-center gap-1 text-[13px] font-semibold hover:text-primary sm:min-h-9"
+              >
+                Журнал выгрузок
+              </button>
+              <span className="text-[11px] text-muted-foreground">
+                показано {exportLogPagination.rangeLabel}; всего в журнале {exportLog.length}; последние 5 файлов
+              </span>
+            </div>
+          </div>
+          <div id="access-events-export-log-body" className={exportLogOpen ? "space-y-2" : "hidden"}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-56">
+                Поиск в журнале
+                <Input
+                  value={exportLogQuery}
+                  onChange={(e) => setExportLogQuery(e.target.value)}
+                  placeholder="файл, статус, формат"
+                  className="h-11 text-[12px] sm:h-9"
+                  aria-label="Поиск по журналу экспортов"
+                />
+              </label>
+              <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
+                Фильтр журнала
+                <select
+                  value={exportLogFilter}
+                  onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
+                  className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                  aria-label="Фильтр журнала экспортов"
+                >
+                  {EXPORT_LOG_FILTERS.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
+                  onClick={handleExportExportLogCsv}
+                  disabled={filteredExportLog.length === 0}
+                  aria-label="Скачать журнал экспортов таблицей"
+                >
+                  Журнал таблицей
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
+                  onClick={handleExportExportLogXlsx}
+                  disabled={filteredExportLog.length === 0}
+                  aria-label="Скачать журнал экспортов книгой"
+                >
+                  Журнал книгой
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
+                  onClick={handleClearExportLog}
+                  disabled={exportLog.length === 0}
+                  aria-label={
+                    clearExportLogRequested ? "Подтвердить очистку журнала экспортов" : "Очистить журнал экспортов"
+                  }
+                >
+                  {clearExportLogRequested ? "Подтвердить" : "Очистить"}
+                </Button>
+                {clearExportLogRequested ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="min-h-11 text-[12px] sm:h-9 sm:min-h-9"
+                    onClick={handleCancelClearExportLog}
+                    aria-label="Отменить очистку журнала экспортов"
+                  >
+                    Не очищать
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <ul className="space-y-1 text-[12px] text-muted-foreground">
+            {filteredExportLog.length > 0 ? (
+              exportLogPagination.visible.map((entry) => (
+                <li key={entry.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-0.5">
+                    <div>
+                      {exportFormatLabel(entry.format)}: {entry.rowCount} строк. Результат: {exportStatusLabel(entry.status)}.
+                      Диапазон: {entry.scopeLabel}. Колонки: {entry.columnCount}. Срез:{" "}
+                      {entry.filterLabel}. Поиск: {entry.query}.
+                    </div>
+                    <div className="truncate font-mono text-[11px]">Файл сформирован</div>
+                    <div className="text-[11px]">{entry.message}</div>
+                    <time className="block font-mono text-[11px]" dateTime={entry.at}>
+                      {formatDateTime(entry.at)}
+                    </time>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11 shrink-0 text-[12px] sm:h-8 sm:min-h-8"
+                    onClick={() => handleRepeatExport(entry)}
+                    disabled={exportBusy}
+                    aria-label={`Повторить выгрузку: ${exportFormatLabel(entry.format).toLowerCase()}`}
+                  >
+                    Повторить
+                  </Button>
+                </li>
+              ))
+            ) : (
+              <li role="status" aria-live="polite">
+                {exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}
+              </li>
+            )}
+          </ul>
+          <ListPagination
+            page={exportLogPagination.page}
+            pageCount={exportLogPagination.pageCount}
+            total={exportLogPagination.total}
+            rangeLabel={exportLogPagination.rangeLabel}
+            canPrev={exportLogPagination.canPrev}
+            canNext={exportLogPagination.canNext}
+            onPageChange={exportLogPagination.setPage}
+            itemNoun="экспортов"
+          />
+          </div>
+        </Card>
+
+
+        <Card className="hidden p-0 md:block">
+          <table className="w-full text-[12px]">
+            <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Когда</th>
+                <th className="px-3 py-2">Клиника</th>
+                <th className="px-3 py-2">Роль</th>
+                <th className="px-3 py-2">Действие</th>
+                <th className="px-3 py-2">Объект</th>
+                <th className="px-3 py-2">Номер карты</th>
+                <th className="px-3 py-2">Контекст</th>
+                <th className="px-3 py-2 text-right">Детали</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length > 0 ? (
+                visible.map((row) => (
+                  <tr key={row.id} className="border-b border-border/60 last:border-0">
+                    <td className="px-3 py-2 text-muted-foreground">{formatDateTime(row.createdAt)}</td>
+                    <td className="px-3 py-2">{row.clinicName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.actorLabel}</td>
+                    <td className="px-3 py-2">{actionLabel(row.action)}</td>
+                    <td className="px-3 py-2">
+                      <span>{entityLabel(row.entity)}</span>
+                      <span className="ml-1 font-mono text-[11px] text-muted-foreground">
+                        код скрыт
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-[11px] text-muted-foreground">
+                      {formatCardNumber(row.patientCode)}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {contextLabel(row)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-[12px]"
+                        onClick={(event) => {
+                          detailsTriggerRef.current = event.currentTarget;
+                          setSelectedRow(row);
+                        }}
+                        aria-label={`Подробнее: ${actionLabel(row.action)}`}
+                      >
+                        <Eye className="h-3.5 w-3.5" aria-hidden />
+                        Подробнее
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                    События не найдены. Измените фильтры или обновите журнал.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-2 md:hidden">
+          {visible.length > 0 ? (
+            visible.map((row) => (
+              <Card key={row.id} className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold">{actionLabel(row.action)}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {formatDateTime(row.createdAt)} · {row.actorLabel}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {sourceLabel(row.source)}
+                  </span>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                  <dt className="text-muted-foreground">Клиника</dt>
+                  <dd className="text-right">{row.clinicName}</dd>
+                  <dt className="text-muted-foreground">Объект</dt>
+                  <dd className="text-right">{entityLabel(row.entity)}</dd>
+                  <dt className="text-muted-foreground">Номер карты</dt>
+                  <dd className="text-right text-[11px]">{formatCardNumber(row.patientCode)}</dd>
+                  <dt className="text-muted-foreground">Контекст</dt>
+                  <dd className="text-right">{contextLabel(row)}</dd>
+                </dl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
+                  onClick={(event) => {
+                    detailsTriggerRef.current = event.currentTarget;
+                    setSelectedRow(row);
+                  }}
+                  aria-label={`Подробнее: ${actionLabel(row.action)}`}
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden />
+                  Подробнее
+                </Button>
+              </Card>
+            ))
+          ) : (
+            <Card role="status" aria-live="polite" className="p-3 text-[12px] text-muted-foreground">
+              События не найдены. Измените фильтры или обновите журнал.
+            </Card>
+          )}
+        </div>
+
+        <ListPagination
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          total={pagination.total}
+          rangeLabel={pagination.rangeLabel}
+          canPrev={pagination.canPrev}
+          canNext={pagination.canNext}
+          onPageChange={pagination.setPage}
+          itemNoun="событий"
+        />
+      </div>
+
+      <Drawer autoFocus open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        <DrawerContent
+          role="dialog"
+          aria-modal="true"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            detailsTriggerRef.current?.focus();
+          }}
+        >
+          <DrawerHeader>
+            <DrawerTitle>Детали события</DrawerTitle>
+            <DrawerDescription id="access-event-details-description">
+              Безопасный контекст системного журнала. Почта, ФИО пациента, секретные ключи и места хранения не выводятся.
+            </DrawerDescription>
+          </DrawerHeader>
+          {selectedRow ? (
+            <div className="max-h-[65vh] overflow-auto px-4 pb-2">
+              <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-[13px]">
+                <dt className="text-muted-foreground">Код события</dt>
+                <dd>скрыт</dd>
+                <dt className="text-muted-foreground">Когда</dt>
+                <dd>{formatDateTime(selectedRow.createdAt)}</dd>
+                <dt className="text-muted-foreground">Клиника</dt>
+                <dd>{selectedRow.clinicName}</dd>
+                <dt className="text-muted-foreground">Участник</dt>
+                <dd>{selectedRow.actorLabel}</dd>
+                <dt className="text-muted-foreground">Действие</dt>
+                <dd>{actionLabel(selectedRow.action)}</dd>
+                <dt className="text-muted-foreground">Раздел</dt>
+                <dd>
+                  {entityLabel(selectedRow.entity)}
+                  <span className="ml-1 font-mono text-[12px] text-muted-foreground">
+                    код скрыт
+                  </span>
+                </dd>
+                <dt className="text-muted-foreground">Номер карты</dt>
+                <dd className="text-[12px]">{formatCardNumber(selectedRow.patientCode)}</dd>
+                <dt className="text-muted-foreground">Контекст</dt>
+                <dd>{contextLabel(selectedRow)}</dd>
+                <dt className="text-muted-foreground">Источник</dt>
+                <dd>{sourceLabel(selectedRow.source)}</dd>
+              </dl>
+            </div>
+          ) : null}
+          <DrawerFooter>
+            <DrawerClose asChild>
+              <Button type="button" variant="outline" className="min-h-11">
+                Закрыть
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    </div>
+  );
+}
+
+export default historicalUi(WorkingPage, HistoricalSysAccessEventsPage);

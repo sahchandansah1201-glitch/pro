@@ -24,7 +24,6 @@ import DoctorReportsPage from "./pages/doctor/DoctorReportsPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
 import LesionDetailPage from "./pages/doctor/LesionDetailPage";
-import BotSimPage from "./pages/bot/BotSimPage";
 import BotMiniAppBookingPage from "./pages/bot/BotMiniAppBookingPage";
 import OperatorConsolePage from "./pages/operator/OperatorConsolePage";
 import OperatorBookingRequestsPage from "./pages/operator/OperatorBookingRequestsPage";
@@ -121,8 +120,7 @@ const App = () => (
               <Route path="/me/booking" element={<G><MeBookingPage /></G>} />
               <Route path="/me/reminders" element={<G><MeRemindersPage /></G>} />
 
-              {/* Симулятор бота */}
-              <Route path="/bot-sim" element={<G><BotSimPage /></G>} />
+              {/* Рабочая форма записи: адрес сохранён для совместимости */}
               <Route path="/bot-sim/miniapp/booking" element={<G><BotMiniAppBookingPage /></G>} />
 
               {/* Shared */}

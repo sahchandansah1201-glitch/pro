@@ -24,7 +24,6 @@ const RESTORE_CONFIRMATION = "RESTORE_SELF_HOSTED_DATA";
 
 const REQUIRED_ENV_KEYS = [
   "APP_PORT",
-  "VITE_APP_MODE",
   "VITE_SELF_HOSTED_API_BASE_URL",
   "POSTGRES_PASSWORD",
   "JWT_SECRET",
@@ -516,10 +515,6 @@ export function verifyEnvText(text = "") {
   const workerToken = entries.get("DEVICE_BRIDGE_WORKER_TOKEN") || "";
   if (workerToken && workerToken.length < 32) {
     warnings.push("DEVICE_BRIDGE_WORKER_TOKEN should be at least 32 characters in production.");
-  }
-  const viteAppMode = entries.get("VITE_APP_MODE") || "";
-  if (viteAppMode && viteAppMode !== "production") {
-    errors.push("VITE_APP_MODE must be production for self-hosted production deploys.");
   }
   const viteBaseUrl = entries.get("VITE_SELF_HOSTED_API_BASE_URL") || "";
   if (viteBaseUrl && !/^https?:\/\//i.test(viteBaseUrl)) {

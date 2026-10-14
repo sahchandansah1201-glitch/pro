@@ -144,7 +144,7 @@ describe("AdminAnalyticsPage · empty-states · a11y across locales", () => {
       });
 
       const dir = loc.name === "ar" ? "rtl" : "ltr";
-      const AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+      const AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
       const { container, getByRole } = renderPage(AdminAnalyticsPage, dir);
 
       // 1) ARIA-контракт.
@@ -185,7 +185,7 @@ describe("AdminAnalyticsPage · empty-states · a11y across locales", () => {
       };
     });
 
-    const AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+    const AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
     const { container } = renderPage(AdminAnalyticsPage, "rtl");
     expect(document.documentElement.getAttribute("dir")).toBe("rtl");
     assertAriaContract(container, "ar/rtl");

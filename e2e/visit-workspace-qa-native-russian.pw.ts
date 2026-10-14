@@ -1,14 +1,12 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 
-import { setDemoRole } from "./helpers/demo-role";
-
 if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
 test.skip(
   process.env.E2E_SELF_HOSTED_VISIT_QA !== "1",
-  "Set E2E_SELF_HOSTED_VISIT_QA=1 and run a VITE_APP_MODE=production dev server to verify self-hosted visit QA.",
+  "Set E2E_SELF_HOSTED_VISIT_QA=1 to verify working visit QA with an isolated API fixture.",
 );
 
 const APP_BASE_URL = process.env.E2E_APP_BASE_URL ?? "http://localhost:8080";
@@ -316,6 +314,7 @@ function longitudinalValidationResponse() {
 }
 
 async function installMockBackend(page: Page) {
+  await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
   await page.route(`${API_BASE_URL}/api/v1/**`, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -579,7 +578,6 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
 
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await installMockBackend(page);
-      await setDemoRole(page, "doctor");
       await page.addInitScript(
         ({ baseKey, tokenKey, userKey, apiBaseUrl }) => {
           window.localStorage.setItem(baseKey, apiBaseUrl);
@@ -673,7 +671,6 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
 
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await installMockBackend(page);
-      await setDemoRole(page, "doctor");
       await page.addInitScript(
         ({ baseKey, tokenKey, userKey, apiBaseUrl }) => {
           window.localStorage.setItem(baseKey, apiBaseUrl);

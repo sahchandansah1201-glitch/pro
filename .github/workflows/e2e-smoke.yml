@@ -9,6 +9,7 @@ on:
       - "package-lock.json"
       - "playwright.config.ts"
       - "scripts/e2e-smoke-workflow.test.mjs"
+      - "scripts/working-smoke-gates.test.mjs"
       - "docs/frontend/stage-3c-production-smoke.md"
       - ".github/workflows/e2e-smoke.yml"
   push:
@@ -19,6 +20,7 @@ on:
       - "package-lock.json"
       - "playwright.config.ts"
       - "scripts/e2e-smoke-workflow.test.mjs"
+      - "scripts/working-smoke-gates.test.mjs"
       - "docs/frontend/stage-3c-production-smoke.md"
       - ".github/workflows/e2e-smoke.yml"
   workflow_dispatch:
@@ -65,7 +67,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Verify e2e smoke workflow contract
-        run: node --test scripts/e2e-smoke-workflow.test.mjs
+        run: node --test scripts/e2e-smoke-workflow.test.mjs scripts/working-smoke-gates.test.mjs
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Start Vite
@@ -103,7 +105,6 @@ jobs:
           fi
       - name: Restart Vite in production mode for visit workspace QA
         env:
-          VITE_APP_MODE: production
         run: |
           set -euo pipefail
           if [ -f /tmp/e2e-smoke-vite.pid ]; then

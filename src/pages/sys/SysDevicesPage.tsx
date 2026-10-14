@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Activity, Download, RadioTower, ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -7,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { blobFromParts } from "@/lib/blob-utils";
-import { getDevices } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
-import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { selfHostedSessionIdentityKey, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { selfHostedPublicErrorText } from "@/lib/self-hosted-public-error";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
@@ -46,9 +47,6 @@ import { sysDeviceText } from "./sysDeviceText";
  * SAFETY: только метаданные устройств. Никаких WebUSB/WebBluetooth/WebSerial.
  */
 
-const DEMO_BANNER =
-  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
-
 const LIVE_BANNER =
   "Рабочая система подключена. Устройства и мосты читаются из реестра рабочей системы клиники.";
 
@@ -64,12 +62,6 @@ interface BridgeRow {
   pairedCount: number;
   lastHeartbeatAt: string;
 }
-
-const DEMO_BRIDGES: BridgeRow[] = [
-  { id: "br-msk-01", host: "dp-bridge-msk-01", lan: "online",   version: "0.7.2", pairedCount: 2, lastHeartbeatAt: "2026-03-13T09:01:00Z" },
-  { id: "br-msk-02", host: "dp-bridge-msk-02", lan: "degraded", version: "0.7.0", pairedCount: 1, lastHeartbeatAt: "2026-03-13T08:50:00Z" },
-  { id: "br-spb-01", host: "dp-bridge-spb-01", lan: "offline",  version: "0.6.9", pairedCount: 1, lastHeartbeatAt: "2026-03-12T15:12:00Z" },
-];
 
 const LAN_LABEL = { online: "В сети", degraded: "Нестабильно", offline: "Не в сети" } as const;
 const LAN_TONE = {
@@ -111,16 +103,6 @@ interface DeviceRow extends Device {
   calibrationDueAt?: string | null;
 }
 
-function deriveStatus(lastSeenIso: string | null | undefined, bridgeId: string | null, bridges: BridgeRow[]): DevStatus {
-  const bridge = bridges.find((b) => b.id === bridgeId);
-  if (!bridge || bridge.lan === "offline") return "offline";
-  const ageMin = (Date.parse("2026-03-13T09:05:00Z") - Date.parse(lastSeenIso || "")) / 60000;
-  if (!Number.isFinite(ageMin)) return "offline";
-  if (ageMin < 30) return "connected";
-  if (ageMin < 24 * 60) return "standby";
-  return "offline";
-}
-
 type FilterKey = "all" | "connected" | "offline" | "needs_calibration";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "Все" },
@@ -128,10 +110,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "offline", label: "Не в сети" },
   { key: "needs_calibration", label: "Нужна калибровка" },
 ];
-
-// Деттерминированный список устройств, требующих калибровки.
-const NEEDS_CALIB = new Set(["d-004"]);
-const TODAY = "2026-05-14";
 
 function downloadText(filename: string, content: string, mime = "text/csv;charset=utf-8"): void {
   const url = URL.createObjectURL(blobFromParts(["\ufeff", content], mime));
@@ -173,13 +151,16 @@ function deviceFromDto(dto: SelfHostedDeviceDTO): DeviceRow {
 }
 
 function needsCalibration(device: DeviceRow): boolean {
-  if (NEEDS_CALIB.has(device.id)) return true;
-  return Boolean(device.calibrationDueAt && device.calibrationDueAt <= TODAY);
+  return Boolean(device.calibrationDueAt && device.calibrationDueAt <= new Date().toISOString().slice(0, 10));
 }
 
 export default function SysDevicesPage() {
   const session = useSelfHostedApiSession();
   const isLive = Boolean(session.apiToken);
+  const [loadRevision, setLoadRevision] = useState(0);
+  const requestKey = selfHostedSessionIdentityKey(session, ["device-registry", String(loadRevision)]);
+  const activeRequestKey = useRef("");
+  const [loadedKey, setLoadedKey] = useState("");
   const [liveDevices, setLiveDevices] = useState<DeviceRow[] | null>(null);
   const [liveBridges, setLiveBridges] = useState<BridgeRow[] | null>(null);
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -207,6 +188,10 @@ export default function SysDevicesPage() {
   const [auditExportBusy, setAuditExportBusy] = useState(false);
 
   useEffect(() => {
+    activeRequestKey.current = requestKey;
+    setNote(null);
+    setCommandBusyKey(null);
+    setAuditExportBusy(false);
     if (!session.apiToken) {
       setLiveDevices(null);
       setLiveBridges(null);
@@ -232,6 +217,7 @@ export default function SysDevicesPage() {
     }
 
     let cancelled = false;
+    setLoadedKey(requestKey);
     setLoadStatus("loading");
     setLoadError(null);
     setWorkerStatusError(null);
@@ -300,7 +286,7 @@ export default function SysDevicesPage() {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
-        setLoadError(bridgeResult.error?.message || deviceResult.error?.message || "Не удалось загрузить устройства.");
+        setLoadError(selfHostedPublicErrorText(bridgeResult.error ?? deviceResult.error, "Не удалось загрузить устройства."));
         setLiveDevices(null);
         setLiveBridges(null);
         setWorkerStatus(null);
@@ -382,31 +368,22 @@ export default function SysDevicesPage() {
 
     return () => {
       cancelled = true;
+      activeRequestKey.current = "";
     };
-  }, [session.apiBaseUrl, session.apiToken]);
+  }, [session.apiBaseUrl, session.apiToken, requestKey]);
 
-  const bridges = liveBridges ?? DEMO_BRIDGES;
-  const devices = liveDevices ?? getDevices();
-
-  const enriched = useMemo(
-    () => devices.map((d) => (
-      "derivedStatus" in d
-        ? d as DeviceRow
-        : { ...d, derivedStatus: deriveStatus(d.lastSeenAt, d.bridgeId, bridges) }
-    )),
-    [bridges, devices],
-  );
+  const bridges = liveBridges ?? [];
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return enriched.filter((d) => {
+    return (liveDevices ?? []).filter((d) => {
       if (filter === "connected" && d.derivedStatus !== "connected") return false;
       if (filter === "offline" && d.derivedStatus !== "offline") return false;
       if (filter === "needs_calibration" && !needsCalibration(d)) return false;
       if (q && !`${d.model} ${d.serial} ${d.bridgeId ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [enriched, filter, query]);
+  }, [liveDevices, filter, query]);
 
   const pagination = useListPagination(rows, {
     mobilePageSize: 4,
@@ -426,7 +403,6 @@ export default function SysDevicesPage() {
   async function runBridgeHealthCheck(bridge: BridgeRow) {
     const label = bridgeLabel(bridges, bridge.id);
     if (!isLive || !session.apiToken) {
-      setNote(`Проверка «${label}» — учебное действие.`);
       return;
     }
     const key = `bridge:${bridge.id}`;
@@ -439,6 +415,7 @@ export default function SysDevicesPage() {
       commandType: "bridge_health_check",
       reason: "Проверка сети и связи из системной страницы устройств.",
     });
+    if (activeRequestKey.current !== requestKey) return;
     setCommandBusyKey(null);
     setNote(
       result.ok
@@ -453,11 +430,6 @@ export default function SysDevicesPage() {
   ) {
     const isCalibration = commandType === "device_calibration_request";
     if (!isLive || !session.apiToken) {
-      setNote(
-        isCalibration
-          ? "Калибровка устройства — учебное действие."
-          : "Просмотр потока появится после подключения моста устройств.",
-      );
       return;
     }
     const key = `${commandType}:${device.id}`;
@@ -476,6 +448,7 @@ export default function SysDevicesPage() {
         ? "Запрос калибровки из системной страницы устройств."
         : "Запрос просмотра потока через локальный мост устройств.",
     });
+    if (activeRequestKey.current !== requestKey) return;
     setCommandBusyKey(null);
     setNote(
       result.ok
@@ -506,6 +479,7 @@ export default function SysDevicesPage() {
         ? "Повторная постановка из панели восстановления."
         : "Отмена из панели восстановления.",
     });
+    if (activeRequestKey.current !== requestKey) return;
     setCommandBusyKey(null);
     if (result.ok && result.value) {
       setWorkerRecovery((current) => current
@@ -535,6 +509,7 @@ export default function SysDevicesPage() {
       commandId,
       reason: "Ручной повтор из панели журнала команд.",
     });
+    if (activeRequestKey.current !== requestKey) return;
     setCommandBusyKey(null);
     if (result.ok && result.value) {
       setWorkerAudit((current) => current
@@ -563,6 +538,7 @@ export default function SysDevicesPage() {
       status: "all",
       limit: 100,
     });
+    if (activeRequestKey.current !== requestKey) return;
     setAuditExportBusy(false);
     if (result.ok && result.value) {
       downloadText(result.value.export.filename, result.value.export.content, result.value.export.mime);
@@ -570,6 +546,33 @@ export default function SysDevicesPage() {
       return;
     }
     setNote(result.error?.message || "Не удалось экспортировать журнал команд моста устройств.");
+  }
+
+  if (!isLive) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Устройства" subtitle="Войдите в систему клиники, чтобы загрузить устройства." />
+        <div className="p-4">
+          <Button asChild className="min-h-11"><Link to="/self-hosted/login">Войти в систему клиники</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentLoadStatus = loadedKey === requestKey ? loadStatus : "loading";
+  if (currentLoadStatus !== "ready") {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Устройства" subtitle="Мост устройств и электронные дерматоскопы." />
+        <Card role={currentLoadStatus === "error" ? "alert" : "status"} aria-live="polite" className="m-4 space-y-3 p-4">
+          <p>{currentLoadStatus === "error" ? "Не удалось загрузить устройства." : "Загружаем реестр устройств из рабочей системы."}</p>
+          {currentLoadStatus === "error" && <>
+            <p className="text-[12px] text-muted-foreground">{loadError}</p>
+            <Button className="min-h-11" onClick={() => setLoadRevision((value) => value + 1)}>Повторить</Button>
+          </>}
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -587,7 +590,7 @@ export default function SysDevicesPage() {
           }}
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{isLive ? LIVE_BANNER : DEMO_BANNER}</span>
+          <span>{LIVE_BANNER}</span>
         </div>
 
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">

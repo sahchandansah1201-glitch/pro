@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import VisitWorkspacePage from "./VisitWorkspacePage";
+import VisitWorkspacePage from "../../../test-fixtures/legacy-ui/doctor/VisitWorkspacePage";
 
 const FORBIDDEN = [
   "doctorВерсияText",
@@ -31,6 +31,7 @@ function markAtlasReady() {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 function openBodyMap() {
@@ -41,12 +42,22 @@ function openBodyMap() {
 }
 
 describe("VisitWorkspacePage · Карта тела", () => {
+  it("explains the placement task and names the selected lesion action", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
+
+    expect(screen.getByText("Укажите место очага на модели. Затем свяжите очаг со снимками."))
+      .toBeInTheDocument();
+    expect(screen.getByText(/Модель тела: Мужчина/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Открыть очаг" }))
+      .toHaveAttribute("href", "/patients/p-004/lesions/l-008");
+  });
+
   it("shows the adult female profile, surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
     expect(screen.getByRole("tab", { name: /Карта тела/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText(/Профиль карты:\s*Женщина · 18–64 года/)).toBeInTheDocument();
+    expect(screen.getByText(/Модель тела:\s*Женщина · 18–64 года/)).toBeInTheDocument();
     expect(screen.getByText("Передняя поверхность", { selector: "span" })).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(screen.getByTestId("clinical-body-atlas")).toHaveAttribute("data-age-band", "adult");
@@ -69,13 +80,13 @@ describe("VisitWorkspacePage · Карта тела", () => {
   it("selects the age-specific male profile and exposes all projections", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
-    expect(screen.getByText(/Профиль карты:\s*Мужчина · 18–64 года/)).toBeInTheDocument();
+    expect(screen.getByText(/Модель тела:\s*Мужчина · 18–64 года/)).toBeInTheDocument();
     for (const name of ["Спереди", "Сзади", "Слева", "Справа", "Голова"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
   });
 
-  it("gives the body model most of a wide desktop workspace without enlarging the mobile base", () => {
+  it("uses the full desktop map width without enlarging the mobile base or showing the legacy region selector", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap");
 
     expect(screen.getByTestId("body-map-workspace"))
@@ -85,8 +96,10 @@ describe("VisitWorkspacePage · Карта тела", () => {
 
     const surface = screen.getByTestId("body-map-zoom-surface");
     expect(surface).toHaveStyle({ width: "320px" });
-    expect(surface.style.getPropertyValue("--body-map-desktop-width")).toBe("400px");
-    expect(surface).toHaveClass("xl:!w-[var(--body-map-desktop-width)]");
+    expect(surface.style.getPropertyValue("--body-map-desktop-width")).toBe("100%");
+    expect(surface).toHaveClass("lg:!w-[var(--body-map-desktop-width)]");
+    expect(screen.getByLabelText("Выбрать анатомическую область").closest("label"))
+      .toHaveClass("sr-only");
   });
 
   it("switches to the lesion projection and keeps the marker coordinates", () => {
@@ -162,24 +175,58 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(container.innerHTML.toLowerCase()).not.toContain("placeholder");
   });
 
-  it("lets a doctor inspect a high-resolution model at native-safe 800%", () => {
+  it("limits a wide desktop to the largest native-safe high-resolution zoom", () => {
     vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
+    vi.stubGlobal("innerWidth", 1280);
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    const viewport = screen.getByTestId("body-map-viewport");
+    Object.defineProperty(viewport, "clientWidth", { configurable: true, value: 654 });
+    fireEvent(window, new Event("resize"));
     markAtlasReady();
 
     const zoomIn = screen.getByRole("button", { name: "Увеличить карту тела" });
     for (let step = 0; step < 6; step += 1) fireEvent.click(zoomIn);
 
-    expect(screen.getByText("800%", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("400%", { selector: "span" })).toBeInTheDocument();
     expect(zoomIn).toBeDisabled();
-    expect(screen.getByText(/Исходник 2880×4320 · увеличение до 800% без программного растяжения/))
+    expect(screen.getByText(/Исходник 2880×4320 · доступный масштаб для этого окна: до 400%/))
       .toBeInTheDocument();
-    expect(screen.queryByText(/апскейла/i)).toBeNull();
-    expect(screen.getByTestId("body-map-zoom-surface")).toHaveStyle({ width: "2560px" });
+    expect(screen.getByTestId("body-map-zoom-surface")).toHaveStyle({ maxWidth: "2880px" });
+  });
+
+  it("recalculates the native-safe zoom when the body-map panel changes width", () => {
+    let notifyResize = () => {};
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = () => callback([], this as unknown as ResizeObserver);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
+    vi.stubGlobal("innerWidth", 1280);
+    const originalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver;
+    try {
+      renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+      const viewport = screen.getByTestId("body-map-viewport");
+
+      Object.defineProperty(viewport, "clientWidth", { configurable: true, value: 320 });
+      act(() => notifyResize());
+      expect(screen.getByText(/доступный масштаб для этого окна: до 800%/)).toBeInTheDocument();
+
+      Object.defineProperty(viewport, "clientWidth", { configurable: true, value: 654 });
+      act(() => notifyResize());
+      expect(screen.getByText(/доступный масштаб для этого окна: до 400%/)).toBeInTheDocument();
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
   });
 
   it("keeps the same map focus visible when the doctor changes zoom", () => {
     vi.stubEnv("VITE_CLINICAL_BODY_ATLAS_SOURCE", "daz-hires-local");
+    vi.stubGlobal("innerWidth", 390);
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
     markAtlasReady();
 

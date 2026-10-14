@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AdminAnalyticsPage from "./AdminAnalyticsPage";
+import AdminAnalyticsPage from "../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage";
 import { getClinics, getLeads } from "@/lib/mock-data";
 
 /**

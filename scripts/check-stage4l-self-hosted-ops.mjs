@@ -22,7 +22,6 @@ const REQUIRED_FILES = [
 
 const REQUIRED_TEXT = {
   "deploy/self-hosted/.env.production.example": [
-    "VITE_APP_MODE=production",
     "VITE_SELF_HOSTED_API_BASE_URL=https://dermatolog.example.test",
     "POSTGRES_PASSWORD=replace-me-postgres-password",
     "JWT_SECRET=replace-me-with-64-random-characters",
@@ -49,7 +48,6 @@ const REQUIRED_TEXT = {
     "--list",
     "verify-restored-app",
     "verifyEnvText",
-    "VITE_APP_MODE",
     "VITE_SELF_HOSTED_API_BASE_URL",
     "DEVICE_BRIDGE_WORKER_TOKEN",
     "application_consistent_quiesced",

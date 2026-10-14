@@ -1,17 +1,17 @@
-import { useState, type FormEvent } from "react";
+import { useContext, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, CircleAlert, CircleHelp, Eye, EyeOff, LogIn, RefreshCw, ServerCog, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthContext } from "@/context/auth-context";
 import { loginToSelfHostedBackend } from "@/lib/self-hosted-auth-api";
 import {
   clearSelfHostedApiSession,
   useSelfHostedApiSession,
   writeSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-import { isProductionAppMode } from "@/lib/app-mode";
 import { selfHostedHomePath } from "@/lib/self-hosted-role";
 import {
   buildProductionBootstrapChecklist,
@@ -39,8 +39,8 @@ function roleLabel(role: string): string {
 
 export default function SelfHostedLoginPage() {
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
   const session = useSelfHostedApiSession();
-  const productionMode = isProductionAppMode();
   const [apiBaseUrl, setApiBaseUrl] = useState(session.apiBaseUrl || DEFAULT_BASE_URL);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +48,7 @@ export default function SelfHostedLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [credentialsInvalid, setCredentialsInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [bootstrapChecking, setBootstrapChecking] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapChecklist, setBootstrapChecklist] = useState<ProductionBootstrapChecklistItem[]>(
@@ -56,6 +57,7 @@ export default function SelfHostedLoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting || leaving || auth?.status === "loading") return;
     setError(null);
     setCredentialsInvalid(false);
     setSubmitting(true);
@@ -75,15 +77,28 @@ export default function SelfHostedLoginPage() {
       apiToken: result.value.accessToken,
       user: result.value.user,
     });
-    navigate(productionMode ? "/" : "/patients", { replace: true });
+    navigate("/", { replace: true });
   }
 
-  function handleSignOut() {
-    clearSelfHostedApiSession();
-    setEmail("");
-    setPassword("");
-    setPasswordVisible(false);
-    setCredentialsInvalid(false);
+  async function handleSignOut() {
+    if (leaving || submitting || auth?.status === "loading") return;
+    setLeaving(true);
+    setError(null);
+    try {
+      if (auth?.status === "authenticated" && auth.accessToken) {
+        const { error: signOutError } = await auth.signOut();
+        if (signOutError) throw signOutError;
+      }
+      clearSelfHostedApiSession();
+      setEmail("");
+      setPassword("");
+      setPasswordVisible(false);
+      setCredentialsInvalid(false);
+    } catch {
+      setError("Не удалось выйти. Попробуйте ещё раз.");
+    } finally {
+      setLeaving(false);
+    }
   }
 
   async function handleBootstrapCheck() {
@@ -107,7 +122,7 @@ export default function SelfHostedLoginPage() {
             <ServerCog className="h-5 w-5 text-primary" aria-hidden />
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {productionMode ? "Рабочий режим" : "Учебный режим"}
+                Рабочий режим
               </p>
               <h1 className="text-[18px] font-semibold leading-tight">
                 {SELF_HOSTED_LOGIN_HEADING}
@@ -174,9 +189,10 @@ export default function SelfHostedLoginPage() {
                 size="sm"
                 variant="outline"
                 className="min-h-11 text-[12px]"
-                onClick={handleSignOut}
+                onClick={() => { void handleSignOut(); }}
+                disabled={leaving || submitting || auth?.status === "loading"}
               >
-                Выйти из системы клиники
+                {leaving ? "Выход…" : "Выйти из системы клиники"}
               </Button>
             </div>
           </section>
@@ -270,18 +286,10 @@ export default function SelfHostedLoginPage() {
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <Button type="submit" size="sm" disabled={submitting} className="min-h-11 gap-1.5 text-[13px]">
+            <Button type="submit" size="sm" disabled={submitting || leaving || auth?.status === "loading"} className="min-h-11 gap-1.5 text-[13px]">
               <LogIn className="h-4 w-4" aria-hidden />
               {submitting ? "Входим…" : "Войти"}
             </Button>
-            {!productionMode ? (
-              <Link
-                to="/login"
-                className="inline-flex min-h-11 min-w-11 items-center rounded-md px-2 text-[12px] text-muted-foreground underline-offset-2 hover:underline"
-              >
-                К учебному входу
-              </Link>
-            ) : null}
           </div>
         </form>
       </div>

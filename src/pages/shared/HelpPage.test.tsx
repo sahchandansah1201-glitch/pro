@@ -40,6 +40,12 @@ const renderHelp = () =>
   );
 
 describe("HelpPage", () => {
+  it("не предлагает отключённый симулятор и сохраняет рабочую форму записи", () => {
+    renderHelp();
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs).not.toContain("/bot-sim");
+    expect(hrefs).toContain("/bot-sim/miniapp/booking");
+  });
   it("рендерит заголовок и баннер безопасности", () => {
     renderHelp();
     expect(screen.getByText("Справка")).toBeInTheDocument();

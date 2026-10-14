@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import SysUsersPage from "./SysUsersPage";
+import SysUsersPage from "../../../test-fixtures/legacy-ui/sys/SysUsersPage";
 import SysDevicesPage from "./SysDevicesPage";
-import SysAuditPage from "./SysAuditPage";
-import SysApiKeysPage from "./SysApiKeysPage";
-import SysReleaseStatusPage from "./SysReleaseStatusPage";
+import SysAuditPage from "../../../test-fixtures/legacy-ui/sys/SysAuditPage";
+import SysApiKeysPage from "../../../test-fixtures/legacy-ui/sys/SysApiKeysPage";
+import SysReleaseStatusPage from "../../../test-fixtures/legacy-ui/sys/SysReleaseStatusPage";
 import SysSelfHostedOpsPage from "./SysSelfHostedOpsPage";
 
 // Build forbidden token strings dynamically so this test source itself
@@ -43,6 +43,9 @@ describe("Sys pages — render & safety", () => {
         screen.getByText(/Рабочий режим: готовность публикации видна системному администратору/),
       ).toBeInTheDocument();
       expect(screen.queryByText(/Учебный режим/)).not.toBeInTheDocument();
+    } else if (name === "SysDevicesPage") {
+      expect(screen.getByRole("link", { name: "Войти в систему клиники" })).toHaveAttribute("href", "/self-hosted/login");
+      expect(screen.queryByText(/Учебный режим/)).not.toBeInTheDocument();
     } else {
       expect(screen.getByText(/Учебный режим\. Рабочие роли, аудит, ключи и мост устройств/)).toBeInTheDocument();
     }
@@ -69,11 +72,11 @@ describe("Sys pages — render & safety", () => {
     expect(screen.queryByText("u-doc-001")).not.toBeInTheDocument();
   });
 
-  it("SysDevicesPage filter narrows devices", () => {
+  it("SysDevicesPage does not invent devices without a working session", () => {
     renderRouted(<SysDevicesPage />);
-    expect(screen.getAllByText(/DermLite|FotoFinder|Heine/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("tab", { name: "Не в сети" }));
-    expect(screen.getAllByText(/DermLite DL3N/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Войдите в систему клиники, чтобы загрузить устройства.")).toBeInTheDocument();
+    expect(screen.queryByText(/DermLite|FotoFinder|Heine/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Не в сети" })).not.toBeInTheDocument();
   });
 
   it("SysAuditPage export button is disabled and search narrows rows", () => {

@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarPlus, ServerCog } from "lucide-react";
 
@@ -122,6 +122,14 @@ export default function OperatorBookingRequestsPageLive() {
   const [importStatus, setImportStatus] = useState<SelfHostedExternalIntakeStatusDTO>(EMPTY_IMPORT_STATUS);
   const [availableSlots, setAvailableSlots] = useState<SelfHostedClinicAvailableSlotsPage>(EMPTY_SLOTS);
   const [actionMessage, setActionMessage] = useState("Очередь заявок готова.");
+  const selectedId = useRef<string | null>(null);
+  useLayoutEffect(() => { selectedId.current = selected?.id ?? null; });
+  const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; loadSequence.current += 1; };
+  }, []);
 
   const baseArgs = useMemo(
     () => ({
@@ -133,6 +141,8 @@ export default function OperatorBookingRequestsPageLive() {
   const isConfigured = isSelfHostedApiConfigured(session);
 
   const loadRequests = useCallback(async () => {
+    if (!mounted.current) return;
+    const sequence = ++loadSequence.current;
     if (!isConfigured) {
       setLoadStatus("error");
       setError({
@@ -149,32 +159,44 @@ export default function OperatorBookingRequestsPageLive() {
       search,
       limit: 25,
     });
+    if (!mounted.current || sequence !== loadSequence.current) return;
     if (result.ok && result.value) {
       setPage(result.value);
       const imports = await listSelfHostedExternalIntakeImports({
         ...baseArgs,
         limit: 5,
       });
-      if (imports.ok && imports.value) setImportBatches(imports.value);
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      setImportBatches(imports.ok && imports.value ? imports.value : EMPTY_IMPORTS);
       const importStatusResult = await getSelfHostedExternalIntakeStatus({
         ...baseArgs,
       });
-      if (importStatusResult.ok && importStatusResult.value) setImportStatus(importStatusResult.value);
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      setImportStatus(importStatusResult.ok && importStatusResult.value ? importStatusResult.value : EMPTY_IMPORT_STATUS);
       const slots = await listSelfHostedClinicAvailableSlots({
         ...baseArgs,
         status: "available",
         limit: 5,
       });
-      if (slots.ok && slots.value) setAvailableSlots(slots.value);
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      setAvailableSlots(slots.ok && slots.value ? slots.value : EMPTY_SLOTS);
       setError(null);
       setLoadStatus("ready");
       setSelected((current) => current ? result.value.items.find((item) => item.id === current.id) ?? null : null);
     } else {
       setPage(EMPTY_PAGE);
+      setImportBatches(EMPTY_IMPORTS);
+      setImportStatus(EMPTY_IMPORT_STATUS);
+      setAvailableSlots(EMPTY_SLOTS);
+      setSelected(null);
+      setClinicNote("");
+      setSelectedSlotId("");
       setError(result.error);
       setLoadStatus("error");
     }
   }, [baseArgs, isConfigured, search, statusFilter]);
+  const currentLoader = useRef(loadRequests);
+  useLayoutEffect(() => { currentLoader.current = loadRequests; });
 
   useEffect(() => {
     void loadRequests();
@@ -200,14 +222,19 @@ export default function OperatorBookingRequestsPageLive() {
         ...extra,
       },
     });
+    if (!mounted.current) return;
     setBusyKey(null);
     if (result.ok && result.value) {
-      setActionMessage(`Заявка: статус ${STATUS_LABEL[result.value.status] || result.value.status}.`);
-      setSelected(result.value);
-      setClinicNote(result.value.clinicNote || "");
-      await loadRequests();
-    } else {
+      if (!selectedId.current || selectedId.current === request.id) {
+        setActionMessage(`Заявка: статус ${STATUS_LABEL[result.value.status] || result.value.status}.`);
+        setSelected(result.value);
+        setClinicNote(result.value.clinicNote || "");
+      }
+      await currentLoader.current();
+    } else if (!selectedId.current || selectedId.current === request.id) {
       setActionMessage(publicBookingMessage(result.error));
+    } else {
+      setError(result.error);
     }
   }
 
@@ -230,15 +257,20 @@ export default function OperatorBookingRequestsPageLive() {
         clinicNote,
       },
     });
+    if (!mounted.current) return;
     setBusyKey(null);
     if (result.ok && result.value) {
-      setActionMessage("Заявка записана на визит.");
-      setSelected(result.value);
-      setClinicNote(result.value.clinicNote || "");
-      setSelectedSlotId("");
-      await loadRequests();
-    } else {
+      if (selectedId.current === selected.id) {
+        setActionMessage("Заявка записана на визит.");
+        setSelected(result.value);
+        setClinicNote(result.value.clinicNote || "");
+        setSelectedSlotId("");
+      }
+      await currentLoader.current();
+    } else if (selectedId.current === selected.id) {
       setActionMessage(publicBookingMessage(result.error));
+    } else {
+      setError(result.error);
     }
   }
 

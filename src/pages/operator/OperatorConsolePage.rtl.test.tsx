@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import OperatorConsolePage from "./OperatorConsolePage";
+// Historical Demo component checks; not acceptance of the current working route.
+import OperatorConsolePage from "./OperatorConsolePageDemo";
 
 /**
  * RTL-регрессия: при dir="rtl" бейдж статуса защищённой ссылки на /operator

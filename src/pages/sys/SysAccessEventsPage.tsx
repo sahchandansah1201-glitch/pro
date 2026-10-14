@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Eye, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -14,7 +14,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { useRole } from "@/context/role-context";
 import {
   ACCESS_EVENT_EXPORT_COLUMNS,
   ACCESS_EVENTS_EXPORT_LIMIT,
@@ -28,7 +27,8 @@ import {
   type AccessEventExportColumnKey,
   type XlsxCellValue,
 } from "@/lib/admin-access-events";
-import { isProductionAppMode } from "@/lib/app-mode";
+import { AuthContext } from "@/context/auth-context";
+import { roleFromAuthUser } from "@/lib/auth-role";
 import { blobFromParts } from "@/lib/blob-utils";
 import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
@@ -40,24 +40,7 @@ import {
 import { selfHostedRoles } from "@/lib/self-hosted-role";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase-client";
 import { useListPagination } from "@/lib/use-list-pagination";
-import {
-  FILTERS,
-  SOURCE_FILTERS,
-  actionLabel,
-  buildDemoRows,
-  contextLabel,
-  entityBucket,
-  entityLabel,
-  filterLabel,
-  fromAdminAuditEvent,
-  fromViewRow,
-  rowDate,
-  sourceLabel,
-  type AccessEventsViewRow,
-  type AccessEventRow,
-  type FilterKey,
-  type SourceFilter,
-} from "./accessEventsViewModel";
+import { FILTERS, SOURCE_FILTERS, actionLabel, contextLabel, entityBucket, entityLabel, filterLabel, fromAdminAuditEvent, fromViewRow, rowDate, sourceLabel, type AccessEventsViewRow, type AccessEventRow, type FilterKey, type SourceFilter } from "./accessEventsViewModel";
 
 type ExportScope = "all_pages" | "current_page" | "custom_range";
 type ExportLogFilter = "all" | "csv" | "xlsx" | "success" | "cancelled" | "error" | "repeated";
@@ -355,7 +338,7 @@ function safeAccessEventRow(value: unknown): AccessEventRow | null {
   const row = value as Partial<AccessEventRow>;
   if (typeof row.createdAt !== "string" || typeof row.clinicName !== "string") return null;
   if (typeof row.actorLabel !== "string" || typeof row.action !== "string") return null;
-  if (typeof row.entity !== "string" || (row.source !== "api" && row.source !== "demo")) return null;
+  if (typeof row.entity !== "string" || row.source !== "api") return null;
   return {
     id: storedString(row.id),
     createdAt: row.createdAt,
@@ -375,7 +358,7 @@ function safeExportLogEntry(value: unknown): ExportLogEntry | null {
   if (!value || typeof value !== "object") return null;
   const entry = value as Partial<ExportLogEntry>;
   if (!isExportFormat(entry.format) || !isExportLogStatus(entry.status)) return null;
-  if (!Array.isArray(entry.rows)) return null;
+  if (!Array.isArray(entry.rows) || entry.rows.some((row) => !row || (row as AccessEventRow).source !== "api")) return null;
   const rows = entry.rows.map(safeAccessEventRow).filter((row): row is AccessEventRow => row !== null);
   const columns = storedExportColumns(entry.columns);
   return {
@@ -396,10 +379,10 @@ function safeExportLogEntry(value: unknown): ExportLogEntry | null {
   };
 }
 
-function readExportLog(): ExportLogEntry[] {
+function readExportLog(storageKey: string): ExportLogEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(EXPORT_LOG_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -409,10 +392,10 @@ function readExportLog(): ExportLogEntry[] {
   }
 }
 
-function writeExportLog(entries: ExportLogEntry[]): void {
+function writeExportLog(storageKey: string, entries: ExportLogEntry[]): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(EXPORT_LOG_STORAGE_KEY, JSON.stringify(entries.slice(0, 5)));
+    window.localStorage.setItem(storageKey, JSON.stringify(entries.slice(0, 5)));
   } catch {
     // Export history is useful but non-critical; ignore storage failures.
   }
@@ -452,20 +435,32 @@ function exportLogFilename(format: "csv" | "xlsx", filter: ExportLogFilter, coun
 }
 
 export default function SysAccessEventsPage() {
-  const { role } = useRole();
-  const productionMode = isProductionAppMode();
+  const session = useSelfHostedApiSession();
+  const auth = useContext(AuthContext);
+  // React keys are internal only. Never persist or display an access token.
+  return <WorkingAccessEvents key={`${session.revision}:${auth?.status}:${auth?.accessToken}:${auth?.user?.id}:${roleFromAuthUser(auth?.user ?? null)}:${auth?.apiBaseUrl}`} />;
+}
+
+function WorkingAccessEvents() {
+  const auth = useContext(AuthContext);
   const selfHostedSession = useSelfHostedApiSession();
   const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
-  const canReadProductionAccessEvents =
-    productionMode && selfHostedConfigured && selfHostedRoles(selfHostedSession).includes("system_admin");
-  const canReadAccessEvents = productionMode ? canReadProductionAccessEvents : role === "system_admin";
   const supabaseConfigured = isSupabaseConfigured();
+  const canReadProductionAccessEvents = selfHostedConfigured && selfHostedRoles(selfHostedSession).includes("system_admin");
+  const canReadManagedAccessEvents = !selfHostedConfigured && supabaseConfigured && auth?.status === "authenticated" && Boolean(auth.accessToken) && roleFromAuthUser(auth.user) === "system_admin";
+  const canReadAccessEvents = canReadProductionAccessEvents || canReadManagedAccessEvents;
+  const exportStorageKey = EXPORT_LOG_STORAGE_KEY + ":working:" + encodeURIComponent(
+    JSON.stringify(selfHostedConfigured ? ["native", selfHostedSession.apiBaseUrl, selfHostedSession.user?.id] : ["managed", auth?.apiBaseUrl, auth?.user?.id]),
+  );
   const exportRunRef = useRef<ExportRunContext | null>(null);
+  useEffect(() => () => {
+    if (exportRunRef.current) exportRunRef.current.cancelled = true;
+  }, []);
   const [storedFilters] = useState(readFilterState);
   const [storedExportSettings] = useState(readExportSettings);
-  const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
-  const [source, setSource] = useState<AccessEventRow["source"]>("demo");
-  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<AccessEventRow[]>([]);
+  const [source, setSource] = useState<AccessEventRow["source"]>("api");
+  const [loading, setLoading] = useState(canReadAccessEvents);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState(storedFilters.query);
   const [filter, setFilter] = useState<FilterKey>(storedFilters.filter);
@@ -485,7 +480,7 @@ export default function SysAccessEventsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
-  const [exportLog, setExportLog] = useState<ExportLogEntry[]>(readExportLog);
+  const [exportLog, setExportLog] = useState<ExportLogEntry[]>(() => readExportLog(exportStorageKey));
   const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>(readExportLogFilter);
   const [exportLogQuery, setExportLogQuery] = useState("");
   const [clearExportLogRequested, setClearExportLogRequested] = useState(false);
@@ -502,9 +497,7 @@ export default function SysAccessEventsPage() {
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [exportSettingsOpen, setExportSettingsOpen] = useState(false);
   const [exportLogOpen, setExportLogOpen] = useState(false);
-  const visibleSourceFilters = productionMode
-    ? SOURCE_FILTERS.filter((item) => item.key !== "demo")
-    : SOURCE_FILTERS;
+  const visibleSourceFilters = SOURCE_FILTERS.filter((item) => item.key !== "demo");
 
   const announceExportStatus = useCallback((message: string, kind: ExportStatusKind = "info") => {
     setExportStatusKind(kind);
@@ -555,10 +548,10 @@ export default function SysAccessEventsPage() {
   );
 
   useEffect(() => {
-    if (productionMode && sourceFilter === "demo") {
+    if (sourceFilter === "demo") {
       setSourceFilter("all");
     }
-  }, [productionMode, sourceFilter]);
+  }, [sourceFilter]);
 
   useEffect(() => {
     if (cooldownUntil <= now) return;
@@ -608,11 +601,11 @@ export default function SysAccessEventsPage() {
   }, [exportLogFilter]);
 
   useEffect(() => {
-    writeExportLog(exportLog);
-  }, [exportLog]);
+    writeExportLog(exportStorageKey, exportLog);
+  }, [exportStorageKey, exportLog]);
 
   useEffect(() => {
-    if (productionMode) {
+    if (selfHostedConfigured) {
       if (!canReadProductionAccessEvents) {
         setRows([]);
         setSource("api");
@@ -648,7 +641,7 @@ export default function SysAccessEventsPage() {
           setRows(safeRows);
           setSource("api");
           setLastRefreshAt(new Date().toISOString());
-          appendQueryLog("Рабочий журнал", `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`);
+          appendQueryLog("Рабочий журнал", `загружено ${safeRows.length} из лимита 100`);
         })
         .catch(() => {
           if (cancelled) return;
@@ -667,18 +660,19 @@ export default function SysAccessEventsPage() {
       };
     }
 
-    if (!supabaseConfigured || role !== "system_admin") {
-      setRows(buildDemoRows());
-      setSource("demo");
-      setError(null);
+    if (!canReadManagedAccessEvents) {
+      setRows([]);
+      setSource("api");
       setLoading(false);
-      setLastRefreshAt(new Date().toISOString());
-      appendQueryLog("Учебный журнал", "локальные события загружены");
       return;
     }
-
     const client = getSupabaseClient();
-    if (!client) return;
+    if (!client) {
+      setRows([]);
+      setLoading(false);
+      setError("Подключение к рабочему журналу недоступно. Попробуйте позже.");
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -694,7 +688,7 @@ export default function SysAccessEventsPage() {
         if (apiError) {
           setRows([]);
           setSource("api");
-          setError("Не удалось загрузить события доступа. Проверьте роль system_admin и RLS.");
+          setError("Не удалось загрузить события доступа. Обратитесь к администратору сервиса.");
           setLastRefreshAt(new Date().toISOString());
           appendQueryLog("RPC list_access_events_admin", "ошибка загрузки");
           return;
@@ -726,9 +720,8 @@ export default function SysAccessEventsPage() {
   }, [
     appendQueryLog,
     canReadProductionAccessEvents,
-    productionMode,
+    canReadManagedAccessEvents,
     reloadTick,
-    role,
     selfHostedConfigured,
     selfHostedSession.apiBaseUrl,
     selfHostedSession.apiToken,
@@ -886,7 +879,7 @@ export default function SysAccessEventsPage() {
   );
 
   const selectedExportColumnCount = selectedExportColumns.length;
-  const exportDisabled = filteredRows.length === 0 || exportRows.length === 0 || selectedExportColumnCount === 0;
+  const exportDisabled = !canReadAccessEvents || loading || Boolean(error) || filteredRows.length === 0 || exportRows.length === 0 || selectedExportColumnCount === 0;
 
   const exportPreviewText =
     selectedExportColumnCount === 0
@@ -946,7 +939,7 @@ export default function SysAccessEventsPage() {
   }, [announceExportStatus, appendQueryLog]);
 
   const handleDatePreset = useCallback(
-    (preset: "today" | "last30" | "demoMarch" | "clear") => {
+    (preset: "today" | "last30" | "clear") => {
       const today = new Date();
       if (preset === "today") {
         const value = isoDate(today);
@@ -961,13 +954,6 @@ export default function SysAccessEventsPage() {
         setDateTo(isoDate(today));
         announceExportStatus("Пресет даты применён: последние 30 дней.");
         appendQueryLog("Пресет даты", "последние 30 дней");
-        return;
-      }
-      if (preset === "demoMarch") {
-        setDateFrom("2026-03-01");
-        setDateTo("2026-03-31");
-        announceExportStatus("Пресет даты применён: март 2026.");
-        appendQueryLog("Пресет даты", "март 2026");
         return;
       }
       setDateFrom("");
@@ -1043,7 +1029,7 @@ export default function SysAccessEventsPage() {
         message: repeated ? `Повторная выгрузка готова.` : `${exportReadyLabel(format)}.`,
       };
       exportRunRef.current = runContext;
-      const isCancelled = () => exportRunRef.current?.runId === runId && exportRunRef.current.cancelled;
+      const isCancelled = () => runContext.cancelled || exportRunRef.current?.runId !== runId;
 
       setExportProgress({
         format,
@@ -1107,6 +1093,7 @@ export default function SysAccessEventsPage() {
           `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
         );
       } catch {
+        if (isCancelled()) return;
         setExportProgress({
           format,
           percent: 100,
@@ -1216,6 +1203,7 @@ export default function SysAccessEventsPage() {
 
   const handleRepeatExport = useCallback(
     async (entry: ExportLogEntry) => {
+      if (!canReadAccessEvents || loading || error) return;
       await runExport({
         format: entry.format,
         rows: entry.rows,
@@ -1227,7 +1215,7 @@ export default function SysAccessEventsPage() {
         repeated: true,
       });
     },
-    [runExport],
+    [runExport, canReadAccessEvents, loading, error],
   );
 
   const filteredExportLog = useMemo(() => {
@@ -1315,9 +1303,7 @@ export default function SysAccessEventsPage() {
           >
             <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
             <span>
-              {productionMode
-                ? "Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса."
-                : "Нет доступа в учебном режиме. Переключите роль на системного администратора, чтобы открыть журнал."}
+              Этот раздел доступен только системному администратору. Войдите под учётной записью администратора сервиса.
             </span>
           </div>
         </div>
@@ -1366,9 +1352,7 @@ export default function SysAccessEventsPage() {
         >
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            {source === "api"
-              ? `Данные читаются из рабочей системы клиники. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
-              : `Учебный режим. В рабочем контуре этот экран показывает события доступа с проверкой роли в рабочей системе. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
+            Данные читаются из рабочей системы клиники. Лимит ответа: {selfHostedConfigured ? 100 : ACCESS_EVENTS_LIMIT} событий. Обновление — не чаще одного раза в 10 секунд.
           </span>
         </div>
 
@@ -1644,16 +1628,7 @@ export default function SysAccessEventsPage() {
             >
               30 дней
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="min-h-11 text-[12px] sm:h-8 sm:min-h-8"
-              onClick={() => handleDatePreset("demoMarch")}
-              aria-label="Показать события за март 2026"
-            >
-              Март 2026
-            </Button>
+
             <Button
               type="button"
               size="sm"
@@ -2062,7 +2037,7 @@ export default function SysAccessEventsPage() {
                     variant="outline"
                     className="min-h-11 shrink-0 text-[12px] sm:h-8 sm:min-h-8"
                     onClick={() => handleRepeatExport(entry)}
-                    disabled={exportBusy}
+                    disabled={exportBusy || loading || Boolean(error)}
                     aria-label={`Повторить выгрузку: ${exportFormatLabel(entry.format).toLowerCase()}`}
                   >
                     Повторить

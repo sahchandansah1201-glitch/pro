@@ -1,8 +1,13 @@
 // Stage 4H · Live write controls for self-hosted visit workspace.
 // Hidden in demo mode. Keeps the existing demo tabs untouched.
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -118,6 +123,39 @@ import {
   updateSelfHostedVisitReport,
 } from "@/lib/self-hosted-visit-write-api";
 
+import {
+  EMPTY_OPERATIONS_SUMMARY,
+  EMPTY_OUTCOME_SUMMARY,
+  EMPTY_CLINIC_REVIEW_SUMMARY,
+  EMPTY_SOP_VALIDATION_SUMMARY,
+  EMPTY_SOP_POLICY_TEMPLATE_SUMMARY,
+  EMPTY_SOP_POLICY_APPLICATION_SUMMARY,
+  EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY,
+  EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY,
+} from "./visit-workspace/visitWorkspaceLiveDefaults";
+
 interface VisitWorkspaceLiveActionsProps {
   visit: Visit;
   lesions: Lesion[];
@@ -162,396 +200,6 @@ type BusyAction =
   | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-update"
   | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt-update"
   | null;
-
-const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
-  totalOpen: 0,
-  overdue: 0,
-  waitingPatient: 0,
-  escalated: 0,
-  deliveryFailed: 0,
-  deliveryPending: 0,
-};
-
-const EMPTY_OUTCOME_SUMMARY: FollowUpOutcomeQualitySummary = {
-  totalFollowUps: 0,
-  closedFollowUps: 0,
-  openOverdue: 0,
-  openEscalated: 0,
-  closedWithEvidence: 0,
-  closedMissingEvidence: 0,
-  qualityReviewed: 0,
-  qualityPending: 0,
-  qualityNeedsAttention: 0,
-  patientReached: 0,
-  clinicalEscalations: 0,
-  deliveryFailures: 0,
-};
-
-const EMPTY_CLINIC_REVIEW_SUMMARY: FollowUpClinicReviewSummary = {
-  totalFollowUps: 0,
-  retentionDue: 0,
-  retentionReviewed: 0,
-  retentionArchived: 0,
-  clinicReviewScheduled: 0,
-  clinicReviewCompleted: 0,
-  clinicNeedsPolicyReview: 0,
-  qualityNeedsAttention: 0,
-  closedMissingEvidence: 0,
-  localReviewEvents: 0,
-};
-
-const EMPTY_SOP_VALIDATION_SUMMARY: FollowUpSopValidationSummary = {
-  totalFollowUps: 0,
-  sopRequired: 0,
-  sopValidated: 0,
-  sopExceptions: 0,
-  sopBlocked: 0,
-  clinicNeedsPolicyReview: 0,
-  qualityNeedsAttention: 0,
-  openEscalated: 0,
-  closedMissingEvidence: 0,
-  localSopEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_TEMPLATE_SUMMARY: FollowUpSopPolicyTemplateSummary = {
-  totalTemplates: 0,
-  activeTemplates: 0,
-  inactiveTemplates: 0,
-  exceptionsAllowed: 0,
-  requiredByDefault: 0,
-  localPolicyEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_APPLICATION_SUMMARY: FollowUpSopPolicyApplicationSummary = {
-  totalFollowUps: 0,
-  activeTemplates: 0,
-  appliedTemplates: 0,
-  notChecked: 0,
-  inSync: 0,
-  drifted: 0,
-  missingTemplate: 0,
-  reviewRequired: 0,
-  needsPolicyApplication: 0,
-  localApplicationEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY: FollowUpSopPolicyExceptionClosureSummary = {
-  totalFollowUps: 0,
-  openExceptions: 0,
-  closedExceptions: 0,
-  acceptedExceptions: 0,
-  rejectedExceptions: 0,
-  unresolvedDrift: 0,
-  unclosedValidationExceptions: 0,
-  closedWithLocalResolution: 0,
-  localExceptionEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY: FollowUpSopPolicyAuditRollupSummary = {
-  totalFollowUps: 0,
-  auditReady: 0,
-  needsAuditReview: 0,
-  reviewedAudits: 0,
-  needsFollowUp: 0,
-  unresolvedPolicyDrift: 0,
-  openExceptions: 0,
-  missingPolicyTemplate: 0,
-  localPolicyAuditEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceReadinessSummary = {
-  totalFollowUps: 0,
-  governanceReady: 0,
-  needsGovernanceReview: 0,
-  reviewedGovernance: 0,
-  governanceNeedsFollowUp: 0,
-  reviewedPolicyAudits: 0,
-  unresolvedPolicyDrift: 0,
-  openExceptions: 0,
-  localGovernanceEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceClosureSummary = {
-  totalFollowUps: 0,
-  closureReady: 0,
-  needsClosureReview: 0,
-  closedGovernanceReviews: 0,
-  closureNeedsFollowUp: 0,
-  reviewedGovernance: 0,
-  unresolvedPolicyDrift: 0,
-  openExceptions: 0,
-  localGovernanceClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceSummary = {
-  totalFollowUps: 0,
-  evidenceReady: 0,
-  needsEvidenceReview: 0,
-  exportedGovernanceEvidence: 0,
-  evidenceNeedsFollowUp: 0,
-  closedGovernanceReviews: 0,
-  unresolvedPolicyDrift: 0,
-  openExceptions: 0,
-  localGovernanceEvidenceEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationSummary = {
-  totalFollowUps: 0,
-  reconciliationReady: 0,
-  needsReconciliation: 0,
-  reconciledGovernanceEvidence: 0,
-  evidenceMismatches: 0,
-  reconciliationNeedsFollowUp: 0,
-  exportedGovernanceEvidence: 0,
-  closedGovernanceReviews: 0,
-  localGovernanceEvidenceReconciliationEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary = {
-  totalFollowUps: 0,
-  reconciliationClosureReady: 0,
-  needsReconciliationClosure: 0,
-  closedReconciliationEvidence: 0,
-  reconciliationClosureExceptions: 0,
-  reconciliationClosureNeedsRework: 0,
-  reconciledGovernanceEvidence: 0,
-  openReconciliationMismatches: 0,
-  localGovernanceEvidenceReconciliationClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary = {
-  totalFollowUps: 0,
-  closureReceiptReady: 0,
-  needsClosureReceipt: 0,
-  receivedClosureReceipts: 0,
-  closureReceiptExceptions: 0,
-  closureReceiptNeedsRework: 0,
-  closedReconciliationEvidence: 0,
-  reconciledGovernanceEvidence: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary = {
-  totalFollowUps: 0,
-  archiveReadinessReady: 0,
-  needsArchiveReadiness: 0,
-  archivedLocal: 0,
-  archiveReadinessExceptions: 0,
-  archiveReadinessNeedsRework: 0,
-  receivedClosureReceipts: 0,
-  closedReconciliationEvidence: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary = {
-  totalFollowUps: 0,
-  archiveClosureReady: 0,
-  needsArchiveClosure: 0,
-  closedLocalArchives: 0,
-  archiveClosureExceptions: 0,
-  archiveClosureNeedsRework: 0,
-  archiveReadinessMarked: 0,
-  receivedClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptReady: 0,
-  needsArchiveClosureReceipt: 0,
-  receivedArchiveClosureReceipts: 0,
-  archiveClosureReceiptExceptions: 0,
-  archiveClosureReceiptNeedsRework: 0,
-  closedLocalArchives: 0,
-  archiveReadinessMarked: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReady: 0,
-  needsArchiveClosureReceiptHandoff: 0,
-  handedOffArchiveClosureReceipts: 0,
-  archiveClosureReceiptHandoffExceptions: 0,
-  archiveClosureReceiptHandoffNeedsRework: 0,
-  receivedArchiveClosureReceipts: 0,
-  closedLocalArchives: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReady: 0,
-  needsArchiveClosureReceiptHandoffReceipt: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  archiveClosureReceiptHandoffReceiptExceptions: 0,
-  archiveClosureReceiptHandoffReceiptNeedsRework: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliation: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationNeedsRework: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosure: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureNeedsRework: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNeedsRework: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness: 0,
-  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNeedsRework: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNeedsRework: 0,
-  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipt: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptNeedsRework: 0,
-  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  receivedArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoff: 0,
-  handedOffArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffs: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNeedsRework: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
-  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipt: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNeedsRework: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
-  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
-  reconciledArchiveClosureReceiptHandoffReceipts: 0,
-  receivedArchiveClosureReceiptHandoffReceipts: 0,
-  handedOffArchiveClosureReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliation: 0,
-  reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNeedsRework: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosure: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureNeedsRework: 0,
-  reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureEvents: 0,
-};
-
-const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary = {
-  totalFollowUps: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptReady: 0,
-  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipt: 0,
-  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptExceptions: 0,
-  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptNeedsRework: 0,
-  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures: 0,
-  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptEvents: 0,
-};
-
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (error?.code === "validation_error") return "Проверьте поля: система клиники вернула ошибку.";
@@ -618,6 +266,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [newLesionZone, setNewLesionZone] = useState("");
   const [selectedLesionId, setSelectedLesionId] = useState(lesions[0]?.id ?? "");
   const [selectedLesionLabel, setSelectedLesionLabel] = useState(lesions[0]?.label ?? "");
+  const [archiveCandidate, setArchiveCandidate] = useState<Pick<Lesion, "id" | "label" | "bodyZone"> | null>(null);
+  const archiveInFlight = useRef(false);
+  const lesionHeadingRef = useRef<HTMLHeadingElement>(null);
   const [physicianText, setPhysicianText] = useState("");
   const [patientText, setPatientText] = useState("");
   const [followUpDueAt, setFollowUpDueAt] = useState("");
@@ -665,6 +316,13 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     () => lesions.find((lesion) => lesion.id === selectedLesionId) ?? null,
     [lesions, selectedLesionId],
   );
+
+  useEffect(() => {
+    if (archiveCandidate && !archiveInFlight.current && selectedLesion?.id !== archiveCandidate.id) {
+      setArchiveCandidate(null);
+      setStatus("Выбранный очаг изменился. Повторите действие.");
+    }
+  }, [archiveCandidate, selectedLesion?.id]);
 
   const baseArgs = {
     apiBaseUrl: session.apiBaseUrl,
@@ -816,19 +474,31 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   }
 
   async function submitArchiveLesion() {
-    if (!selectedLesionId) return;
+    if (archiveInFlight.current) return;
+    if (!archiveCandidate || selectedLesion?.id !== archiveCandidate.id) {
+      setArchiveCandidate(null);
+      setStatus("Выбранный очаг изменился. Повторите действие.");
+      return;
+    }
+    const candidate = archiveCandidate;
+    archiveInFlight.current = true;
     setBusy("archive-lesion");
-    const result = await archiveSelfHostedVisitLesion({
+    try {
+      const result = await archiveSelfHostedVisitLesion({
       ...baseArgs,
-      lesionId: selectedLesionId,
+      lesionId: candidate.id,
       reason: "Архивировано из рабочего места визита",
-    });
-    setBusy(null);
-    setStatus(
+      });
+      setStatus(
       result.ok
-        ? `Очаг ${result.value?.label ?? selectedLesionId} архивирован в системе клиники.`
+        ? `Очаг ${result.value?.label || candidate.label || "без метки"} архивирован в системе клиники.`
         : publicMessage(result.error),
-    );
+      );
+    } finally {
+      archiveInFlight.current = false;
+      setBusy(null);
+      setArchiveCandidate(null);
+    }
   }
 
   async function submitReport(event: FormEvent) {
@@ -1358,6 +1028,39 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (result.ok) await loadOperationsQueue();
   }
 
+  const nonzeroSecondaryIndicators = [
+    outcomeSummary,
+    clinicReviewSummary,
+    sopPolicyTemplateSummary,
+    sopPolicyApplicationSummary,
+    sopPolicyExceptionClosureSummary,
+    sopPolicyAuditRollupSummary,
+    sopPolicyGovernanceReadinessSummary,
+    sopPolicyGovernanceClosureSummary,
+    sopPolicyGovernanceEvidenceSummary,
+    sopPolicyGovernanceEvidenceReconciliationSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary,
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
+    sopValidationSummary,
+  ].flatMap((summary) => Object.values(summary))
+    .filter((value) => typeof value === "number" && value > 0).length;
+
   return (
     <section
       aria-label="Рабочая запись визита"
@@ -1438,7 +1141,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </form>
 
         <form onSubmit={submitUpdateLesion} className="surface-toolbar space-y-2 p-3">
-          <h3 className="h-section text-[14px]">Существующий очаг</h3>
+          <h3 ref={lesionHeadingRef} tabIndex={-1} className="h-section text-[14px]">Существующий очаг</h3>
           <label className="block text-[12px] font-medium" htmlFor="stage4h-lesion-select">
             Очаг
           </label>
@@ -1472,16 +1175,45 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             <Button type="submit" size="sm" disabled={!selectedLesionId || busy === "update-lesion"} className="min-h-11 text-[12px]">
               {busy === "update-lesion" ? "Сохраняем…" : "Обновить очаг"}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={!selectedLesionId || busy === "archive-lesion"}
-              onClick={submitArchiveLesion}
-              className="min-h-11 text-[12px]"
+            <AlertDialog
+              open={archiveCandidate !== null}
+              onOpenChange={(open) => { if (!open && !archiveInFlight.current) setArchiveCandidate(null); }}
             >
-              {busy === "archive-lesion" ? "Архивируем…" : "Архивировать"}
-            </Button>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={!selectedLesion || busy === "archive-lesion"}
+                  onClick={() => { if (selectedLesion) setArchiveCandidate({ id: selectedLesion.id, label: selectedLesion.label, bodyZone: selectedLesion.bodyZone }); }}
+                  className="min-h-11 text-[12px]"
+                >
+                  {busy === "archive-lesion" ? "Архивируем…" : "Архивировать очаг"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent
+                className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+                onEscapeKeyDown={(event) => { if (archiveInFlight.current) event.preventDefault(); }}
+                onCloseAutoFocus={(event) => { if (!selectedLesion) { event.preventDefault(); lesionHeadingRef.current?.focus(); } }}
+              >
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Архивировать очаг?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Будет архивирован очаг «{archiveCandidate?.label || "Очаг без метки"}»{archiveCandidate?.bodyZone ? ` (${archiveCandidate.bodyZone})` : ""}.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={busy === "archive-lesion"} className="min-h-11">Отмена</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={busy === "archive-lesion"}
+                    className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={(event) => { event.preventDefault(); void submitArchiveLesion(); }}
+                  >
+                    {busy === "archive-lesion" ? "Архивирование…" : "Архивировать"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </form>
 
@@ -1612,6 +1344,18 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </div>
         </dl>
 
+        <details
+          role="region"
+          aria-label="Дополнительные показатели контроля"
+          className="mt-3 w-full rounded-md border border-border p-3"
+        >
+          <summary className="flex min-h-11 cursor-pointer flex-col gap-1 text-[13px] font-semibold">
+            <span>Дополнительные показатели и правила</span>
+            <span className="font-normal text-muted-foreground">Ненулевых служебных показателей: {nonzeroSecondaryIndicators}</span>
+            <span className="font-normal text-muted-foreground">
+              Требует внимания: {outcomeSummary.qualityNeedsAttention} · Проверка правил: {clinicReviewSummary.clinicNeedsPolicyReview} · Заблокировано: {sopValidationSummary.sopBlocked} · Открытые исключения: {sopPolicyExceptionClosureSummary.openExceptions}
+            </span>
+          </summary>
         <section
           aria-label="Качество закрытия"
           className="mt-3 rounded-md border border-border bg-muted/20 p-3"
@@ -2148,11 +1892,13 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </dl>
         </section>
 
+        </details>
+
         <div className="mt-3 space-y-2" aria-label="Очередь контроля по визиту">
           {operationsQueue.length === 0 ? (
             <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых задач контроля.</p>
           ) : operationsQueue.map((item) => (
-            <article key={item.id} className="surface-toolbar flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
+            <article key={item.id} className="surface-toolbar flex flex-col gap-2 p-3">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium">{item.reason || "Контрольный контакт"}</p>
                 <p className="text-[12px] text-muted-foreground">
@@ -2173,6 +1919,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 <p className="text-[12px] text-muted-foreground">
                   Исключения: {stateLabel(item.sopPolicyExceptionState)} · {noteLabel(item.sopPolicyExceptionResolution || item.sopPolicyExceptionReason)}
                 </p>
+                <details className="mt-2 w-full rounded-md border border-border/70 px-2 py-1">
+                  <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-1 text-[12px] font-medium">
+                    Полный статус контроля
+                    {Object.entries(item).some(([key, value]) => key.endsWith("State") && typeof value === "string" && (value === "ready" || /needs_|pending|failed|blocked|exception|unresolved|review_required|waiting_|mismatch/.test(value))) && <span>— есть незавершённые проверки</span>}
+                  </summary>
                 <p className="text-[12px] text-muted-foreground">
                   Аудит: {stateLabel(item.sopPolicyAuditState)} · {noteLabel(item.sopPolicyAuditNote)}
                 </p>
@@ -2233,6 +1984,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 <p className="text-[12px] text-muted-foreground">
                   Сверка итоговой передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNote)}
                 </p>
+                </details>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -2363,6 +2115,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 >
                   Проверка клиники
                 </Button>
+                <details className="w-full basis-full rounded-md border border-border/70 px-2 py-1">
+                  <summary className="flex min-h-11 cursor-pointer items-center text-[12px] font-medium">Дополнительные действия</summary>
+                  <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2">
                 <Button
                   type="button"
                   size="sm"
@@ -2988,11 +2743,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState: "archived",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness archived from workspace.",
                     },
-                    "Операция контроля выполнена локально.",
+                    "Сверка отмечена как архивная в системе клиники.",
                   )}
                   className="min-h-11 text-[12px]"
                 >
-                  Архивировать сверку
+                  Отметить сверку как архивную
                 </Button>
                 <Button
                   type="button"
@@ -3249,6 +3004,8 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 >
                   Доработать получение закрытия
                 </Button>
+                  </div>
+                </details>
               </div>
             </article>
           ))}

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-import AdminServicesPage from "@/pages/admin/AdminServicesPage";
+import AdminServicesPage from "../../../test-fixtures/legacy-ui/admin/AdminServicesPage";
 import { clearSelfHostedApiSession, writeSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 const service = {

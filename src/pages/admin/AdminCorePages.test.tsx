@@ -1,17 +1,22 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AdminHomePage from "./AdminHomePage";
-import AdminDoctorsPage from "./AdminDoctorsPage";
-import AdminServicesPage from "./AdminServicesPage";
-import AdminClinicsPage from "./AdminClinicsPage";
-import AdminBotSettingsPage from "./AdminBotSettingsPage";
+import { webcrypto } from "node:crypto";
+import AdminHomePage from "../../../test-fixtures/legacy-ui/admin/AdminHomePage";
+import AdminDoctorsPage from "../../../test-fixtures/legacy-ui/admin/AdminDoctorsPage";
+import AdminServicesPage from "../../../test-fixtures/legacy-ui/admin/AdminServicesPage";
+import AdminClinicsPage from "../../../test-fixtures/legacy-ui/admin/AdminClinicsPage";
+import AdminBotSettingsPage from "../../../test-fixtures/legacy-ui/admin/AdminBotSettingsPage";
 import AdminGovernancePage from "./AdminGovernancePage";
-import AdminIntegrationsPage from "./AdminIntegrationsPage";
+import AdminIntegrationsPage from "../../../test-fixtures/legacy-ui/admin/AdminIntegrationsPage";
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
+  readSelfHostedApiSession,
+  writeSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { governanceFixture } from "./__fixtures__/governance";
+import { governanceContextFingerprint } from "./governance-decision-receipt";
 
 const FORBIDDEN = [
   "birthDate",
@@ -28,6 +33,23 @@ const FORBIDDEN = [
 
 const renderRouted = (ui: React.ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
+
+// Governance uses real session/API paths. Synthetic aggregates live only at the transport boundary.
+async function renderGovernance() {
+  vi.stubGlobal("crypto", webcrypto);
+  writeSelfHostedApiSession({ apiBaseUrl: "http://localhost:19161", apiToken: "synthetic-admin",
+    user: { id: "synthetic-admin", displayName: "Проверочный администратор", roles: ["clinic_admin"] } });
+  vi.stubGlobal("fetch", vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "POST") return new Response(JSON.stringify({ item: {
+      status: "completed", affectedCount: 2, skippedActiveCount: 0, skippedMissingExpiryCount: 0,
+      boundaries: { patientDeliveryAllowed: false, metadataOnly: true },
+    } }), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ item: governanceFixture }), { headers: { "Content-Type": "application/json" } });
+  }));
+  const view = renderRouted(<AdminGovernancePage />);
+  await screen.findByText("Правила выдачи");
+  return view;
+}
 
 afterEach(() => {
   window.localStorage.clear();
@@ -150,8 +172,8 @@ describe("Admin clinic core pages — render & safety", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("AdminGovernancePage renders aggregate access governance and local review actions", () => {
-    renderRouted(<AdminGovernancePage />);
+  it("AdminGovernancePage renders aggregate access governance and local review actions", async () => {
+    await renderGovernance();
     expect(
       screen.getByRole("heading", { name: /Управление доступом/ }),
     ).toBeInTheDocument();
@@ -280,7 +302,7 @@ describe("Admin clinic core pages — render & safety", () => {
       screen.getByRole("button", { name: "Подтвердить закрытие" }),
     );
     expect(
-      screen.getAllByText(/Учебный режим: окна без срока заблокированы локально/).length,
+      (await screen.findAllByText(/Окна без срока заблокированы: 2 изменено/)).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Отозвать истёкшие окна/ }),
@@ -289,9 +311,7 @@ describe("Admin clinic core pages — render & safety", () => {
       screen.getByRole("button", { name: "Подтвердить отзыв" }),
     );
     expect(
-      screen.getAllByText(
-        /Учебный режим: отзыв истёкших окон подготовлен локально/,
-      ).length,
+      (await screen.findAllByText(/Отзыв истёкших окон выполнен: 2 отозвано/)).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить выдачу файлов/ }),
@@ -306,20 +326,23 @@ describe("Admin clinic core pages — render & safety", () => {
       screen.getByRole("button", { name: "Подтвердить закрытие" }),
     );
     expect(
-      screen.getAllByText(/Учебный режим: небезопасные временные коды заблокированы локально/).length,
+      (await screen.findAllByText(/Небезопасные временные коды заблокированы: 2 изменено/)).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить новую выдачу/ }),
     );
     expect(
-      screen.getAllByText(/Учебный режим: замена доступа подготовлена локально/).length,
+      (await screen.findAllByText(/Замена доступа подготовлена: 2 записей/)).length,
     ).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: /Подготовить ключ входа/ }),
     );
     expect(
-      screen.getAllByText(/Учебный режим: ключ доступа подготовлен локально/).length,
+      (await screen.findAllByText(/Ключ доступа подготовлен: 2 записей/)).length,
     ).toBeGreaterThan(0);
+    for (const groupName of [/^Решение клиники:/, /^История и безопасность:/, /^Очередь утверждений:/]) {
+      fireEvent.click(screen.getByRole("button", { name: groupName }));
+    }
     fireEvent.click(
       screen.getByRole("button", { name: /Проверить безопасность данных/ }),
     );
@@ -377,8 +400,8 @@ describe("Admin clinic core pages — render & safety", () => {
     ).toBeGreaterThan(0);
   }, 10_000);
 
-  it("AdminGovernancePage keeps release governance aggregate-only and native Russian", () => {
-    const { container } = renderRouted(<AdminGovernancePage />);
+  it("AdminGovernancePage keeps release governance aggregate-only and native Russian", async () => {
+    const { container } = await renderGovernance();
     const html = container.innerHTML;
     const visible = container.textContent ?? "";
     for (const token of [
@@ -430,9 +453,8 @@ describe("Admin clinic core pages — render & safety", () => {
 
   it("AdminGovernancePage saves an aggregate-only ADM-10 decision receipt without enabling delivery", async () => {
     window.sessionStorage.clear();
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    renderRouted(<AdminGovernancePage />);
+    await renderGovernance();
+    const expectedFingerprint = await governanceContextFingerprint(readSelfHostedApiSession());
 
     fireEvent.click(screen.getByRole("button", { name: "Сохранить временную заметку" }));
     expect(screen.queryByRole("button", { name: "Сохранить решение" })).toBeNull();
@@ -447,7 +469,7 @@ describe("Admin clinic core pages — render & safety", () => {
     const stored = JSON.parse(String(window.sessionStorage.getItem("skindoctor.admin.governance.safe-decision.v1")));
     expect(stored).toMatchObject({
       decision: "delivery_blocked",
-      contextFingerprint: "demo",
+      contextFingerprint: expectedFingerprint,
       openGateCount: 5,
       blockerCount: 26,
       patientDeliveryAllowed: false,
@@ -461,21 +483,24 @@ describe("Admin clinic core pages — render & safety", () => {
       "savedAt",
       "schemaVersion",
     ]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(vi.mocked(fetch).mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
   });
 
   it("AdminGovernancePage restores only a current aggregate-only ADM-10 browser note", async () => {
+    const initialView = await renderGovernance();
+    const contextFingerprint = await governanceContextFingerprint(readSelfHostedApiSession());
+    initialView.unmount();
     window.sessionStorage.setItem("skindoctor.admin.governance.safe-decision.v1", JSON.stringify({
       schemaVersion: 2,
       savedAt: "2026-09-02T10:00:00.000Z",
       decision: "delivery_blocked",
-      contextFingerprint: "demo",
+      contextFingerprint,
       openGateCount: 5,
       blockerCount: 26,
       patientDeliveryAllowed: false,
     }));
 
-    const view = renderRouted(<AdminGovernancePage />);
+    const view = await renderGovernance();
 
     expect(await screen.findByRole("status", { name: "Временная заметка о решении клиники" }))
       .toHaveTextContent(/Открыто проверок: 5/);
@@ -490,7 +515,7 @@ describe("Admin clinic core pages — render & safety", () => {
       blockerCount: 25,
       patientDeliveryAllowed: false,
     }));
-    renderRouted(<AdminGovernancePage />);
+    await renderGovernance();
 
     await waitFor(() => {
       expect(screen.queryByRole("status", { name: "Временная заметка о решении клиники" })).toBeNull();
@@ -498,8 +523,8 @@ describe("Admin clinic core pages — render & safety", () => {
     });
   });
 
-  it("AdminGovernancePage keeps required actions open and secondary governance groups collapsed", () => {
-    renderRouted(<AdminGovernancePage />);
+  it("AdminGovernancePage keeps required actions open and secondary governance groups collapsed", async () => {
+    await renderGovernance();
 
     expect(screen.getByText("Заблокированные выдачи")).toBeInTheDocument();
 
@@ -533,10 +558,10 @@ describe("Admin clinic core pages — render & safety", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("AdminGovernancePage requires explicit confirmation before a destructive access operation", () => {
-    renderRouted(<AdminGovernancePage />);
+  it("AdminGovernancePage requires explicit confirmation before a destructive access operation", async () => {
+    await renderGovernance();
 
-    const operationFeedback = /Учебный режим: окна без правил хранения заблокированы локально/;
+    const operationFeedback = /Окна без правил хранения заблокированы: 2 изменено/;
     fireEvent.click(
       screen.getByRole("button", { name: "Блокировать окна без правил" }),
     );
@@ -558,7 +583,7 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Подтвердить блокировку" }),
     );
-    expect(screen.getByText(operationFeedback)).toBeInTheDocument();
+    expect(await screen.findByText(operationFeedback)).toBeInTheDocument();
   });
 
   it("AdminIntegrationsPage uses native Russian admin copy without technical transfer terms", () => {

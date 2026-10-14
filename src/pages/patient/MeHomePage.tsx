@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import MeHomePageDemo from "./MeHomePageDemo";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import MeHomePageLive from "./MeHomePageLive";
 
 export default function MeHomePage() {
-  return isProductionAppMode() ? <MeHomePageLive /> : <MeHomePageDemo />;
+  const session = useSelfHostedApiSession();
+  return <MeHomePageLive key={session.revision} />;
 }

@@ -69,7 +69,7 @@ describe("AdminAnalyticsPage · точное число empty-state по пер�
         getAnalysisCards: () => [],
         getClinics: () => [],
       }));
-      AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+      AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
     });
     afterEach(() => {
       vi.doUnmock("@/lib/mock-data");
@@ -114,7 +114,7 @@ describe("AdminAnalyticsPage · точное число empty-state по пер�
       cleanup();
       vi.resetModules();
       // Без doMock — берём реальные демо-данные mock-data.
-      AdminAnalyticsPage = (await import("./AdminAnalyticsPage")).default;
+      AdminAnalyticsPage = (await import("../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage")).HistoricalAdminAnalyticsPage;
     });
 
     it("«Все данные»: 0 empty-state, нет дублирующих data-empty-узлов", () => {

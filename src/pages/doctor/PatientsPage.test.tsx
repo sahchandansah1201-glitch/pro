@@ -9,7 +9,7 @@ import {
   SELF_HOSTED_API_TOKEN_KEY,
 } from "@/lib/self-hosted-api-session";
 
-import PatientsPage from "./PatientsPage";
+import PatientsPage, { HistoricalPatientsPage } from "../../../test-fixtures/legacy-ui/doctor/PatientsPage";
 
 function renderPage(initialEntries = ["/patients"]) {
   return render(
@@ -62,15 +62,18 @@ describe("PatientsPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows a new-patient CTA on the patients page", () => {
+  it("names the patient action with a clear verb and object", () => {
     renderPage();
 
     expect(
       screen.getByRole("heading", { name: "Пациенты" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Новый пациент/i }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Добавить пациента" }),
+    ).toHaveLength(2);
+    expect(screen.getByRole("columnheader", { name: "Возраст" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Последний визит" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Следующий визит" })).toBeInTheDocument();
   });
 
   it("applies the global search query from the patients URL", () => {
@@ -98,7 +101,7 @@ describe("PatientsPage", () => {
       "новые записи и удаление не меняют данные клиники",
     );
     expect(
-      screen.getByRole("button", { name: /Новый пациент/i }),
+      screen.getAllByRole("button", { name: "Добавить пациента" })[0],
     ).toHaveAttribute("aria-describedby", note.id);
   });
 
@@ -125,7 +128,7 @@ describe("PatientsPage", () => {
     renderPage();
 
     await userEvent.click(
-      screen.getByRole("button", { name: /Новый пациент/i }),
+      screen.getAllByRole("button", { name: "Добавить пациента" })[0],
     );
 
     const status = screen.getByRole("status");
@@ -148,7 +151,7 @@ describe("PatientsPage", () => {
     const rowsBefore = within(table).getAllByRole("row").length;
 
     await userEvent.click(
-      screen.getByRole("button", { name: /Новый пациент/i }),
+      screen.getAllByRole("button", { name: "Добавить пациента" })[0],
     );
 
     expect(within(table).getAllByRole("row").length).toBe(rowsBefore);
@@ -518,6 +521,20 @@ describe("PatientsPage", () => {
     );
   });
 
+  it("describes real consent saving in the live creation form", async () => {
+    configureLiveBackend();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ items: [] })));
+    renderPage();
+    await screen.findByText("Пациенты не найдены. Измените поиск или фильтры.");
+    await userEvent.click(screen.getAllByRole("button", { name: "Добавить пациента" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Новый пациент" });
+    const consent = within(dialog).getByRole("checkbox", { name: "Согласие на медицинскую съёмку" });
+    expect(dialog).toHaveTextContent("Значение будет сохранено в системе клиники.");
+    expect(dialog).not.toHaveTextContent("В учебном режиме меняется только отображение");
+    expect(consent).toHaveAccessibleDescription("Значение будет сохранено в системе клиники.");
+    expect(consent).not.toBeChecked();
+  });
+
   it("creates a patient through the clinic system in live mode", async () => {
     configureLiveBackend();
     const created = livePatient({
@@ -537,7 +554,7 @@ describe("PatientsPage", () => {
     renderPage();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await userEvent.click(
-      screen.getByRole("button", { name: /Новый пациент/i }),
+      screen.getAllByRole("button", { name: "Добавить пациента" })[0],
     );
 
     const dialog = await screen.findByRole("dialog", { name: "Новый пациент" });
@@ -550,7 +567,7 @@ describe("PatientsPage", () => {
       "1992-04-03",
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Создать пациента" }),
+      within(dialog).getByRole("button", { name: "Добавить пациента" }),
     );
 
     expect(
@@ -636,7 +653,8 @@ describe("PatientsPage", () => {
     const alert = await screen.findByRole("alertdialog", {
       name: "Архивировать пациента?",
     });
-    expect(alert).toHaveTextContent("Физическое удаление не выполняется");
+    expect(alert).toHaveTextContent("Карточка пациента Петрова Анна Сергеевна будет архивирована в системе клиники.");
+    expect(alert).toHaveTextContent("Эта операция не удаляет данные пациента.");
     await userEvent.click(
       within(alert).getByRole("button", { name: "Архивировать" }),
     );
@@ -659,7 +677,7 @@ describe("PatientsPage", () => {
     expect(init.method).toBe("DELETE");
   });
 
-  it("surfaces access errors without hiding the safe learning fallback", async () => {
+  it("historical snapshot surfaces access errors with its retired learning fallback", async () => {
     configureLiveBackend();
     vi.stubGlobal(
       "fetch",
@@ -678,7 +696,7 @@ describe("PatientsPage", () => {
       ),
     );
 
-    renderPage();
+    render(<MemoryRouter><HistoricalPatientsPage /></MemoryRouter>);
 
     expect(
       await screen.findByRole("status", {
@@ -689,6 +707,60 @@ describe("PatientsPage", () => {
     expect(
       screen.getAllByText("Иванова Наталья Олеговна").length,
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [401, "Войдите в систему клиники"],
+    [403, "Нет доступа к списку пациентов"],
+    [503, "Не удалось загрузить список пациентов"],
+  ])("offers appropriate list recovery after HTTP %s", async (status, heading) => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    configureLiveBackend();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(
+      { error: { code: "fixture_failure", message: "List unavailable." } },
+      { status: Number(status) },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    renderPage();
+
+    const action = screen.getByRole("region", { name: "Что делать с пациентами сейчас" });
+    await waitFor(() => expect(within(action).getByRole("heading")).toHaveTextContent(String(heading)));
+    expect(within(action).queryByRole("button", { name: "Сбросить фильтры" })).not.toBeInTheDocument();
+    expect(within(action).queryByText(/Найдено:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("В списке: 0")).not.toBeInTheDocument();
+    expect(screen.queryByText("Найдено: 0")).not.toBeInTheDocument();
+    if (status === 401) {
+      expect(within(action).getByRole("link", { name: "Войти в систему клиники" })).toHaveAttribute("href", "/self-hosted/login");
+    } else if (status === 403) {
+      expect(action).toHaveTextContent("Обратитесь к администратору клиники.");
+      expect(within(action).queryByRole("button", { name: /Повторить/ })).not.toBeInTheDocument();
+    } else {
+      fetchMock.mockResolvedValue(jsonResponse({ items: [livePatient()] }));
+      await userEvent.click(within(action).getByRole("button", { name: "Повторить загрузку списка пациентов" }));
+      await waitFor(() => expect(within(action).getByRole("heading")).toHaveTextContent("Открыть карточку пациента"));
+      expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    }
+  });
+
+  it("keeps loading and a network error distinct from an empty list", async () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    configureLiveBackend();
+    let failRead!: (reason: Error) => void;
+    const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>((_, reject) => { failRead = reject; }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderPage();
+    const action = screen.getByRole("region", { name: "Что делать с пациентами сейчас" });
+    expect(action).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Список загружается")).toBeVisible();
+    expect(within(action).queryByRole("button", { name: /Повторить|Сбросить/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("В списке: 0")).not.toBeInTheDocument();
+    failRead(new TypeError("Synthetic network unavailable"));
+    await waitFor(() => expect(within(action).getByRole("heading")).toHaveTextContent("Не удалось загрузить список пациентов"));
+    expect(action).toHaveAttribute("aria-busy", "false");
+    fetchMock.mockResolvedValue(jsonResponse({ items: [livePatient()] }));
+    await userEvent.click(within(action).getByRole("button", { name: "Повторить загрузку списка пациентов" }));
+    await waitFor(() => expect(within(action).getByRole("heading")).toHaveTextContent("Открыть карточку пациента"));
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
   });
 
   it("does not show learning patient rows when production live loading fails", async () => {
@@ -721,10 +793,10 @@ describe("PatientsPage", () => {
     expect(
       screen.getByRole("note", { name: "Режим работы списка пациентов" }),
     ).toHaveTextContent("Рабочий режим");
-    expect(screen.getByText(/Система клиники недоступна/i)).toBeInTheDocument();
+    expect(screen.getByText("Не удалось загрузить список пациентов. Учебные данные не показаны.")).toBeInTheDocument();
     expect(
       screen.queryByText("Иванова Наталья Олеговна"),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/В списке: 0/)).toBeInTheDocument();
+    expect(screen.getByText("Список не загружен")).toBeInTheDocument();
   });
 });

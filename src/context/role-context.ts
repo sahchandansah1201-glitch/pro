@@ -3,17 +3,15 @@ import type { Role } from "@/lib/roles";
 import type { CurrentUser } from "@/lib/users";
 
 export interface RoleContextValue {
-  role: Role;
-  setRole: (r: Role) => void;
+  role: Role | null;
+  roles: readonly Role[];
   label: string;
-  /**
-   * Текущий демо-пользователь. UX-симуляция, не настоящая сессия.
-   * currentUser.role всегда синхронизирован с активной демо-ролью.
-   */
-  currentUser: CurrentUser;
+  /** Session-derived display identity, never an authorization boundary. */
+  currentUser: CurrentUser | null;
 }
 
 export const RoleContext = createContext<RoleContextValue | null>(null);
+// Historical key for negative tests. Runtime never reads or writes it.
 export const ROLE_STORAGE_KEY = "derma-pro:demo-role";
 
 export function useRole(): RoleContextValue {
@@ -22,7 +20,6 @@ export function useRole(): RoleContextValue {
   return ctx;
 }
 
-/** Удобный хук — возвращает текущего демо-пользователя. */
-export function useCurrentUser(): CurrentUser {
+export function useCurrentUser(): CurrentUser | null {
   return useRole().currentUser;
 }

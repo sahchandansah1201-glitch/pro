@@ -37,9 +37,6 @@ import {
 } from "@/components/ui/sidebar";
 import { useRole } from "@/context/role-context";
 import type { Role } from "@/lib/roles";
-import { isProductionAppMode } from "@/lib/app-mode";
-import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
-import { selfHostedRoles } from "@/lib/self-hosted-role";
 
 interface NavItem {
   title: string;
@@ -54,7 +51,7 @@ interface NavGroup {
 
 /**
  * Меню разбито по ролевым зонам (UX-only).
- * Сайдбар показывает только зону(ы) активной учебной роли —
+ * Сайдбар показывает только зону(ы) назначенных рабочих ролей —
  * никакой смеси /admin, /operator, /sys, /me с общими путями.
  */
 const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
@@ -216,24 +213,13 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
-  const { role } = useRole();
-  const session = useSelfHostedApiSession();
-  const productionMode = isProductionAppMode();
-
-  const productionRoles = selfHostedRoles(session);
-  const roleGroups = productionMode
-    ? productionRoles.flatMap((r) => PRODUCTION_NAV_BY_ROLE[r] ?? NAV_BY_ROLE[r])
-    : NAV_BY_ROLE[role];
-  const safeRoleGroups = productionMode
-    ? roleGroups.map((group) => ({
-        ...group,
-        items: group.items.filter(
-          (item) =>
-            item.url !== "/patients/p-004/visits/v-005?tab=bodymap" &&
-            item.url !== "/cockpit",
-        ),
-      }))
-    : roleGroups;
+  const { roles } = useRole();
+  const roleGroups = roles.flatMap((role) => PRODUCTION_NAV_BY_ROLE[role] ?? NAV_BY_ROLE[role]);
+  const safeRoleGroups = roleGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) =>
+      item.url !== "/patients/p-004/visits/v-005?tab=bodymap" && item.url !== "/cockpit"),
+  }));
   const groups = mergeGroupsByLabel([...safeRoleGroups, SHARED]);
   // Keep the user's current location unambiguous: on deep links like
   // /admin/governance or Body Map, highlight only the most specific sidebar item,

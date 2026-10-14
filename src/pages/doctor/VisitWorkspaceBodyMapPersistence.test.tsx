@@ -13,7 +13,7 @@ const apiSessionMock = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/api-session", () => ({ useApiSession: () => apiSessionMock.current }));
 
-import VisitWorkspacePage from "./VisitWorkspacePage";
+import VisitWorkspacePage from "../../../test-fixtures/legacy-ui/doctor/VisitWorkspacePage";
 
 const json = (value: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(value), {
   status,

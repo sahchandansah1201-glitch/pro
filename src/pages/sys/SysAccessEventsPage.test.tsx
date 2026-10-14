@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
-import { ROLE_STORAGE_KEY } from "@/context/role-context";
 import {
   ACCESS_EVENT_EXPORT_COLUMNS,
   ACCESS_EVENTS_EXPORT_LIMIT,
@@ -53,11 +52,15 @@ vi.mock("@/lib/self-hosted-admin-api", async (importOriginal) => {
   };
 });
 
-import SysAccessEventsPage from "./SysAccessEventsPage";
+import { HistoricalSysAccessEventsPage } from "../../../test-fixtures/legacy-ui/sys/SysAccessEventsPage";
+import WorkingAccessEventsPage from "./SysAccessEventsPage";
+function SysAccessEventsPage() {
+  return appModeMock.production ? <WorkingAccessEventsPage /> : <HistoricalSysAccessEventsPage />;
+}
 import { actionLabel } from "./accessEventsViewModel";
 
 function renderPage(role = "system_admin") {
-  window.localStorage.setItem(ROLE_STORAGE_KEY, role);
+  sessionMock.session.user = { ...sessionMock.session.user, roles: [role] };
   return render(
     <MemoryRouter initialEntries={["/sys/access-events"]}>
       <RoleProvider>
@@ -183,7 +186,7 @@ describe("SysAccessEventsPage", () => {
       error: null,
     });
 
-    renderPage("doctor");
+    renderPage("system_admin");
 
     expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
     await waitFor(() => expect(adminApiMock.listAdminAuditEvents).toHaveBeenCalledTimes(1));

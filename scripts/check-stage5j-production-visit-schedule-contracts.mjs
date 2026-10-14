@@ -53,9 +53,9 @@ const REQUIRED_TEXT = {
     "/api/v1/visits",
   ],
   "src/pages/doctor/VisitsPage.tsx": [
-    "isProductionAppMode",
+    "useSelfHostedApiSession",
     "VisitsPageLive",
-    "VisitsPageDemo",
+    "key={session.revision}",
   ],
   "src/pages/doctor/VisitsPageLive.tsx": [
     "listSelfHostedVisits",

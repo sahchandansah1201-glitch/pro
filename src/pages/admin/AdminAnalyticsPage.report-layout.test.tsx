@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import tailwindConfig from "../../../tailwind.config";
-import AdminAnalyticsPage from "./AdminAnalyticsPage";
+import AdminAnalyticsPage from "../../../test-fixtures/legacy-ui/admin/AdminAnalyticsPage";
 
 describe("AdminAnalyticsPage — перенос строк учебного отчёта", () => {
   const stylesheet = document.createElement("style");

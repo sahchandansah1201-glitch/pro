@@ -1,7 +1,7 @@
-import { isProductionAppMode } from "@/lib/app-mode";
-import DoctorReportsPageDemo from "@/pages/doctor/DoctorReportsPageDemo";
 import DoctorReportsPageLive from "@/pages/doctor/DoctorReportsPageLive";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 
 export default function DoctorReportsPage() {
-  return isProductionAppMode() ? <DoctorReportsPageLive /> : <DoctorReportsPageDemo />;
+  const session = useSelfHostedApiSession();
+  return <DoctorReportsPageLive key={session.revision} />;
 }

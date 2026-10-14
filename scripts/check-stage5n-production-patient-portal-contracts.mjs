@@ -190,9 +190,9 @@ const REQUIRED_TEXT = {
     "sessionLifecycle",
   ],
   "src/pages/patient/MeHomePage.tsx": [
-    "isProductionAppMode",
+    "useSelfHostedApiSession",
     "MeHomePageLive",
-    "MeHomePageDemo",
+    "key={session.revision}",
   ],
   "src/pages/patient/MeHomePageLive.tsx": [
     "Данные личного кабинета загружены из системы клиники.",

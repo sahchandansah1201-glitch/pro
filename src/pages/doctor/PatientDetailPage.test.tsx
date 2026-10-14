@@ -7,7 +7,7 @@ import {
   SELF_HOSTED_API_TOKEN_KEY,
 } from "@/lib/self-hosted-api-session";
 
-import PatientDetailPage from "./PatientDetailPage";
+import PatientDetailPage from "../../../test-fixtures/legacy-ui/doctor/PatientDetailPage";
 
 function renderAt(path: string) {
   return render(

@@ -32,7 +32,7 @@ export default function MeHomePageLive() {
         <LoginRequired />
       ) : (
         <div className="space-y-3 p-3 sm:p-4">
-          <div
+          {status === "ready" && <div
             role="status"
             className="flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
             style={{
@@ -43,7 +43,7 @@ export default function MeHomePageLive() {
           >
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <span>Данные личного кабинета загружены из системы клиники.</span>
-          </div>
+          </div>}
 
           {status === "loading" && <Card className="p-4 text-[13px] text-muted-foreground">Загружаем личный кабинет…</Card>}
           {status === "error" && (

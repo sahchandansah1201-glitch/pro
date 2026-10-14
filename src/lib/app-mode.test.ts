@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getAppMode, isDemoAppMode, isProductionAppMode, normalizeAppMode } from "@/lib/app-mode";
+import { getAppMode, isDemoAppMode, isProductionAppMode, normalizeAppMode } from "../../test-fixtures/legacy-ui/app-mode";
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("app-mode", () => {
+describe("historical app-mode vocabulary, excluded from runtime", () => {
   it("defaults to demo unless explicitly set to production", () => {
     expect(normalizeAppMode(undefined)).toBe("demo");
     expect(normalizeAppMode("")).toBe("demo");

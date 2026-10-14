@@ -37,14 +37,20 @@ beforeEach(() => {
 });
 
 describe("RoleHome", () => {
-  it("uses the demo role home path in demo mode", () => {
+  it("does not enter a training home without a working session", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "system_admin");
+    renderHome();
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+  });
+  it("ignores a stale training doctor home", () => {
     window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
     renderHome();
-    expect(screen.getByTestId("desk")).toBeInTheDocument();
+    expect(screen.getByTestId("login")).toBeInTheDocument();
   });
 
-  it("uses private practice center as the demo home for private doctor", () => {
-    window.localStorage.setItem(ROLE_STORAGE_KEY, "private_doctor");
+  it("uses private practice center only for an assigned working private doctor", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "synthetic-home-token");
+    window.localStorage.setItem(SELF_HOSTED_API_USER_KEY, JSON.stringify({ id: "synthetic-private", displayName: "Тестовый врач", roles: ["private_doctor"] }));
     renderHome();
     expect(screen.getByTestId("practice")).toBeInTheDocument();
   });

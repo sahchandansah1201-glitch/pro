@@ -1,51 +1,36 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
-import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
-import { ShieldCheck } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { clearSelfHostedApiSession, isSelfHostedApiConfigured, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import { Button } from "@/components/ui/button";
-import { UserCog, LogOut } from "lucide-react";
 
-/**
- * Учебный переключатель роли. Учебная симуляция, не настоящая авторизация.
- * Используется только для показа интерфейса разных ролей.
- *
- * Stage 1G-C: при наличии рабочего входа рядом показывается кнопка
- * «Выйти», которая завершает текущий вход.
- */
+/** Account display/logout only. The historical export name no longer selects roles. */
 export function RoleSwitcher() {
-  const { role, setRole, label, currentUser } = useRole();
-  const shortLabel = ROLE_BY_ID[role].short;
-  const { status, signOut, user } = useAuth();
+  const { label, currentUser } = useRole();
+  const { status, accessToken, signOut, user } = useAuth();
+  const session = useSelfHostedApiSession();
+  const selfHosted = isSelfHostedApiConfigured(session);
+  const connected = selfHosted || (status === "authenticated" && Boolean(accessToken));
   const navigate = useNavigate();
-
-  const showLogout = status === "authenticated";
-  const showEntry = status === "authenticated";
-  const sessionEmail = user?.email ?? null;
-
   const [pending, setPending] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const displayName = selfHosted ? session.user?.displayName : currentUser?.fullName ?? user?.email;
 
   const handleLogout = async () => {
-    if (pending) return;
+    if (pending || status === "loading") return;
     setPending(true);
+    setLogoutError(null);
     try {
-      const { error } = await signOut();
-      if (error) {
-        setLogoutError("Не удалось выйти. Попробуйте ещё раз.");
-        return;
+      if (status === "authenticated" && accessToken) {
+        const { error } = await signOut();
+        if (error) throw error;
       }
-      setLogoutError(null);
-      setRole("doctor");
-      navigate("/login", { replace: true });
+      if (selfHosted) clearSelfHostedApiSession();
+      navigate(selfHosted ? "/self-hosted/login" : "/login", { replace: true });
+    } catch {
+      setLogoutError("Не удалось выйти. Попробуйте ещё раз.");
     } finally {
       setPending(false);
     }
@@ -53,67 +38,25 @@ export function RoleSwitcher() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-      <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-        <SelectTrigger
-          className="h-11 w-[160px] text-[12px] sm:w-[220px]"
-          aria-label={`Учебный режим. Доступ не является реальной защитой. Текущая роль: ${label}. Сменить роль/пользователя.`}
-          title={`Учебный режим. ${currentUser.fullName} · ${label}`}
-        >
-          <SelectValue>
-            <span className="block sm:hidden">{shortLabel}</span>
-            <span className="hidden sm:block">{label}</span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
-            Учебный режим. Доступ не является реальной защитой.
-          </div>
-          {ROLES.map((r) => (
-            <SelectItem key={r.id} value={r.id} className="text-[12px]">
-              <div className="flex flex-col">
-                <span>{r.label}</span>
-                <span className="text-[11px] text-muted-foreground">{r.description}</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {showEntry ? (
-        <span
-          data-testid="auth-session-chip"
-          className="hidden items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
-          title={sessionEmail ?? "Вход активен"}
-          aria-label={sessionEmail ? `Вход активен: ${sessionEmail}` : "Вход активен"}
-        >
-          <ShieldCheck className="h-3 w-3 text-success" aria-hidden />
-          <span>Вход активен</span>
-        </span>
-      ) : null}
-      {showLogout ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="min-h-11 min-w-11 px-3 text-[12px]"
-          onClick={handleLogout}
-          aria-label="Выйти из аккаунта"
-          disabled={pending}
-          aria-busy={pending || undefined}
-        >
+      <span
+        data-testid={selfHosted ? "production-session-chip" : "auth-session-chip"}
+        className="hidden max-w-[260px] items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
+        title={connected ? `${displayName ?? "Пользователь"} · ${label}` : "Нужен рабочий вход"}
+        aria-label={connected ? `Рабочий вход активен: ${displayName ?? label}` : "Рабочий вход не подключён"}
+      >
+        <ShieldCheck className={connected ? "h-3 w-3 text-success" : "h-3 w-3 text-muted-foreground"} aria-hidden />
+        <span className="truncate">{connected ? displayName ?? label : "Нет рабочего входа"}</span>
+      </span>
+      {connected && (
+        <Button type="button" variant="ghost" size="sm" className="min-h-11 min-w-11 px-3 text-[12px]"
+          onClick={() => { void handleLogout(); }}
+          aria-label={selfHosted ? "Выйти из рабочей системы" : "Выйти из аккаунта"}
+          disabled={pending || status === "loading"} aria-busy={pending || status === "loading" || undefined}>
           <LogOut className="h-3.5 w-3.5" aria-hidden />
           <span className="hidden sm:inline">{pending ? "Выход…" : "Выйти"}</span>
         </Button>
-      ) : null}
-      {logoutError ? (
-        <span
-          role="alert"
-          data-testid="logout-error"
-          className="text-[11px] text-destructive"
-        >
-          {logoutError}
-        </span>
-      ) : null}
+      )}
+      {logoutError && <span role="alert" data-testid="logout-error" className="text-[11px] text-destructive">{logoutError}</span>}
     </div>
   );
 }
