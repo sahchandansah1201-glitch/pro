@@ -150,12 +150,16 @@ export function humanDisplayValue(value: string): string {
     technical_ready: "технически готово",
     urgent: "срочно",
   };
-  if (labels[value]) return labels[value];
-  if (/[А-Яа-яЁё]/.test(value)) return value;
-  if (/^\d+(\s*(дн\.|фото))?$/.test(value)) return value;
-  if (value.includes("ready")) return "готово";
-  if (value.includes("review")) return "на разборе";
-  if (value.includes("blocked")) return "заблокировано";
-  if (value.includes("approved")) return "утверждено";
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "—") return "—";
+  if (labels[trimmed]) return labels[trimmed];
+  if (/[А-Яа-яЁё]/.test(trimmed)) return trimmed;
+  if (/^(I|II|III|IV|V|VI)$/.test(trimmed)) return trimmed;
+  if (/^\d{2}\.\d{2}\.\d{4}(?:,\s*\d{2}:\d{2})?$/.test(trimmed)) return trimmed;
+  if (/^\d+(?:%|\s*(?:дн\.|фото))?$/.test(trimmed)) return trimmed;
+  if (trimmed.includes("ready")) return "готово";
+  if (trimmed.includes("review")) return "на разборе";
+  if (trimmed.includes("blocked")) return "заблокировано";
+  if (trimmed.includes("approved")) return "утверждено";
   return "служебное значение скрыто";
 }

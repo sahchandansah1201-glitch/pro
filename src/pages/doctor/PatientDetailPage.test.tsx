@@ -98,6 +98,9 @@ describe("PatientDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Петрова Анна Live" })).toBeInTheDocument();
     expect(screen.getByText(/Данные из системы клиники/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("учебные данные для карточки отключены");
+    expect(document.body.textContent).not.toContain("doctor-1");
+    expect(screen.getByText("Врач клиники")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Что делать с карточкой пациента" }),
     ).toHaveTextContent("Открыть последний приём");

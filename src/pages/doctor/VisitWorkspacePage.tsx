@@ -340,6 +340,17 @@ export default function VisitWorkspacePage() {
     ? liveState.lesions.map((lesion) => selfHostedLesionToDomain(lesion, patient.id))
     : getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
+  const liveClinicName =
+    (liveBackend && liveState.kind === "ready" ? liveState.visit.clinic.name?.trim() : null) ||
+    selfHostedSession.user?.roleBindings?.find(
+      (item) => item.clinicId === visit.clinicId && item.clinicName?.trim(),
+    )?.clinicName?.trim() ||
+    clinic?.name ||
+    "—";
+  const doctorName =
+    selfHostedSession.user?.id === visit.doctorId && selfHostedSession.user.displayName.trim()
+      ? selfHostedSession.user.displayName.trim()
+      : staffName(visit.doctorId, "врач клиники");
 
   const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
   type TabKey = (typeof validTabs)[number];
@@ -355,8 +366,8 @@ export default function VisitWorkspacePage() {
     { label: "Пол / возраст", value: `${patient.sex ? SEX_LABEL_SHORT[patient.sex] : "пол не указан"} · ${formatAge(patient.birthDate)}` },
     { label: "Фототип", value: patient.phototype ?? "Не указан" },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
-    { label: "Клиника", value: clinic?.name ?? "—" },
-    { label: "Врач", value: staffName(visit.doctorId, "врач клиники") },
+    { label: "Клиника", value: liveClinicName },
+    { label: "Врач", value: doctorName },
   ];
 
   return (
@@ -418,7 +429,12 @@ export default function VisitWorkspacePage() {
         </div>
 
         <TabsContent value="intake" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <IntakeTab patient={patient} visit={visit} />
+          <IntakeTab
+            patient={patient}
+            visit={visit}
+            clinicName={liveClinicName}
+            doctorName={doctorName}
+          />
         </TabsContent>
 
         <TabsContent value="bodymap" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
@@ -1781,7 +1797,18 @@ function ProductionClinicalWorkspacePanel({
       : "—";
 
   if (state.kind === "loading") {
-    return <ProductionClinicalWorkspaceEmptyState kind={kind} detail="Загружаем рабочую запись из системы клиники…" />;
+    const loadingTitle = {
+      assessment: "Загружаем оценку",
+      conclusion: "Загружаем заключение",
+      report: "Загружаем отчёт",
+    }[kind];
+    return (
+      <Section title={loadingTitle}>
+        <div role="status" aria-live="polite" className="text-[13px] text-muted-foreground">
+          Читаем рабочую запись из системы клиники…
+        </div>
+      </Section>
+    );
   }
   if (state.kind === "error") {
     return <ProductionClinicalWorkspaceEmptyState kind={kind} detail={state.message} />;
@@ -4400,8 +4427,23 @@ function ProductionClinicalWorkspaceEmptyState({
 
 // ───────── Intake ─────────
 
-function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
+function IntakeTab({
+  patient,
+  visit,
+  clinicName,
+  doctorName,
+}: {
+  patient: Patient;
+  visit: Visit;
+  clinicName?: string;
+  doctorName?: string;
+}) {
   const clinic = getClinicById(visit.clinicId);
+  const clinicLabel = clinic
+    ? `${clinic.name} · ${clinic.address}`
+    : clinicName && clinicName !== "—"
+      ? clinicName
+      : "—";
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
       <Section title="Жалоба и параметры визита" className="lg:col-span-7">
@@ -4410,9 +4452,9 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
           <Field term="Статус" value={VISIT_STATUS[visit.status]} />
           <Field term="Начат" value={formatDateTime(visit.startedAt)} />
           <Field term="Закрыт" value={visit.closedAt ? formatDateTime(visit.closedAt) : "—"} />
-          <Field term="Врач" value={staffName(visit.doctorId, "врач клиники")} />
+          <Field term="Врач" value={doctorName ?? staffName(visit.doctorId, "врач клиники")} />
           <Field term="Ассистент" value={staffName(visit.assistantId, "ассистент клиники")} />
-          <Field term="Клиника" value={clinic ? `${clinic.name} · ${clinic.address}` : "—"} />
+          <Field term="Клиника" value={clinicLabel} />
         </dl>
       </Section>
 

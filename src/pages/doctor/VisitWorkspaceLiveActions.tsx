@@ -1,7 +1,7 @@
 // Stage 4H · Live write controls for self-hosted visit workspace.
 // Hidden in demo mode. Keeps the existing demo tabs untouched.
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -607,11 +607,27 @@ function versionLabel(value: string | null | undefined): string {
   return value ? "версия задана" : "не задано";
 }
 
+const LIVE_ACTIONS_DISCONNECTED_STATUS = "Рабочая запись доступна после входа в систему клиники.";
+const LIVE_ACTIONS_CONNECTED_STATUS = "Подключено к системе клиники. Выберите действие ниже.";
+
 export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLiveActionsProps) {
   const session = useSelfHostedApiSession();
   const configured = isSelfHostedApiConfigured(session);
   const [busy, setBusy] = useState<BusyAction>(null);
-  const [status, setStatus] = useState("Рабочая запись доступна после входа в систему клиники.");
+  const [status, setStatus] = useState(() =>
+    configured ? LIVE_ACTIONS_CONNECTED_STATUS : LIVE_ACTIONS_DISCONNECTED_STATUS,
+  );
+  useEffect(() => {
+    setStatus((current) => {
+      if (
+        current === LIVE_ACTIONS_CONNECTED_STATUS ||
+        current === LIVE_ACTIONS_DISCONNECTED_STATUS
+      ) {
+        return configured ? LIVE_ACTIONS_CONNECTED_STATUS : LIVE_ACTIONS_DISCONNECTED_STATUS;
+      }
+      return current;
+    });
+  }, [configured]);
   const [complaint, setComplaint] = useState(visit.complaint || "");
   const [visitStatus, setVisitStatus] = useState<"draft" | "in_progress" | "signed" | "cancelled">("in_progress");
   const [newLesionLabel, setNewLesionLabel] = useState("Новый очаг");
@@ -1432,7 +1448,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             className="min-h-11 text-[13px]"
             placeholder="спина, плечо, голень"
           />
-          <Button type="submit" size="sm" disabled={busy === "create-lesion"} className="min-h-11 text-[12px]">
+          <Button type="submit" size="sm" variant="secondary" disabled={busy === "create-lesion"} className="min-h-11 text-[12px]">
             {busy === "create-lesion" ? "Создаём…" : "Создать очаг"}
           </Button>
         </form>
@@ -1469,7 +1485,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             className="min-h-11 text-[13px]"
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" size="sm" disabled={!selectedLesionId || busy === "update-lesion"} className="min-h-11 text-[12px]">
+            <Button type="submit" size="sm" variant="secondary" disabled={!selectedLesionId || busy === "update-lesion"} className="min-h-11 text-[12px]">
               {busy === "update-lesion" ? "Сохраняем…" : "Обновить очаг"}
             </Button>
             <Button
@@ -1505,7 +1521,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             onChange={(event) => setPatientText(event.target.value)}
             className="min-h-16 text-[13px]"
           />
-          <Button type="submit" size="sm" disabled={busy === "report"} className="min-h-11 text-[12px]">
+          <Button type="submit" size="sm" variant="secondary" disabled={busy === "report"} className="min-h-11 text-[12px]">
             {busy === "report" ? "Сохраняем…" : "Сохранить отчёт"}
           </Button>
         </form>
@@ -1549,7 +1565,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             onChange={(event) => setFollowUpInternalNote(event.target.value)}
             className="min-h-14 text-[13px]"
           />
-          <Button type="submit" size="sm" disabled={busy === "follow-up"} className="min-h-11 text-[12px]">
+          <Button type="submit" size="sm" variant="secondary" disabled={busy === "follow-up"} className="min-h-11 text-[12px]">
             {busy === "follow-up" ? "Создаём…" : "Создать контроль"}
           </Button>
         </form>

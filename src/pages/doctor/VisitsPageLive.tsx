@@ -187,9 +187,11 @@ export default function VisitsPageLive() {
         title="Визиты"
         subtitle={`В расписании: ${schedule.count}`}
         actions={
-          <Button asChild size="sm" variant={configured ? "outline" : "default"} className="min-h-11 sm:min-h-9">
-            <Link to="/self-hosted/login">{configured ? "Рабочий вход" : "Войти"}</Link>
-          </Button>
+          !configured ? (
+            <Button asChild size="sm" variant="default" className="min-h-11 sm:min-h-9">
+              <Link to="/self-hosted/login">Войти</Link>
+            </Button>
+          ) : undefined
         }
       />
       <div className="space-y-4 px-6 py-6">
@@ -200,7 +202,13 @@ export default function VisitsPageLive() {
         >
           <div className="flex min-w-0 items-center gap-2">
             <ServerCog className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span className="truncate">Данные загружаются из системы клиники.</span>
+            <span className="truncate">
+              {status === "loading"
+                ? "Данные загружаются из системы клиники…"
+                : status === "error"
+                  ? errorText(error)
+                  : "Данные из системы клиники."}
+            </span>
           </div>
           <Button
             type="button"

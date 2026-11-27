@@ -25,6 +25,7 @@ import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
+  type SelfHostedApiSessionUser,
 } from "@/lib/self-hosted-api-session";
 import {
   getSelfHostedPatient,
@@ -50,9 +51,27 @@ const LESION_STATUS: Record<Lesion["status"], string> = {
   archived: "Архив",
 };
 
-function userName(id: string | null | undefined): string {
+function doctorDisplayName(
+  id: string | null | undefined,
+  sessionUser: SelfHostedApiSessionUser | null,
+): string {
   if (!id) return "—";
-  return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? id;
+  if (sessionUser?.id === id && sessionUser.displayName.trim()) {
+    return sessionUser.displayName.trim();
+  }
+  return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? "Врач клиники";
+}
+
+function clinicDisplayName(
+  clinicId: string | null | undefined,
+  sessionUser: SelfHostedApiSessionUser | null,
+): string {
+  if (!clinicId) return "—";
+  const binding = sessionUser?.roleBindings?.find(
+    (item) => item.clinicId === clinicId && item.clinicName?.trim(),
+  );
+  if (binding?.clinicName) return binding.clinicName.trim();
+  return getClinicById(clinicId)?.name ?? "—";
 }
 
 type LivePatientDetailState =
@@ -190,7 +209,7 @@ export default function PatientDetailPage() {
           className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
         >
           <span className="font-medium text-foreground">Данные из системы клиники</span>
-          {" · "}учебные данные для карточки отключены.
+          {productionMode ? "." : " · учебные данные для карточки отключены."}
         </div>
       ) : null}
 
@@ -281,8 +300,8 @@ export default function PatientDetailPage() {
               ) : (
                 <>
                   <Field term="Дата" value={formatDateTime(lastVisit.startedAt)} />
-                  <Field term="Клиника" value={getClinicById(lastVisit.clinicId)?.name ?? "—"} />
-                  <Field term="Врач" value={userName(lastVisit.doctorId)} />
+                  <Field term="Клиника" value={clinicDisplayName(lastVisit.clinicId, selfHostedSession.user)} />
+                  <Field term="Врач" value={doctorDisplayName(lastVisit.doctorId, selfHostedSession.user)} />
                   <Field term="Статус" value={VISIT_STATUS[lastVisit.status]} />
                   <Field term="Жалоба" value={lastVisit.complaint} />
                   <div className="pt-3">
@@ -349,8 +368,8 @@ export default function PatientDetailPage() {
                           <td className="text-[12px] text-muted-foreground tabular-nums">{formatDateTime(v.startedAt)}</td>
                           <td>{VISIT_STATUS[v.status]}</td>
                           <td className="max-w-[420px] truncate">{v.complaint}</td>
-                          <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
-                          <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
+                          <td className="text-[12px] text-muted-foreground">{clinicDisplayName(v.clinicId, selfHostedSession.user)}</td>
+                          <td className="text-[12px] text-muted-foreground">{doctorDisplayName(v.doctorId, selfHostedSession.user)}</td>
                           <td>
                             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary">
                               Открыть

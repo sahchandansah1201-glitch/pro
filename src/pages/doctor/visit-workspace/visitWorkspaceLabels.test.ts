@@ -44,9 +44,24 @@ describe("visit workspace labels", () => {
   });
 
   it("keeps safe Russian values readable instead of replacing them with a service placeholder", () => {
-    for (const value of ["есть", "нет", "готов", "не готов", "подтверждён", "нужна проверка", "3 дн."]) {
+    for (const value of [
+      "есть",
+      "нет",
+      "готов",
+      "не готов",
+      "подтверждён",
+      "нужна проверка",
+      "3 дн.",
+      "—",
+      "II",
+      "IV",
+      "31.07.2026, 19:04",
+      "31.07.2026",
+    ]) {
       expect(humanDisplayValue(value)).toBe(value);
     }
+    expect(humanDisplayValue("82710931-a804-4e6e-8c62-4b40d4256a60")).toBe("служебное значение скрыто");
+    expect(humanDisplayValue("internal_token_value")).toBe("служебное значение скрыто");
   });
 
   it("keeps visible VisitWorkspace field terms native Russian", () => {

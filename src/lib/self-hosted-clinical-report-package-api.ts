@@ -468,10 +468,10 @@ export function clinicalReportMissingLabel(key: string): string {
   const labels: Record<string, string> = {
     assessment_missing: "нет структурированной оценки",
     assessment_not_ready: "оценка не готова",
-    assessment_summary_missing: "нет summary оценки",
+    assessment_summary_missing: "не заполнена краткая оценка",
     conclusion_missing: "нет заключения",
     conclusion_not_ready: "заключение не готово",
-    conclusion_summary_missing: "нет summary заключения",
+    conclusion_summary_missing: "не заполнено краткое заключение",
     report_missing: "нет отчёта",
     report_not_signed: "отчёт не подписан",
     patient_safe_text_missing: "нет проверенного текста для пациента",

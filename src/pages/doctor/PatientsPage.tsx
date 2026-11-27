@@ -12,7 +12,6 @@ import {
   Download,
   Eye,
   History,
-  LogOut,
   Pencil,
   RotateCcw,
   Search,
@@ -74,7 +73,6 @@ import {
   type SelfHostedApiError,
 } from "@/lib/self-hosted-patient-api";
 import {
-  clearSelfHostedApiSession,
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
@@ -730,25 +728,7 @@ export default function PatientsPage() {
               <UserPlus className="h-3.5 w-3.5" aria-hidden />
               Новый пациент
             </Button>
-            {liveBackend ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="min-h-11 gap-1.5 text-[12px] sm:min-h-9"
-                aria-label="Выйти из системы клиники"
-                onClick={() => {
-                  clearSelfHostedApiSession();
-                  setStatusMessage(
-                    "Рабочий вход завершён. Открыт учебный режим.",
-                  );
-                  navigate("/self-hosted/login");
-                }}
-              >
-                <LogOut className="h-3.5 w-3.5" aria-hidden />
-                Выйти
-              </Button>
-            ) : !productionMode ? (
+            {!liveBackend && !productionMode ? (
               <Button
                 asChild
                 type="button"
@@ -900,7 +880,11 @@ export default function PatientsPage() {
       )}
 
       {/* Тулбар фильтров */}
-      <div className="border-b border-border bg-surface px-6 py-2.5">
+      <Collapsible
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        className="border-b border-border bg-surface px-6 py-2.5"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -986,24 +970,22 @@ export default function PatientsPage() {
             }))}
           />
 
-          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
-                aria-label="Расширенный поиск пациентов"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-                Расширенный поиск
-                <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
-                  aria-hidden
-                />
-              </Button>
-            </CollapsibleTrigger>
-          </Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11 gap-1.5 text-[12px] sm:min-h-8"
+              aria-label="Расширенный поиск пациентов"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+              Расширенный поиск
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              />
+            </Button>
+          </CollapsibleTrigger>
 
           <span className="ml-auto text-meta">
             Найдено:{" "}
@@ -1011,48 +993,70 @@ export default function PatientsPage() {
           </span>
         </div>
 
-        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <CollapsibleContent>
-            <div
-              className="mt-2 grid gap-2 rounded-md border border-border bg-surface-muted p-3 sm:grid-cols-4"
-              aria-label="Поля расширенного поиска"
-            >
+        <CollapsibleContent>
+          <div
+            className="mt-2 grid gap-2 rounded-md border border-border bg-surface-muted p-3 sm:grid-cols-4"
+            aria-label="Поля расширенного поиска"
+          >
+            <div className="grid gap-1">
+              <Label htmlFor="patients-adv-code" className="text-[11px] text-muted-foreground">
+                Номер карты
+              </Label>
               <Input
+                id="patients-adv-code"
                 value={advancedSearch.code}
                 onChange={(e) => updateAdvancedSearch("code", e.target.value)}
-                placeholder="Номер карты"
+                placeholder="Например, 0001"
                 className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Расширенный поиск по номеру карты"
               />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="patients-adv-name" className="text-[11px] text-muted-foreground">
+                ФИО
+              </Label>
               <Input
+                id="patients-adv-name"
                 value={advancedSearch.name}
                 onChange={(e) => updateAdvancedSearch("name", e.target.value)}
-                placeholder="ФИО"
+                placeholder="Фамилия или имя"
                 className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Расширенный поиск по ФИО"
               />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="patients-adv-age-from" className="text-[11px] text-muted-foreground">
+                Возраст от
+              </Label>
               <Input
+                id="patients-adv-age-from"
                 value={advancedSearch.ageFrom}
                 onChange={(e) =>
                   updateAdvancedSearch("ageFrom", e.target.value)
                 }
-                placeholder="Возраст от"
+                placeholder="от"
                 inputMode="numeric"
                 className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Возраст пациента от"
               />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="patients-adv-age-to" className="text-[11px] text-muted-foreground">
+                Возраст до
+              </Label>
               <Input
+                id="patients-adv-age-to"
                 value={advancedSearch.ageTo}
                 onChange={(e) => updateAdvancedSearch("ageTo", e.target.value)}
-                placeholder="Возраст до"
+                placeholder="до"
                 inputMode="numeric"
                 className="min-h-11 text-[13px] sm:min-h-8"
                 aria-label="Возраст пациента до"
               />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {changeLog.length > 0 && (
         <section
@@ -1461,6 +1465,7 @@ export default function PatientsPage() {
                 draft={createDraft}
                 setDraft={setCreateDraft}
                 clearError={() => setCreateError(null)}
+                liveBackend={liveBackend}
               />
 
               {createError && (
@@ -1705,7 +1710,7 @@ function FilterSelect({
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
-        className="min-h-11 min-w-[160px] text-[12px] sm:min-h-8"
+        className="min-h-11 w-full min-w-[150px] text-[12px] sm:min-h-8 sm:w-auto"
         aria-label={label}
       >
         <SelectValue />
