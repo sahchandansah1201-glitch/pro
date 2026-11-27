@@ -831,14 +831,6 @@ export default function PatientsPage() {
                 Сбросить фильтры
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11 text-[12px]"
-              onClick={handleCreateOpen}
-            >
-              Создать пациента
-            </Button>
           </div>
         </div>
       </section>

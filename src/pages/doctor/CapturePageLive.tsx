@@ -284,7 +284,7 @@ export default function CapturePageLive() {
         }
       />
 
-      <main className="space-y-4 p-4" aria-label="Рабочая область съёмки">
+      <div className="space-y-4 p-4" role="region" aria-label="Рабочая область съёмки">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-muted-foreground">
           Источник данных: система клиники. Контроль качества — техническая проверка снимка, не диагноз.
         </div>
@@ -382,11 +382,11 @@ export default function CapturePageLive() {
                 </Select>
               </label>
 
-              <label className="space-y-1 text-[13px] font-medium text-foreground">
+              <label className="space-y-1 text-[13px] font-medium text-foreground lg:col-span-2">
                 <span>Файл снимка</span>
                 <Input
                   aria-label="Файл снимка"
-                  className="min-h-11"
+                  className="min-h-11 w-full cursor-pointer file:mr-3 file:rounded-sm file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-[12px] file:font-medium"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                   onChange={(event) => setFile(event.currentTarget.files?.[0] ?? null)}
@@ -479,7 +479,7 @@ export default function CapturePageLive() {
             </div>
           )}
         </section>
-      </main>
+      </div>
     </div>
   );
 }

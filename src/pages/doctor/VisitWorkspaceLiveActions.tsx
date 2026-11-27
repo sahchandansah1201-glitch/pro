@@ -121,6 +121,7 @@ import {
 interface VisitWorkspaceLiveActionsProps {
   visit: Visit;
   lesions: Lesion[];
+  assistantOnly?: boolean;
 }
 
 type BusyAction =
@@ -610,7 +611,7 @@ function versionLabel(value: string | null | undefined): string {
 const LIVE_ACTIONS_DISCONNECTED_STATUS = "Рабочая запись доступна после входа в систему клиники.";
 const LIVE_ACTIONS_CONNECTED_STATUS = "Подключено к системе клиники. Выберите действие ниже.";
 
-export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLiveActionsProps) {
+export function VisitWorkspaceLiveActions({ visit, lesions, assistantOnly = false }: VisitWorkspaceLiveActionsProps) {
   const session = useSelfHostedApiSession();
   const configured = isSelfHostedApiConfigured(session);
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -1396,7 +1397,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </div>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-5">
+      <div className={`grid gap-3 ${assistantOnly ? "xl:grid-cols-3" : "xl:grid-cols-5"}`}>
         <form onSubmit={submitVisit} className="surface-toolbar space-y-2 p-3">
           <h3 className="h-section text-[14px]">Визит</h3>
           <label className="block text-[12px] font-medium" htmlFor="stage4h-visit-status">
@@ -1410,7 +1411,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           >
             <option value="draft">Черновик</option>
             <option value="in_progress">В работе</option>
-            <option value="signed">Подписан</option>
+            {!assistantOnly && <option value="signed">Подписан</option>}
             <option value="cancelled">Отменён</option>
           </select>
           <label className="block text-[12px] font-medium" htmlFor="stage4h-complaint">
@@ -1501,6 +1502,8 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </div>
         </form>
 
+        {!assistantOnly && (
+        <>
         <form onSubmit={submitReport} className="surface-toolbar space-y-2 p-3">
           <h3 className="h-section text-[14px]">Отчёт</h3>
           <label className="block text-[12px] font-medium" htmlFor="stage4h-physician-text">
@@ -1569,8 +1572,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             {busy === "follow-up" ? "Создаём…" : "Создать контроль"}
           </Button>
         </form>
+        </>
+        )}
       </div>
 
+      {!assistantOnly && (
       <details
         role="region"
         aria-label="Операционный контроль"
@@ -3271,6 +3277,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </div>
         </div>
       </details>
+      )}
     </section>
   );
 }

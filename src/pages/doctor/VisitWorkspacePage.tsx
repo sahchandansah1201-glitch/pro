@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
@@ -20,6 +20,7 @@ import { consentLabel, formatAge, formatDate, formatDateTime } from "@/lib/forma
 import { formatCardNumber } from "@/lib/card-number";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
+import { RoleContext } from "@/context/role-context";
 import { useApiSession } from "@/lib/api-session";
 import { VisitWorkspaceLiveActions } from "@/pages/doctor/VisitWorkspaceLiveActions";
 import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanner";
@@ -212,8 +213,15 @@ function resolvePoint(l: Lesion): BodyMapPoint {
 export default function VisitWorkspacePage() {
   const { id, visitId } = useParams<{ id: string; visitId: string }>();
   const productionMode = isProductionAppMode();
+  const roleCtx = useContext(RoleContext);
+  const role = roleCtx?.role ?? null;
   const selfHostedSession = useSelfHostedApiSession();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
+  const sessionRoles = selfHostedSession.user?.roles ?? [];
+  const isAssistantOnly = productionMode
+    ? sessionRoles.includes("assistant") &&
+      !sessionRoles.some((r) => r === "doctor" || r === "private_doctor" || r === "clinic_admin")
+    : role === "assistant";
   const [liveState, setLiveState] = useState<LiveWorkspaceState>({ kind: "idle" });
   const apiSession = useApiSession();
 
@@ -421,11 +429,17 @@ export default function VisitWorkspacePage() {
             <TabsTrigger value="intake" className="min-h-11 text-[13px] sm:text-[12px]">Первичный приём</TabsTrigger>
             <TabsTrigger value="bodymap" className="min-h-11 text-[13px] sm:text-[12px]">Карта тела</TabsTrigger>
             <TabsTrigger value="imaging" className="min-h-11 text-[13px] sm:text-[12px]">Снимки</TabsTrigger>
-            <TabsTrigger value="assessment" className="min-h-11 text-[13px] sm:text-[12px]">Оценка</TabsTrigger>
-            <TabsTrigger value="conclusion" className="min-h-11 text-[13px] sm:text-[12px]">Заключение</TabsTrigger>
-            <TabsTrigger value="report" className="min-h-11 text-[13px] sm:text-[12px]">Отчёт</TabsTrigger>
+            {!isAssistantOnly && (
+              <>
+                <TabsTrigger value="assessment" className="min-h-11 text-[13px] sm:text-[12px]">Оценка</TabsTrigger>
+                <TabsTrigger value="conclusion" className="min-h-11 text-[13px] sm:text-[12px]">Заключение</TabsTrigger>
+                <TabsTrigger value="report" className="min-h-11 text-[13px] sm:text-[12px]">Отчёт</TabsTrigger>
+              </>
+            )}
           </TabsList>
-          <p className="mx-1 mb-2 mt-1 rounded-sm bg-surface-muted px-3 py-2 text-right text-[12px] font-medium text-foreground sm:hidden">Ещё разделы справа → «Заключение» и «Отчёт»</p>
+          {!isAssistantOnly && (
+            <p className="mx-1 mb-2 mt-1 rounded-sm bg-surface-muted px-3 py-2 text-right text-[12px] font-medium text-foreground sm:hidden">Ещё разделы справа → «Заключение» и «Отчёт»</p>
+          )}
         </div>
 
         <TabsContent value="intake" className="m-0 min-h-0 flex-1 overflow-auto p-4">
@@ -465,7 +479,9 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {isAssistantOnly ? (
+            <AssistantDoctorOnlyNotice onOpenImaging={() => updateNav("imaging", lesionParam)} />
+          ) : productionMode ? (
             <ProductionClinicalWorkspacePanel
               kind="assessment"
               visitId={visit.id}
@@ -485,7 +501,9 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {isAssistantOnly ? (
+            <AssistantDoctorOnlyNotice onOpenImaging={() => updateNav("imaging", lesionParam)} />
+          ) : productionMode ? (
             <ProductionClinicalWorkspacePanel
               kind="conclusion"
               visitId={visit.id}
@@ -498,7 +516,9 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          {productionMode ? (
+          {isAssistantOnly ? (
+            <AssistantDoctorOnlyNotice onOpenImaging={() => updateNav("imaging", lesionParam)} />
+          ) : productionMode ? (
             <ProductionClinicalWorkspacePanel
               kind="report"
               visitId={visit.id}
@@ -511,7 +531,7 @@ export default function VisitWorkspacePage() {
         </TabsContent>
       </Tabs>
 
-      <VisitWorkspaceLiveActions visit={visit} lesions={lesions} />
+      <VisitWorkspaceLiveActions visit={visit} lesions={lesions} assistantOnly={isAssistantOnly} />
     </div>
   );
 }
@@ -4387,6 +4407,22 @@ function PhotoProtocolPolicyGovernancePanel({
         </span>
       </div>
     </section>
+  );
+}
+
+function AssistantDoctorOnlyNotice({ onOpenImaging }: { onOpenImaging: () => void }) {
+  return (
+    <Section title="Раздел доступен только врачу">
+      <div role="note" className="space-y-3 text-[13px] text-muted-foreground">
+        <p>
+          Клиническую оценку, заключение и отчёт оформляет врач. Для роли «Ассистент» доступны первичный приём,
+          карта тела и снимки визита.
+        </p>
+        <Button type="button" size="sm" variant="secondary" className="min-h-11" onClick={onOpenImaging}>
+          Перейти к снимкам
+        </Button>
+      </div>
+    </Section>
   );
 }
 

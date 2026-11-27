@@ -107,7 +107,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       label: "Съёмка",
       items: [
-        { title: "Захват фото", url: "/capture", icon: Camera },
+        { title: "Съёмка", url: "/capture", icon: Camera },
         { title: "Карта тела", url: "/patients/p-004/visits/v-005?tab=bodymap", icon: ScanSearch },
         { title: "Пациенты", url: "/patients", icon: Users },
       ],
