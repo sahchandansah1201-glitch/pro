@@ -298,16 +298,16 @@ describe("SysSelfHostedOpsPage", () => {
       "Связь с базой данных",
     );
     expect(screen.getByRole("region", { name: "Планы операций" })).toHaveTextContent(
-      "Служебная команда скрыта с экрана",
+      "План резервной копии",
     );
     expect(screen.getByRole("region", { name: "Договор наблюдаемости" })).toHaveTextContent(
       "Структурированные журналы",
     );
     expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
-      "Служебная команда скрыта",
-    );
-    expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
       "Управляемая среда",
+    );
+    expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).not.toHaveTextContent(
+      "Служебная команда скрыта",
     );
     expect(screen.getByLabelText("Предпросмотр экспорта аудита")).toHaveTextContent(
       "команда скрыта",

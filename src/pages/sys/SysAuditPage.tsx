@@ -11,6 +11,7 @@ import { DEMO_USERS } from "@/lib/users";
 import { ROLE_BY_ID } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
 import { isProductionAppMode } from "@/lib/app-mode";
+import { SysJournalTabs } from "./SysJournalTabs";
 import {
   adminApiErrorText,
   listAdminAuditEvents,
@@ -360,7 +361,8 @@ function SysAuditPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Аудит" subtitle="Рабочий журнал действий и проверка целостности." />
+      <PageHeader title="Журнал и доступ" subtitle="Системный аудит, доступ к картам и проверка целостности." />
+      <SysJournalTabs active="audit" />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div

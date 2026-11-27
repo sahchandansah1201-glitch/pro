@@ -19,7 +19,6 @@ import {
   ClipboardList,
   ScanSearch,
   MessagesSquare,
-  MonitorCheck,
   ServerCog,
   X,
 } from "lucide-react";
@@ -148,9 +147,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Услуги", url: "/admin/services", icon: FileText },
         { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
         { title: "Устройства", url: "/sys/devices", icon: Cpu },
-        { title: "Аудит", url: "/sys/audit", icon: Activity },
-        { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },
-        { title: "Готовность публикации", url: "/sys/release-status", icon: MonitorCheck },
+        { title: "Журнал и доступ", url: "/sys/audit", icon: Activity },
         { title: "Рабочий контур", url: "/sys/self-hosted-ops", icon: ServerCog },
         { title: "Служебные ключи", url: "/sys/api-keys", icon: KeyRound },
       ],
@@ -239,9 +236,10 @@ export function AppSidebar() {
   // Keep the user's current location unambiguous: on deep links like
   // /admin/governance or Body Map, highlight only the most specific sidebar item,
   // not both the parent section and the child screen.
+  const effectivePathname = pathname === "/sys/access-events" ? "/sys/audit" : pathname;
   const activeUrl = groups
     .flatMap((group) => group.items)
-    .filter((item) => matchesPath(pathname, item.url))
+    .filter((item) => matchesPath(effectivePathname, item.url))
     .sort((a, b) => pathOnly(b.url).length - pathOnly(a.url).length)[0]?.url;
 
   return (

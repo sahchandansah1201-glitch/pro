@@ -3,6 +3,7 @@ import {
   ClipboardCheck,
   Database,
   Download,
+  ExternalLink,
   FileText,
   ListChecks,
   Lock,
@@ -288,15 +289,37 @@ export default function SysSelfHostedOpsPage() {
         <div
           role="note"
           aria-label="Граница рабочего контура"
-          className="surface-toolbar flex items-start gap-2 p-3 text-[12px] text-muted-foreground"
+          className="surface-toolbar flex flex-col gap-2 p-3 text-[12px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
         >
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-          <div>
-            <div className="font-medium text-foreground">Граница рабочего контура</div>
-            <p>
-              Страница читает только служебные проверки продукта. Внешние управляемые среды,
-              облачные базы и сторонние функции здесь не используются.
-            </p>
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <div>
+              <div className="font-medium text-foreground">Граница рабочего контура</div>
+              <p>
+                Страница читает только служебные проверки продукта. Внешние управляемые среды,
+                облачные базы и сторонние функции здесь не используются.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+            <a
+              href="/healthz"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-[12px] font-medium text-foreground hover:bg-muted sm:min-h-9"
+            >
+              Доступность сервера
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
+            <a
+              href="/readyz"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-[12px] font-medium text-foreground hover:bg-muted sm:min-h-9"
+            >
+              База и зависимости
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
           </div>
         </div>
 
@@ -457,9 +480,6 @@ export default function SysSelfHostedOpsPage() {
                     <Badge variant={gate.required ? "default" : "secondary"}>
                       {gate.required ? "обязательно" : "дополнительно"}
                     </Badge>
-                  </div>
-                  <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                    Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
                   </div>
                 </div>
               ))}
@@ -671,9 +691,6 @@ export default function SysSelfHostedOpsPage() {
                     </div>
                     <Badge variant="secondary">план</Badge>
                   </div>
-                  <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                    Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
-                  </div>
                   <p className="mt-2 text-meta">{systemTermLabel(command.description)}</p>
                 </div>
               ))}
@@ -706,12 +723,9 @@ export default function SysSelfHostedOpsPage() {
           </div>
           <div className="grid gap-3 p-4 lg:grid-cols-[0.75fr_1.25fr]">
             <div className="space-y-2 text-[13px]">
-              <div className="font-medium text-foreground">Локальный запуск</div>
-              <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-                Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
-              </div>
+              <div className="font-medium text-foreground">Выгрузка отчёта</div>
               <p className="text-meta">
-                Последнее обновление: {formatDateTime(opsStatus?.generatedAt ?? "")}
+                Подробности запуска приведены в скачиваемом плане работ. Последнее обновление: {formatDateTime(opsStatus?.generatedAt ?? "")}
               </p>
             </div>
             <pre

@@ -611,10 +611,35 @@ export default function SysDevicesPage() {
         )}
 
         {isLive && (
-          <section
-            className="space-y-2"
-            aria-label="Наблюдение службы моста устройств"
-          >
+          <>
+            <section
+              className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              aria-label="Сводка устройств и мостов"
+            >
+              <WorkerMetric label="Мосты" value={bridges.length} />
+              <WorkerMetric label="Устройства" value={devices.length} />
+              <WorkerMetric
+                label="Команд с ошибкой"
+                value={workerStatus?.summary.failedCommands ?? 0}
+              />
+              <WorkerMetric
+                label="Готовность, %"
+                value={lifecycleAssurance ? `${lifecycleAssurance.assurance.completionPercent}%` : "—"}
+              />
+            </section>
+
+            <details className="rounded-md border border-border bg-surface p-3">
+              <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-[13px] font-semibold">
+                <span>Показать расширенную диагностику моста (8 разделов)</span>
+                <span className="text-[12px] font-normal text-muted-foreground">
+                  Событий аудита: {workerAudit?.summary.totalEvents ?? 0}
+                </span>
+              </summary>
+              <div className="mt-3 space-y-4 border-t border-border pt-3">
+                <section
+                  className="space-y-2"
+                  aria-label="Наблюдение службы моста устройств"
+                >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <RadioTower className="h-3.5 w-3.5" aria-hidden />
@@ -717,9 +742,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Устойчивость службы моста устройств"
@@ -804,9 +827,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Восстановление команд моста устройств"
@@ -905,9 +926,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Аудит и повтор команд моста устройств"
@@ -1008,9 +1027,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Готовность моста устройств"
@@ -1075,9 +1092,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Непрерывность операций моста устройств"
@@ -1167,9 +1182,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Надёжность парка мостов устройств"
@@ -1259,9 +1272,7 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
-        )}
 
-        {isLive && (
           <section
             className="space-y-2"
             aria-label="Контроль жизненного цикла моста устройств"
@@ -1353,6 +1364,9 @@ export default function SysDevicesPage() {
               )}
             </Card>
           </section>
+              </div>
+            </details>
+          </>
         )}
 
         {/* Bridges */}

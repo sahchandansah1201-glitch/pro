@@ -29,6 +29,7 @@ import {
   type XlsxCellValue,
 } from "@/lib/admin-access-events";
 import { isProductionAppMode } from "@/lib/app-mode";
+import { SysJournalTabs } from "./SysJournalTabs";
 import { blobFromParts } from "@/lib/blob-utils";
 import { formatCardNumber } from "@/lib/card-number";
 import { formatDateTime } from "@/lib/format";
@@ -1330,8 +1331,8 @@ export default function SysAccessEventsPage() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="События доступа"
-        subtitle="Действия пользователей и безопасный контекст доступа."
+        title="Журнал и доступ"
+        subtitle="Действия пользователей с картами и безопасный контекст доступа."
         actions={
           <Button
             type="button"
@@ -1352,6 +1353,7 @@ export default function SysAccessEventsPage() {
           </Button>
         }
       />
+      <SysJournalTabs active="access" />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div

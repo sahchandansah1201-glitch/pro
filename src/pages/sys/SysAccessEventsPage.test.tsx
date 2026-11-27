@@ -106,7 +106,7 @@ describe("SysAccessEventsPage", () => {
   it("renders system-admin access events without raw emails or patient names", () => {
     const { container } = renderPage();
 
-    expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Журнал и доступ" })).toBeInTheDocument();
     expect(screen.getByText(/проверкой роли в рабочей системе/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeEnabled();
     expect(screen.getAllByText("Отчёт открыт по ссылке").length).toBeGreaterThan(0);
@@ -185,7 +185,7 @@ describe("SysAccessEventsPage", () => {
 
     renderPage("doctor");
 
-    expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Журнал и доступ" })).toBeInTheDocument();
     await waitFor(() => expect(adminApiMock.listAdminAuditEvents).toHaveBeenCalledTimes(1));
     expect((await screen.findAllByText("Сотрудник создан")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("сотрудник").length).toBeGreaterThan(0);
