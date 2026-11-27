@@ -36,6 +36,7 @@ import {
   selfHostedPatientDetailToDomain,
   selfHostedVisitToDomain,
 } from "@/lib/self-hosted-clinical-adapter";
+import { PatientPortalAccessCard } from "@/pages/doctor/PatientPortalAccessCard";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -256,6 +257,7 @@ export default function PatientDetailPage() {
         {/* Обзор */}
         <TabsContent value="overview" className="m-0 px-6 py-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <PatientPortalAccessCard patientId={patient.id} />
             <Section title="Данные пациента" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
               <Field term="Номер карты" value={formatCardNumber(patient.code)} />

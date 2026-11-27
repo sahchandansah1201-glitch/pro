@@ -24,6 +24,7 @@ import { RoleContext } from "@/context/role-context";
 import { useApiSession } from "@/lib/api-session";
 import { VisitWorkspaceLiveActions } from "@/pages/doctor/VisitWorkspaceLiveActions";
 import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanner";
+import { VisitPrevisitCaseCard } from "@/pages/doctor/VisitPrevisitCaseCard";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
@@ -443,6 +444,7 @@ export default function VisitWorkspacePage() {
         </div>
 
         <TabsContent value="intake" className="m-0 min-h-0 flex-1 overflow-auto p-4">
+          {!isAssistantOnly && liveBackend ? <VisitPrevisitCaseCard visitId={visit.id} /> : null}
           <IntakeTab
             patient={patient}
             visit={visit}

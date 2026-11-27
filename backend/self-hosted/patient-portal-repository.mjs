@@ -472,8 +472,14 @@ export function normalizePatientPortalPhotoProtocolAccessSessionEnd(input) {
 
 export function normalizePatientPortalOverview(input) {
   const source = input && typeof input === "object" ? input : {};
+  const passportRaw = safeNested(source, "skinPassport");
   return {
     patient: normalizePatient(source.patient || {}),
+    skinPassport: {
+      active: booleanValue(passportRaw.active, false),
+      activatedAt: textOrNull(passportRaw.activatedAt),
+      quotasEnforced: false,
+    },
     nextAppointment: normalizeAppointment(source.nextAppointment || null),
     reports: Array.isArray(source.reports)
       ? source.reports.map(normalizeReport).filter(Boolean)
@@ -742,6 +748,8 @@ with portal_patient as (
     p.sex,
     p.phototype,
     p.imaging_consent,
+    coalesce(pul.skin_passport_active, false) as skin_passport_active,
+    pul.skin_passport_activated_at,
     c.slug as clinic_slug,
     c.name as clinic_name
   from patient_user_links pul
@@ -840,6 +848,18 @@ select jsonb_build_object(
     )
     from portal_patient pp
   ), '{}'::jsonb),
+  'skinPassport', coalesce((
+    select jsonb_build_object(
+      'active', pp.skin_passport_active,
+      'activatedAt', pp.skin_passport_activated_at,
+      'quotasEnforced', false
+    )
+    from portal_patient pp
+  ), jsonb_build_object(
+    'active', false,
+    'activatedAt', null,
+    'quotasEnforced', false
+  )),
   'nextAppointment', (
     select jsonb_build_object(
       'id', nv.id::text,

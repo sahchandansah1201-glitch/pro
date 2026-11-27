@@ -122,6 +122,18 @@ export default function SelfHostedLoginPage() {
             checklist={bootstrapChecklist}
             onCheck={handleBootstrapCheck}
           />
+
+          <div className="mt-4 rounded-md border border-border bg-surface-muted p-4 text-[12px]">
+            <h2 className="text-[13px] font-semibold text-foreground">
+              Предварительная проверка снимка кожи без входа
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Онбординг для пациентов и первых пользователей (сайт и интерактивный диалог Telegram-бота) с передачей заявки на очный приём в клинику.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3 min-h-11 text-[12px]">
+              <Link to="/check">Открыть проверку снимка и Telegram-диалог</Link>
+            </Button>
+          </div>
         </section>
 
       <div className="w-full rounded-md border border-border bg-surface p-6">

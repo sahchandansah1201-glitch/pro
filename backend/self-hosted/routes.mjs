@@ -49,6 +49,7 @@ import {
 import { createPatientPortalRepository } from "./patient-portal-repository.mjs";
 import { createPatientPortalService } from "./patient-portal-service.mjs";
 import { createPublicAnalysisRuntime, handlePublicAnalysisRequest } from "./public-analysis-routes.mjs";
+import { createPrevisitHandoffRuntime, handlePrevisitHandoffRequest, isLargePrevisitBodyPath } from "./previsit-handoff-routes.mjs";
 import { createPatientPhotoProtocolDeliveryRepository } from "./patient-photo-protocol-delivery-repository.mjs";
 import { createPatientPhotoProtocolDeliveryService } from "./patient-photo-protocol-delivery-service.mjs";
 import { createAssetWriteRepository } from "./asset-write-repository.mjs";
@@ -100,18 +101,10 @@ import {
 import { createVisitScheduleService } from "./visit-schedule-service.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OPENAPI_4A = JSON.parse(
-  readFileSync(join(HERE, "openapi.stage4a.json"), "utf8"),
-);
-const OPENAPI_4B = JSON.parse(
-  readFileSync(join(HERE, "openapi.stage4b.json"), "utf8"),
-);
-const OPENAPI_4C = JSON.parse(
-  readFileSync(join(HERE, "openapi.stage4c.json"), "utf8"),
-);
-const OPENAPI_4D = JSON.parse(
-  readFileSync(join(HERE, "openapi.stage4d.json"), "utf8"),
-);
+const OPENAPI_4A = JSON.parse(readFileSync(join(HERE, "openapi.stage4a.json"), "utf8"));
+const OPENAPI_4B = JSON.parse(readFileSync(join(HERE, "openapi.stage4b.json"), "utf8"));
+const OPENAPI_4C = JSON.parse(readFileSync(join(HERE, "openapi.stage4c.json"), "utf8"));
+const OPENAPI_4D = JSON.parse(readFileSync(join(HERE, "openapi.stage4d.json"), "utf8"));
 const OPENAPI_4G = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4g.json"), "utf8"),
 );
@@ -546,6 +539,7 @@ function getRuntime(config, runtime = {}) {
     patientPortalRepository,
     patientPortalService,
     ...createPublicAnalysisRuntime({ dbClient, runtime }),
+    ...createPrevisitHandoffRuntime({ dbClient, objectStore, auditRepository, config, runtime }),
     patientPhotoProtocolDeliveryRepository,
     patientPhotoProtocolDeliveryService,
     patientPhotoProtocolReleaseRepository,
@@ -767,6 +761,8 @@ export async function handleSelfHostedRequest(
 
   const publicAnalysisResponse = await handlePublicAnalysisRequest({ method, url, config, requestOrigin, runtimeServices, correlationId, now, publicErrorFor });
   if (publicAnalysisResponse) return publicAnalysisResponse;
+  const previsitHandoffResponse = await handlePrevisitHandoffRequest({ method, url, request, config, requestOrigin, runtimeServices, correlationId, now, parseJsonBody, publicErrorFor });
+  if (previsitHandoffResponse) return previsitHandoffResponse;
   const adminManagementResponse = await handleAdminManagementRequest({
     method, url, request, config, requestOrigin, runtimeServices, correlationId, now, parseJsonBody, publicErrorFor,
   });
@@ -7304,7 +7300,7 @@ function readNodeRequestBody(req, maxBytes = 64_000) {
 function requestBodyLimitFor(req) {
   const method = String(req.method || "").toUpperCase();
   const url = String(req.url || "");
-  if (method === "POST" && /^\/api\/v1\/visits\/[^/]+\/assets(?:\?|$)/.test(url)) {
+  if (method === "POST" && (/^\/api\/v1\/visits\/[^/]+\/assets(?:\?|$)/.test(url) || isLargePrevisitBodyPath(url))) {
     return LARGE_JSON_BODY_LIMIT_BYTES;
   }
   return 64_000;

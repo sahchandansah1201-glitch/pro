@@ -3,6 +3,7 @@
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATUS_VALUES = new Set(["requested", "reviewing", "booked", "cancelled"]);
+const PRIORITY_VALUES = new Set(["PRIORITY_URGENT", "PLANNED_STANDARD"]);
 
 function sqlLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
@@ -56,6 +57,12 @@ function safeStatus(value) {
   return STATUS_VALUES.has(text) ? text : "all";
 }
 
+function safePriority(value) {
+  const text = String(value ?? "").trim();
+  if (!text || text === "all") return "all";
+  return PRIORITY_VALUES.has(text) ? text : "all";
+}
+
 function safeSearch(value) {
   return String(value ?? "").trim().slice(0, 160);
 }
@@ -65,11 +72,16 @@ function filterWhere(params = {}) {
   if (params.status && params.status !== "all") {
     where.push(`and br.status = ${sqlLiteral(params.status)}`);
   }
+  if (params.priority && params.priority !== "all") {
+    where.push(`and br.booking_priority = ${sqlLiteral(params.priority)}`);
+  }
   if (params.search) {
     const term = `%${params.search}%`;
     where.push(`and (
       coalesce(br.reason, '') ilike ${sqlLiteral(term)}
       or coalesce(br.clinic_note, '') ilike ${sqlLiteral(term)}
+      or coalesce(br.handoff_case_code, '') ilike ${sqlLiteral(term)}
+      or coalesce(br.contact_phone, '') ilike ${sqlLiteral(term)}
       or p.full_name ilike ${sqlLiteral(term)}
       or p.code ilike ${sqlLiteral(term)}
     )`);
@@ -80,6 +92,7 @@ function filterWhere(params = {}) {
 export function normalizeClinicBookingRequestParams(searchParams = new URLSearchParams()) {
   return {
     status: safeStatus(searchParams.get?.("status")),
+    priority: safePriority(searchParams.get?.("priority")),
     search: safeSearch(searchParams.get?.("search")),
     limit: safeLimit(searchParams.get?.("limit")),
     offset: safeOffset(searchParams.get?.("offset")),
@@ -97,6 +110,11 @@ function selectScopedRows({ clinicIds = [], allClinics = false, params = {} } = 
     br.preferred_to,
     br.reason,
     br.status,
+    br.channel,
+    br.booking_priority,
+    br.handoff_case_code,
+    br.contact_phone,
+    br.preferred_time_note,
     br.assigned_visit_id,
     br.reviewed_by_user_id,
     br.reviewed_at,
@@ -134,6 +152,11 @@ function selectJsonRow() {
         row.preferred_to as "preferredTo",
         row.reason as "reason",
         row.status as "status",
+        row.channel as "channel",
+        row.booking_priority as "bookingPriority",
+        row.handoff_case_code as "handoffCaseCode",
+        row.contact_phone as "contactPhone",
+        row.preferred_time_note as "preferredTimeNote",
         row.assigned_visit_id::text as "assignedVisitId",
         row.reviewed_by_user_id::text as "reviewedByUserId",
         row.reviewed_at as "reviewedAt",
@@ -155,12 +178,14 @@ export function buildClinicBookingRequestsSql({
   clinicIds = [],
   allClinics = false,
   status = "all",
+  priority = "all",
   search = "",
   limit = 25,
   offset = 0,
 } = {}) {
   const params = {
     status: safeStatus(status),
+    priority: safePriority(priority),
     search: safeSearch(search),
     limit: safeLimit(limit),
     offset: safeOffset(offset),
@@ -172,13 +197,19 @@ ${selectScopedRows({ clinicIds, allClinics, params })}
 ordered_requests as (
   select *
   from scoped_requests
-  order by created_at desc, id desc
+  order by
+    case when booking_priority = 'PRIORITY_URGENT' and status in ('requested', 'reviewing') then 0 else 1 end asc,
+    created_at desc,
+    id desc
   limit ${params.limit}
   offset ${params.offset}
 )
 select jsonb_build_object(
   'items', coalesce((
-    select jsonb_agg(row_to_json(item) order by item."createdAt" desc)
+    select jsonb_agg(row_to_json(item) order by
+      case when item."bookingPriority" = 'PRIORITY_URGENT' and item."status" in ('requested', 'reviewing') then 0 else 1 end asc,
+      item."createdAt" desc
+    )
     from (
 ${selectJsonRow()}
       from ordered_requests row
@@ -189,6 +220,7 @@ ${selectJsonRow()}
   'offset', ${params.offset},
   'filters', jsonb_build_object(
     'status', ${sqlLiteral(params.status)},
+    'priority', ${sqlLiteral(params.priority)},
     'search', ${params.search ? sqlLiteral(params.search) : "null"}
   )
 )::text;
@@ -242,6 +274,15 @@ with updated as (
     ${clinicScopeWhere({ alias: "br", clinicIds, allClinics })}
   returning br.*
 ),
+linked_previsit_on_update as (
+  update previsit_cases pc
+  set visit_id = coalesce(updated.assigned_visit_id, pc.visit_id),
+      updated_at = now()
+  from updated
+  where pc.booking_request_id = updated.id
+    and updated.assigned_visit_id is not null
+  returning pc.id
+),
 scoped_requests as (
   select
     br.id,
@@ -252,6 +293,11 @@ scoped_requests as (
     br.preferred_to,
     br.reason,
     br.status,
+    br.channel,
+    br.booking_priority,
+    br.handoff_case_code,
+    br.contact_phone,
+    br.preferred_time_note,
     br.assigned_visit_id,
     br.reviewed_by_user_id,
     br.reviewed_at,
@@ -351,6 +397,15 @@ updated as (
   where br.id = (select id from selected_request)
   returning br.*
 ),
+linked_previsit_on_update as (
+  update previsit_cases pc
+  set visit_id = coalesce(updated.assigned_visit_id, pc.visit_id),
+      updated_at = now()
+  from updated
+  where pc.booking_request_id = updated.id
+    and updated.assigned_visit_id is not null
+  returning pc.id
+),
 scoped_requests as (
   select
     br.id,
@@ -361,6 +416,11 @@ scoped_requests as (
     br.preferred_to,
     br.reason,
     br.status,
+    br.channel,
+    br.booking_priority,
+    br.handoff_case_code,
+    br.contact_phone,
+    br.preferred_time_note,
     br.assigned_visit_id,
     br.reviewed_by_user_id,
     br.reviewed_at,
@@ -415,6 +475,11 @@ export function normalizeClinicBookingRequest(input) {
     preferredTo: textOrNull(input.preferredTo),
     reason: textOrNull(input.reason),
     status: String(input.status ?? "requested"),
+    channel: textOrNull(input.channel),
+    bookingPriority: textOrNull(input.bookingPriority),
+    handoffCaseCode: textOrNull(input.handoffCaseCode),
+    contactPhone: textOrNull(input.contactPhone),
+    preferredTimeNote: textOrNull(input.preferredTimeNote),
     assignedVisitId: textOrNull(input.assignedVisitId),
     reviewedByUserId: textOrNull(input.reviewedByUserId),
     reviewedAt: textOrNull(input.reviewedAt),
@@ -460,6 +525,7 @@ export function normalizeClinicBookingRequests(input) {
     offset: Number.isFinite(Number(source.offset)) ? Number(source.offset) : 0,
     filters: {
       status: String(filters.status ?? "all"),
+      priority: String(filters.priority ?? "all"),
       search: filters.search == null ? null : String(filters.search),
     },
   };

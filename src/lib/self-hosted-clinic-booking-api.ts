@@ -13,6 +13,7 @@ interface BaseArgs {
 
 export interface ListSelfHostedClinicBookingRequestsArgs extends BaseArgs {
   status?: string;
+  priority?: string;
   search?: string;
   limit?: number;
   offset?: number;
@@ -48,6 +49,11 @@ export interface SelfHostedClinicBookingRequestDTO {
   preferredTo: string | null;
   reason: string | null;
   status: string;
+  channel?: string | null;
+  bookingPriority?: string | null;
+  handoffCaseCode?: string | null;
+  contactPhone?: string | null;
+  preferredTimeNote?: string | null;
   assignedVisitId: string | null;
   reviewedByUserId: string | null;
   reviewedAt: string | null;
@@ -185,6 +191,11 @@ export function toSelfHostedClinicBookingRequest(input: unknown): SelfHostedClin
     preferredTo: textOrNull(row.preferredTo),
     reason: textOrNull(row.reason),
     status: String(row.status ?? "requested"),
+    channel: textOrNull(row.channel),
+    bookingPriority: textOrNull(row.bookingPriority),
+    handoffCaseCode: textOrNull(row.handoffCaseCode),
+    contactPhone: textOrNull(row.contactPhone),
+    preferredTimeNote: textOrNull(row.preferredTimeNote),
     assignedVisitId: textOrNull(row.assignedVisitId),
     reviewedByUserId: textOrNull(row.reviewedByUserId),
     reviewedAt: textOrNull(row.reviewedAt),
@@ -245,6 +256,7 @@ export async function listSelfHostedClinicBookingRequests(
     args,
     `/api/v1/clinic/booking-requests${query({
       status: args.status,
+      priority: args.priority,
       search: args.search,
       limit: args.limit,
       offset: args.offset,

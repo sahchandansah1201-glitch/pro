@@ -270,8 +270,15 @@ export interface SelfHostedPatientPortalHistory {
   longitudinalBoundary: SelfHostedPatientPortalHistoryBoundary;
 }
 
+export interface SelfHostedPatientSkinPassport {
+  active: boolean;
+  activatedAt: string | null;
+  quotasEnforced: false;
+}
+
 export interface SelfHostedPatientPortalOverview {
   patient: SelfHostedPatientPortalPatient;
+  skinPassport?: SelfHostedPatientSkinPassport;
   nextAppointment: SelfHostedPatientPortalAppointment | null;
   reports: SelfHostedPatientPortalReport[];
   reminders: SelfHostedPatientPortalReminder[];
@@ -925,8 +932,14 @@ export function toSelfHostedPatientPortalHistory(input: unknown): SelfHostedPati
 
 export function toSelfHostedPatientPortalOverview(input: unknown): SelfHostedPatientPortalOverview {
   const source = isRecord(input) ? input : {};
+  const sp = isRecord(source.skinPassport) ? source.skinPassport : {};
   return {
     patient: toPatient(source.patient),
+    skinPassport: {
+      active: Boolean(sp.active),
+      activatedAt: textOrNull(sp.activatedAt),
+      quotasEnforced: false,
+    },
     nextAppointment: toAppointment(source.nextAppointment),
     reports: Array.isArray(source.reports)
       ? source.reports.map(toSelfHostedPatientPortalReport).filter((item) => item.id)

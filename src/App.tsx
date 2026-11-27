@@ -15,6 +15,7 @@ const LoginPage = lazy(() => import("./pages/Login"));
 const SelfHostedLoginPage = lazy(() => import("./pages/SelfHostedLoginPage"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AnalysisPublicPage = lazy(() => import("./pages/public/AnalysisPublicPage"));
+const PublicSkinCheckPage = lazy(() => import("./pages/public/PublicSkinCheckPage"));
 const DeskPage = lazy(() => import("./pages/doctor/DeskPage"));
 const CockpitPage = lazy(() => import("./pages/doctor/CockpitPage"));
 const PrivatePracticePage = lazy(() => import("./pages/doctor/PrivatePracticePage"));
@@ -78,6 +79,7 @@ const App = () => (
                 {/* Публичные/без shell-маршруты */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/self-hosted/login" element={<SelfHostedLoginPage />} />
+                <Route path="/check" element={<PublicSkinCheckPage />} />
                 <Route path="/analysis/:token" element={<AnalysisPublicPage />} />
 
                 {/* Все остальные — внутри AppShell */}

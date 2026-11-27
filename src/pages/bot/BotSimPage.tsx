@@ -8,6 +8,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { CLINICS } from "@/lib/mock-data";
+import { isProductionAppMode } from "@/lib/app-mode";
+import PublicSkinCheckPage from "@/pages/public/PublicSkinCheckPage";
 import { cn } from "@/lib/utils";
 
 /**
@@ -107,6 +109,13 @@ const STEP_LABEL: Record<Step, string> = {
 };
 
 export default function BotSimPage() {
+  if (isProductionAppMode()) {
+    return <PublicSkinCheckPage embedded />;
+  }
+  return <BotSimPageLocal />;
+}
+
+function BotSimPageLocal() {
   const [step, setStep] = useState<Step>("start");
   const [scenarioIdx, setScenarioIdx] = useState(0);
   const [scenario, setScenario] = useState<Scenario | null>(null);

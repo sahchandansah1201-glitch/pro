@@ -45,6 +45,19 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Отменены",
 };
 
+const PRIORITY_LABEL: Record<string, string> = {
+  all: "Все приоритеты",
+  PRIORITY_URGENT: "Приоритетное окно",
+  PLANNED_STANDARD: "Плановый приём",
+};
+
+const CHANNEL_LABEL: Record<string, string> = {
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  max: "MAX",
+  web: "Сайт",
+};
+
 const SOURCE_SYSTEM_LABEL: Record<string, string> = {
   clinic_crm: "Система клиники",
   ads: "Рекламный источник",
@@ -106,11 +119,13 @@ const EMPTY_SLOTS: SelfHostedClinicAvailableSlotsPage = {
 };
 
 type StatusFilter = "all" | "requested" | "reviewing" | "booked" | "cancelled";
+type PriorityFilter = "all" | "PRIORITY_URGENT" | "PLANNED_STANDARD";
 
 export default function OperatorBookingRequestsPageLive() {
   const session = useSelfHostedApiSession();
   const [page, setPage] = useState<SelfHostedClinicBookingRequestsPage>(EMPTY_PAGE);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [search, setSearch] = useState("");
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<SelfHostedApiError | null>(null);
@@ -146,6 +161,7 @@ export default function OperatorBookingRequestsPageLive() {
     const result = await listSelfHostedClinicBookingRequests({
       ...baseArgs,
       status: statusFilter,
+      priority: priorityFilter,
       search,
       limit: 25,
     });
@@ -174,7 +190,7 @@ export default function OperatorBookingRequestsPageLive() {
       setError(result.error);
       setLoadStatus("error");
     }
-  }, [baseArgs, isConfigured, search, statusFilter]);
+  }, [baseArgs, isConfigured, priorityFilter, search, statusFilter]);
 
   useEffect(() => {
     void loadRequests();
@@ -472,6 +488,19 @@ export default function OperatorBookingRequestsPageLive() {
                   ))}
                 </select>
               </label>
+              <label className="grid w-52 gap-1 text-[12px] font-medium">
+                Приоритет окна
+                <select
+                  value={priorityFilter}
+                  onChange={(event) => setPriorityFilter(event.target.value as PriorityFilter)}
+                  className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
+                  aria-label="Фильтр приоритета окна заявок на запись"
+                >
+                  {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
               <label className="grid min-w-[220px] flex-1 gap-1 text-[12px] font-medium">
                 Поиск
                 <Input
@@ -496,11 +525,31 @@ export default function OperatorBookingRequestsPageLive() {
                       onClick={() => chooseRequest(request)}
                       aria-label={`Открыть заявку на запись: ${request.patient.fullName || (request.patient.code ? formatCardNumber(request.patient.code) : "без имени")}`}
                     >
-                      <div className="truncate text-[14px] font-semibold">
-                        {request.patient.fullName || "Пациент"} · {request.patient.code ? formatCardNumber(request.patient.code) : "без кода"}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-[14px] font-semibold">
+                          {request.patient.fullName || "Пациент"} · {request.patient.code ? formatCardNumber(request.patient.code) : "без кода"}
+                        </span>
+                        {request.bookingPriority ? (
+                          <span
+                            className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+                              request.bookingPriority === "PRIORITY_URGENT"
+                                ? "bg-destructive/15 text-destructive"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {PRIORITY_LABEL[request.bookingPriority] || request.bookingPriority}
+                          </span>
+                        ) : null}
+                        {request.channel ? (
+                          <span className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                            {CHANNEL_LABEL[request.channel] || request.channel}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="mt-1 text-[13px] text-muted-foreground">
                         {formatDateTime(request.preferredFrom)} · {STATUS_LABEL[request.status] || request.status}
+                        {request.contactPhone ? ` · ${request.contactPhone}` : ""}
+                        {request.preferredTimeNote ? ` · ${request.preferredTimeNote}` : ""}
                       </div>
                       <div className="mt-1 line-clamp-2 text-[13px] text-muted-foreground">
                         {request.reason || "Причина не указана"}
@@ -560,7 +609,16 @@ export default function OperatorBookingRequestsPageLive() {
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">
-                  {selected.reason || "Причина не указана"}
+                  <div>{selected.reason || "Причина не указана"}</div>
+                  {selected.contactPhone ? (
+                    <div className="mt-1 font-medium text-foreground">Телефон: {selected.contactPhone}</div>
+                  ) : null}
+                  {selected.preferredTimeNote ? (
+                    <div className="mt-0.5">Пожелание по времени: {selected.preferredTimeNote}</div>
+                  ) : null}
+                  <div className="mt-2 text-[11px]">
+                    Медицинские фотографии и клинический текст скрыты от оператора записи и доступны только врачу на приёме.
+                  </div>
                 </div>
                 {selected.assignedVisitId ? (
                   <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">
