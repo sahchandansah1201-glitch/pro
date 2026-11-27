@@ -1038,7 +1038,7 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                             size="sm"
                             variant="outline"
                             disabled={tgBusy}
-                            className="min-h-11 flex-1 text-[12px]"
+                            className="h-auto min-h-11 flex-1 whitespace-normal py-2 text-center text-[12px] leading-snug"
                             onClick={() =>
                               void sendTelegramAction({
                                 userLabel: btn.text,
@@ -1077,33 +1077,33 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                 </form>
               </Card>
 
-              <Card className="space-y-3 p-4 text-[12px]">
+              <Card className="min-w-0 space-y-3 p-4 text-[12px]">
                 <div className="text-[13px] font-semibold">Быстрая отправка снимка для проверки веток</div>
                 <p className="text-muted-foreground">
                   На шаге ожидания снимка нажмите любую кнопку ниже, чтобы протестировать ветвление бота:
                 </p>
-                <div className="grid gap-2">
+                <div className="grid min-w-0 gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={tgBusy}
-                    className="min-h-11 justify-start text-left text-[12px]"
+                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
                     onClick={() =>
                       void sendTelegramAction({
-                        userLabel: "[Отправлено чёткое фото Display P3]",
+                        userLabel: "[Отправлено чёткое фото кожи]",
                         simulatePhotoPreset: "clear_skin",
                       })
                     }
                   >
-                    1. Чёткий снимок кожи (проходит PAD-DIQA)
+                    1. Чёткий снимок кожи (проходит контроль чёткости)
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={tgBusy}
-                    className="min-h-11 justify-start text-left text-[12px]"
+                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
                     onClick={() =>
                       void sendTelegramAction({
                         userLabel: "[Отправлено смазанное фото]",
@@ -1111,29 +1111,29 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                       })
                     }
                   >
-                    2. Смазанный кадр (отказ PAD-DIQA + совет)
+                    2. Смазанный кадр (отказ по чёткости и совет)
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={tgBusy}
-                    className="min-h-11 justify-start text-left text-[12px]"
+                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
                     onClick={() =>
                       void sendTelegramAction({
-                        userLabel: "[Фото другого человека · ΔITA° > 22°]",
+                        userLabel: "[Фото другого человека · отличие тона кожи]",
                         simulatePhotoPreset: "mismatch_skin",
                       })
                     }
                   >
-                    3. Несовпадение тона кожи (Profile Mismatch Guard)
+                    3. Несовпадение тона кожи с профилем
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={tgBusy}
-                    className="min-h-11 justify-start text-left text-[12px]"
+                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
                     onClick={() =>
                       void sendTelegramAction({
                         userLabel: "/delete_my_data",
@@ -1141,8 +1141,8 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                       })
                     }
                   >
-                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden />
-                    4. Команда удаления данных (152-ФЗ)
+                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
+                    <span>4. Команда удаления данных (152-ФЗ)</span>
                   </Button>
                 </div>
               </Card>

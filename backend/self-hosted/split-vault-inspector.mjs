@@ -695,7 +695,7 @@ export function buildPrivateLesionCropSvgDataUrl({
   <rect x="14" y="14" width="332" height="154" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-dasharray="5 4"/>
   <ellipse cx="180" cy="92" rx="54" ry="40" fill="${lesionHex}" fill-opacity="0.88"/>
   <ellipse cx="180" cy="92" rx="68" ry="51" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-dasharray="6 3"/>
-  <rect x="20" y="20" width="128" height="24" rx="12" fill="#0f172a" fill-opacity="0.78"/>
+  <rect x="20" y="20" width="160" height="24" rx="12" fill="#0f172a" fill-opacity="0.78"/>
   <text x="32" y="36" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">Очаг №${lesionIndex} · кроп +25%</text>
   <rect x="14" y="180" width="332" height="28" rx="8" fill="#0f172a" fill-opacity="0.82"/>
   <text x="26" y="198" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="11">Чёткость кадра: ${safeScore}/100 · без полного лица/фона</text>
