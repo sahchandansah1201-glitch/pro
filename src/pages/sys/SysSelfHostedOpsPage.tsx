@@ -137,7 +137,9 @@ function systemValueLabel(value: string | undefined): string {
     "operator-owned object storage or local filesystem": "файлы клиники",
     "metadata-only operational readiness": "только служебная готовность",
   };
-  return labels[value] ?? "служебное значение скрыто";
+  if (labels[value]) return labels[value];
+  if (/[А-Яа-яЁё]/.test(value)) return value;
+  return "служебное значение скрыто";
 }
 
 function formatDateTime(value: string): string {
@@ -270,17 +272,19 @@ export default function SysSelfHostedOpsPage() {
               <RefreshCw className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} aria-hidden />
               Обновить
             </Button>
-            <Button asChild size="sm" className="min-h-11 gap-1.5 text-[12px]">
-              <Link to="/self-hosted/login">
-                <ServerCog className="h-3.5 w-3.5" aria-hidden />
-                Рабочий вход
-              </Link>
-            </Button>
+            {!isConfigured ? (
+              <Button asChild size="sm" className="min-h-11 gap-1.5 text-[12px]">
+                <Link to="/self-hosted/login">
+                  <ServerCog className="h-3.5 w-3.5" aria-hidden />
+                  Рабочий вход
+                </Link>
+              </Button>
+            ) : null}
           </div>
         }
       />
 
-      <main className="space-y-4 p-4">
+      <div className="space-y-4 p-4">
         <div
           role="note"
           aria-label="Граница рабочего контура"
@@ -351,8 +355,24 @@ export default function SysSelfHostedOpsPage() {
         >
           <MetricTile
             label="Система"
-            value={opsStatus ? statusLabel(opsStatus.status) : "Нет сессии"}
-            hint={opsStatus?.source ? "рабочая система" : "нет подключения"}
+            value={
+              opsStatus
+                ? statusLabel(opsStatus.status)
+                : isConfigured && loading
+                  ? "Загрузка…"
+                  : isConfigured
+                    ? "Ожидает"
+                    : "Нет сессии"
+            }
+            hint={
+              opsStatus?.source
+                ? "рабочая система"
+                : isConfigured && loading
+                  ? "читаем статус"
+                  : isConfigured
+                    ? "ожидает ответа"
+                    : "нет подключения"
+            }
           />
           <MetricTile
             label="Зависимости"
@@ -439,7 +459,7 @@ export default function SysSelfHostedOpsPage() {
                     </Badge>
                   </div>
                   <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                    Служебная команда скрыта с экрана.
+                    Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
                   </div>
                 </div>
               ))}
@@ -652,7 +672,7 @@ export default function SysSelfHostedOpsPage() {
                     <Badge variant="secondary">план</Badge>
                   </div>
                   <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                    Служебная команда скрыта с экрана.
+                    Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
                   </div>
                   <p className="mt-2 text-meta">{systemTermLabel(command.description)}</p>
                 </div>
@@ -688,7 +708,7 @@ export default function SysSelfHostedOpsPage() {
             <div className="space-y-2 text-[13px]">
               <div className="font-medium text-foreground">Локальный запуск</div>
               <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-                Служебная команда скрыта с экрана.
+                Служебная команда скрыта с экрана. Подробности — в выгружаемом плане работ.
               </div>
               <p className="text-meta">
                 Последнее обновление: {formatDateTime(opsStatus?.generatedAt ?? "")}
@@ -702,7 +722,7 @@ export default function SysSelfHostedOpsPage() {
             </pre>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

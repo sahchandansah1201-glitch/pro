@@ -118,6 +118,10 @@ export function sysDeviceText(value: string | undefined): string {
   if (workerCommandSignals) return `Сигналов к разбору перед обновлением: ${workerCommandSignals[1]}.`;
   const auditOk = normalized.match(/^(\d+) audit event\(s\); no retention exception is visible\.$/);
   if (auditOk) return `Событий аудита: ${auditOk[1]}; исключений по хранению нет.`;
+  const safeAuditAvailable = normalized.match(/^(\d+) safe audit event\(s\) are available for operational inspection\.$/);
+  if (safeAuditAvailable) return `Событий аудита для проверки: ${safeAuditAvailable[1]}.`;
+  const inheritedContinuity = normalized.match(/^(\d+) inherited continuity gate\(s\) need review\.$/);
+  if (inheritedContinuity) return `Проверок непрерывности к разбору: ${inheritedContinuity[1]}.`;
   const auditRetention = normalized.match(/^(\d+) audit event\(s\) exist while command pressure is non-zero\.$/);
   if (auditRetention) return `Событий аудита: ${auditRetention[1]}; очередь команд требует разбора.`;
   const assuranceOpen = normalized.match(/^(\d+) lifecycle assurance signal\(s\) remain open\.$/);
@@ -138,7 +142,7 @@ export function sysDeviceText(value: string | undefined): string {
   if (/^Audit retention evidence should be reviewed externally\.$/.test(normalized)) return "Хранение журнала нужно проверить отдельно.";
 
   if (
-    /Device Bridge|Command|Worker|Stage|backend|self-hosted|metadata|policy|readiness|workflow|evidence|rollout|monitoring|validation|governance|payload|OpenAPI|nginx|PostgreSQL|SLO|repository|CI|project-memory|frontend|hypothesis/i.test(normalized)
+    /Device Bridge|Command|Worker|Stage|backend|self-hosted|metadata|policy|readiness|workflow|evidence|rollout|monitoring|validation|governance|payload|OpenAPI|nginx|PostgreSQL|SLO|repository|CI|project-memory|frontend|hypothesis|continuity|reliability|assurance|operational inspection|gate\(s\)|event\(s\)|worker\(s\)/i.test(normalized)
   ) {
     return "Служебные подробности скрыты; ориентируйтесь на статус проверки.";
   }

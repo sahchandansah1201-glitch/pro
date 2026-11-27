@@ -3050,8 +3050,7 @@ function ProductionReleaseStatusUnavailable() {
         <Card className="max-w-3xl p-4">
           <h2 className="text-[16px] font-semibold">Что проверить сейчас</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            Перед публикацией нужны живые результаты всех трёх проверок. Старые
-            учебные данные на рабочем экране не используются.
+            Перед публикацией нужны живые результаты всех трёх проверок из рабочего контура.
           </p>
           <ul className="mt-4 space-y-2 text-[13px]">
             <li>
@@ -3078,13 +3077,11 @@ function ProductionReleaseStatusUnavailable() {
             </li>
             <li>
               <a
-                href="https://github.com/sahchandansah1201-glitch/pro/actions"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Открыть проверки GitHub"
+                href="/sys/self-hosted-ops"
+                aria-label="Открыть проверки рабочего контура"
                 className="inline-flex min-h-11 items-center gap-2 text-primary underline-offset-4 hover:underline"
               >
-                Открыть проверки GitHub
+                Открыть проверки рабочего контура
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </a>
             </li>

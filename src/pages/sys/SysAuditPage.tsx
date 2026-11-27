@@ -184,23 +184,55 @@ const PRODUCTION_ACTION_LABEL: Record<string, string> = {
   "admin.user.reactivate": "Доступ сотрудника возвращён",
   "admin.user.role.status.update": "Статус роли изменён",
   "admin.doctors.list": "Просмотр врачей",
+  "admin.services.list": "Просмотр услуг",
+  "admin.bot_settings.list": "Просмотр настроек бота",
+  "admin.service_key.list": "Просмотр служебных ключей",
   "admin.analytics.read": "Просмотр аналитики",
   "admin.audit.list": "Просмотр журнала аудита",
   "clinic_booking_request.list": "Просмотр обращений на запись",
   "clinic_booking_request.read": "Карточка обращения открыта",
   "clinic_booking_request.update": "Заметка обращения сохранена",
   "clinic_booking_request.book_from_slot": "Обращение записано на приём",
+  "device_bridge.command.audit.read": "Просмотр журнала команд моста",
+  "device_bridge.worker.telemetry.read": "Проверка состояния мостов устройств",
+  "device_bridge.worker.recovery.read": "Проверка восстановления команд моста",
+  "device_bridge.worker.hardening.read": "Проверка устойчивости службы моста",
+  "device_bridge.production_readiness.read": "Проверка готовности моста устройств",
+  "device_bridge.operations_continuity.read": "Проверка непрерывности моста",
+  "device_bridge.fleet_reliability.read": "Проверка надёжности парка устройств",
+  "device_bridge.lifecycle_assurance.read": "Проверка жизненного цикла моста",
+  "leads.appointments.overview.read": "Просмотр сводки заявок и записей",
+  "doctor.dashboard.read": "Открыт рабочий стол врача",
+  "patient.list": "Просмотр списка пациентов",
+  "visit.schedule.list": "Просмотр расписания визитов",
+  "visit.read": "Открыта карточка визита",
+  "visit.lesions": "Просмотр очагов визита",
+  "visit.assets": "Просмотр снимков визита",
+  "patient_portal.overview.read": "Просмотр кабинета пациента",
+  "patient_photo_protocol.release_governance.read": "Проверка правил выдачи фото-протокола",
   "auth.login": "Вход в систему",
 };
 
 const PRODUCTION_ENTITY_LABEL: Record<string, string> = {
   admin_user: "сотрудники",
+  app_user: "учётные записи",
   analytics: "аналитика",
   audit: "аудит",
   clinic: "клиники и кабинеты",
+  clinic_service: "услуги клиники",
+  clinic_bot_settings: "настройки бота",
+  service_key: "служебные ключи",
   device: "устройства",
+  device_bridge_worker: "мост устройств",
+  device_bridge_command: "команды моста",
+  doctor_dashboard: "рабочий стол врача",
+  lead_appointment_overview: "заявки и записи",
   patient: "пациенты",
+  patient_portal: "кабинет пациента",
+  patient_photo_protocol_release_governance: "фото-протокол",
   visit: "визиты",
+  lesion: "очаги",
+  clinical_asset: "снимки визита",
   report: "отчёты",
   patient_portal_booking_request: "обращения на запись",
 };
@@ -361,7 +393,7 @@ function SysAuditPageLive() {
                 );
               })}
             </div>
-            <label className="relative block w-full sm:w-72">
+            <label className="relative block w-full sm:w-80 lg:w-96">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 value={query}

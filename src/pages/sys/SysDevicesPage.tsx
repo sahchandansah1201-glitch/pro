@@ -385,8 +385,8 @@ export default function SysDevicesPage() {
     };
   }, [session.apiBaseUrl, session.apiToken]);
 
-  const bridges = liveBridges ?? DEMO_BRIDGES;
-  const devices = liveDevices ?? getDevices();
+  const bridges = isLive ? (liveBridges ?? []) : DEMO_BRIDGES;
+  const devices = isLive ? (liveDevices ?? []) : getDevices();
 
   const enriched = useMemo(
     () => devices.map((d) => (
@@ -415,12 +415,16 @@ export default function SysDevicesPage() {
   });
   const visible = pagination.visible;
   const bridgeEmptyMessage = isLive
-    ? "Мосты устройств пока не зарегистрированы в рабочей системе."
+    ? loadStatus === "loading"
+      ? "Загружаем мосты устройств из рабочей системы…"
+      : "Мосты устройств пока не зарегистрированы в рабочей системе."
     : "Мосты устройств появятся после подключения системы клиники.";
   const deviceEmptyMessage = query.trim()
     ? "Устройства по этому поиску не найдены."
     : isLive
-      ? "Устройства пока не зарегистрированы в рабочей системе."
+      ? loadStatus === "loading"
+        ? "Загружаем устройства из рабочей системы…"
+        : "Устройства пока не зарегистрированы в рабочей системе."
       : "Устройства появятся после подключения системы клиники.";
 
   async function runBridgeHealthCheck(bridge: BridgeRow) {

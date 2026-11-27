@@ -59,11 +59,13 @@ describe("SysReleaseStatusPage", () => {
       }),
     ).toHaveTextContent(/не подключён к текущему состоянию сервера/i);
     expect(
-      screen.getByRole("link", { name: "Открыть проверки GitHub" }),
+      screen.getByRole("link", { name: "Открыть проверки рабочего контура" }),
     ).toHaveAttribute(
       "href",
-      "https://github.com/sahchandansah1201-glitch/pro/actions",
+      "/sys/self-hosted-ops",
     );
+    expect(container.innerHTML).not.toContain("sahchandansah1201-glitch");
+    expect(container).not.toHaveTextContent("учебные данные");
     expect(container).not.toHaveTextContent("5ce9cf1");
     expect(container).not.toHaveTextContent("9 из 9 пройдены");
     expect(container).not.toHaveTextContent("Ссылку на отчёт можно публиковать");

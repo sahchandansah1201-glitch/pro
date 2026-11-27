@@ -360,6 +360,16 @@ function SysUsersPageLive() {
     await load();
   }
 
+  const visibleUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((user) => {
+      const rolesText = user.roles.map((r) => roleLabel(r.role)).join(" ");
+      const clinicsText = userClinicLabels(user).join(" ");
+      return `${user.displayName} ${user.email} ${rolesText} ${clinicsText}`.toLowerCase().includes(q);
+    });
+  }, [query, users]);
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Сотрудники и доступ" subtitle="Учётные записи, роли и доступ к клиникам или частным кабинетам." />
@@ -386,72 +396,87 @@ function SysUsersPageLive() {
             Укажите первую роль. Дополнительные роли добавляются ниже без создания второй учётной записи.
           </p>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-5">
-            <Input
-              ref={displayNameRef}
-              value={form.displayName}
-              onChange={(event) => updateCreateField("displayName", event.target.value)}
-              placeholder="ФИО сотрудника"
-              aria-label="ФИО сотрудника"
-              aria-invalid={invalidCreateField === "displayName" || undefined}
-              aria-errormessage={invalidCreateField === "displayName" ? "create-user-feedback" : undefined}
-              className="min-h-11"
-              disabled={busy || sessionExpired}
-            />
-            <Input
-              ref={emailRef}
-              value={form.email}
-              onChange={(event) => updateCreateField("email", event.target.value)}
-              placeholder="Эл. почта"
-              aria-label="Эл. почта"
-              aria-invalid={invalidCreateField === "email" || undefined}
-              aria-errormessage={invalidCreateField === "email" ? "create-user-feedback" : undefined}
-              className="min-h-11"
-              disabled={busy || sessionExpired}
-            />
-            <Input
-              ref={passwordRef}
-              value={form.password}
-              onChange={(event) => updateCreateField("password", event.target.value)}
-              placeholder="Временный пароль"
-              aria-label="Временный пароль"
-              aria-describedby="create-user-password-help"
-              aria-invalid={invalidCreateField === "password" || undefined}
-              aria-errormessage={invalidCreateField === "password" ? "create-user-feedback" : undefined}
-              type="password"
-              minLength={10}
-              className="min-h-11"
-              disabled={busy || sessionExpired}
-            />
-            <select
-              value={form.role}
-              onChange={(event) => updateCreateField("role", event.target.value)}
-              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-              aria-label="Роль"
-              disabled={busy || sessionExpired}
-            >
-              <option value="clinic_admin">Администратор клиники</option>
-              <option value="doctor">Дерматолог</option>
-              <option value="private_doctor">Частный врач</option>
-              <option value="assistant">Ассистент</option>
-              <option value="operator">Оператор</option>
-              <option value="system_admin">Системный администратор</option>
-            </select>
-            <select
-              ref={clinicRef}
-              value={form.clinicId}
-              onChange={(event) => updateCreateField("clinicId", event.target.value)}
-              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-              aria-label="Клиника"
-              aria-invalid={invalidCreateField === "clinicId" || undefined}
-              aria-errormessage={invalidCreateField === "clinicId" ? "create-user-feedback" : undefined}
-              disabled={busy || sessionExpired || form.role === "system_admin"}
-            >
-              {clinics.map((clinic) => (
-                <option key={clinic.id} value={clinic.id}>
-                  {clinic.name}
-                </option>
-              ))}
-            </select>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              ФИО сотрудника
+              <Input
+                ref={displayNameRef}
+                value={form.displayName}
+                onChange={(event) => updateCreateField("displayName", event.target.value)}
+                placeholder="Иванова Мария Петровна"
+                aria-label="ФИО сотрудника"
+                aria-invalid={invalidCreateField === "displayName" || undefined}
+                aria-errormessage={invalidCreateField === "displayName" ? "create-user-feedback" : undefined}
+                className="min-h-11 text-foreground"
+                disabled={busy || sessionExpired}
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Эл. почта
+              <Input
+                ref={emailRef}
+                value={form.email}
+                onChange={(event) => updateCreateField("email", event.target.value)}
+                placeholder="doctor@clinic.ru"
+                aria-label="Эл. почта"
+                aria-invalid={invalidCreateField === "email" || undefined}
+                aria-errormessage={invalidCreateField === "email" ? "create-user-feedback" : undefined}
+                className="min-h-11 text-foreground"
+                disabled={busy || sessionExpired}
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Временный пароль
+              <Input
+                ref={passwordRef}
+                value={form.password}
+                onChange={(event) => updateCreateField("password", event.target.value)}
+                placeholder="Не менее 10 символов"
+                aria-label="Временный пароль"
+                aria-describedby="create-user-password-help"
+                aria-invalid={invalidCreateField === "password" || undefined}
+                aria-errormessage={invalidCreateField === "password" ? "create-user-feedback" : undefined}
+                type="password"
+                minLength={10}
+                className="min-h-11 text-foreground"
+                disabled={busy || sessionExpired}
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Роль
+              <select
+                value={form.role}
+                onChange={(event) => updateCreateField("role", event.target.value)}
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px] text-foreground"
+                aria-label="Роль"
+                disabled={busy || sessionExpired}
+              >
+                <option value="clinic_admin">Администратор клиники</option>
+                <option value="doctor">Дерматолог</option>
+                <option value="private_doctor">Частный врач</option>
+                <option value="assistant">Ассистент</option>
+                <option value="operator">Оператор</option>
+                <option value="system_admin">Системный администратор</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Клиника
+              <select
+                ref={clinicRef}
+                value={form.clinicId}
+                onChange={(event) => updateCreateField("clinicId", event.target.value)}
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px] text-foreground"
+                aria-label="Клиника"
+                aria-invalid={invalidCreateField === "clinicId" || undefined}
+                aria-errormessage={invalidCreateField === "clinicId" ? "create-user-feedback" : undefined}
+                disabled={busy || sessionExpired || form.role === "system_admin"}
+              >
+                {clinics.map((clinic) => (
+                  <option key={clinic.id} value={clinic.id}>
+                    {clinic.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <p id="create-user-password-help" className="mt-2 text-[12px] text-muted-foreground">
             Временный пароль: не менее 10 символов.
@@ -484,47 +509,56 @@ function SysUsersPageLive() {
           <p className="mb-3 text-[12px] text-muted-foreground">
             Используйте это для владельца кабинета, который одновременно администрирует кабинет и ведёт приём.
           </p>
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-4">
-            <select
-              value={roleForm.userId}
-              onChange={(event) => setRoleForm((current) => ({ ...current, userId: event.target.value }))}
-              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-              aria-label="Учётная запись"
-              disabled={sessionExpired}
-            >
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.displayName}
-                </option>
-              ))}
-            </select>
-            <select
-              value={roleForm.role}
-              onChange={(event) => setRoleForm((current) => ({ ...current, role: event.target.value }))}
-              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-              aria-label="Новая роль"
-              disabled={sessionExpired}
-            >
-              <option value="clinic_admin">Администратор клиники</option>
-              <option value="doctor">Дерматолог</option>
-              <option value="private_doctor">Частный врач</option>
-              <option value="assistant">Ассистент</option>
-              <option value="operator">Оператор</option>
-              <option value="system_admin">Системный администратор</option>
-            </select>
-            <select
-              value={roleForm.clinicId}
-              onChange={(event) => setRoleForm((current) => ({ ...current, clinicId: event.target.value }))}
-              className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-              aria-label="Клиника для роли"
-              disabled={sessionExpired || roleForm.role === "system_admin"}
-            >
-              {clinics.map((clinic) => (
-                <option key={clinic.id} value={clinic.id}>
-                  {clinic.name}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-4 lg:items-end">
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Учётная запись
+              <select
+                value={roleForm.userId}
+                onChange={(event) => setRoleForm((current) => ({ ...current, userId: event.target.value }))}
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px] text-foreground"
+                aria-label="Учётная запись"
+                disabled={sessionExpired}
+              >
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Новая роль
+              <select
+                value={roleForm.role}
+                onChange={(event) => setRoleForm((current) => ({ ...current, role: event.target.value }))}
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px] text-foreground"
+                aria-label="Новая роль"
+                disabled={sessionExpired}
+              >
+                <option value="clinic_admin">Администратор клиники</option>
+                <option value="doctor">Дерматолог</option>
+                <option value="private_doctor">Частный врач</option>
+                <option value="assistant">Ассистент</option>
+                <option value="operator">Оператор</option>
+                <option value="system_admin">Системный администратор</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Клиника для роли
+              <select
+                value={roleForm.clinicId}
+                onChange={(event) => setRoleForm((current) => ({ ...current, clinicId: event.target.value }))}
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px] text-foreground"
+                aria-label="Клиника для роли"
+                disabled={sessionExpired || roleForm.role === "system_admin"}
+              >
+                {clinics.map((clinic) => (
+                  <option key={clinic.id} value={clinic.id}>
+                    {clinic.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button type="button" variant="outline" className="min-h-11" onClick={submitRoleAssignment} disabled={busy || sessionExpired}>
               {busy ? "Добавляем роль..." : "Добавить роль"}
             </Button>
@@ -556,10 +590,15 @@ function SysUsersPageLive() {
 
         <Card className="overflow-hidden p-0">
           <div className="border-b border-border px-3 py-2 text-[12px] font-medium">
-            {loading ? "Загрузка пользователей" : `В списке: ${users.length}`}
+            {loading ? "Загрузка пользователей" : `В списке: ${visibleUsers.length}`}
           </div>
           <div className="grid grid-cols-1 divide-y divide-border">
-            {users.map((user) => (
+            {!loading && visibleUsers.length === 0 ? (
+              <div className="p-4 text-[12px] text-muted-foreground">
+                По запросу сотрудники не найдены.
+              </div>
+            ) : null}
+            {visibleUsers.map((user) => (
               <div key={user.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto] lg:items-center">
                 <div>
                   <div className="text-[13px] font-semibold">{user.displayName}</div>

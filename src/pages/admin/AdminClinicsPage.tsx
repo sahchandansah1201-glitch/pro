@@ -384,7 +384,7 @@ function AdminClinicsPageLive() {
               <p className="mb-3 text-[12px] text-muted-foreground">
                 Для медицинского центра, сети или филиала. Сотрудников назначайте следующим шагом.
               </p>
-              <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_1.2fr_0.9fr]">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <Input
                   value={form.name}
                   onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -399,11 +399,13 @@ function AdminClinicsPageLive() {
                   aria-label="Адрес клиники"
                   className="min-h-11"
                 />
-                <TimezoneSelect
-                  value={form.timezone}
-                  onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
-                  label="Часовой пояс клиники"
-                />
+                <div className="sm:col-span-2">
+                  <TimezoneSelect
+                    value={form.timezone}
+                    onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
+                    label="Часовой пояс клиники"
+                  />
+                </div>
               </div>
               <Button type="button" className="mt-3 min-h-11" onClick={submitClinic} disabled={busy}>
                 Создать клинику
