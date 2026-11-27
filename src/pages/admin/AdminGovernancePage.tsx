@@ -1603,9 +1603,10 @@ export default function AdminGovernancePage() {
           </div>
         </section>
 
-        {status === "loading" && (
+        {status === "loading" ? (
           <Card className="p-3 text-[12px] text-muted-foreground">Загружаем контур доступа из системы клиники…</Card>
-        )}
+        ) : (
+        <>
         {status === "error" && (
           <Card className="p-3">
             <div role="alert" className="text-[12px] text-destructive">{error}</div>
@@ -1791,6 +1792,8 @@ export default function AdminGovernancePage() {
             </div>
           </GovernanceDisclosure>
         </Accordion>
+        </>
+        )}
       </div>
     </div>
   );

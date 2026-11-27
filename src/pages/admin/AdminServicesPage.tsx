@@ -399,27 +399,36 @@ function AdminServicesPageLive() {
                 </option>
               ))}
             </select>
-            <Input
-              aria-label="Длительность услуги"
-              inputMode="numeric"
-              value={form.durationMin}
-              onChange={(event) => setForm((current) => ({ ...current, durationMin: event.target.value }))}
-              className="h-11"
-            />
-            <Input
-              aria-label="Минимальная цена"
-              inputMode="numeric"
-              value={form.priceMin}
-              onChange={(event) => setForm((current) => ({ ...current, priceMin: event.target.value }))}
-              className="h-11"
-            />
-            <Input
-              aria-label="Максимальная цена"
-              inputMode="numeric"
-              value={form.priceMax}
-              onChange={(event) => setForm((current) => ({ ...current, priceMax: event.target.value }))}
-              className="h-11"
-            />
+            <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+              <span>Длительность, мин</span>
+              <Input
+                aria-label="Длительность услуги"
+                inputMode="numeric"
+                value={form.durationMin}
+                onChange={(event) => setForm((current) => ({ ...current, durationMin: event.target.value }))}
+                className="h-11 text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+              <span>Цена от, ₽</span>
+              <Input
+                aria-label="Минимальная цена"
+                inputMode="numeric"
+                value={form.priceMin}
+                onChange={(event) => setForm((current) => ({ ...current, priceMin: event.target.value }))}
+                className="h-11 text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+              <span>Цена до, ₽</span>
+              <Input
+                aria-label="Максимальная цена"
+                inputMode="numeric"
+                value={form.priceMax}
+                onChange={(event) => setForm((current) => ({ ...current, priceMax: event.target.value }))}
+                className="h-11 text-foreground"
+              />
+            </label>
             <Input
               aria-label="Согласие для услуги"
               placeholder="Согласие или условие"

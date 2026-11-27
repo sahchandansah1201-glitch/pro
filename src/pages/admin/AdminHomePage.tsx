@@ -354,7 +354,9 @@ function AdminHomePageLive() {
   const recentClinics = clinics.slice(0, 4);
   const recentDoctors = doctors.slice(0, 4);
 
-  const actionQueue = [
+  const actionQueue = loading
+    ? []
+    : [
     doctors.length === 0
       ? {
           title: "Добавьте первого врача",
@@ -413,8 +415,12 @@ function AdminHomePageLive() {
         </section>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-          <SectionCard title="Очередь действий администратора" hint={`${actionQueue.length} задач`}>
-            {actionQueue.length === 0 ? (
+          <SectionCard title="Очередь действий администратора" hint={loading ? "Загрузка…" : `${actionQueue.length} задач`}>
+            {loading ? (
+              <div className="rounded-md border border-border bg-surface px-3 py-4 text-[12px] text-muted-foreground">
+                Загружаем данные клиники…
+              </div>
+            ) : actionQueue.length === 0 ? (
               <div className="rounded-md border border-border bg-surface px-3 py-4 text-[12px] text-muted-foreground">
                 Срочных действий нет. Проверьте врачей, услуги или аналитику при изменении расписания.
               </div>

@@ -357,7 +357,9 @@ function AdminClinicsPageLive() {
       <PageHeader title="Клиники и кабинеты" subtitle="Рабочая регистрация клиник, частных кабинетов и области доступа." />
       <div className="space-y-3 p-3 sm:p-4">
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочий режим: сначала создайте клинику или частный кабинет, затем назначайте сотрудников и роли.
+          {canCreateClinicRecords
+            ? "Рабочий режим: сначала создайте клинику или частный кабинет, затем назначайте сотрудников и роли."
+            : "Рабочий режим: вы можете обновлять данные своей клиники и назначать врачей в доступной области."}
         </div>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
@@ -466,7 +468,7 @@ function AdminClinicsPageLive() {
             <div className="mb-1 text-[13px] font-semibold">Доступ администратора клиники</div>
             <p className="text-[12px] text-muted-foreground">
               Вы можете обновлять данные своей клиники и назначать врачей в доступной области.
-              Создание новых клиник, частных кабинетов, архивирование и удаление выполняет системный администратор Dermatolog Pro.
+              Создание новых клиник, частных кабинетов, архивирование и удаление выполняет системный администратор Дерматолог Про.
             </p>
           </Card>
         )}

@@ -1,6 +1,7 @@
 import { SearchX } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { isProductionAppMode } from "@/lib/app-mode";
 
 /**
  * Понятное пустое состояние для admin-списков с фильтрами и поиском.
@@ -34,6 +35,7 @@ export function ListEmptyState({
   const hasQuery = !!query?.trim();
   const hasFilters = activeFilters.length > 0;
   const canReset = (hasQuery || hasFilters) && !!onReset;
+  const productionMode = isProductionAppMode();
 
   return (
     <Card
@@ -53,7 +55,7 @@ export function ListEmptyState({
           Ничего не найдено
         </div>
         <p className="max-w-md text-[12px] text-muted-foreground">
-          По текущим условиям нет {itemNoun}. Всего в учебном каталоге:{" "}
+          По текущим условиям нет {itemNoun}. {productionMode ? "Всего в каталоге клиники:" : "Всего в учебном каталоге:"}{" "}
           <span className="tabular-nums">{totalUnfiltered}</span>.
         </p>
       </div>
@@ -97,7 +99,7 @@ export function ListEmptyState({
       )}
 
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        Учебный режим
+        {productionMode ? "Рабочий режим" : "Учебный режим"}
       </div>
     </Card>
   );

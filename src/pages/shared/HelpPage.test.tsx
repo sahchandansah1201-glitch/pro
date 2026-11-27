@@ -115,6 +115,6 @@ describe("HelpPage", () => {
   it("App.tsx больше не импортирует HelpPage из Placeholders", () => {
     const app = readFileSync(resolve(__dirname, "../../App.tsx"), "utf8");
     expect(app).not.toMatch(/HelpPage[^"]*from\s+["'].*Placeholders/);
-    expect(app).toMatch(/from\s+["']\.\/pages\/shared\/HelpPage["']/);
+    expect(app).toMatch(/(?:from\s+|import\()["']\.\/pages\/shared\/HelpPage["']/);
   });
 });

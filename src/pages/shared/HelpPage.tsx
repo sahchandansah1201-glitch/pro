@@ -192,17 +192,26 @@ const DATA_POLICY = [
 function RouteList({ items }: { items: RouteRef[] }) {
   return (
     <ul className="divide-y divide-border">
-      {items.map((r) => (
-        <li key={r.path} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-baseline sm:gap-3">
-          <Link
-            to={r.path.replace(/:[^/]+/g, "—")}
-            className="inline-flex min-h-[44px] items-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-0"
-          >
-            {routeLabel(r.path)}
-          </Link>
-          <span className="text-[12px] text-muted-foreground">{r.description}</span>
-        </li>
-      ))}
+      {items.map((r) => {
+        const isParameterized = r.path.includes(":");
+        return (
+          <li key={r.path} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-baseline sm:gap-3">
+            {isParameterized ? (
+              <span className="inline-flex min-h-[44px] items-center text-[12px] font-medium text-foreground sm:min-h-0">
+                {routeLabel(r.path)}
+              </span>
+            ) : (
+              <Link
+                to={r.path}
+                className="inline-flex min-h-[44px] items-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-0"
+              >
+                {routeLabel(r.path)}
+              </Link>
+            )}
+            <span className="text-[12px] text-muted-foreground">{r.description}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

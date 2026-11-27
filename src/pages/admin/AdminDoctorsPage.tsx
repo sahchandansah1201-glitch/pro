@@ -249,6 +249,7 @@ function StaffDirectory({
   users,
   loading,
   busy,
+  currentUserId,
   showRoleAction,
   showPasswordAction = false,
   onToggleAccess,
@@ -259,6 +260,7 @@ function StaffDirectory({
   users: AdminUserDTO[];
   loading: boolean;
   busy: boolean;
+  currentUserId?: string | null;
   showRoleAction: boolean;
   showPasswordAction?: boolean;
   onToggleAccess: (user: AdminUserDTO) => void;
@@ -280,10 +282,14 @@ function StaffDirectory({
         <div className="divide-y divide-border">
           {users.map((user) => {
             const doctorRole = primaryDoctorRole(user);
+            const isSelf = Boolean(currentUserId && user.id === currentUserId);
             return (
               <div key={user.id} className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1.25fr_0.8fr_0.9fr_0.9fr_auto] lg:items-center">
                 <div>
-                  <div className="text-[13px] font-semibold">{user.displayName}</div>
+                  <div className="text-[13px] font-semibold">
+                    {user.displayName}
+                    {isSelf && <span className="ml-2 text-[11px] font-normal text-muted-foreground">(вы)</span>}
+                  </div>
                   <div className="text-[11px] text-muted-foreground">{user.email}</div>
                 </div>
                 <div className="grid grid-cols-[88px_1fr] text-[12px] lg:block"><span className="font-medium text-muted-foreground lg:hidden">Роль</span><StaffRoleStatus user={user} /></div>
@@ -295,7 +301,14 @@ function StaffDirectory({
                       <KeyRound className="mr-2 h-4 w-4" aria-hidden />Задать новый пароль
                     </Button>
                   )}
-                  <Button type="button" variant="outline" className="min-h-11" onClick={() => onToggleAccess(user)} disabled={busy}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => onToggleAccess(user)}
+                    disabled={busy || (isSelf && user.active)}
+                    title={isSelf && user.active ? "Нельзя отключить собственный доступ" : undefined}
+                  >
                     {user.active ? "Отключить доступ" : "Вернуть доступ"}
                   </Button>
                   {showRoleAction && doctorRole && (
@@ -593,7 +606,10 @@ function AdminDoctorsPageLive() {
         <label className="space-y-1 text-[11px] font-medium" htmlFor="doctor-clinic"><span>Клиника</span><select id="doctor-clinic" value={form.clinicId} onChange={(event) => { setForm((current) => ({ ...current, clinicId: event.target.value })); setDoctorNote(null); }} className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]">{clinics.map((clinic) => <option key={clinic.id} value={clinic.id}>{clinic.name}</option>)}</select></label>
       </div>
       {doctorNote && <div role={doctorNote.kind === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-md border px-3 py-2 text-[12px] ${doctorNote.kind === "error" ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-success/30 bg-success/5 text-success"}`}>{doctorNote.text}</div>}
-      <div className="mt-3 flex justify-end"><Button type="button" className="min-h-11" onClick={submitDoctor} disabled={busy || sessionExpired || clinics.length === 0}><UserPlus className="mr-2 h-4 w-4" aria-hidden />Добавить врача</Button></div>
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => setCreateFormOpen(false)} disabled={busy}>Отмена</Button>
+        <Button type="button" className="min-h-11" onClick={submitDoctor} disabled={busy || sessionExpired || clinics.length === 0}><UserPlus className="mr-2 h-4 w-4" aria-hidden />Добавить врача</Button>
+      </div>
     </Card>
   );
 
@@ -608,7 +624,10 @@ function AdminDoctorsPageLive() {
         <label className="space-y-1 text-[11px] font-medium" htmlFor="assistant-clinic"><span>Клиника</span><select id="assistant-clinic" value={assistantForm.clinicId} onChange={(event) => { setAssistantForm((current) => ({ ...current, clinicId: event.target.value })); setAssistantNote(null); }} aria-label="Клиника ассистента" className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-[13px]">{clinics.map((clinic) => <option key={clinic.id} value={clinic.id}>{clinic.name}</option>)}</select></label>
       </div>
       {assistantNote && <div role={assistantNote.kind === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-md border px-3 py-2 text-[12px] ${assistantNote.kind === "error" ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-success/30 bg-success/5 text-success"}`}>{assistantNote.text}</div>}
-      <div className="mt-3 flex justify-end"><Button type="button" className="min-h-11" onClick={submitAssistant} disabled={busy || sessionExpired || clinics.length === 0}><UserPlus className="mr-2 h-4 w-4" aria-hidden />Добавить ассистента</Button></div>
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => setCreateFormOpen(false)} disabled={busy}>Отмена</Button>
+        <Button type="button" className="min-h-11" onClick={submitAssistant} disabled={busy || sessionExpired || clinics.length === 0}><UserPlus className="mr-2 h-4 w-4" aria-hidden />Добавить ассистента</Button>
+      </div>
     </Card>
   );
 
@@ -637,12 +656,14 @@ function AdminDoctorsPageLive() {
             {activeTab === "access" ? (
               <label className="flex items-center gap-2 text-[12px] font-medium"><span>Состояние</span><select value={accessFilter} onChange={(event) => setAccessFilter(event.target.value as AccessFilter)} aria-label="Фильтр доступа" className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"><option value="all">Любой доступ</option><option value="active">Доступ включён</option><option value="disabled">Доступ отключён</option></select></label>
             ) : (
-              <Button type="button" className="min-h-11" onClick={() => setCreateFormOpen((current) => !current)} disabled={sessionExpired}><UserPlus className="mr-2 h-4 w-4" aria-hidden />{activeTab === "doctors" ? "Добавить врача" : "Добавить ассистента"}</Button>
+              <Button type="button" variant={createFormOpen ? "outline" : "default"} className="min-h-11" onClick={() => setCreateFormOpen((current) => !current)} disabled={sessionExpired}>
+                {createFormOpen ? "Скрыть форму" : <><UserPlus className="mr-2 h-4 w-4" aria-hidden />{activeTab === "doctors" ? "Добавить врача" : "Добавить ассистента"}</>}
+              </Button>
             )}
           </div>
 
-          <TabsContent value="doctors" className="space-y-3">{doctorCreatePanel}<StaffDirectory title="Врачи клиники" users={visibleDoctors} loading={loading} busy={busy || sessionExpired} showRoleAction onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} /></TabsContent>
-          <TabsContent value="assistants" className="space-y-3">{assistantCreatePanel}<StaffDirectory title="Ассистенты клиники" users={visibleAssistants} loading={loading} busy={busy || sessionExpired} showRoleAction={false} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={() => {}} /></TabsContent>
+          <TabsContent value="doctors" className="space-y-3">{doctorCreatePanel}<StaffDirectory title="Врачи клиники" users={visibleDoctors} loading={loading} busy={busy || sessionExpired} currentUserId={session.user?.id ?? null} showRoleAction onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} /></TabsContent>
+          <TabsContent value="assistants" className="space-y-3">{assistantCreatePanel}<StaffDirectory title="Ассистенты клиники" users={visibleAssistants} loading={loading} busy={busy || sessionExpired} currentUserId={session.user?.id ?? null} showRoleAction={false} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={() => {}} /></TabsContent>
           <TabsContent value="access" className="space-y-3">
             <div className="flex flex-col gap-1 rounded-md border-l-4 border-warning bg-warning/5 px-3 py-2 text-[12px]"><strong>Учётная запись и роль — разные уровни доступа.</strong><span className="text-muted-foreground">Отключение доступа блокирует вход полностью. Приостановка роли убирает только рабочее место врача.</span></div>
             {passwordUser && (
@@ -667,7 +688,7 @@ function AdminDoctorsPageLive() {
                 {passwordNote && <div role={passwordNote.kind === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-md border px-3 py-2 text-[12px] ${passwordNote.kind === "error" ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-success/30 bg-success/5 text-success"}`}>{passwordNote.text}</div>}
               </Card>
             )}
-            <StaffDirectory title="Управление доступом" users={visibleAccessStaff} loading={loading} busy={busy || sessionExpired} showRoleAction showPasswordAction onResetPassword={startPasswordReset} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} />
+            <StaffDirectory title="Управление доступом" users={visibleAccessStaff} loading={loading} busy={busy || sessionExpired} currentUserId={session.user?.id ?? null} showRoleAction showPasswordAction onResetPassword={startPasswordReset} onToggleAccess={(user) => void changeStaffAccess(user, !user.active)} onToggleRole={(user, role) => void changeDoctorRoleStatus(user, role, role.active === false ? "active" : "disabled")} />
           </TabsContent>
         </Tabs>
       </div>

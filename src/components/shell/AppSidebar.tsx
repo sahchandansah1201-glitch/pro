@@ -21,6 +21,7 @@ import {
   MessagesSquare,
   MonitorCheck,
   ServerCog,
+  X,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -214,7 +215,7 @@ const mergeGroupsByLabel = (groups: NavGroup[]): NavGroup[] => {
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
-  const collapsed = state === "collapsed";
+  const collapsed = state === "collapsed" && !isMobile;
   const { pathname } = useLocation();
   const { role } = useRole();
   const session = useSelfHostedApiSession();
@@ -247,11 +248,23 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent role="navigation" aria-label="Основная навигация">
         {!collapsed && (
-          <div className="px-3 pt-3 pb-2">
-            <div className="text-[13px] font-semibold tracking-tight text-sidebar-foreground">
-              Дерматолог Про
+          <div className="flex items-start justify-between gap-2 px-3 pt-3 pb-2">
+            <div>
+              <div className="text-[13px] font-semibold tracking-tight text-sidebar-foreground">
+                Дерматолог Про
+              </div>
+              <div className="text-[11px] text-sidebar-foreground/60">Клиническая поддержка решений</div>
             </div>
-            <div className="text-[11px] text-sidebar-foreground/60">Клиническая поддержка решений</div>
+            {isMobile && (
+              <button
+                type="button"
+                aria-label="Закрыть меню"
+                onClick={() => setOpenMobile(false)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            )}
           </div>
         )}
 
@@ -266,12 +279,14 @@ export function AppSidebar() {
                       <NavLink
                         to={item.url}
                         end={item.url === "/"}
+                        aria-label={item.title}
+                        title={item.title}
                         className="flex items-center gap-2"
                         onClick={() => {
                           if (isMobile) setOpenMobile(false);
                         }}
                       >
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className="h-4 w-4" aria-hidden />
                         {!collapsed && <span className="text-[13px]">{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>

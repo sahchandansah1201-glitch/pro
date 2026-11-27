@@ -86,7 +86,7 @@ export function PatientDeliveryApprovalRequirementsPanel({
           ))}
         </div>
 
-        <div className="grid gap-3 rounded-md border p-3">
+        <div className="grid min-w-0 gap-3 rounded-md border p-3">
           <div>
             <div className="text-[13px] font-semibold">Итог для администратора</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
@@ -109,7 +109,7 @@ export function PatientDeliveryApprovalRequirementsPanel({
           </div>
           <Button
             variant="outline"
-            className="min-h-[44px] justify-center sm:min-h-[36px]"
+            className="h-auto min-h-[44px] w-full whitespace-normal py-2 text-center leading-snug sm:min-h-[36px]"
             onClick={onApprovalRequirementsReview}
           >
             Подготовить требования к утверждению
