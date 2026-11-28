@@ -5,10 +5,15 @@
 import { errorResponse, jsonResponse } from "./api-response.mjs";
 import { createPrevisitHandoffRepository } from "./previsit-handoff-repository.mjs";
 import { createPrevisitHandoffService } from "./previsit-handoff-service.mjs";
+import { requireAnyRole } from "./rbac.mjs";
 import {
   createSyntheticValidJpegBuffer,
   createTelegramOnboardingBot,
 } from "./telegram-onboarding-bot.mjs";
+
+function requireAdminOrClinicAdmin(authContext) {
+  return requireAnyRole(authContext, ["system_admin", "clinic_admin"]);
+}
 
 export function isLargePrevisitBodyPath(url = "") {
   return (
@@ -115,7 +120,59 @@ export async function handlePrevisitHandoffRequest({
       );
     }
 
-    // 2. Public Web 2-step onboarding endpoints (quotas disabled: quotaEnforced=false)
+    // 2. Public Web photo-first onboarding & flow config endpoints (quotas disabled: quotaEnforced=false)
+    if (pathname === "/api/v1/public/onboarding/flow-config" && method === "GET") {
+      const result = await runtimeServices.previsitHandoffService.getOmnichannelConfig();
+      return jsonResponse(
+        200,
+        {
+          stage: "7B",
+          ...result,
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    }
+
+    if (pathname === "/api/v1/admin/channel-configurator" && (method === "GET" || method === "PUT")) {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      if (method === "GET") {
+        requireAdminOrClinicAdmin(authContext);
+        const result = await runtimeServices.previsitHandoffService.getOmnichannelConfig();
+        return jsonResponse(
+          200,
+          {
+            stage: "7B",
+            source: "postgres",
+            ...result,
+            generatedAt: now(),
+            correlationId,
+          },
+          config,
+          requestOrigin,
+        );
+      }
+      const result = await runtimeServices.previsitHandoffService.updateOmnichannelConfig(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "7B",
+          source: "postgres",
+          ...result,
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    }
+
     if (pathname === "/api/v1/public/onboarding/session" && method === "POST") {
       const result = await runtimeServices.previsitHandoffService.initOrResumePublicSession(
         request.body ? parseJsonBody(request.body) : {},

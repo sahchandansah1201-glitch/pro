@@ -109,6 +109,10 @@ select jsonb_build_object(
       'fsmState', s.fsm_state,
       'fsmContext', s.fsm_context_json,
       'activeProfileId', s.active_profile_id::text,
+      'contactName', s.contact_name,
+      'contactPhone', s.contact_phone,
+      'consent152FzAcceptedAt', s.consent_152fz_accepted_at,
+      'greetingVariantIndex', s.greeting_variant_index,
       'quotaEnforced', s.quota_enforced,
       'acceptedPhotoCount', s.accepted_photo_count,
       'rejectedPhotoCount', s.rejected_photo_count,
@@ -168,6 +172,10 @@ select jsonb_build_object(
       'fsmState', s.fsm_state,
       'fsmContext', s.fsm_context_json,
       'activeProfileId', s.active_profile_id::text,
+      'contactName', s.contact_name,
+      'contactPhone', s.contact_phone,
+      'consent152FzAcceptedAt', s.consent_152fz_accepted_at,
+      'greetingVariantIndex', s.greeting_variant_index,
       'quotaEnforced', s.quota_enforced,
       'acceptedPhotoCount', s.accepted_photo_count,
       'rejectedPhotoCount', s.rejected_photo_count,
@@ -273,7 +281,7 @@ with created_profile as (
     ${sqlNullableInt(ageYears)},
     ${sqlNullableInt(ageMonths)},
     ${sqlBoolean(pediatricU6Active)},
-    ${sqlLiteral(biologicalSex)}
+    ${sqlNullableText(biologicalSex)}
   )
   returning *
 ),
@@ -484,7 +492,9 @@ select coalesce((
       'biologicalSex', p.biological_sex,
       'estimatedFitzpatrickBand', p.estimated_fitzpatrick_band,
       'baselineItaDegrees', p.baseline_ita_degrees,
-      'riskFactors', p.risk_factors_json
+      'riskFactors', p.risk_factors_json,
+      'contactName', p.contact_name,
+      'contactPhone', p.contact_phone
     )
   )
   from onboarding_submissions sub
@@ -546,6 +556,9 @@ export function buildFinalizeSubmissionSurveySql({
   status,
   anamnesisAnswers,
   routingCategory,
+  trafficLight = null,
+  scheduledFollowupAt = null,
+  verificationOfSubmissionId = null,
   patientFacingCard,
   doctorOnlyDraft,
   gpuJobUuid = null,
@@ -556,6 +569,9 @@ with updated as (
   set status = ${sqlLiteral(status)},
       anamnesis_answers_json = ${sqlJsonb(anamnesisAnswers)},
       routing_category = ${sqlNullableText(routingCategory)},
+      traffic_light = coalesce(${sqlNullableText(trafficLight)}, traffic_light),
+      scheduled_followup_at = coalesce(${scheduledFollowupAt ? `${sqlLiteral(scheduledFollowupAt)}::timestamptz` : "null"}, scheduled_followup_at),
+      verification_of_submission_id = coalesce(${sqlNullableUuid(verificationOfSubmissionId)}, verification_of_submission_id),
       patient_facing_card_json = ${sqlJsonb(patientFacingCard)},
       doctor_only_draft_json = ${sqlJsonb(doctorOnlyDraft)},
       gpu_job_uuid = ${sqlNullableUuid(gpuJobUuid)}
@@ -569,11 +585,142 @@ select coalesce((
     'id', u.id::text,
     'status', u.status,
     'routingCategory', u.routing_category,
+    'trafficLight', u.traffic_light,
+    'scheduledFollowupAt', u.scheduled_followup_at,
     'patientFacingCard', u.patient_facing_card_json,
     'gpuJobUuid', u.gpu_job_uuid::text
   )
   from updated u
 ), 'null'::jsonb)::text;
+`.trim();
+}
+
+export function buildSavePostPhotoLeadAndProfileSql({
+  sessionId,
+  profileId,
+  contactName,
+  contactPhone,
+  subjectRelation = "SELF",
+  label = "Себе",
+  legalGuardianConfirmed = false,
+  consent152FzAcceptedAt,
+  ageYears = null,
+  ageMonths = null,
+  pediatricU6Active = false,
+  biologicalSex = null,
+}) {
+  return `
+with updated_session as (
+  update onboarding_sessions
+  set contact_name = coalesce(${sqlNullableText(contactName)}, contact_name),
+      contact_phone = coalesce(${sqlNullableText(contactPhone)}, contact_phone),
+      consent_152fz_accepted_at = coalesce(consent_152fz_accepted_at, ${sqlLiteral(consent152FzAcceptedAt)}::timestamptz),
+      active_profile_id = ${sqlUuid(profileId)}
+  where id = ${sqlUuid(sessionId)}
+    and deleted_at is null
+  returning *
+),
+updated_profile as (
+  update onboarding_profiles
+  set subject_relation = ${sqlLiteral(subjectRelation)},
+      label = ${sqlLiteral(label)},
+      legal_guardian_confirmed = ${sqlBoolean(legalGuardianConfirmed)},
+      contact_name = coalesce(${sqlNullableText(contactName)}, contact_name),
+      contact_phone = coalesce(${sqlNullableText(contactPhone)}, contact_phone),
+      age_years = coalesce(${sqlNullableInt(ageYears)}, age_years),
+      age_months = ${sqlNullableInt(ageMonths)},
+      pediatric_u6_active = ${sqlBoolean(pediatricU6Active)},
+      biological_sex = coalesce(${sqlNullableText(biologicalSex)}, biological_sex)
+  where id = ${sqlUuid(profileId)}
+    and session_id = ${sqlUuid(sessionId)}
+    and deleted_at is null
+  returning *
+)
+select coalesce((
+  select jsonb_build_object(
+    'id', p.id::text,
+    'sessionId', p.session_id::text,
+    'subjectRelation', p.subject_relation,
+    'label', p.label,
+    'legalGuardianConfirmed', p.legal_guardian_confirmed,
+    'contactName', p.contact_name,
+    'contactPhone', p.contact_phone,
+    'ageYears', p.age_years,
+    'ageMonths', p.age_months,
+    'pediatricU6Active', p.pediatric_u6_active,
+    'biologicalSex', p.biological_sex,
+    'estimatedFitzpatrickBand', p.estimated_fitzpatrick_band,
+    'baselineItaDegrees', p.baseline_ita_degrees
+  )
+  from updated_profile p
+), 'null'::jsonb)::text;
+`.trim();
+}
+
+export function buildGetOmnichannelConfigSql() {
+  return `
+select coalesce((
+  select jsonb_build_object(
+    'configKey', c.config_key,
+    'channels', c.channels_json,
+    'flowRules', c.flow_rules_json,
+    'greetingVariants', c.greeting_variants_json,
+    'updatedAt', c.updated_at
+  )
+  from omnichannel_communication_configs c
+  where c.config_key = 'default'
+  limit 1
+), jsonb_build_object(
+  'configKey', 'default',
+  'channels', '{"telegram":{"enabled":true,"transport":"Telegram Bot API Webhook","botHandle":"@skindoktor_pro_bot"},"web":{"enabled":true,"transport":"Встроенный веб-экран /check (без сжатия)","route":"/check"},"max":{"enabled":false,"transport":"@maxhub/max-bot-api (MAX Webhook)","botHandle":""},"whatsapp":{"enabled":false,"transport":"WAHA / Evolution HTTP API","instanceName":""}}'::jsonb,
+  'flowRules', '{"photoFirstMode":true,"postPhotoLeadCaptureEnabled":true,"photoWaitNudgeMinutes":4,"lowRiskFollowupDays":30,"mediumRiskSecondPhotoCheckEnabled":true,"persistentMenuEnabled":true}'::jsonb,
+  'greetingVariants', '["Ура! Рад помочь — сделайте фото по наглядной памятке ниже и пришлите сюда.","Рад новому обращению! Пожалуйста, пришлите чёткую фотографию участка кожи крупным планом.","Отлично, готов проверить снимок! Точная маршрутизация возможна только по чёткой фотографии с расстояния около 10 см."]'::jsonb,
+  'updatedAt', null
+))::text;
+`.trim();
+}
+
+export function buildUpsertOmnichannelConfigSql({
+  channels,
+  flowRules,
+  greetingVariants,
+  updatedByUserId = null,
+}) {
+  return `
+with upserted as (
+  insert into omnichannel_communication_configs (
+    config_key,
+    channels_json,
+    flow_rules_json,
+    greeting_variants_json,
+    updated_by_user_id,
+    updated_at
+  )
+  values (
+    'default',
+    ${sqlJsonb(channels)},
+    ${sqlJsonb(flowRules)},
+    ${sqlJsonb(greetingVariants)},
+    ${sqlNullableUuid(updatedByUserId)},
+    now()
+  )
+  on conflict (config_key)
+  do update set
+    channels_json = excluded.channels_json,
+    flow_rules_json = excluded.flow_rules_json,
+    greeting_variants_json = excluded.greeting_variants_json,
+    updated_by_user_id = excluded.updated_by_user_id,
+    updated_at = now()
+  returning *
+)
+select jsonb_build_object(
+  'configKey', u.config_key,
+  'channels', u.channels_json,
+  'flowRules', u.flow_rules_json,
+  'greetingVariants', u.greeting_variants_json,
+  'updatedAt', u.updated_at
+)::text
+from upserted u;
 `.trim();
 }
 
@@ -1206,6 +1353,15 @@ export function createPrevisitHandoffRepository(dbClient) {
     },
     async deletePortalPersonalUploads152Fz(params) {
       return firstJson(await dbClient.queryJson(buildDeletePortalPersonalUploads152FzSql(params)));
+    },
+    async savePostPhotoLeadAndProfile(params) {
+      return firstJson(await dbClient.queryJson(buildSavePostPhotoLeadAndProfileSql(params)));
+    },
+    async getOmnichannelConfig() {
+      return firstJson(await dbClient.queryJson(buildGetOmnichannelConfigSql()));
+    },
+    async upsertOmnichannelConfig(params) {
+      return firstJson(await dbClient.queryJson(buildUpsertOmnichannelConfigSql(params)));
     },
   };
 }

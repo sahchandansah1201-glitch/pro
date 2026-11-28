@@ -4,9 +4,12 @@ import {
   AlertTriangle,
   Camera,
   CheckCircle2,
+  Clock,
   MessageSquare,
   PhoneCall,
+  RefreshCw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -18,67 +21,32 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   bookClinicFromPublicSubmission,
-  createPublicOnboardingProfile,
   deletePublicOnboardingMyData,
+  fetchPublicFlowConfig,
   initPublicOnboardingSession,
   readOriginalFileAsDataUrl,
   resolvePublicProfileMismatch,
   savePublicRiskFactors,
-  stepTelegramBotDialogSimulator,
   submitPublicMicroSurvey,
   submitPublicOnboardingPhoto,
   type BiologicalSex,
   type EvolutionChoice,
-  type LesionCropCardItemDTO,
   type OnboardingClinicChoiceDTO,
   type OnboardingProfileDTO,
   type PatientFacingResultCardDTO,
   type PhotoSubmitResultDTO,
-  type SubjectRelation,
   type SymptomsChoice,
-  type TelegramBotInlineButtonDTO,
   type TopicalChoice,
 } from "@/lib/self-hosted-onboarding-api";
+import { TelegramMiroDialogPanel } from "./TelegramMiroDialogPanel";
 
 const STORAGE_TOKEN_KEY = "skindoctor.onboarding.token.v1";
 
-type WebFlowStep = "profile" | "photo" | "mismatch" | "survey" | "result";
+// Compact valid 1x1 JPEG data URL for instant 1-click check on Web without selecting a local file
+const SAMPLE_VALID_JPEG_DATA_URL =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AV//Z";
 
-interface TgChatBubble {
-  id: string;
-  side: "bot" | "user";
-  text: string;
-  cropCard?: LesionCropCardItemDTO | null;
-}
-
-const TG_STATE_LABEL_RU: Record<string, string> = {
-  S0_START: "Выбор профиля",
-  S1_GUARDIAN_CHECK: "Подтверждение законного представителя",
-  S1_CONSENT_152FZ: "Согласие 152-ФЗ",
-  S2_AGE: "Ввод возраста",
-  S2_INFANT_MONTHS: "Возраст младенца (месяцы)",
-  S2_SEX: "Выбор пола",
-  S3_AWAIT_PHOTO: "Ожидание снимка кожи",
-  S3_MISMATCH_GUARD: "Сверка тона кожи с профилем",
-  S4_Q1_EVOLUTION: "Вопрос 1 из 3 (динамика)",
-  S4_Q2_SYMPTOMS: "Вопрос 2 из 3 (симптомы)",
-  S4_Q3_TOPICAL_U5: "Вопрос 3 из 3 (наружные средства)",
-  S4_U6_CHILD_RED_FLAGS: "Педиатрическая проверка",
-  S5_RESULT_CARD: "Приватная карточка маршрутизации",
-  S5_QUEUED_GPU: "Очередь расчёта",
-  S5_RISK_FACTORS: "Факторы риска",
-  S6_BOOK_NAME: "Запись в клинику · имя",
-  S6_BOOK_PHONE: "Запись в клинику · телефон",
-  S6_BOOK_TIME: "Запись в клинику · время",
-  S6_BOOK_DONE: "Заявка передана в клинику",
-  S7_DELETED_152FZ: "Данные удалены по 152-ФЗ",
-};
-
-const RELATION_OPTIONS: Array<{ value: SubjectRelation; title: string; hint: string }> = [
-  { value: "SELF", title: "Себе", hint: "Личный профиль проверки кожи" },
-  { value: "CHILD_UNDER_18", title: "Ребёнку (до 18 лет)", hint: "С подтверждением статуса родителя" },
-  { value: "ADULT_RELATIVE", title: "Близкому взрослому", hint: "Отдельный профиль супруга или родственника" },
-];
+type WebMiroStep = "photo_first" | "mismatch" | "post_photo_lead" | "traffic_light_result";
 
 export default function PublicSkinCheckPage({ embedded = false }: { embedded?: boolean }) {
   const fileInputId = useId();
@@ -88,34 +56,33 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
   });
   const [profiles, setProfiles] = useState<OnboardingProfileDTO[]>([]);
   const [clinics, setClinics] = useState<OnboardingClinicChoiceDTO[]>([]);
-  const [activeProfile, setActiveProfile] = useState<OnboardingProfileDTO | null>(null);
-  const [step, setStep] = useState<WebFlowStep>("profile");
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [instructionSvg, setInstructionSvg] = useState<string>("");
+  const [followupDaysCfg, setFollowupDaysCfg] = useState<number>(30);
+  const [step, setStep] = useState<WebMiroStep>("photo_first");
 
-  // Step 1 form state
-  const [relation, setRelation] = useState<SubjectRelation>("SELF");
-  const [guardianConfirmed, setGuardianConfirmed] = useState(false);
-  const [consent152Fz, setConsent152Fz] = useState(false);
-  const [isInfant, setIsInfant] = useState(false);
-  const [ageInput, setAgeInput] = useState("34");
-  const [sex, setSex] = useState<BiologicalSex>("female");
+  // Screen 1: Photo-first (1-tap 152-FZ + immediate photo upload, zero questionnaire barrier)
+  const [consent152Fz, setConsent152Fz] = useState(true);
+  const [verificationOfSubmissionId, setVerificationOfSubmissionId] = useState<string | null>(null);
 
-  // Step 2 state
+  // Screen 2: Post-photo Lead & Profile capture at peak user motivation
   const [photoResult, setPhotoResult] = useState<PhotoSubmitResultDTO | null>(null);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [ageInput, setAgeInput] = useState("34");
+  const [isInfantUnder1Year, setIsInfantUnder1Year] = useState(false);
+  const [guardianConfirmed, setGuardianConfirmed] = useState(false);
+  const [sex, setSex] = useState<BiologicalSex>("female");
   const [evolution, setEvolution] = useState<EvolutionChoice>("stable_long");
   const [symptoms, setSymptoms] = useState<SymptomsChoice>("none");
   const [priorTopical, setPriorTopical] = useState<TopicalChoice>("none");
   const [pediatricRedFlags, setPediatricRedFlags] = useState(false);
 
-  // Result & booking state
+  // Screen 3: Traffic-light result & 1-tap clinic slot booking
   const [resultCard, setResultCard] = useState<PatientFacingResultCardDTO | null>(null);
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const [contactName, setContactName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [preferredTimeNote, setPreferredTimeNote] = useState("Ближайшее доступное окно");
+  const [preferredTimeNote, setPreferredTimeNote] = useState("Ближайшее свободное окно");
   const [selectedClinicId, setSelectedClinicId] = useState("");
   const [bookingConfirmation, setBookingConfirmation] = useState<string | null>(null);
-
-  // Post-result optional risk factors
   const [riskSavedNote, setRiskSavedNote] = useState<string | null>(null);
   const [riskFactors, setRiskFactors] = useState({
     bodyRegionCode: "trunk_anterior",
@@ -123,147 +90,103 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
     tanningBed: false,
     familyMelanomaHistory: false,
     neviOver50: false,
-    immunosuppressionOrDiabetes: false,
-    smokingOrChronicTrauma: false,
   });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
-  // Telegram first-channel interactive dialog state
-  const [tgChatId] = useState(() => `tg-web-${Math.random().toString(36).slice(2, 9)}`);
-  const [tgState, setTgState] = useState("S0_START");
-  const [tgButtons, setTgButtons] = useState<TelegramBotInlineButtonDTO[][]>([]);
-  const [tgInput, setTgInput] = useState("");
-  const [tgBusy, setTgBusy] = useState(false);
-  const [tgBubbles, setTgBubbles] = useState<TgChatBubble[]>([]);
+  const parsedAge = Number.parseInt(ageInput, 10);
+  const isChildUnder18 = isInfantUnder1Year || (Number.isFinite(parsedAge) && parsedAge < 18);
+  const isToddlerU6 = isInfantUnder1Year || (Number.isFinite(parsedAge) && parsedAge < 3);
 
   const bootstrapSession = useCallback(async () => {
-    const res = await initPublicOnboardingSession({
-      sessionToken: sessionToken || null,
-      channel: "web",
-    });
-    if (res.ok && res.value) {
-      setSessionToken(res.value.sessionToken);
+    const [sessionRes, cfgRes] = await Promise.all([
+      initPublicOnboardingSession({
+        sessionToken: sessionToken || null,
+        channel: "web",
+      }),
+      fetchPublicFlowConfig(),
+    ]);
+    if (cfgRes.ok && cfgRes.value) {
+      setInstructionSvg(cfgRes.value.instructionVisualSvgDataUrl || "");
+      if (cfgRes.value.item?.flowRules?.lowRiskFollowupDays) {
+        setFollowupDaysCfg(cfgRes.value.item.flowRules.lowRiskFollowupDays);
+      }
+    }
+    if (sessionRes.ok && sessionRes.value) {
+      setSessionToken(sessionRes.value.sessionToken);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_TOKEN_KEY, res.value.sessionToken);
+        window.localStorage.setItem(STORAGE_TOKEN_KEY, sessionRes.value.sessionToken);
       }
-      setProfiles(res.value.profiles);
-      setClinics(res.value.clinics);
-      if (res.value.clinics[0] && !selectedClinicId) {
-        setSelectedClinicId(res.value.clinics[0].id);
+      setProfiles(sessionRes.value.profiles);
+      setClinics(sessionRes.value.clinics);
+      if (sessionRes.value.clinics[0] && !selectedClinicId) {
+        setSelectedClinicId(sessionRes.value.clinics[0].id);
       }
-      if (res.value.profiles[0] && !activeProfile) {
-        setActiveProfile(res.value.profiles[0]);
+      const firstProf = sessionRes.value.profiles[0];
+      if (firstProf) {
+        setActiveProfileId((prev) => prev || firstProf.id);
+        if (firstProf.contactName) setContactName((prev) => prev || firstProf.contactName || "");
+        if (firstProf.contactPhone) setContactPhone((prev) => prev || firstProf.contactPhone || "");
       }
     }
-  }, [activeProfile, selectedClinicId, sessionToken]);
-
-  const startTelegramDialog = useCallback(async () => {
-    setTgBusy(true);
-    const res = await stepTelegramBotDialogSimulator({
-      chatId: tgChatId,
-      text: "/start",
-    });
-    setTgBusy(false);
-    if (res.ok && res.value) {
-      setTgState(res.value.fsmState);
-      setTgButtons(res.value.reply.buttons);
-      setTgBubbles([
-        {
-          id: "tg-init",
-          side: "bot",
-          text: res.value.reply.text,
-          cropCard: res.value.reply.cropCard,
-        },
-      ]);
-    }
-  }, [tgChatId]);
+  }, [selectedClinicId, sessionToken]);
 
   useEffect(() => {
     void bootstrapSession();
   }, [bootstrapSession]);
 
-  useEffect(() => {
-    if (tgBubbles.length === 0) {
-      void startTelegramDialog();
+  async function processUploadedDataUrl(dataUrl: string, clientHints: Record<string, unknown> = {}) {
+    if (!consent152Fz) {
+      setError("Отметьте согласие на обработку данных (152-ФЗ) перед отправкой фотографии.");
+      return;
     }
-  }, [startTelegramDialog, tgBubbles.length]);
-
-  async function handleCreateProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    setBusy(true);
     setError(null);
     setStatusBanner(null);
-
-    if (relation === "CHILD_UNDER_18" && !guardianConfirmed) {
-      setError("Подтвердите галочкой статус родителя или законного представителя ребёнка.");
-      return;
-    }
-    if (!consent152Fz) {
-      setError("Примите согласие на обработку данных (152-ФЗ) для продолжения.");
-      return;
-    }
-
-    const numericAge = Number.parseInt(ageInput, 10);
-    setBusy(true);
-    const res = await createPublicOnboardingProfile({
+    const res = await submitPublicOnboardingPhoto({
       sessionToken,
-      payload: {
-        subjectRelation: relation,
-        legalGuardianConfirmed: relation === "CHILD_UNDER_18" ? guardianConfirmed : false,
-        consent152FzAccepted: consent152Fz,
-        isInfantUnder1Year: relation === "CHILD_UNDER_18" && isInfant,
-        ...(relation === "CHILD_UNDER_18" && isInfant
-          ? { ageMonths: numericAge }
-          : { ageYears: numericAge }),
-        biologicalSex: sex,
-      },
+      profileId: activeProfileId,
+      consent152FzAccepted: true,
+      imageBase64: dataUrl,
+      clientHints,
     });
     setBusy(false);
-
     if (!res.ok || !res.value) {
-      setError(res.error?.message || "Проверьте заполнение анкеты профиля.");
+      setError(res.error?.message || "Не удалось проверить файл снимка.");
       return;
     }
-
-    setActiveProfile(res.value.profile);
-    setProfiles((prev) => [...prev.filter((p) => p.id !== res.value!.profile.id), res.value.profile]);
-    setStep("photo");
+    setPhotoResult(res.value);
+    setActiveProfileId(res.value.profileId);
+    if (res.value.instructionVisualSvgDataUrl) {
+      setInstructionSvg(res.value.instructionVisualSvgDataUrl);
+    }
+    if (res.value.savedContact?.contactName) {
+      setContactName((prev) => prev || res.value!.savedContact!.contactName || "");
+    }
+    if (res.value.savedContact?.contactPhone) {
+      setContactPhone((prev) => prev || res.value!.savedContact!.contactPhone || "");
+    }
+    if (!res.value.qualityGate.passed) {
+      setStep("photo_first");
+      return;
+    }
+    if (res.value.status === "awaiting_mismatch_confirm") {
+      setStep("mismatch");
+      return;
+    }
+    setStep("post_photo_lead");
   }
 
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !activeProfile) return;
-
-    setBusy(true);
-    setError(null);
+    if (!file) return;
     try {
-      // Original raw file without client-side canvas recompression or EXIF stripping!
       const dataUrl = await readOriginalFileAsDataUrl(file);
-      const res = await submitPublicOnboardingPhoto({
-        sessionToken,
-        profileId: activeProfile.id,
-        imageBase64: dataUrl,
-      });
-      setBusy(false);
-      if (!res.ok || !res.value) {
-        setError(res.error?.message || "Не удалось проверить файл снимка.");
-        return;
-      }
-      setPhotoResult(res.value);
-      if (!res.value.qualityGate.passed) {
-        setStep("photo");
-        return;
-      }
-      if (res.value.status === "awaiting_mismatch_confirm") {
-        setStep("mismatch");
-        return;
-      }
-      setStep("survey");
+      await processUploadedDataUrl(dataUrl);
     } catch (err) {
-      setBusy(false);
       setError(err instanceof Error ? err.message : "Ошибка чтения файла.");
     }
   }
@@ -278,26 +201,55 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
       resolution,
     });
     setBusy(false);
-    if (!res.ok) {
+    if (!res.ok || !res.value) {
       setError(res.error?.message || "Не удалось применить выбор профиля.");
       return;
     }
-    setStep("survey");
+    setActiveProfileId(res.value.submission.profileId);
+    if (resolution === "switched_profile") {
+      setContactName("");
+    }
+    setStep("post_photo_lead");
   }
 
-  async function handleSubmitSurvey(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmitPostPhotoLeadAndSurvey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!photoResult) return;
-    setBusy(true);
     setError(null);
+
+    if (contactName.trim().length < 2) {
+      setError("Укажите Ваше имя или имя обследуемого пациента (не короче 2 букв).");
+      return;
+    }
+    if (contactPhone.replace(/\D/g, "").length < 10) {
+      setError("Укажите контактный номер телефона для связи по результату (не менее 10 цифр).");
+      return;
+    }
+    if (isChildUnder18 && !guardianConfirmed) {
+      setError("Подтвердите галочкой статус родителя или законного представителя ребёнка.");
+      return;
+    }
+
+    setBusy(true);
     const res = await submitPublicMicroSurvey({
       sessionToken,
       submissionId: photoResult.submissionId,
       payload: {
+        requireLeadContact: true,
+        contactName: contactName.trim(),
+        contactPhone: contactPhone.trim(),
+        subjectRelation: isChildUnder18 ? "CHILD_UNDER_18" : "SELF",
+        legalGuardianConfirmed: isChildUnder18 ? guardianConfirmed : false,
+        isInfantUnder1Year,
+        ...(isInfantUnder1Year
+          ? { ageYears: 0, ageMonths: Math.max(1, Math.min(11, parsedAge || 6)) }
+          : { ageYears: Math.max(1, Math.min(120, parsedAge || 34)) }),
+        biologicalSex: sex,
+        verificationOfSubmissionId,
         evolution,
         symptoms,
         priorTopical14d: priorTopical,
-        pediatricSystemicRedFlags: Boolean(activeProfile?.pediatricU6Active && pediatricRedFlags),
+        pediatricSystemicRedFlags: Boolean(isToddlerU6 && pediatricRedFlags),
       },
     });
     setBusy(false);
@@ -306,25 +258,11 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
       return;
     }
     setResultCard(res.value.card);
-    setStep("result");
+    setBookingConfirmation(null);
+    setStep("traffic_light_result");
   }
 
-  async function handleSaveRiskFactors() {
-    if (!activeProfile) return;
-    setBusy(true);
-    const res = await savePublicRiskFactors({
-      sessionToken,
-      profileId: activeProfile.id,
-      riskFactors,
-    });
-    setBusy(false);
-    if (res.ok) {
-      setRiskSavedNote("Индивидуальные факторы риска сохранены для врача клиники.");
-    }
-  }
-
-  async function handleBookClinic(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleOneTapBookClinic() {
     if (!photoResult) return;
     setBusy(true);
     setError(null);
@@ -332,8 +270,8 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
       sessionToken,
       submissionId: photoResult.submissionId,
       payload: {
-        displayName: contactName,
-        phone: contactPhone,
+        displayName: contactName.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
         preferredTimeNote,
         clinicId: selectedClinicId || undefined,
         bodyRegionCode: riskFactors.bodyRegionCode,
@@ -341,11 +279,25 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
     });
     setBusy(false);
     if (!res.ok || !res.value) {
-      setError(res.error?.message || "Проверьте имя и телефон для записи.");
+      setError(res.error?.message || "Не удалось передать заявку в клинику.");
       return;
     }
-    setBookingConfirmation(`${res.value.messageRu} (${res.value.bookingPriorityLabelRu})`);
-    setBookingOpen(false);
+    setBookingConfirmation(`${res.value.messageRu} (${res.value.bookingPriorityLabelRu}, окно: ${preferredTimeNote})`);
+  }
+
+  async function handleSaveRiskFactors() {
+    const targetProfId = activeProfileId || photoResult?.profileId;
+    if (!targetProfId) return;
+    setBusy(true);
+    const res = await savePublicRiskFactors({
+      sessionToken,
+      profileId: targetProfId,
+      riskFactors,
+    });
+    setBusy(false);
+    if (res.ok) {
+      setRiskSavedNote("Факторы риска сохранены и будут переданы врачу на очном приёме.");
+    }
   }
 
   async function handleDeleteMyData152Fz() {
@@ -355,49 +307,40 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
     setBusy(false);
     if (res.ok && res.value) {
       setProfiles([]);
-      setActiveProfile(null);
+      setActiveProfileId(null);
       setPhotoResult(null);
       setResultCard(null);
       setBookingConfirmation(null);
-      setStep("profile");
+      setVerificationOfSubmissionId(null);
+      setStep("photo_first");
       setStatusBanner(res.value.messageRu);
     }
   }
 
-  async function sendTelegramAction(opts: {
-    userLabel: string;
-    text?: string | null;
-    callbackData?: string | null;
-    simulatePhotoPreset?: "clear_skin" | "blur" | "glare" | "dark" | "mismatch_skin" | null;
-    clientHints?: Record<string, unknown>;
-  }) {
-    setTgBubbles((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}-${Math.random()}`, side: "user", text: opts.userLabel },
-    ]);
-    setTgBusy(true);
-    const res = await stepTelegramBotDialogSimulator({
-      chatId: tgChatId,
-      text: opts.text ?? null,
-      callbackData: opts.callbackData ?? null,
-      simulatePhotoPreset: opts.simulatePhotoPreset ?? null,
-      clientHints: opts.clientHints ?? {},
-    });
-    setTgBusy(false);
-    if (res.ok && res.value) {
-      setTgState(res.value.fsmState);
-      setTgButtons(res.value.reply.buttons);
-      setTgBubbles((prev) => [
-        ...prev,
-        {
-          id: `b-${Date.now()}-${Math.random()}`,
-          side: "bot",
-          text: res.value.reply.text,
-          cropCard: res.value.reply.cropCard,
-        },
-      ]);
-    }
+  function startNewAnalysis(secondAngleForSubmissionId: string | null = null) {
+    setVerificationOfSubmissionId(secondAngleForSubmissionId);
+    setResultCard(null);
+    setBookingConfirmation(null);
+    setError(null);
+    setStep("photo_first");
   }
+
+  const trafficLight = resultCard?.trafficLight || "GREEN_LOW";
+  const trafficLightConfig =
+    trafficLight === "RED_HIGH"
+      ? {
+          title: "🔴 Высокий уровень внимания — нужен очный осмотр врача",
+          boxClass: "border-destructive/50 bg-destructive/10",
+        }
+      : trafficLight === "YELLOW_MEDIUM"
+        ? {
+            title: "⚠️ Средний уровень — рекомендуется плановая консультация дерматолога",
+            boxClass: "border-amber-500/50 bg-amber-500/10",
+          }
+        : {
+            title: "✅ Низкий уровень — спокойная визуальная картина",
+            boxClass: "border-emerald-600/40 bg-emerald-500/10",
+          };
 
   return (
     <div className={embedded ? "space-y-4 p-4" : "min-h-screen bg-surface-muted p-4 sm:p-6"}>
@@ -406,10 +349,10 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
           <header className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-4">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Дерматолог Про · Предварительная проверка и запись в клинику
+                Дерматолог Про · Фото-первая проверка и запись в клинику
               </p>
               <h1 className="text-[18px] font-semibold">
-                Проверка снимка кожи и подготовка к очному осмотру врача
+                Проверка снимка кожи по шагам и подготовка к очному осмотру врача
               </h1>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -423,7 +366,7 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
         <div className="flex items-start gap-2 rounded-md border border-border bg-surface px-4 py-3 text-[12px] text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span>
-            Сервис помогает оценить качество снимка и выбрать срочность очного приёма дерматолога (не является медицинским диагнозом). При сохранении на сервере из файла автоматически удаляются EXIF, GPS и встроенные превью. Ограничения по числу проверок для пользователей отключены.
+            Сервис помогает оценить качество снимка и выбрать срочность очного приёма дерматолога (не является медицинским диагнозом; самолечение опасно). При сохранении на сервере из файла автоматически удаляются EXIF, GPS и встроенные превью. Ограничения по числу проверок для пользователей отключены.
           </span>
         </div>
 
@@ -433,222 +376,61 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
           </div>
         ) : null}
 
-        <Tabs defaultValue="web" className="space-y-4">
+        <Tabs defaultValue={embedded ? "telegram" : "web"} className="space-y-4">
           <TabsList className="h-auto min-h-11 flex-wrap justify-start gap-1 bg-surface p-1">
             <TabsTrigger value="web" className="min-h-11 gap-1.5 text-[13px]">
               <Camera className="h-4 w-4" aria-hidden />
-              Веб-проверка снимка (оригинал без сжатия)
+              Веб-проверка снимка (сразу с фото · без сжатия)
             </TabsTrigger>
             <TabsTrigger value="telegram" className="min-h-11 gap-1.5 text-[13px]">
               <MessageSquare className="h-4 w-4" aria-hidden />
-              Канал Telegram-бот (диалог и ветвление)
+              Канал Telegram-бот (меню 2×3 и ветвление Miro)
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: PUBLIC WEB 2-STEP ONBOARDING */}
+          {/* TAB 1: MIRO PHOTO-FIRST WEB FUNNEL */}
           <TabsContent value="web" className="m-0 space-y-4">
             {error ? (
-              <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13px] text-destructive">
-                {error}
+              <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                <span>{error}</span>
               </div>
             ) : null}
 
-            {step === "profile" ? (
-              <Card className="space-y-5 p-5">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase text-muted-foreground">Шаг 1 из 2 · Профиль</div>
-                  <h2 className="mt-1 text-[16px] font-semibold">Кому проверяем кожу?</h2>
-                  <p className="mt-0.5 text-[13px] text-muted-foreground">
-                    Отдельные профили нужны, чтобы не смешивать возраст, пол и автоматический расчёт фототипа кожи (ITA°).
+            {/* ЭКРАН 1: СРАЗУ ПАМЯТКА ХОРОШО / ПЛОХО (~10 СМ) И ОТПРАВКА ФОТО */}
+            {step === "photo_first" ? (
+              <Card className="space-y-4 border-border bg-surface p-5">
+                <div className="space-y-1">
+                  <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                    {verificationOfSubmissionId
+                      ? "Проверка устойчивости · 2-е фото этого же участка под другим углом"
+                      : "Шаг 1 · Отправьте фото для проверки прямо сейчас (без предварительных анкет)"}
+                  </span>
+                  <h2 className="text-[16px] font-semibold">
+                    Правильное фото — точный результат!
+                  </h2>
+                  <p className="text-[13px] text-muted-foreground">
+                    Поместите родинку или участок кожи в центр кадра с расстояния около 10 см при ровном дневном свете. Уберите из кадра одежду, волосы и пёстрый фон позади.
                   </p>
                 </div>
 
-                {profiles.length > 0 ? (
-                  <div className="rounded-md border border-border bg-surface-muted p-3">
-                    <div className="text-[12px] font-medium">Быстрый выбор сохранённого профиля:</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {profiles.map((p) => (
-                        <Button
-                          key={p.id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="min-h-11 text-[12px]"
-                          onClick={() => {
-                            setActiveProfile(p);
-                            setStep("photo");
-                          }}
-                        >
-                          {p.label} ({p.biologicalSex === "male" ? "муж." : "жен."})
-                          {p.estimatedFitzpatrickBand ? ` · фототип ${p.estimatedFitzpatrickBand}` : ""}
-                        </Button>
-                      ))}
-                    </div>
+                {instructionSvg ? (
+                  <div className="overflow-hidden rounded-md border border-border bg-surface-muted p-2">
+                    <img
+                      src={instructionSvg}
+                      alt="Наглядная памятка: ХОРОШО крупно в центре около 10 см, ПЛОХО издалека"
+                      className="mx-auto w-full max-w-[520px] rounded"
+                    />
                   </div>
                 ) : null}
 
-                <form onSubmit={handleCreateProfile} className="space-y-4">
-                  <fieldset className="space-y-2">
-                    <legend className="text-[13px] font-medium">Выберите профиль</legend>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {RELATION_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setRelation(opt.value);
-                            if (opt.value === "CHILD_UNDER_18") {
-                              const cur = Number.parseInt(ageInput, 10);
-                              if (!Number.isFinite(cur) || cur >= 18) {
-                                setAgeInput(isInfant ? "6" : "7");
-                              }
-                            } else {
-                              setIsInfant(false);
-                              const cur = Number.parseInt(ageInput, 10);
-                              if (!Number.isFinite(cur) || cur < 18) {
-                                setAgeInput("34");
-                              }
-                            }
-                          }}
-                          aria-pressed={relation === opt.value}
-                          className={`min-h-[56px] rounded-md border p-3 text-left transition ${
-                            relation === opt.value
-                              ? "border-primary bg-primary/5 ring-1 ring-primary"
-                              : "border-border bg-surface hover:bg-surface-muted"
-                          }`}
-                        >
-                          <div className="text-[13px] font-semibold">{opt.title}</div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">{opt.hint}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {relation === "CHILD_UNDER_18" ? (
-                    <label className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-[13px]">
-                      <input
-                        type="checkbox"
-                        checked={guardianConfirmed}
-                        onChange={(e) => setGuardianConfirmed(e.target.checked)}
-                        className="mt-0.5 h-4 w-4"
-                      />
-                      <span>
-                        Подтверждаю, что являюсь родителем или иным законным представителем ребёнка (обязательно для загрузки детского снимка).
-                      </span>
-                    </label>
-                  ) : null}
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="onb-age" className="text-[13px]">
-                        {relation === "CHILD_UNDER_18" && isInfant
-                          ? "Возраст младенца (полных месяцев, 0–11)"
-                          : "Возраст (полных лет)"}
-                      </Label>
-                      <Input
-                        id="onb-age"
-                        type="number"
-                        min={0}
-                        max={relation === "CHILD_UNDER_18" ? (isInfant ? 11 : 17) : 120}
-                        value={ageInput}
-                        onChange={(e) => setAgeInput(e.target.value)}
-                        className="min-h-11 text-[14px]"
-                        required
-                      />
-                      {relation === "CHILD_UNDER_18" ? (
-                        <label className="flex min-h-11 items-center gap-2 text-[12px] text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={isInfant}
-                            onChange={(e) => {
-                              setIsInfant(e.target.checked);
-                              setAgeInput(e.target.checked ? "6" : "5");
-                            }}
-                            className="h-4 w-4"
-                          />
-                          Ребёнку меньше 1 года (включить педиатрические правила безопасности)
-                        </label>
-                      ) : null}
-                    </div>
-
-                    <fieldset className="space-y-2">
-                      <legend className="text-[13px] font-medium">Биологический пол</legend>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant={sex === "female" ? "default" : "outline"}
-                          className="min-h-11 text-[13px]"
-                          onClick={() => setSex("female")}
-                        >
-                          Женский
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={sex === "male" ? "default" : "outline"}
-                          className="min-h-11 text-[13px]"
-                          onClick={() => setSex("male")}
-                        >
-                          Мужской
-                        </Button>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Фототип кожи вручную указывать не нужно — сервер рассчитает угол пигментации ITA° автоматически по здоровому участку вокруг очага.
-                      </p>
-                    </fieldset>
-                  </div>
-
-                  <label className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-md border border-border p-3 text-[13px]">
-                    <input
-                      type="checkbox"
-                      checked={consent152Fz}
-                      onChange={(e) => setConsent152Fz(e.target.checked)}
-                      className="mt-0.5 h-4 w-4"
-                    />
-                    <span>
-                      Даю согласие на обработку персональных данных согласно 152-ФЗ (ст. 9, ст. 10) и подтверждаю понимание, что сервис носит информационно-маршрутизирующий характер и не заменяет очный осмотр врача.
-                    </span>
-                  </label>
-
-                  <Button type="submit" disabled={busy} className="min-h-11 w-full text-[14px] sm:w-auto sm:px-6">
-                    {busy ? "Сохраняем профиль…" : "Перейти к загрузке снимка"}
-                  </Button>
-                </form>
-              </Card>
-            ) : null}
-
-            {step === "photo" ? (
-              <Card className="space-y-4 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase text-muted-foreground">
-                      Шаг 2 из 2 · Оригинальный снимок без сжатия
-                    </div>
-                    <h2 className="mt-1 text-[16px] font-semibold">
-                      Загрузите чёткое фото участка кожи ({activeProfile?.label})
-                    </h2>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-h-11 text-[12px]"
-                    onClick={() => setStep("profile")}
-                  >
-                    Сменить профиль
-                  </Button>
-                </div>
-
-                <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
-                  <li>Снимайте при мягком дневном освещении у окна без прямой вспышки с расстояния 10–15 см.</li>
-                  <li>Файл передаётся на сервер в оригинальном качестве (Display P3 → sRGB), после чего EXIF и GPS полностью очищаются.</li>
-                </ul>
-
                 {photoResult && !photoResult.qualityGate.passed ? (
-                  <div role="alert" className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-[13px]">
-                    <div className="font-semibold text-foreground">
-                      Снимок отклонён входным контролем чёткости: {photoResult.qualityGate.reasonRu}
-                    </div>
-                    <ul className="list-disc pl-5 text-[12px] text-muted-foreground">
+                  <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-[13px]">
+                    <p className="font-semibold text-foreground">
+                      Плохое фото — нужен повторный кадр: {photoResult.qualityGate.reasonRu}
+                    </p>
+                    <ul className="list-disc space-y-1 pl-5 text-[12px] text-muted-foreground">
                       {photoResult.qualityGate.recoveryTipsRu.map((tip) => (
                         <li key={tip}>{tip}</li>
                       ))}
@@ -656,43 +438,91 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                   </div>
                 ) : null}
 
-                <div>
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-surface-muted p-3 text-[13px]">
+                  <input
+                    type="checkbox"
+                    checked={consent152Fz}
+                    onChange={(e) => setConsent152Fz(e.target.checked)}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <span>
+                    Соглашаюсь на обработку персональных и биометрических данных (152-ФЗ) для информационной подготовки к очному приёму дерматолога. Вы можете удалить свои снимки и данные одной кнопкой в любой момент.
+                  </span>
+                </label>
+
+                <div className="flex flex-wrap items-center gap-3">
                   <input
                     id={fileInputId}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     onChange={(e) => void handleFileSelected(e)}
                     className="sr-only"
                   />
-                  <Button asChild disabled={busy} className="min-h-11 cursor-pointer gap-2 text-[14px]">
+                  <Button asChild disabled={busy} className="min-h-11 cursor-pointer gap-2">
                     <label htmlFor={fileInputId}>
                       <Upload className="h-4 w-4" aria-hidden />
-                      {busy
-                        ? "Проверяем чёткость и цветовой профиль…"
-                        : photoResult && !photoResult.qualityGate.passed
-                          ? "Отправить новый снимок"
-                          : "Выбрать оригинальный файл снимка"}
+                      {busy ? "Проверяем резкость и очищаем EXIF…" : "Выбрать оригинальный снимок кожи (~10 см)"}
                     </label>
                   </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void processUploadedDataUrl(SAMPLE_VALID_JPEG_DATA_URL, {
+                        healthyRingRgb: { r: 228, g: 196, b: 176 },
+                      })
+                    }
+                    className="h-auto min-h-11 whitespace-normal py-2 text-[12px]"
+                  >
+                    Проверить сценарий на тестовом чётком снимке
+                  </Button>
                 </div>
+
+                {profiles.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-[12px] text-muted-foreground">
+                    <span>Сохранённых профилей в сессии: {profiles.length}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => void handleDeleteMyData152Fz()}
+                      className="min-h-11 gap-1.5 text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                      Удалить мои снимки и данные (152-ФЗ)
+                    </Button>
+                  </div>
+                ) : null}
               </Card>
             ) : null}
 
+            {/* ПРЕДОХРАНИТЕЛЬ НЕСОВПАДЕНИЯ ТОНОВ КОЖИ (|ΔITA°| > 22°) */}
             {step === "mismatch" && photoResult?.mismatchPrompt ? (
-              <Card className="space-y-4 p-5">
-                <div className="text-[11px] font-semibold uppercase text-amber-600">
-                  Проверка совпадения профиля (ΔITA° {photoResult.phototypeEstimate.deltaItaFromProfile}°)
-                </div>
-                <h2 className="text-[16px] font-semibold">{photoResult.mismatchPrompt.questionRu}</h2>
-                <div className="flex flex-wrap gap-3">
+              <Card className="space-y-4 border-border bg-surface p-5">
+                <h2 className="text-[16px] font-semibold">
+                  1 шаг: Детектированы важные участки · уточните профиль
+                </h2>
+                {photoResult.analysisStagesVisuals?.step1DetectionSvgDataUrl ? (
+                  <img
+                    src={photoResult.analysisStagesVisuals.step1DetectionSvgDataUrl}
+                    alt="1 шаг: Детектированы важные участки"
+                    className="w-full max-w-[360px] rounded border border-border"
+                  />
+                ) : null}
+                <p className="text-[13px] text-muted-foreground">
+                  {photoResult.mismatchPrompt.questionRu}
+                </p>
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   {photoResult.mismatchPrompt.options.map((opt) => (
                     <Button
                       key={opt.code}
                       type="button"
-                      variant={opt.code === "same_person_lighting" ? "default" : "outline"}
+                      variant={opt.code === "switched_profile" ? "default" : "outline"}
                       disabled={busy}
-                      className="min-h-11 text-[13px]"
                       onClick={() => void handleResolveMismatch(opt.code)}
+                      className="h-auto min-h-11 whitespace-normal py-2.5 text-left text-[13px]"
                     >
                       {opt.labelRu}
                     </Button>
@@ -701,452 +531,425 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
               </Card>
             ) : null}
 
-            {step === "survey" ? (
-              <Card className="space-y-5 p-5">
-                <div>
-                  <div className="flex items-center gap-1.5 text-[12px] font-medium text-primary">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden />
-                    Снимок принят (чёткость {photoResult?.qualityGate.score0To100}/100 · авто-фототип {photoResult?.phototypeEstimate.fitzpatrickBand})
+            {/* ЭКРАН 2: СРАЗУ ПОСЛЕ ЧЁТКОГО ФОТО — 1 ШАГ ДЕТЕКЦИИ + СБОР ИМЕНИ, ТЕЛЕФОНА, ВОЗРАСТА И ПОЛА */}
+            {step === "post_photo_lead" && photoResult ? (
+              <Card className="space-y-4 border-border bg-surface p-5">
+                <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                  {photoResult.analysisStagesVisuals?.step1DetectionSvgDataUrl ? (
+                    <img
+                      src={photoResult.analysisStagesVisuals.step1DetectionSvgDataUrl}
+                      alt="1 шаг: Детектированы важные участки кожи"
+                      className="w-full rounded-md border border-border bg-surface-muted"
+                    />
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                        1 шаг: Детектированы важные участки ({photoResult.qualityGate.score0To100}/100)
+                      </span>
+                      <span className="rounded bg-primary/10 px-2.5 py-0.5 font-medium text-primary">
+                        2 шаг: Анализ нейросети запущен…
+                      </span>
+                    </div>
+                    <h2 className="text-[16px] font-semibold">
+                      Пока готовится карточка результата — представьтесь, пожалуйста
+                    </h2>
+                    <p className="text-[12px] text-muted-foreground">
+                      Автоматическая калибровка тона здоровой кожи вокруг очага: фототип {photoResult.phototypeEstimate.fitzpatrickBand} (ITA° {photoResult.phototypeEstimate.itaDegrees}°). Контакт сохраняется сразу, чтобы при необходимости записаться к врачу в 1 нажатие.
+                    </p>
                   </div>
-                  <h2 className="mt-1 text-[16px] font-semibold">Ответьте на 3 коротких вопроса по очагу</h2>
                 </div>
 
-                <form onSubmit={handleSubmitSurvey} className="space-y-4">
-                  <fieldset className="space-y-2">
-                    <legend className="text-[13px] font-medium">1. Динамика и давность</legend>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {[
-                        ["stable_long", "Давно и не меняется"],
-                        ["new_lt_3m", "Появилось недавно (< 3 мес)"],
-                        ["growing_changing", "Заметно растёт или меняет цвет/форму"],
-                        ["unsure", "Трудно сказать"],
-                      ].map(([val, label]) => (
-                        <Button
-                          key={val}
-                          type="button"
-                          variant={evolution === val ? "default" : "outline"}
-                          className="min-h-11 justify-start text-left text-[13px]"
-                          onClick={() => setEvolution(val as EvolutionChoice)}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  <fieldset className="space-y-2">
-                    <legend className="text-[13px] font-medium">2. Ощущения в области очага</legend>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {[
-                        ["none", "Не беспокоит"],
-                        ["itch_or_pain", "Зудит или болит"],
-                        ["bleeding_or_crust", "Кровит или корочка без травмы"],
-                      ].map(([val, label]) => (
-                        <Button
-                          key={val}
-                          type="button"
-                          variant={symptoms === val ? "default" : "outline"}
-                          className="min-h-11 justify-start text-left text-[13px]"
-                          onClick={() => setSymptoms(val as SymptomsChoice)}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  <fieldset className="space-y-2">
-                    <legend className="text-[13px] font-medium">3. Чем обрабатывали участок за последние 14 дней?</legend>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {[
-                        ["none", "Ничем не мазали"],
-                        ["steroid_ointment", "Гормональная мазь (Целестодерм, Тридерм, Акридерм и др.)"],
-                        ["antiseptic_dye_celelandine", "Зелёнка, фукорцин, йод, чистотел"],
-                        ["moisturizer", "Увлажняющий или обычный крем"],
-                      ].map(([val, label]) => (
-                        <Button
-                          key={val}
-                          type="button"
-                          variant={priorTopical === val ? "default" : "outline"}
-                          className="min-h-11 justify-start text-left text-[13px]"
-                          onClick={() => setPriorTopical(val as TopicalChoice)}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {activeProfile?.pediatricU6Active ? (
-                    <label className="flex min-h-11 items-start gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-[13px]">
-                      <input
-                        type="checkbox"
-                        checked={pediatricRedFlags}
-                        onChange={(e) => setPediatricRedFlags(e.target.checked)}
-                        className="mt-0.5 h-4 w-4"
+                <form onSubmit={(e) => void handleSubmitPostPhotoLeadAndSurvey(e)} className="space-y-4 border-t border-border pt-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="miro-lead-name">Как Вас зовут (или имя обследуемого пациента)?</Label>
+                      <Input
+                        id="miro-lead-name"
+                        required
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                        placeholder="Например: Анна"
+                        className="min-h-11"
                       />
-                      <span>
-                        У ребёнка сейчас есть повышенная температура, выраженная вялость или быстрое распространение высыпаний
-                      </span>
-                    </label>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="miro-lead-phone">По какому номеру телефона можно связаться по результату?</Label>
+                      <Input
+                        id="miro-lead-phone"
+                        type="tel"
+                        required
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        placeholder="+7 999 123-45-67"
+                        className="min-h-11"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="miro-age-input">
+                          {isInfantUnder1Year ? "Возраст младенца (полных месяцев, 1–11)" : "Возраст пациента (полных лет)"}
+                        </Label>
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={isInfantUnder1Year}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setIsInfantUnder1Year(checked);
+                              setAgeInput(checked ? "6" : "34");
+                            }}
+                            className="h-4 w-4"
+                          />
+                          Младенец до 1 года
+                        </label>
+                      </div>
+                      <Input
+                        id="miro-age-input"
+                        type="number"
+                        min={1}
+                        max={isInfantUnder1Year ? 11 : 120}
+                        required
+                        value={ageInput}
+                        onChange={(e) => setAgeInput(e.target.value)}
+                        className="min-h-11"
+                      />
+                    </div>
+
+                    <fieldset className="space-y-1.5">
+                      <legend className="text-[14px] font-medium">Пол пациента</legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            { value: "female", label: "Женский" },
+                            { value: "male", label: "Мужской" },
+                          ] as const
+                        ).map((item) => (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() => setSex(item.value)}
+                            aria-pressed={sex === item.value}
+                            className={`min-h-11 rounded-md border px-3 text-[13px] font-medium ${
+                              sex === item.value
+                                ? "border-primary bg-primary/10 text-foreground"
+                                : "border-border bg-surface"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+
+                  {isChildUnder18 ? (
+                    <div className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3.5">
+                      <label className="flex cursor-pointer items-start gap-2.5 text-[13px]">
+                        <input
+                          type="checkbox"
+                          checked={guardianConfirmed}
+                          onChange={(e) => setGuardianConfirmed(e.target.checked)}
+                          className="mt-0.5 h-4 w-4"
+                        />
+                        <span className="font-medium text-foreground">
+                          Подтверждаю, что являюсь родителем или законным представителем ребёнка (обязательно для пациентов младше 18 лет).
+                        </span>
+                      </label>
+                      {isToddlerU6 ? (
+                        <label className="flex cursor-pointer items-start gap-2.5 text-[12px] text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={pediatricRedFlags}
+                            onChange={(e) => setPediatricRedFlags(e.target.checked)}
+                            className="mt-0.5 h-4 w-4"
+                          />
+                          <span>
+                            У ребёнка сейчас есть повышенная температура, вялость или быстрое распространение высыпаний
+                          </span>
+                        </label>
+                      ) : null}
+                    </div>
                   ) : null}
 
-                  <Button type="submit" disabled={busy} className="min-h-11 w-full text-[14px] sm:w-auto sm:px-6">
-                    {busy ? "Готовим карточку маршрутизации…" : "Получить предварительную сводку"}
-                  </Button>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="miro-evolution" className="text-[12px]">Динамика за 1–3 мес</Label>
+                      <select
+                        id="miro-evolution"
+                        value={evolution}
+                        onChange={(e) => setEvolution(e.target.value as EvolutionChoice)}
+                        className="min-h-11 w-full rounded-md border border-border bg-surface px-2.5 text-[13px]"
+                      >
+                        <option value="stable_long">Существует давно, не меняется</option>
+                        <option value="new_lt_3m">Появилось недавно (&lt; 3 мес)</option>
+                        <option value="growing_changing">Заметно растёт или меняет цвет</option>
+                        <option value="unsure">Затрудняюсь ответить</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="miro-symptoms" className="text-[12px]">Ощущения в области очага</Label>
+                      <select
+                        id="miro-symptoms"
+                        value={symptoms}
+                        onChange={(e) => setSymptoms(e.target.value as SymptomsChoice)}
+                        className="min-h-11 w-full rounded-md border border-border bg-surface px-2.5 text-[13px]"
+                      >
+                        <option value="none">Не беспокоит</option>
+                        <option value="itch_or_pain">Периодический зуд или болезненность</option>
+                        <option value="bleeding_or_crust">Кровоточивость или корочка</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="miro-topical" className="text-[12px]">Наносили ли средства за 14 дней?</Label>
+                      <select
+                        id="miro-topical"
+                        value={priorTopical}
+                        onChange={(e) => setPriorTopical(e.target.value as TopicalChoice)}
+                        className="min-h-11 w-full rounded-md border border-border bg-surface px-2.5 text-[13px]"
+                      >
+                        <option value="none">Ничем не мазали</option>
+                        <option value="steroid_ointment">Гормональная мазь / крем</option>
+                        <option value="antiseptic_dye_celelandine">Фукорцин / зелёнка / чистотел</option>
+                        <option value="moisturizer">Обычный увлажняющий крем</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => startNewAnalysis(null)}
+                      className="min-h-11"
+                    >
+                      Выбрать другое фото
+                    </Button>
+                    <Button type="submit" disabled={busy} className="min-h-11">
+                      {busy ? "Формируем карточку светофора…" : "Показать результат проверки"}
+                    </Button>
+                  </div>
                 </form>
               </Card>
             ) : null}
 
-            {step === "result" && resultCard ? (
-              <Card className="space-y-5 p-5">
-                {resultCard.emergency103Banner ? (
-                  <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-md border border-destructive bg-destructive/10 p-4 text-[13px] font-medium text-destructive"
-                  >
-                    <PhoneCall className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-                    <span>
-                      Экстренное предупреждение: при температуре, вялости или быстром распространении сыпи у ребёнка незамедлительно обратитесь за скорой медицинской помощью по номеру 103 или 112.
-                    </span>
-                  </div>
-                ) : null}
+            {/* ЭКРАН 3: КАРТОЧКА СВЕТОФОРА (🔴 / ⚠️ / ✅) + 30 ДНЕЙ / 2-Е ФОТО + ЗАПИСЬ В 1 НАЖАТИЕ */}
+            {step === "traffic_light_result" && resultCard ? (
+              <div className="space-y-4">
+                <Card className="space-y-4 border-border bg-surface p-5">
+                  {resultCard.emergency103Banner ? (
+                    <div role="alert" className="rounded-md border-2 border-destructive bg-destructive/10 p-4 text-[13px] font-medium text-destructive">
+                      Экстренное предупреждение: при сочетании кожных высыпаний у ребёнка с температурой, вялостью или быстрым распространением элементов незамедлительно вызовите скорую помощь 103 или 112.
+                    </div>
+                  ) : null}
 
-                <div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
-                    {resultCard.badgeLabelRu || "Предварительная маршрутизация готова"}
+                  <div className={`space-y-1.5 rounded-md border p-4 ${trafficLightConfig.boxClass}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      2 шаг: Анализ нейросети завершён · приватная карточка без полного кадра
+                    </p>
+                    <h2 className="text-[17px] font-semibold text-foreground">
+                      {trafficLightConfig.title}
+                    </h2>
+                    <p className="text-[13px] leading-relaxed text-foreground">
+                      {resultCard.safeSummaryRu || resultCard.statusMessageRu}
+                    </p>
                   </div>
-                  <p className="mt-3 text-[14px] leading-relaxed text-foreground">
-                    {resultCard.safeSummaryRu || resultCard.statusMessageRu}
-                  </p>
-                </div>
 
-                {resultCard.lesionCrops && resultCard.lesionCrops.length > 0 ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {resultCard.lesionCrops.map((crop) => (
-                      <div key={crop.lesionIndex} className="rounded-md border border-border bg-surface-muted p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {resultCard.analysisStagesVisuals?.step2AttentionSvgDataUrl ? (
+                      <div className="space-y-1.5 rounded-md border border-border bg-surface-muted p-3">
+                        <img
+                          src={resultCard.analysisStagesVisuals.step2AttentionSvgDataUrl}
+                          alt="2 шаг: Анализ нейросети — выделение контура"
+                          className="w-full rounded"
+                        />
+                        <p className="text-[12px] text-muted-foreground">
+                          2 шаг: Выделение области внимания и локального контура без показа лица и фона.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {resultCard.lesionCrops?.map((crop) => (
+                      <div key={crop.lesionIndex} className="space-y-1.5 rounded-md border border-border bg-surface-muted p-3">
                         <img
                           src={crop.cropSvgDataUrl}
-                          alt={`${crop.title} — локальный кроп +25%`}
-                          className="w-full rounded-md"
+                          alt={`${crop.title} — локальный участок с отступом +${crop.surroundingSkinMarginPercent}%`}
+                          className="w-full rounded"
                         />
-                        <div className="mt-2 text-[12px] text-muted-foreground">
-                          Приватная карточка: показан только локальный участок (+{crop.surroundingSkinMarginPercent}% кожи вокруг контура) без полного лица или тела.
-                        </div>
+                        <p className="text-[12px] text-muted-foreground">
+                          {crop.title}: показан только локальный участок (+{crop.surroundingSkinMarginPercent}% здоровой кожи вокруг). Чёткость: {crop.qualityScore0To100}/100.
+                        </p>
                       </div>
                     ))}
                   </div>
-                ) : null}
 
-                {bookingConfirmation ? (
-                  <div role="status" className="rounded-md border border-primary/40 bg-primary/5 p-4 text-[13px] font-medium">
-                    {bookingConfirmation}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      type="button"
-                      className="min-h-11 text-[14px] px-6"
-                      onClick={() => setBookingOpen(true)}
-                    >
-                      {resultCard.primaryCtaLabelRu}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 text-[13px]"
-                      onClick={() => {
-                        setPhotoResult(null);
-                        setResultCard(null);
-                        setStep("photo");
-                      }}
-                    >
-                      Проверить ещё снимок
-                    </Button>
-                  </div>
-                )}
-
-                {bookingOpen ? (
-                  <form onSubmit={handleBookClinic} className="space-y-3 rounded-md border border-border bg-surface-muted p-4">
-                    <h3 className="text-[14px] font-semibold">Заявка на очный приём к дерматологу</h3>
-                    <p className="text-[12px] text-muted-foreground">
-                      Администратор записи увидит только ваше имя, телефон, желаемое время и приоритет окна. Снимки и предвизитная анкета откроются только врачу на приёме.
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1 text-[12px] font-medium">
-                        Ваше имя
-                        <Input
-                          value={contactName}
-                          onChange={(e) => setContactName(e.target.value)}
-                          placeholder="Иван"
-                          className="min-h-11"
-                          required
-                        />
-                      </label>
-                      <label className="grid gap-1 text-[12px] font-medium">
-                        Контактный телефон
-                        <Input
-                          type="tel"
-                          value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
-                          placeholder="+7 999 000-00-00"
-                          className="min-h-11"
-                          required
-                        />
-                      </label>
-                      <label className="grid gap-1 text-[12px] font-medium">
-                        Клиника
-                        <select
-                          value={selectedClinicId}
-                          onChange={(e) => setSelectedClinicId(e.target.value)}
-                          className="min-h-11 rounded-md border border-input bg-background px-3 text-[13px]"
-                        >
-                          {clinics.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="grid gap-1 text-[12px] font-medium">
-                        Удобное время визита
-                        <Input
-                          value={preferredTimeNote}
-                          onChange={(e) => setPreferredTimeNote(e.target.value)}
-                          className="min-h-11"
-                        />
-                      </label>
+                  {/* Ветка Miro для ✅ Низкого уровня: таймер повторного осмотра через 30 дней */}
+                  {trafficLight === "GREEN_LOW" ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-600/30 bg-emerald-500/5 p-3.5 text-[13px]">
+                      <div className="flex items-start gap-2.5">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden />
+                        <span>
+                          {resultCard.followupTimerMessageRu ||
+                            `Активировано плановое напоминание на ${followupDaysCfg} дней для повторного фотоконтроля родинки в динамике. Сразу отправляйте новое фото, если заметите любые изменения или травму.`}
+                        </span>
+                      </div>
                     </div>
-                    <Button type="submit" disabled={busy} className="min-h-11 text-[13px]">
-                      {busy ? "Отправляем заявку…" : "Подтвердить отправку заявки в клинику"}
-                    </Button>
-                  </form>
-                ) : null}
+                  ) : null}
 
-                {/* Post-card non-intrusive risk factors */}
-                <div className="space-y-3 rounded-md border border-border p-4">
-                  <div className="text-[13px] font-semibold">
-                    Дополнительно (по желанию): уточнить индивидуальные факторы для врача и Паспорта кожи
+                  {/* Ветка Miro для ⚠️ Среднего уровня: «Удостоверься в результате — отправь 2-е фото этого места» */}
+                  {trafficLight === "YELLOW_MEDIUM" ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3.5 text-[13px]">
+                      <span className="max-w-xl">
+                        {resultCard.secondPhotoVerificationPromptRu ||
+                          "Удостоверьтесь в результате: сделайте 2-е фото этого же участка чуть под другим углом (~10 см) и отправьте на проверку снова."}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => startNewAnalysis(photoResult?.submissionId || null)}
+                        className="h-auto min-h-11 gap-1.5 whitespace-normal py-2 text-[12px]"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                        Отправить 2-е фото этого места
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {/* ЗАПИСЬ НА ПРИЁМ В 1 НАЖАТИЕ (имя и телефон уже сохранены!) */}
+                  {bookingConfirmation ? (
+                    <div role="status" className="rounded-md border border-primary/40 bg-primary/10 p-4 text-[13px]">
+                      <p className="font-semibold text-foreground">{bookingConfirmation}</p>
+                      <p className="mt-1 text-[12px] text-muted-foreground">
+                        Администратор записи видит только контакт ({contactName}, {contactPhone}) и желаемое окно. Снимки и клиническая сводка скрыты от оператора и откроются только врачу на очном приёме.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-md border border-border bg-surface-muted p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-[14px] font-semibold">
+                            Запись на очный приём в 1 нажатие
+                          </h3>
+                          <p className="text-[12px] text-muted-foreground">
+                            Контакт для связи уже сохранён: <span className="font-medium text-foreground">{contactName} ({contactPhone})</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="miro-slot-select" className="text-[12px]">Желаемое окно приёма</Label>
+                          <select
+                            id="miro-slot-select"
+                            value={preferredTimeNote}
+                            onChange={(e) => setPreferredTimeNote(e.target.value)}
+                            className="min-h-11 w-full rounded-md border border-border bg-surface px-3 text-[13px]"
+                          >
+                            <option value="Ближайшее свободное окно">Ближайшее свободное окно</option>
+                            <option value="Будни утром (09:00–13:00)">Будни утром (09:00–13:00)</option>
+                            <option value="Будни вечером (после 18:00)">Будни вечером (после 18:00)</option>
+                            <option value="Выходной день">Выходной день</option>
+                          </select>
+                        </div>
+                        {clinics.length > 0 ? (
+                          <div className="space-y-1">
+                            <Label htmlFor="miro-clinic-select" className="text-[12px]">Клиника-партнёр</Label>
+                            <select
+                              id="miro-clinic-select"
+                              value={selectedClinicId}
+                              onChange={(e) => setSelectedClinicId(e.target.value)}
+                              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 text-[13px]"
+                            >
+                              {clinics.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleOneTapBookClinic()}
+                          className="min-h-11 gap-2"
+                        >
+                          <PhoneCall className="h-4 w-4" aria-hidden />
+                          {resultCard.primaryCtaLabelRu || "Записаться на приём сейчас"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => startNewAnalysis(null)}
+                          className="min-h-11"
+                        >
+                          Новый анализ
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => void handleDeleteMyData152Fz()}
+                          className="min-h-11 gap-1.5 text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                          {resultCard.deleteDataLabelRu || "Удалить мои снимки и данные"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                {/* НЕНАВЯЗЧИВОЕ ДОПОЛНЕНИЕ ДЛЯ ВРАЧА ПОСЛЕ РЕЗУЛЬТАТА */}
+                <Card className="space-y-3 border-border bg-surface p-5">
+                  <div>
+                    <h3 className="text-[14px] font-semibold">
+                      Дополнить карточку для врача (по желанию)
+                    </h3>
+                    <p className="text-[12px] text-muted-foreground">
+                      Отметьте индивидуальные факторы — врач увидит их уже заполненными на очном осмотре:
+                    </p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 text-[12px]">
-                    {[
-                      ["sunburnsChildhood", "Солнечные ожоги с пузырями в детстве"],
-                      ["tanningBed", "Посещение солярия"],
-                      ["familyMelanomaHistory", "Меланома или рак кожи у близких родственников"],
-                      ["neviOver50", "Более 50 родинок на теле"],
-                      ["immunosuppressionOrDiabetes", "Приём иммуносупрессантов или сахарный диабет"],
-                      ["smokingOrChronicTrauma", "Курение или постоянное натирание участка одеждой"],
-                    ].map(([key, label]) => (
-                      <label key={key} className="flex min-h-11 items-center gap-2 rounded border border-border px-3 py-2">
+                  <div className="grid gap-2 sm:grid-cols-2 text-[13px]">
+                    {(
+                      [
+                        { key: "sunburnsChildhood", label: "Солнечные ожоги с пузырями в прошлом" },
+                        { key: "tanningBed", label: "Посещение солярия" },
+                        { key: "neviOver50", label: "Более 50 родинок на теле" },
+                        { key: "familyMelanomaHistory", label: "Опухоли кожи у кровных родственников" },
+                      ] as const
+                    ).map((item) => (
+                      <label key={item.key} className="flex cursor-pointer items-center gap-2 rounded border border-border px-3 py-2">
                         <input
                           type="checkbox"
-                          checked={Boolean(riskFactors[key as keyof typeof riskFactors])}
-                          onChange={(e) =>
-                            setRiskFactors((prev) => ({ ...prev, [key]: e.target.checked }))
-                          }
+                          checked={riskFactors[item.key]}
+                          onChange={(e) => setRiskFactors((prev) => ({ ...prev, [item.key]: e.target.checked }))}
                           className="h-4 w-4"
                         />
-                        <span>{label}</span>
+                        <span>{item.label}</span>
                       </label>
                     ))}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      className="min-h-11 text-[12px]"
-                      onClick={() => void handleSaveRiskFactors()}
-                    >
+                    <Button type="button" variant="outline" disabled={busy} onClick={() => void handleSaveRiskFactors()} className="min-h-11">
                       Сохранить факторы для врача
                     </Button>
-                    {riskSavedNote ? <span className="text-[12px] text-primary">{riskSavedNote}</span> : null}
+                    {riskSavedNote ? <span className="text-[12px] text-muted-foreground">{riskSavedNote}</span> : null}
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-border pt-3">
-                  <span className="text-[12px] text-muted-foreground">
-                    Управление персональными данными (152-ФЗ):
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    className="min-h-11 gap-1.5 text-[12px] text-destructive"
-                    onClick={() => void handleDeleteMyData152Fz()}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    Удалить мои снимки и данные
-                  </Button>
-                </div>
-              </Card>
+                </Card>
+              </div>
             ) : null}
           </TabsContent>
 
-          {/* TAB 2: TELEGRAM FIRST-CHANNEL INTERACTIVE DIALOG & BRANCHING */}
-          <TabsContent value="telegram" className="m-0">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <Card className="flex h-[620px] flex-col overflow-hidden">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <div>
-                    <div className="text-[14px] font-semibold">Telegram-бот «Дерматолог Про»</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Живой серверный диалог · Этап: {TG_STATE_LABEL_RU[tgState] || "Диалог"}
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-11 text-[12px]"
-                    onClick={() => void startTelegramDialog()}
-                  >
-                    Перезапустить /start
-                  </Button>
-                </div>
-
-                <div className="flex-1 space-y-3 overflow-y-auto bg-surface-muted p-4">
-                  {tgBubbles.map((b) => (
-                    <div
-                      key={b.id}
-                      className={`max-w-[86%] rounded-lg px-3.5 py-2.5 text-[13px] whitespace-pre-line ${
-                        b.side === "user"
-                          ? "ml-auto bg-primary text-primary-foreground"
-                          : "mr-auto border border-border bg-surface text-foreground"
-                      }`}
-                    >
-                      {b.cropCard ? (
-                        <img
-                          src={b.cropCard.cropSvgDataUrl}
-                          alt={b.cropCard.title}
-                          className="mb-2 w-full max-w-[280px] rounded"
-                        />
-                      ) : null}
-                      {b.text}
-                    </div>
-                  ))}
-                </div>
-
-                {tgButtons.length > 0 ? (
-                  <div className="space-y-1.5 border-t border-border bg-surface p-3">
-                    {tgButtons.map((row, rIdx) => (
-                      <div key={rIdx} className="flex flex-wrap gap-1.5">
-                        {row.map((btn) => (
-                          <Button
-                            key={btn.callbackData}
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={tgBusy}
-                            className="h-auto min-h-11 flex-1 whitespace-normal py-2 text-center text-[12px] leading-snug"
-                            onClick={() =>
-                              void sendTelegramAction({
-                                userLabel: btn.text,
-                                callbackData: btn.callbackData,
-                              })
-                            }
-                          >
-                            {btn.text}
-                          </Button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!tgInput.trim()) return;
-                    const txt = tgInput.trim();
-                    setTgInput("");
-                    void sendTelegramAction({ userLabel: txt, text: txt });
-                  }}
-                  className="flex gap-2 border-t border-border bg-surface p-3"
-                >
-                  <Input
-                    value={tgInput}
-                    onChange={(e) => setTgInput(e.target.value)}
-                    placeholder="Введите ответ (возраст, имя, телефон или /start)…"
-                    aria-label="Сообщение в Telegram-бот"
-                    className="min-h-11 text-[13px]"
-                  />
-                  <Button type="submit" disabled={tgBusy || !tgInput.trim()} className="min-h-11 text-[13px]">
-                    Отправить
-                  </Button>
-                </form>
-              </Card>
-
-              <Card className="min-w-0 space-y-3 p-4 text-[12px]">
-                <div className="text-[13px] font-semibold">Быстрая отправка снимка для проверки веток</div>
-                <p className="text-muted-foreground">
-                  На шаге ожидания снимка нажмите любую кнопку ниже, чтобы протестировать ветвление бота:
-                </p>
-                <div className="grid min-w-0 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={tgBusy}
-                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
-                    onClick={() =>
-                      void sendTelegramAction({
-                        userLabel: "[Отправлено чёткое фото кожи]",
-                        simulatePhotoPreset: "clear_skin",
-                      })
-                    }
-                  >
-                    1. Чёткий снимок кожи (проходит контроль чёткости)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={tgBusy}
-                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
-                    onClick={() =>
-                      void sendTelegramAction({
-                        userLabel: "[Отправлено смазанное фото]",
-                        simulatePhotoPreset: "blur",
-                      })
-                    }
-                  >
-                    2. Смазанный кадр (отказ по чёткости и совет)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={tgBusy}
-                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
-                    onClick={() =>
-                      void sendTelegramAction({
-                        userLabel: "[Фото другого человека · отличие тона кожи]",
-                        simulatePhotoPreset: "mismatch_skin",
-                      })
-                    }
-                  >
-                    3. Несовпадение тона кожи с профилем
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={tgBusy}
-                    className="h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left text-[12px] leading-snug"
-                    onClick={() =>
-                      void sendTelegramAction({
-                        userLabel: "/delete_my_data",
-                        text: "/delete_my_data",
-                      })
-                    }
-                  >
-                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
-                    <span>4. Команда удаления данных (152-ФЗ)</span>
-                  </Button>
-                </div>
-              </Card>
-            </div>
+          {/* TAB 2: TELEGRAM BOT MIRO DIALOG & 2x3 PERSISTENT MENU */}
+          <TabsContent value="telegram" className="m-0 space-y-4">
+            <TelegramMiroDialogPanel />
           </TabsContent>
         </Tabs>
       </div>

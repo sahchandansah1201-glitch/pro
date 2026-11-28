@@ -18,6 +18,27 @@ function createInMemoryPrevisitRepo() {
   const submissions = new Map();
   const previsitCases = new Map();
   const portalLinks = new Map();
+  let omnichannelConfig = {
+    configKey: "default",
+    channels: {
+      telegram: { enabled: true, transport: "Telegram Bot API Webhook", botHandle: "@skindoktor_pro_bot" },
+      web: { enabled: true, transport: "Встроенный веб-экран /check (без сжатия)", route: "/check" },
+      max: { enabled: false, transport: "@maxhub/max-bot-api (MAX Webhook)", botHandle: "" },
+      whatsapp: { enabled: false, transport: "WAHA / Evolution HTTP API", instanceName: "" },
+    },
+    flowRules: {
+      photoFirstMode: true,
+      postPhotoLeadCaptureEnabled: true,
+      photoWaitNudgeMinutes: 4,
+      lowRiskFollowupDays: 30,
+      mediumRiskSecondPhotoCheckEnabled: true,
+      persistentMenuEnabled: true,
+    },
+    greetingVariants: [
+      "Ура! Рад помочь — сделайте фото по наглядной памятке ниже и пришлите сюда.",
+      "Рад новому обращению! Пожалуйста, пришлите чёткую фотографию участка кожи крупным планом.",
+    ],
+  };
   let seq = 1;
   const nextUuid = () => `90000000-0000-4000-8000-${String(seq++).padStart(12, "0")}`;
 
@@ -30,6 +51,20 @@ function createInMemoryPrevisitRepo() {
     async verifyServiceKey({ secretSha256 }) {
       if (secretSha256) return null;
       return null;
+    },
+    async getOmnichannelConfig() {
+      return structuredClone(omnichannelConfig);
+    },
+    async upsertOmnichannelConfig({ channels, flowRules, greetingVariants, updatedByUserId }) {
+      omnichannelConfig = {
+        configKey: "default",
+        channels,
+        flowRules,
+        greetingVariants,
+        updatedByUserId,
+        updatedAt: "2026-11-28T20:00:00.000Z",
+      };
+      return structuredClone(omnichannelConfig);
     },
     async upsertOnboardingSession({ sessionTokenSha256, channel = "web", externalChatId = null }) {
       let found = Array.from(sessions.values()).find(
@@ -44,9 +79,11 @@ function createInMemoryPrevisitRepo() {
           sessionTokenSha256,
           channel,
           externalChatId,
-          fsmState: "S0_START",
+          fsmState: "M0_WELCOME",
           fsmContext: {},
           activeProfileId: null,
+          contactName: null,
+          contactPhone: null,
           quotaEnforced: false,
           acceptedPhotoCount: 0,
           rejectedPhotoCount: 0,
@@ -77,6 +114,8 @@ function createInMemoryPrevisitRepo() {
       const p = {
         id: nextUuid(),
         ...params,
+        contactName: params.contactName || null,
+        contactPhone: params.contactPhone || null,
         estimatedFitzpatrickBand: null,
         baselineItaDegrees: null,
         riskFactors: {},
@@ -87,9 +126,29 @@ function createInMemoryPrevisitRepo() {
       const s = sessions.get(params.sessionId);
       if (s) {
         s.activeProfileId = p.id;
-        s.fsmState = "S3_AWAIT_PHOTO";
       }
       return { ...p };
+    },
+    async savePostPhotoLeadAndProfile(params) {
+      const p = profiles.get(params.profileId);
+      if (p) {
+        p.contactName = params.contactName ?? p.contactName;
+        p.contactPhone = params.contactPhone ?? p.contactPhone;
+        p.subjectRelation = params.subjectRelation ?? p.subjectRelation;
+        p.label = params.label ?? p.label;
+        p.legalGuardianConfirmed = params.legalGuardianConfirmed ?? p.legalGuardianConfirmed;
+        p.consent152FzAcceptedAt = params.consent152FzAcceptedAt ?? p.consent152FzAcceptedAt;
+        p.ageYears = params.ageYears ?? p.ageYears;
+        p.ageMonths = params.ageMonths ?? p.ageMonths;
+        p.pediatricU6Active = params.pediatricU6Active ?? p.pediatricU6Active;
+        p.biologicalSex = params.biologicalSex ?? p.biologicalSex;
+      }
+      const s = sessions.get(params.sessionId);
+      if (s) {
+        if (params.contactName) s.contactName = params.contactName;
+        if (params.contactPhone) s.contactPhone = params.contactPhone;
+      }
+      return p ? { ...p } : null;
     },
     async getOnboardingProfile({ sessionId, profileId }) {
       const p = profiles.get(profileId);
@@ -151,6 +210,9 @@ function createInMemoryPrevisitRepo() {
       status,
       anamnesisAnswers,
       routingCategory,
+      trafficLight = null,
+      scheduledFollowupAt = null,
+      verificationOfSubmissionId = null,
       patientFacingCard,
       doctorOnlyDraft,
       gpuJobUuid,
@@ -160,6 +222,9 @@ function createInMemoryPrevisitRepo() {
       sub.status = status;
       sub.anamnesisAnswers = anamnesisAnswers;
       sub.routingCategory = routingCategory;
+      sub.trafficLight = trafficLight;
+      sub.scheduledFollowupAt = scheduledFollowupAt;
+      sub.verificationOfSubmissionId = verificationOfSubmissionId;
       sub.patientFacingCard = patientFacingCard;
       sub.doctorOnlyDraft = doctorOnlyDraft;
       sub.gpuJobUuid = gpuJobUuid;
@@ -274,7 +339,7 @@ function createInMemoryPrevisitRepo() {
   };
 }
 
-test("Stage 7 onboarding enforces CHILD_UNDER_18 guardian checkbox, disables user quotas, and preserves HIGH_URGENT under U5", async () => {
+test("Stage 7B Miro Photo-First Web funnel: accepts photo BEFORE questionnaire, captures Name+Phone post-photo, enforces child guardian gate, and supports 1-tap clinic booking", async () => {
   const repo = createInMemoryPrevisitRepo();
   const storedObjects = [];
   const service = createPrevisitHandoffService({
@@ -292,45 +357,18 @@ test("Stage 7 onboarding enforces CHILD_UNDER_18 guardian checkbox, disables use
   assert.equal(init.quotaEnforced, false);
   const headers = { "x-onboarding-token": init.sessionToken };
 
-  // Child under 18 WITHOUT guardian confirmation must fail closed
-  await assert.rejects(
-    () =>
-      service.createOnboardingProfile(
-        {
-          subjectRelation: "CHILD_UNDER_18",
-          legalGuardianConfirmed: false,
-          consent152FzAccepted: true,
-          ageYears: 7,
-          biologicalSex: "female",
-        },
-        headers,
-      ),
-    /законного представителя/,
-  );
-
-  // Valid adult profile + 6 consecutive photos -> never blocked by quota (owner decision!)
-  const prof = await service.createOnboardingProfile(
-    {
-      subjectRelation: "SELF",
-      consent152FzAccepted: true,
-      ageYears: 34,
-      biologicalSex: "female",
-    },
-    headers,
-  );
-  assert.equal(prof.quotaEnforced, false);
-
   const validJpeg = createSyntheticValidJpegBuffer({
     displayP3: true,
     gpsLatDeg: 55.75,
     includeThumbnail: true,
   });
 
+  // Photo-first! Submit 6 consecutive photos WITHOUT creating a profile first -> auto-creates default profile & never blocks on quota
   let lastPhoto = null;
   for (let i = 0; i < 6; i += 1) {
     lastPhoto = await service.submitOnboardingPhoto(
       {
-        profileId: prof.profile.id,
+        consent152FzAccepted: true,
         fileBytes: validJpeg,
         clientHints: { healthyRingRgb: { r: 228, g: 196, b: 176 } },
       },
@@ -338,12 +376,62 @@ test("Stage 7 onboarding enforces CHILD_UNDER_18 guardian checkbox, disables use
     );
     assert.equal(lastPhoto.quotaEnforced, false);
     assert.equal(lastPhoto.qualityGate.passed, true);
+    assert.ok(lastPhoto.analysisStagesVisuals?.step1DetectionSvgDataUrl);
   }
   assert.equal(storedObjects.length, 6);
   // Stored object bytes have 100% stripped EXIF
   assert.equal(storedObjects[0].bytes.includes(Buffer.from("Exif\0\0", "ascii")), false);
 
-  // U5 invariant: steroid ointment NEVER downgrades HIGH_URGENT when lesion is growing/bleeding
+  // Post-photo child < 18 WITHOUT guardian confirmation must fail closed!
+  await assert.rejects(
+    () =>
+      service.submitMicroSurveyAndBuildCard(
+        lastPhoto.submissionId,
+        {
+          contactName: "Маша",
+          contactPhone: "+79991112233",
+          ageYears: 7,
+          legalGuardianConfirmed: false,
+          biologicalSex: "female",
+        },
+        headers,
+      ),
+    /законного представителя/,
+  );
+
+  // GREEN_LOW schedules 30-day follow-up reminder and saves Name + Phone for 1-tap booking
+  const lowRes = await service.submitMicroSurveyAndBuildCard(
+    lastPhoto.submissionId,
+    {
+      requireLeadContact: true,
+      contactName: "Елена",
+      contactPhone: "+79991112233",
+      ageYears: 34,
+      biologicalSex: "female",
+      evolution: "stable_long",
+      symptoms: "none",
+      priorTopical14d: "none",
+    },
+    headers,
+  );
+  assert.equal(lowRes.card.trafficLight, "GREEN_LOW");
+  assert.equal(lowRes.card.followupDays, 30);
+  assert.match(lowRes.card.followupTimerMessageRu, /30 дней/);
+
+  // YELLOW_MEDIUM includes 2nd-photo angle verification prompt
+  const medRes = await service.submitMicroSurveyAndBuildCard(
+    lastPhoto.submissionId,
+    {
+      evolution: "new_lt_3m",
+      symptoms: "itch_or_pain",
+      priorTopical14d: "none",
+    },
+    headers,
+  );
+  assert.equal(medRes.card.trafficLight, "YELLOW_MEDIUM");
+  assert.match(medRes.card.secondPhotoVerificationPromptRu, /2-е фото/);
+
+  // U5 invariant: steroid ointment NEVER downgrades HIGH_URGENT (RED_HIGH) when lesion is growing/bleeding
   const cardRes = await service.submitMicroSurveyAndBuildCard(
     lastPhoto.submissionId,
     {
@@ -354,9 +442,19 @@ test("Stage 7 onboarding enforces CHILD_UNDER_18 guardian checkbox, disables use
     headers,
   );
   assert.equal(cardRes.card.routingCategory, "HIGH_URGENT");
+  assert.equal(cardRes.card.trafficLight, "RED_HIGH");
   assert.equal(cardRes.card.bookingPriority, "PRIORITY_URGENT");
   assert.equal(cardRes.card.fullFrameHiddenForPrivacy, true);
   assert.equal(cardRes.card.lesionCrops.length, 1);
+
+  // 1-tap clinic booking reuses saved Name + Phone without re-asking!
+  const oneTapBook = await service.bookClinicFromSubmission(
+    lastPhoto.submissionId,
+    { preferredTimeNote: "Ближайшее свободное окно" },
+    headers,
+  );
+  assert.equal(oneTapBook.booked, true);
+  assert.equal(oneTapBook.bookingPriority, "PRIORITY_URGENT");
 });
 
 test("Stage 7 Role × Tenant boundaries: operator has zero medical photos/text, assistant/operator/other-clinic denied doctor previsit", async () => {
@@ -471,7 +569,7 @@ test("Stage 7 Role × Tenant boundaries: operator has zero medical photos/text, 
   assert.ok(portalAcc.item.temporaryPassword.length >= 12);
 });
 
-test("Stage 7 Telegram Bot FSM executes full dialog branching (child guardian -> infant U6 -> quality retry -> mismatch -> booking -> 152-FZ delete)", async () => {
+test("Stage 7B Telegram Bot Miro FSM executes 2x3 menu, photo-first intake, 4-min nudge, post-photo lead+guardian, traffic-light 🔴/⚠️/✅, 30d timer, and omnichannel configurator RBAC", async () => {
   const repo = createInMemoryPrevisitRepo();
   const service = createPrevisitHandoffService({
     previsitHandoffRepository: repo,
@@ -483,40 +581,67 @@ test("Stage 7 Telegram Bot FSM executes full dialog branching (child guardian ->
     env: { TELEGRAM_WEBHOOK_SECRET: "tg-secret-token-777" },
   });
 
+  // Omnichannel configurator RBAC + medical-claim safety check
+  for (const deniedRole of ["operator", "assistant", "doctor", "patient"]) {
+    await assert.rejects(
+      () =>
+        service.updateOmnichannelConfig(
+          { flowRules: { photoWaitNudgeMinutes: 5 } },
+          { userId: DOCTOR_A, roles: [deniedRole], clinicIds: [CLINIC_A] },
+        ),
+      (err) => err.publicStatus === 403,
+    );
+  }
+  await assert.rejects(
+    () =>
+      service.updateOmnichannelConfig(
+        { greetingVariants: ["Диагностирую меланому на 90% по фото!"] },
+        { userId: DOCTOR_A, roles: ["system_admin"], clinicIds: [] },
+      ),
+    /медицинской безопасности/,
+  );
+  const updatedCfg = await service.updateOmnichannelConfig(
+    {
+      channels: {
+        telegram: { enabled: true, botHandle: "@skindoktor_pro_bot" },
+        max: { enabled: true, botHandle: "@skindoktor_max_bot" },
+      },
+      flowRules: { photoWaitNudgeMinutes: 5, lowRiskFollowupDays: 30 },
+    },
+    { userId: DOCTOR_A, roles: ["system_admin"], clinicIds: [] },
+  );
+  assert.equal(updatedCfg.item.channels.max.enabled, true);
+  assert.equal(updatedCfg.item.flowRules.photoWaitNudgeMinutes, 5);
+
   // Webhook rejects missing secret
   await assert.rejects(
     () => bot.handleWebhookUpdate({ message: { chat: { id: 101 }, text: "/start" } }, {}),
     (err) => err.publicStatus === 401,
   );
 
-  const chatId = "tg-test-chat-42";
+  const chatId = "tg-miro-chat-42";
   let step = await bot.stepDialog({ chatId, text: "/start" });
-  assert.equal(step.fsmState, "S0_START");
+  assert.equal(step.fsmState, "M0_WELCOME");
+  assert.equal(step.persistentMenu.length, 3);
+  assert.deepEqual(step.persistentMenu[0], ["Новый анализ", "Инструкция"]);
 
-  // Branch: CHILD_UNDER_18 -> requires guardian check
-  step = await bot.stepDialog({ chatId, callbackData: "rel:CHILD_UNDER_18" });
-  assert.equal(step.fsmState, "S1_GUARDIAN_CHECK");
+  // 2x3 Menu & informational branches
+  step = await bot.stepDialog({ chatId, text: "Меню" });
+  assert.equal(step.fsmState, "M0_MENU_READY");
+  step = await bot.stepDialog({ chatId, text: "Зачем это?" });
+  assert.match(step.reply.text, /Зачем проверять родинки/);
 
-  // Blocked if guardian not confirmed
-  step = await bot.stepDialog({ chatId, text: "пропустить" });
-  assert.equal(step.fsmState, "S1_GUARDIAN_CHECK");
+  // Rotating greetings on "Новый анализ" + ХОРОШО/ПЛОХО visual banner
+  const g1 = await bot.stepDialog({ chatId, text: "Новый анализ" });
+  assert.equal(g1.fsmState, "M1_AWAIT_PHOTO");
+  assert.ok(g1.reply.visualBannerUrl?.startsWith("data:image/svg+xml"));
+  const g2 = await bot.stepDialog({ chatId, text: "Новый анализ" });
+  assert.notEqual(g1.reply.text, g2.reply.text);
 
-  step = await bot.stepDialog({ chatId, callbackData: "guard:confirm" });
-  assert.equal(step.fsmState, "S1_CONSENT_152FZ");
-
-  step = await bot.stepDialog({ chatId, callbackData: "consent:accept" });
-  assert.equal(step.fsmState, "S2_AGE");
-
-  // Infant < 1 year branch -> U6 pediatric active
-  step = await bot.stepDialog({ chatId, callbackData: "age:infant" });
-  assert.equal(step.fsmState, "S2_INFANT_MONTHS");
-
-  step = await bot.stepDialog({ chatId, callbackData: "months:6" });
-  assert.equal(step.fsmState, "S2_SEX");
-
-  step = await bot.stepDialog({ chatId, callbackData: "sex:female" });
-  assert.equal(step.fsmState, "S3_AWAIT_PHOTO");
-  assert.equal(step.profile.pediatricU6Active, true);
+  // 3-5 minute nudge if user didn't send photo
+  step = await bot.stepDialog({ chatId, callbackData: "nudge:photo_timeout" });
+  assert.equal(step.fsmState, "M1_AWAIT_PHOTO");
+  assert.match(step.reply.text, /Прошло 5 мин/);
 
   // Blurry photo rejected without blocking user
   const jpeg = createSyntheticValidJpegBuffer({ displayP3: true });
@@ -525,67 +650,88 @@ test("Stage 7 Telegram Bot FSM executes full dialog branching (child guardian ->
     photoBytes: jpeg,
     clientHints: { simulatedQualityIssue: "blur" },
   });
-  assert.equal(step.fsmState, "S3_AWAIT_PHOTO");
-  assert.match(step.reply.text, /не прошёл входной контроль качества/);
+  assert.equal(step.fsmState, "M1_AWAIT_PHOTO");
+  assert.match(step.reply.text, /Плохое фото/);
 
-  // Clear photo accepted -> Q1..Q3 -> U6 red-flag check -> 103/112 emergency banner!
+  // Clear photo accepted -> Step 1 visual + asks Name right at peak motivation!
   step = await bot.stepDialog({
     chatId,
     photoBytes: jpeg,
     clientHints: { healthyRingRgb: { r: 230, g: 200, b: 180 } },
   });
-  assert.equal(step.fsmState, "S4_Q1_EVOLUTION");
+  assert.equal(step.fsmState, "M2_LEAD_NAME");
+  assert.match(step.reply.text, /1 шаг: Детектированы важные участки кожи/);
+  assert.ok(step.reply.visualBannerUrl?.startsWith("data:image/svg+xml"));
 
-  step = await bot.stepDialog({ chatId, callbackData: "q1:new_lt_3m" });
-  assert.equal(step.fsmState, "S4_Q2_SYMPTOMS");
+  step = await bot.stepDialog({ chatId, text: "Анна" });
+  assert.equal(step.fsmState, "M2_LEAD_PHONE");
 
-  step = await bot.stepDialog({ chatId, callbackData: "q2:itch_or_pain" });
-  assert.equal(step.fsmState, "S4_Q3_TOPICAL_U5");
+  step = await bot.stepDialog({ chatId, text: "+7 999 555-44-33" });
+  assert.equal(step.fsmState, "M2_PROFILE_AGE");
 
-  step = await bot.stepDialog({ chatId, callbackData: "q3:none" });
-  assert.equal(step.fsmState, "S4_U6_CHILD_RED_FLAGS");
+  // Infant < 1 year branch -> requires guardian check -> U6 red-flag check -> RED_HIGH + 103/112
+  step = await bot.stepDialog({ chatId, callbackData: "age:infant" });
+  assert.equal(step.fsmState, "M2_GUARDIAN_GATE");
+
+  // Blocked if guardian not confirmed
+  step = await bot.stepDialog({ chatId, text: "пропустить" });
+  assert.equal(step.fsmState, "M2_GUARDIAN_GATE");
+
+  step = await bot.stepDialog({ chatId, callbackData: "guard:confirm" });
+  assert.equal(step.fsmState, "M2_PROFILE_SEX");
+
+  step = await bot.stepDialog({ chatId, callbackData: "sex:female" });
+  assert.equal(step.fsmState, "M2_QUICK_SYMPTOMS");
+
+  step = await bot.stepDialog({ chatId, callbackData: "sig:planned" });
+  assert.equal(step.fsmState, "M2_U6_CHILD_CHECK");
 
   step = await bot.stepDialog({ chatId, callbackData: "u6:yes" });
-  assert.equal(step.fsmState, "S5_RESULT_CARD");
+  assert.equal(step.fsmState, "M3_RESULT_TRAFFIC_LIGHT");
   assert.match(step.reply.text, /103 \/ 112/);
+  assert.match(step.reply.text, /🔴 Высокий уровень внимания/);
   assert.ok(step.reply.cropCard?.cropSvgDataUrl);
 
   // Second photo with drastically darker skin tone triggers Profile Mismatch Guard (|ΔITA°| > 22°)
-  step = await bot.stepDialog({ chatId, callbackData: "act:new_photo" });
+  step = await bot.stepDialog({ chatId, callbackData: "menu:new_analysis" });
   step = await bot.stepDialog({
     chatId,
     photoBytes: jpeg,
     clientHints: { healthyRingRgb: { r: 88, g: 60, b: 44 } },
   });
-  assert.equal(step.fsmState, "S3_MISMATCH_GUARD");
+  assert.equal(step.fsmState, "M2_MISMATCH_GUARD");
 
-  // Switch profile on the fly without re-uploading photo
+  // Switch profile on the fly -> adult calm lesion -> ✅ GREEN_LOW + 30-day timer!
   step = await bot.stepDialog({ chatId, callbackData: "mm:switched_profile" });
-  assert.equal(step.fsmState, "S4_Q1_EVOLUTION");
-  assert.match(step.reply.text, /перенесён в отдельный профиль без повторной загрузки/);
+  assert.equal(step.fsmState, "M2_LEAD_NAME");
+  await bot.stepDialog({ chatId, text: "Иван" });
+  await bot.stepDialog({ chatId, text: "+79995554433" });
+  await bot.stepDialog({ chatId, callbackData: "age:35" });
+  await bot.stepDialog({ chatId, callbackData: "sex:male" });
+  step = await bot.stepDialog({ chatId, callbackData: "sig:calm" });
+  assert.equal(step.fsmState, "M3_RESULT_TRAFFIC_LIGHT");
+  assert.match(step.reply.text, /✅ Низкий уровень/);
+  assert.match(step.reply.text, /30 дней/);
 
-  await bot.stepDialog({ chatId, callbackData: "q1:stable_long" });
-  await bot.stepDialog({ chatId, callbackData: "q2:none" });
-  step = await bot.stepDialog({ chatId, callbackData: "q3:none" });
-  assert.equal(step.fsmState, "S5_RESULT_CARD");
-
-  // Clinic booking handoff
+  // 1-tap Clinic booking (Name & Phone already saved post-photo!)
   step = await bot.stepDialog({ chatId, callbackData: "act:book_clinic" });
-  assert.equal(step.fsmState, "S6_BOOK_NAME");
-  step = await bot.stepDialog({ chatId, text: "Анна" });
-  assert.equal(step.fsmState, "S6_BOOK_PHONE");
-  step = await bot.stepDialog({ chatId, text: "+79995554433" });
-  assert.equal(step.fsmState, "S6_BOOK_TIME");
-  step = await bot.stepDialog({ chatId, callbackData: "time:Будни утром (09:00–13:00)" });
-  assert.equal(step.fsmState, "S6_BOOK_DONE");
+  assert.equal(step.fsmState, "M4_BOOK_ONE_TAP");
+  assert.match(step.reply.text, /Иван/);
+  step = await bot.stepDialog({ chatId, callbackData: "slot:Будни утром (09:00–13:00)" });
+  assert.equal(step.fsmState, "M4_BOOK_DONE");
   assert.equal(step.bookingResult.booked, true);
+
+  // 30-day follow-up reminder trigger
+  step = await bot.stepDialog({ chatId, callbackData: "nudge:followup_30d" });
+  assert.equal(step.fsmState, "M1_AWAIT_PHOTO");
+  assert.match(step.reply.text, /Плановое напоминание \(30 дней\)/);
 
   // 152-FZ deletion command
   step = await bot.stepDialog({ chatId, text: "/delete_my_data" });
-  assert.equal(step.fsmState, "S7_DELETED_152FZ");
+  assert.equal(step.fsmState, "M7_DELETED_152FZ");
   assert.match(step.reply.text, /152-ФЗ/);
 
-  // HTTP route handler check for /api/v1/public/telegram/simulate
+  // HTTP route handler check for /api/v1/public/telegram/simulate & /api/v1/public/onboarding/flow-config
   const httpRes = await handlePrevisitHandoffRequest({
     method: "POST",
     url: new URL("http://self-hosted.local/api/v1/public/telegram/simulate"),
@@ -599,6 +745,20 @@ test("Stage 7 Telegram Bot FSM executes full dialog branching (child guardian ->
     publicErrorFor: (err) => ({ status: err.publicStatus || 500, code: err.publicCode || "err", message: err.message }),
   });
   assert.equal(httpRes.status, 200);
+
+  const flowCfgRes = await handlePrevisitHandoffRequest({
+    method: "GET",
+    url: new URL("http://self-hosted.local/api/v1/public/onboarding/flow-config"),
+    request: { headers: {} },
+    config: { corsOrigins: ["*"] },
+    requestOrigin: "",
+    runtimeServices: { previsitHandoffService: service, telegramOnboardingBot: bot },
+    correlationId: "test-corr-2",
+    now: () => "2026-11-28T20:30:00.000Z",
+    parseJsonBody: (raw) => JSON.parse(raw),
+    publicErrorFor: (err) => ({ status: err.publicStatus || 500, code: err.publicCode || "err", message: err.message }),
+  });
+  assert.equal(flowCfgRes.status, 200);
 });
 
 test("computeRoutingAndSafeCopy produces 100% safe Russian copy across all routing categories", () => {

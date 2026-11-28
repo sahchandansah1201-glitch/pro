@@ -14,6 +14,8 @@ import {
 } from "./rbac.mjs";
 import {
   assertPatientFacingCopySafe,
+  buildMiroAnalysisStagesSvgDataUrls,
+  buildMiroPhotoInstructionSvgDataUrl,
   buildPrivateLesionCropSvgDataUrl,
   inspectAndSanitizeSplitVault,
   stripForbiddenPublicFields,
@@ -339,9 +341,14 @@ export function createPrevisitHandoffService({
         sessionTokenSha256: sha256Hex(rawToken),
         channel,
       });
+      const flowConfig = previsitHandoffRepository.getOmnichannelConfig
+        ? await previsitHandoffRepository.getOmnichannelConfig()
+        : null;
       return {
         sessionToken: rawToken,
         quotaEnforced: false,
+        instructionVisualSvgDataUrl: buildMiroPhotoInstructionSvgDataUrl(),
+        flowConfig,
         session: data?.session || null,
         profiles: Array.isArray(data?.profiles) ? data.profiles : [],
         clinics: Array.isArray(data?.clinics) ? data.clinics : [],
@@ -436,7 +443,7 @@ export function createPrevisitHandoffService({
       return { profile, quotaEnforced: false };
     },
 
-    async submitOnboardingPhoto(input = {}, headers = {}) {
+    async submitOnboardingPhoto(input = {}, headers = {}, { nowIso = new Date().toISOString() } = {}) {
       if (!isPlainObject(input)) {
         throw new PrevisitValidationError([{ field: "body", message: "Ожидается JSON-объект." }]);
       }
@@ -451,13 +458,37 @@ export function createPrevisitHandoffService({
       const session = sessionBundle?.session;
       if (!session?.id) throw new PrevisitNotFoundError("Сессия онбординга не найдена.");
 
-      const profileId = assertUuid(input.profileId || session.activeProfileId, "profileId");
-      const profile = await previsitHandoffRepository.getOnboardingProfile({
-        sessionId: session.id,
-        profileId,
-      });
+      // Photo-first onboarding (Miro flow): if user uploads photo first with 1-tap 152-FZ consent,
+      // automatically create/select a default profile and collect Name/Phone/Age/Sex right after upload!
+      if (input.consent152FzAccepted === false) {
+        throw new PrevisitValidationError([
+          {
+            field: "consent152FzAccepted",
+            message: "Подтвердите согласие на обработку данных (152-ФЗ) перед отправкой снимка.",
+          },
+        ]);
+      }
+
+      let profile = null;
+      const candidateProfileId = input.profileId || session.activeProfileId || sessionBundle.profiles?.[0]?.id || null;
+      if (candidateProfileId && UUID_PATTERN.test(String(candidateProfileId))) {
+        profile = await previsitHandoffRepository.getOnboardingProfile({
+          sessionId: session.id,
+          profileId: String(candidateProfileId),
+        });
+      }
       if (!profile) {
-        throw new PrevisitNotFoundError("Профиль не найден в текущей сессии.");
+        profile = await previsitHandoffRepository.createOnboardingProfile({
+          sessionId: session.id,
+          subjectRelation: "SELF",
+          label: "Основной профиль",
+          legalGuardianConfirmed: false,
+          consent152FzAcceptedAt: nowIso,
+          ageYears: null,
+          ageMonths: null,
+          pediatricU6Active: false,
+          biologicalSex: null,
+        });
       }
       if (profile.subjectRelation === "CHILD_UNDER_18" && !profile.legalGuardianConfirmed) {
         throw new PrevisitValidationError([
@@ -532,11 +563,23 @@ export function createPrevisitHandoffService({
           inspected.qualityGate.passed && !inspected.phototypeEstimate.profileMismatchTriggered,
       });
 
+      const stageVisuals = buildMiroAnalysisStagesSvgDataUrls({
+        qualityScore: inspected.qualityGate.score0To100,
+      });
+
       return stripForbiddenPublicFields({
         submissionId: submission.id,
+        profileId: profile.id,
         status: submission.status,
         quotaEnforced: false,
+        leadAlreadyCaptured: Boolean(session.contactName && session.contactPhone),
+        savedContact: {
+          contactName: session.contactName || null,
+          contactPhone: session.contactPhone || null,
+        },
         qualityGate: inspected.qualityGate,
+        instructionVisualSvgDataUrl: buildMiroPhotoInstructionSvgDataUrl(),
+        analysisStagesVisuals: stageVisuals,
         privacyGuarantee: {
           colorSpaceNormalized: inspected.opticalExif.colorSpaceNormalized,
           exifAndGpsStrippedBeforeStorage: true,
@@ -628,7 +671,12 @@ export function createPrevisitHandoffService({
       return { submission: updated };
     },
 
-    async submitMicroSurveyAndBuildCard(submissionId, input = {}, headers = {}) {
+    async submitMicroSurveyAndBuildCard(
+      submissionId,
+      input = {},
+      headers = {},
+      { nowIso = new Date().toISOString() } = {},
+    ) {
       const rawToken = extractOnboardingToken(headers, input);
       if (!rawToken) throw new AuthRequiredError("Сессия онбординга не инициализирована.");
       const sessionBundle = await previsitHandoffRepository.upsertOnboardingSession({
@@ -647,6 +695,68 @@ export function createPrevisitHandoffService({
         throw new PrevisitValidationError([
           { field: "submissionId", message: "Снимок не прошёл контроль качества. Отправьте новый чёткий кадр." },
         ]);
+      }
+
+      // Post-photo Lead & Profile enrichment (captured right after photo upload at peak motivation!)
+      const contactName = cleanString(input.contactName, 120) || existing.profile?.contactName || session.contactName || null;
+      const contactPhone = cleanString(input.contactPhone, 32) || existing.profile?.contactPhone || session.contactPhone || null;
+      if (input.requireLeadContact) {
+        const leadErrors = [];
+        if (!contactName || contactName.length < 2) {
+          leadErrors.push({ field: "contactName", message: "Укажите, как к вам обращаться (или имя обследуемого пациента)." });
+        }
+        if (!contactPhone || contactPhone.replace(/\D/g, "").length < 10) {
+          leadErrors.push({ field: "contactPhone", message: "Укажите контактный номер телефона для связи по результату." });
+        }
+        if (leadErrors.length > 0) throw new PrevisitValidationError(leadErrors, leadErrors[0].message);
+      }
+
+      let activePediatricU6 = Boolean(existing.profile?.pediatricU6Active);
+      if (
+        previsitHandoffRepository.savePostPhotoLeadAndProfile
+        && (contactName || contactPhone || input.ageYears != null || input.ageMonths != null || input.biologicalSex)
+      ) {
+        const parsedYears = input.ageYears != null ? Number.parseInt(String(input.ageYears), 10) : existing.profile?.ageYears ?? null;
+        const parsedMonths = input.ageMonths != null ? Number.parseInt(String(input.ageMonths), 10) : existing.profile?.ageMonths ?? null;
+        const inferredChild = Boolean(
+          input.subjectRelation === "CHILD_UNDER_18"
+          || input.isInfantUnder1Year
+          || (Number.isFinite(parsedYears) && parsedYears < 18),
+        );
+        const subjectRelation = inferredChild
+          ? "CHILD_UNDER_18"
+          : SUBJECT_RELATIONS.has(String(input.subjectRelation || ""))
+            ? String(input.subjectRelation)
+            : existing.profile?.subjectRelation || "SELF";
+        const legalGuardianConfirmed = Boolean(
+          input.legalGuardianConfirmed || existing.profile?.legalGuardianConfirmed,
+        );
+        if (subjectRelation === "CHILD_UNDER_18" && !legalGuardianConfirmed) {
+          const msg = "Для пациента младше 18 лет необходимо подтвердить статус родителя или законного представителя.";
+          throw new PrevisitValidationError([{ field: "legalGuardianConfirmed", message: msg }], msg);
+        }
+        activePediatricU6 = Boolean(
+          subjectRelation === "CHILD_UNDER_18"
+          && (input.isInfantUnder1Year || (Number.isFinite(parsedYears) && parsedYears < 3)),
+        );
+        const biologicalSex = BIOLOGICAL_SEXES.has(String(input.biologicalSex || ""))
+          ? String(input.biologicalSex)
+          : existing.profile?.biologicalSex || null;
+
+        await previsitHandoffRepository.savePostPhotoLeadAndProfile({
+          sessionId: session.id,
+          profileId: existing.profileId,
+          contactName,
+          contactPhone,
+          subjectRelation,
+          label: contactName || existing.profile?.label || defaultRelationLabel(subjectRelation),
+          legalGuardianConfirmed: subjectRelation === "CHILD_UNDER_18" ? true : legalGuardianConfirmed,
+          consent152FzAcceptedAt: existing.profile?.consent152FzAcceptedAt || nowIso,
+          ageYears: Number.isFinite(parsedYears) ? parsedYears : null,
+          ageMonths: Number.isFinite(parsedMonths) ? parsedMonths : null,
+          pediatricU6Active: activePediatricU6,
+          biologicalSex,
+        });
       }
 
       const evolution = EVOLUTION_VALUES.has(String(input.evolution || ""))
@@ -699,7 +809,7 @@ export function createPrevisitHandoffService({
         evolution,
         symptoms,
         priorTopical14d,
-        pediatricU6Active: Boolean(existing.profile?.pediatricU6Active),
+        pediatricU6Active: activePediatricU6,
         pediatricSystemicRedFlags,
         lesionCount,
         qualityScore: Number(existing.qualityGate?.score0To100 || 88),
@@ -707,16 +817,53 @@ export function createPrevisitHandoffService({
         itaDegrees: Number(existing.itaDegrees || 45),
       });
 
+      const flowConfig = previsitHandoffRepository.getOmnichannelConfig
+        ? await previsitHandoffRepository.getOmnichannelConfig()
+        : null;
+      const followupDays = Number(flowConfig?.flowRules?.lowRiskFollowupDays || 30);
+
+      let trafficLight = "GREEN_LOW";
+      if (evaluated.routingCategory === "HIGH_URGENT" || evaluated.routingCategory === "U6_PEDIATRIC_RED_FLAG") {
+        trafficLight = "RED_HIGH";
+      } else if (evaluated.routingCategory === "PLANNED_REVIEW" || evaluated.routingCategory === "U5_MODIFIED_SKIN") {
+        trafficLight = "YELLOW_MEDIUM";
+      }
+
+      const scheduledFollowupAt =
+        trafficLight === "GREEN_LOW"
+          ? new Date(new Date(nowIso).getTime() + followupDays * 24 * 60 * 60 * 1000).toISOString()
+          : null;
+
+      const stageVisuals = buildMiroAnalysisStagesSvgDataUrls({
+        qualityScore: Number(existing.qualityGate?.score0To100 || 88),
+      });
+
       const patientFacingCard = {
         queued: false,
+        trafficLight,
         routingCategory: evaluated.routingCategory,
         bookingPriority: evaluated.bookingPriority,
         badgeLabelRu: evaluated.badgeLabelRu,
         emergency103Banner: evaluated.emergency103Banner,
         safeSummaryRu: evaluated.safeSummaryText,
         lesionCrops: evaluated.lesionsForPatient,
+        analysisStagesVisuals: stageVisuals,
         fullFrameHiddenForPrivacy: true,
-        primaryCtaLabelRu: "Записаться к дерматологу",
+        scheduledFollowupAt,
+        followupDays: trafficLight === "GREEN_LOW" ? followupDays : null,
+        followupTimerMessageRu:
+          trafficLight === "GREEN_LOW"
+            ? `Запущено напоминание на ${followupDays} дней: мы напомним прислать повторное фото этого участка для планового контроля в динамике.`
+            : null,
+        secondPhotoVerificationPromptRu:
+          trafficLight === "YELLOW_MEDIUM"
+            ? "Удостоверьтесь в результате: сделайте 2-е фото этого же участка чуть под другим ракурсом и отправьте на проверку снова, чтобы убедиться в устойчивости оценки."
+            : null,
+        contactAlreadySaved: Boolean(contactName && contactPhone),
+        savedContactName: contactName,
+        savedContactPhone: contactPhone,
+        primaryCtaLabelRu: "Записаться на приём сейчас",
+        secondaryNewAnalysisLabelRu: "Новый анализ",
         deleteDataLabelRu: "Удалить мои снимки и данные",
       };
 
@@ -726,6 +873,11 @@ export function createPrevisitHandoffService({
         status: "ready",
         anamnesisAnswers,
         routingCategory: evaluated.routingCategory,
+        trafficLight,
+        scheduledFollowupAt,
+        verificationOfSubmissionId: UUID_PATTERN.test(String(input.verificationOfSubmissionId || ""))
+          ? String(input.verificationOfSubmissionId)
+          : null,
         patientFacingCard,
         doctorOnlyDraft: evaluated.lesionsForDoctor,
       });
@@ -789,8 +941,14 @@ export function createPrevisitHandoffService({
       });
       if (!existing) throw new PrevisitNotFoundError("Снимок не найден.");
 
-      const displayName = cleanString(input.displayName, 120);
-      const phoneE164 = cleanString(input.phone, 32);
+      const displayName =
+        cleanString(input.displayName, 120)
+        || cleanString(existing.profile?.contactName, 120)
+        || cleanString(session.contactName, 120);
+      const phoneE164 =
+        cleanString(input.phone, 32)
+        || cleanString(existing.profile?.contactPhone, 32)
+        || cleanString(session.contactPhone, 32);
       const preferredTimeNote = cleanString(input.preferredTimeNote, 180) || "Ближайшее доступное окно";
       const targetClinic = cleanString(input.clinicId || input.clinicSlug, 80) || "clinic_main_ru";
 
@@ -1283,6 +1441,120 @@ export function createPrevisitHandoffService({
         messageRu:
           "Пользовательские черновые снимки удалены по 152-ФЗ. Подписанные медицинские заключения клиники сохранены в соответствии с 323-ФЗ.",
       };
+    },
+
+    // GET /api/v1/public/onboarding/flow-config & GET/PUT /api/v1/admin/channel-configurator
+    async getOmnichannelConfig() {
+      const cfg = previsitHandoffRepository.getOmnichannelConfig
+        ? await previsitHandoffRepository.getOmnichannelConfig()
+        : null;
+      return {
+        item: cfg || {
+          configKey: "default",
+          channels: {
+            telegram: { enabled: true, transport: "Telegram Bot API Webhook", botHandle: "@skindoktor_pro_bot" },
+            web: { enabled: true, transport: "Встроенный веб-экран /check (без сжатия)", route: "/check" },
+            max: { enabled: false, transport: "@maxhub/max-bot-api (MAX Webhook)", botHandle: "" },
+            whatsapp: { enabled: false, transport: "WAHA / Evolution HTTP API", instanceName: "" },
+          },
+          flowRules: {
+            photoFirstMode: true,
+            postPhotoLeadCaptureEnabled: true,
+            photoWaitNudgeMinutes: 4,
+            lowRiskFollowupDays: 30,
+            mediumRiskSecondPhotoCheckEnabled: true,
+            persistentMenuEnabled: true,
+          },
+          greetingVariants: [
+            "Ура! Рад помочь — сделайте фото по наглядной памятке ниже и пришлите сюда.",
+            "Рад новому обращению! Пожалуйста, пришлите чёткую фотографию участка кожи крупным планом.",
+            "Отлично, готов проверить снимок! Точная маршрутизация возможна только по чёткой фотографии с расстояния около 10 см.",
+          ],
+        },
+        instructionVisualSvgDataUrl: buildMiroPhotoInstructionSvgDataUrl(),
+      };
+    },
+
+    async updateOmnichannelConfig(input = {}, authContext, { correlationId = "stage7b-channel-cfg" } = {}) {
+      requireAnyRole(authContext, ["system_admin", "clinic_admin"]);
+      if (!isPlainObject(input)) {
+        throw new PrevisitValidationError([{ field: "body", message: "Ожидается JSON-объект." }]);
+      }
+      const current = (await this.getOmnichannelConfig()).item;
+      const rawChannels = isPlainObject(input.channels) ? input.channels : current.channels;
+      const rawRules = isPlainObject(input.flowRules) ? input.flowRules : current.flowRules;
+      const rawVariants = Array.isArray(input.greetingVariants) ? input.greetingVariants : current.greetingVariants;
+
+      const safeVariants = rawVariants
+        .map((v) => cleanString(v, 280))
+        .filter(Boolean)
+        .slice(0, 6);
+      if (safeVariants.length === 0) {
+        throw new PrevisitValidationError([{ field: "greetingVariants", message: "Оставьте хотя бы один вариант приветствия." }]);
+      }
+      for (const variant of safeVariants) {
+        assertPatientFacingCopySafe(variant, "greetingVariants");
+      }
+
+      const nudgeMin = Math.max(1, Math.min(30, Number.parseInt(String(rawRules.photoWaitNudgeMinutes ?? 4), 10) || 4));
+      const followupDays = Math.max(7, Math.min(180, Number.parseInt(String(rawRules.lowRiskFollowupDays ?? 30), 10) || 30));
+
+      const channels = {
+        telegram: {
+          enabled: Boolean(rawChannels.telegram?.enabled ?? true),
+          transport: "Telegram Bot API Webhook",
+          botHandle: cleanString(rawChannels.telegram?.botHandle, 80) || "@skindoktor_pro_bot",
+        },
+        web: {
+          enabled: Boolean(rawChannels.web?.enabled ?? true),
+          transport: "Встроенный веб-экран /check (без сжатия)",
+          route: "/check",
+        },
+        max: {
+          enabled: Boolean(rawChannels.max?.enabled ?? false),
+          transport: "@maxhub/max-bot-api (MAX Webhook)",
+          botHandle: cleanString(rawChannels.max?.botHandle, 80) || "",
+        },
+        whatsapp: {
+          enabled: Boolean(rawChannels.whatsapp?.enabled ?? false),
+          transport: "WAHA / Evolution HTTP API",
+          instanceName: cleanString(rawChannels.whatsapp?.instanceName, 80) || "",
+        },
+      };
+
+      const flowRules = {
+        photoFirstMode: rawRules.photoFirstMode !== false,
+        postPhotoLeadCaptureEnabled: rawRules.postPhotoLeadCaptureEnabled !== false,
+        photoWaitNudgeMinutes: nudgeMin,
+        lowRiskFollowupDays: followupDays,
+        mediumRiskSecondPhotoCheckEnabled: rawRules.mediumRiskSecondPhotoCheckEnabled !== false,
+        persistentMenuEnabled: rawRules.persistentMenuEnabled !== false,
+      };
+
+      const saved = await previsitHandoffRepository.upsertOmnichannelConfig({
+        channels,
+        flowRules,
+        greetingVariants: safeVariants,
+        updatedByUserId: authContext.userId,
+      });
+
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "omnichannel.config_updated",
+        entityType: "omnichannel_communication_config",
+        correlationId,
+        metadata: {
+          telegramEnabled: channels.telegram.enabled,
+          maxEnabled: channels.max.enabled,
+          whatsappEnabled: channels.whatsapp.enabled,
+          webEnabled: channels.web.enabled,
+          photoWaitNudgeMinutes: nudgeMin,
+          lowRiskFollowupDays: followupDays,
+        },
+      });
+
+      return { item: saved };
     },
   };
 }

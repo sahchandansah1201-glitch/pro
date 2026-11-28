@@ -95,5 +95,74 @@ describe("AdminBotSettingsPage · live settings synchronization", () => {
 
     await waitFor(() => expect(mocks.listSettings).toHaveBeenCalledTimes(2));
     expect(await screen.findByDisplayValue("Обновлённое приветствие Б")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Мультиканальный конфигуратор воронки общения/i })).toBeInTheDocument();
+  });
+
+  it("loads and saves multi-channel communication settings (Telegram, MAX, WhatsApp, Web)", async () => {
+    mocks.listSettings.mockResolvedValue({
+      ok: true,
+      value: [settings("clinic-a", "Клиника А", "Приветствие А")],
+      error: null,
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "PUT") {
+        return new Response(
+          JSON.stringify({
+            item: {
+              configKey: "default",
+              channels: {
+                telegram: { enabled: true, transport: "Вебхук", botHandle: "@skindoktor_pro_bot" },
+                web: { enabled: true, transport: "Веб", route: "/check" },
+                max: { enabled: true, transport: "МАХ", botHandle: "@skindoktor_max" },
+                whatsapp: { enabled: false, transport: "Вотсап", instanceName: "" },
+              },
+              flowRules: {
+                photoFirstMode: true,
+                postPhotoLeadCaptureEnabled: true,
+                photoWaitNudgeMinutes: 5,
+                lowRiskFollowupDays: 30,
+                mediumRiskSecondPhotoCheckEnabled: true,
+                persistentMenuEnabled: true,
+              },
+              greetingVariants: ["Ура! Пришлите фото ~10 см."],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          item: {
+            configKey: "default",
+            channels: {
+              telegram: { enabled: true, transport: "Вебхук", botHandle: "@skindoktor_pro_bot" },
+              web: { enabled: true, transport: "Веб", route: "/check" },
+              max: { enabled: false, transport: "МАХ", botHandle: "" },
+              whatsapp: { enabled: false, transport: "Вотсап", instanceName: "" },
+            },
+            flowRules: {
+              photoFirstMode: true,
+              postPhotoLeadCaptureEnabled: true,
+              photoWaitNudgeMinutes: 4,
+              lowRiskFollowupDays: 30,
+              mediumRiskSecondPhotoCheckEnabled: true,
+              persistentMenuEnabled: true,
+            },
+            greetingVariants: ["Ура! Пришлите фото ~10 см."],
+          },
+          instructionVisualSvgDataUrl: "data:image/svg+xml;base64,PHN2Zy8+",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+
+    renderPage();
+    expect(await screen.findByLabelText(/Адрес помощника в Телеграм/i)).toHaveValue("@skindoktor_pro_bot");
+
+    fireEvent.change(screen.getByLabelText(/Таймер мягкого напоминания/i), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить мультиканальный сценарий/i }));
+
+    expect(await screen.findByText(/Мультиканальный сценарий и таймеры успешно сохранены/i)).toBeInTheDocument();
+    fetchSpy.mockRestore();
   });
 });

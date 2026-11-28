@@ -30,7 +30,7 @@ const UNSAFE_PATIENT_FACING_PATTERNS = [
   },
   {
     code: "cancer_probability_percent",
-    pattern: /(?:вероятность|риск)\s+(?:меланомы|рака|злокачественн[а-я]+|онкологии)[^.]{0,40}\d+\s*%/iu,
+    pattern: /(?:(?:вероятность|риск)\s+(?:меланомы|рака|злокачественн[а-я]+|онкологии)[^.]{0,40}\d+\s*%|диагностиру\p{L}*|схожесть\s+признаков[^.]{0,40}\d+\s*%|уровень\s+дисплазии|\d+\s*%\s*(?:—\s*)?(?:папиллом|невус|дисплази|меланом|базалиом|карцином|впч)|(?:меланом|базалиом|карцином|папиллом|дисплази|впч)\p{L}*[^.]{0,30}\d+\s*%)/iu,
   },
   {
     code: "numeric_risk_score",
@@ -701,6 +701,64 @@ export function buildPrivateLesionCropSvgDataUrl({
   <text x="26" y="198" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="11">Чёткость кадра: ${safeScore}/100 · без полного лица/фона</text>
 </svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
+export function buildMiroPhotoInstructionSvgDataUrl() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 210" role="img" aria-label="Памятка съёмки: ХОРОШО крупно в центре около 10 см, ПЛОХО издалека с одеждой и фоном">
+  <rect width="540" height="210" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <!-- ХОРОШО -->
+  <rect x="14" y="14" width="162" height="182" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="26" y="36" fill="#047857" font-family="system-ui, sans-serif" font-size="13" font-weight="700">ХОРОШО ✓</text>
+  <rect x="28" y="46" width="134" height="96" rx="8" fill="#eac5ae"/>
+  <circle cx="95" cy="94" r="18" fill="#6b4226"/>
+  <circle cx="95" cy="94" r="28" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="26" y="162" fill="#065f46" font-family="system-ui, sans-serif" font-size="11">1. Участок крупно в центре</text>
+  <text x="26" y="178" fill="#065f46" font-family="system-ui, sans-serif" font-size="11">2. Чёткий фокус на коже</text>
+  <!-- ПЛОХО -->
+  <rect x="189" y="14" width="162" height="182" rx="10" fill="#fef2f2" stroke="#ef4444"/>
+  <text x="201" y="36" fill="#b91c1c" font-family="system-ui, sans-serif" font-size="13" font-weight="700">ПЛОХО ✕</text>
+  <rect x="203" y="46" width="134" height="96" rx="8" fill="#334155"/>
+  <path d="M203 58 L337 82 M203 98 L337 122" stroke="#64748b" stroke-width="4"/>
+  <rect x="236" y="54" width="54" height="80" rx="18" fill="#eac5ae" transform="rotate(18 263 94)"/>
+  <circle cx="264" cy="96" r="3.5" fill="#6b4226"/>
+  <text x="201" y="162" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">Издалека, одежда, волосы</text>
+  <text x="201" y="178" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">или пёстрый фон позади</text>
+  <!-- ДИСТАНЦИЯ ~10 СМ -->
+  <rect x="364" y="14" width="162" height="182" rx="10" fill="#f0fdfa" stroke="#0d9488"/>
+  <text x="376" y="36" fill="#0f766e" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Дистанция ~10 см</text>
+  <rect x="413" y="50" width="64" height="16" rx="4" fill="#0f172a"/>
+  <line x1="445" y1="68" x2="445" y2="122" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="453" y="99" fill="#0f766e" font-family="system-ui, sans-serif" font-size="11" font-weight="600">~10 см</text>
+  <rect x="388" y="124" width="114" height="18" rx="6" fill="#eac5ae"/>
+  <circle cx="445" cy="131" r="5" fill="#6b4226"/>
+  <text x="376" y="162" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Дневной свет без вспышки</text>
+  <text x="376" y="178" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Параллельно участку кожи</text>
+</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
+export function buildMiroAnalysisStagesSvgDataUrls({ qualityScore = 89 } = {}) {
+  const safeScore = Math.max(0, Math.min(100, Math.round(Number(qualityScore) || 89)));
+  const step1Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" role="img" aria-label="1 шаг: Детектированы важные участки кожи">
+  <rect width="360" height="180" rx="12" fill="#ead0bd"/>
+  <ellipse cx="180" cy="86" rx="34" ry="26" fill="#7c4d36"/>
+  <rect x="122" y="44" width="116" height="84" rx="10" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <rect x="14" y="140" width="332" height="28" rx="8" fill="#0f172a" fill-opacity="0.84"/>
+  <text x="26" y="158" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11.5" font-weight="600">1 шаг: Детектированы важные участки · чёткость ${safeScore}/100</text>
+</svg>`;
+
+  const step2Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" role="img" aria-label="2 шаг: Анализ нейросети — выделение контура очага">
+  <rect width="360" height="180" rx="12" fill="#172554"/>
+  <ellipse cx="180" cy="86" rx="58" ry="44" fill="#1e3a8a" fill-opacity="0.85"/>
+  <ellipse cx="180" cy="86" rx="36" ry="27" fill="#dc2626" fill-opacity="0.88" stroke="#fde047" stroke-width="2"/>
+  <rect x="14" y="140" width="332" height="28" rx="8" fill="#0f172a" fill-opacity="0.88"/>
+  <text x="26" y="158" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="11.5" font-weight="600">2 шаг: Анализ нейросети · локальный контур без фона</text>
+</svg>`;
+
+  return {
+    step1DetectionSvgDataUrl: `data:image/svg+xml;base64,${Buffer.from(step1Svg, "utf8").toString("base64")}`,
+    step2AttentionSvgDataUrl: `data:image/svg+xml;base64,${Buffer.from(step2Svg, "utf8").toString("base64")}`,
+  };
 }
 
 export function inspectAndSanitizeSplitVault({

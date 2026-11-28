@@ -38,6 +38,7 @@ import type {
   LeadStatus,
   RiskLevel,
 } from "@/lib/domain";
+import { OmnichannelConfiguratorCard } from "./OmnichannelConfiguratorCard";
 
 /**
  * Центр управления ботом.
@@ -321,6 +322,11 @@ function AdminBotSettingsPageLive() {
         <div role="status" className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           Рабочий режим: настройки сохраняются в базе клиники. Пробная проверка не отправляет сообщения пациентам.
         </div>
+
+        <OmnichannelConfiguratorCard
+          apiBaseUrl={session.apiBaseUrl}
+          apiToken={session.apiToken}
+        />
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <Card className="p-3">

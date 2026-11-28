@@ -7,6 +7,7 @@ import { buildSelfHostedApiUrl } from "@/lib/self-hosted-patient-api";
 
 export type SubjectRelation = "SELF" | "CHILD_UNDER_18" | "ADULT_RELATIVE";
 export type BiologicalSex = "male" | "female";
+export type TrafficLightLevel = "RED_HIGH" | "YELLOW_MEDIUM" | "GREEN_LOW";
 export type EvolutionChoice = "stable_long" | "new_lt_3m" | "growing_changing" | "unsure";
 export type SymptomsChoice = "none" | "itch_or_pain" | "bleeding_or_crust";
 export type TopicalChoice =
@@ -15,16 +16,38 @@ export type TopicalChoice =
   | "antiseptic_dye_celelandine"
   | "moisturizer";
 
+export interface OmnichannelConfigDTO {
+  configKey: string;
+  channels: {
+    telegram: { enabled: boolean; transport: string; botHandle: string };
+    web: { enabled: boolean; transport: string; route: string };
+    max: { enabled: boolean; transport: string; botHandle: string };
+    whatsapp: { enabled: boolean; transport: string; instanceName: string };
+  };
+  flowRules: {
+    photoFirstMode: boolean;
+    postPhotoLeadCaptureEnabled: boolean;
+    photoWaitNudgeMinutes: number;
+    lowRiskFollowupDays: number;
+    mediumRiskSecondPhotoCheckEnabled: boolean;
+    persistentMenuEnabled: boolean;
+  };
+  greetingVariants: string[];
+  updatedAt?: string | null;
+}
+
 export interface OnboardingProfileDTO {
   id: string;
   subjectRelation: SubjectRelation;
   label: string;
+  contactName?: string | null;
+  contactPhone?: string | null;
   legalGuardianConfirmed: boolean;
   consent152FzAcceptedAt: string;
   ageYears: number | null;
   ageMonths: number | null;
   pediatricU6Active: boolean;
-  biologicalSex: BiologicalSex;
+  biologicalSex: BiologicalSex | null;
   estimatedFitzpatrickBand: string | null;
   baselineItaDegrees: number | null;
   riskFactors: Record<string, unknown>;
@@ -51,11 +74,24 @@ export interface PadDiqaQualityGateDTO {
   recoveryTipsRu: string[];
 }
 
+export interface AnalysisStagesVisualsDTO {
+  step1DetectionSvgDataUrl: string;
+  step2AttentionSvgDataUrl: string;
+}
+
 export interface PhotoSubmitResultDTO {
   submissionId: string;
+  profileId: string;
   status: string;
   quotaEnforced: false;
+  leadAlreadyCaptured?: boolean;
+  savedContact?: {
+    contactName: string | null;
+    contactPhone: string | null;
+  };
   qualityGate: PadDiqaQualityGateDTO;
+  instructionVisualSvgDataUrl?: string;
+  analysisStagesVisuals?: AnalysisStagesVisualsDTO;
   phototypeEstimate: {
     itaDegrees: number;
     fitzpatrickBand: string;
@@ -80,14 +116,24 @@ export interface LesionCropCardItemDTO {
 export interface PatientFacingResultCardDTO {
   queued: boolean;
   statusMessageRu?: string;
+  trafficLight?: TrafficLightLevel;
   routingCategory?: string;
   bookingPriority?: "PRIORITY_URGENT" | "PLANNED_STANDARD";
   badgeLabelRu?: string;
   emergency103Banner?: boolean;
   safeSummaryRu?: string;
   lesionCrops?: LesionCropCardItemDTO[];
+  analysisStagesVisuals?: AnalysisStagesVisualsDTO;
   fullFrameHiddenForPrivacy?: boolean;
+  scheduledFollowupAt?: string | null;
+  followupDays?: number | null;
+  followupTimerMessageRu?: string | null;
+  secondPhotoVerificationPromptRu?: string | null;
+  contactAlreadySaved?: boolean;
+  savedContactName?: string | null;
+  savedContactPhone?: string | null;
   primaryCtaLabelRu: string;
+  secondaryNewAnalysisLabelRu?: string;
   deleteDataLabelRu?: string;
 }
 
@@ -106,9 +152,12 @@ export interface TelegramBotInlineButtonDTO {
 export interface TelegramSimulateStepResponseDTO {
   fsmState: string;
   quotaEnforced: false;
+  persistentMenu?: string[][];
   reply: {
     text: string;
     buttons: TelegramBotInlineButtonDTO[][];
+    visualBannerUrl?: string | null;
+    visualBannerAlt?: string | null;
     cropCard?: LesionCropCardItemDTO | null;
   };
 }
@@ -244,24 +293,27 @@ async function publicRequest<T>(
   init: {
     apiBaseUrl?: string | null;
     sessionToken?: string | null;
-    method?: "POST" | "DELETE";
+    method?: "GET" | "POST" | "DELETE";
     body?: unknown;
   } = {},
 ): Promise<SelfHostedApiResult<T>> {
+  const method = init.method ?? "POST";
   const url = buildSelfHostedApiUrl(resolvePublicBaseUrl(init.apiBaseUrl), path);
   const headers: Record<string, string> = {
     Accept: "application/json",
-    "Content-Type": "application/json",
   };
+  if (method !== "GET") {
+    headers["Content-Type"] = "application/json";
+  }
   if (init.sessionToken) {
     headers["X-Onboarding-Token"] = init.sessionToken;
   }
   let response: Response;
   try {
     response = await fetch(url, {
-      method: init.method ?? "POST",
+      method,
       headers,
-      body: JSON.stringify(init.body ?? {}),
+      ...(method === "GET" ? {} : { body: JSON.stringify(init.body ?? {}) }),
     });
   } catch {
     return fail({
@@ -280,7 +332,7 @@ async function authedRequest<T>(
   args: {
     apiBaseUrl: string | null | undefined;
     apiToken: string | null | undefined;
-    method?: "GET" | "POST" | "DELETE";
+    method?: "GET" | "POST" | "PUT" | "DELETE";
     body?: unknown;
   },
 ): Promise<SelfHostedApiResult<T>> {
@@ -317,6 +369,37 @@ async function authedRequest<T>(
   const body = await parseJsonSafe(response);
   if (!response.ok) return fail(toApiError(response, body));
   return ok(body as T);
+}
+
+export function fetchPublicFlowConfig(args: { apiBaseUrl?: string | null } = {}) {
+  return publicRequest<{
+    item: OmnichannelConfigDTO;
+    instructionVisualSvgDataUrl: string;
+  }>("/api/v1/public/onboarding/flow-config", {
+    apiBaseUrl: args.apiBaseUrl,
+    method: "GET",
+  });
+}
+
+export async function fetchAdminChannelConfigurator(args: {
+  apiBaseUrl: string | null | undefined;
+  apiToken: string | null | undefined;
+}): Promise<SelfHostedApiResult<{ item: OmnichannelConfigDTO; instructionVisualSvgDataUrl: string }>> {
+  return authedRequest<{ item: OmnichannelConfigDTO; instructionVisualSvgDataUrl: string }>(
+    "/api/v1/admin/channel-configurator",
+    { ...args, method: "GET" },
+  );
+}
+
+export async function updateAdminChannelConfigurator(args: {
+  apiBaseUrl: string | null | undefined;
+  apiToken: string | null | undefined;
+  payload: Partial<OmnichannelConfigDTO>;
+}): Promise<SelfHostedApiResult<{ item: OmnichannelConfigDTO }>> {
+  return authedRequest<{ item: OmnichannelConfigDTO }>(
+    "/api/v1/admin/channel-configurator",
+    { ...args, method: "PUT", body: args.payload },
+  );
 }
 
 export function initPublicOnboardingSession(args: {
@@ -358,7 +441,8 @@ export function createPublicOnboardingProfile(args: {
 export function submitPublicOnboardingPhoto(args: {
   apiBaseUrl?: string | null;
   sessionToken: string;
-  profileId: string;
+  profileId?: string | null;
+  consent152FzAccepted?: boolean;
   imageBase64: string;
   clientHints?: Record<string, unknown>;
 }) {
@@ -366,7 +450,8 @@ export function submitPublicOnboardingPhoto(args: {
     apiBaseUrl: args.apiBaseUrl,
     sessionToken: args.sessionToken,
     body: {
-      profileId: args.profileId,
+      ...(args.profileId ? { profileId: args.profileId } : {}),
+      consent152FzAccepted: args.consent152FzAccepted ?? true,
       imageBase64: args.imageBase64,
       clientHints: args.clientHints ?? {},
     },
@@ -394,6 +479,16 @@ export function submitPublicMicroSurvey(args: {
   sessionToken: string;
   submissionId: string;
   payload: {
+    contactName?: string;
+    contactPhone?: string;
+    requireLeadContact?: boolean;
+    subjectRelation?: SubjectRelation;
+    legalGuardianConfirmed?: boolean;
+    isInfantUnder1Year?: boolean;
+    ageYears?: number;
+    ageMonths?: number;
+    biologicalSex?: BiologicalSex;
+    verificationOfSubmissionId?: string | null;
     evolution: EvolutionChoice;
     symptoms: SymptomsChoice;
     priorTopical14d: TopicalChoice;
@@ -433,8 +528,8 @@ export function bookClinicFromPublicSubmission(args: {
   sessionToken: string;
   submissionId: string;
   payload: {
-    displayName: string;
-    phone: string;
+    displayName?: string;
+    phone?: string;
     preferredTimeNote: string;
     clinicId?: string;
     bodyRegionCode?: string;
