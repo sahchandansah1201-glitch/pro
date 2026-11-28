@@ -211,8 +211,19 @@ export async function handlePrevisitHandoffRequest({
     }
 
     if (pathname === "/api/v1/public/onboarding/photos" && method === "POST") {
+      const body = parseJsonBody(request.body);
+      const fileBytes =
+        body?.simulatePhotoPreset === "clear_skin"
+          ? createSyntheticValidJpegBuffer({
+              width: 640,
+              height: 480,
+              displayP3: true,
+              gpsLatDeg: 55.75,
+              includeThumbnail: true,
+            })
+          : undefined;
       const result = await runtimeServices.previsitHandoffService.submitOnboardingPhoto(
-        parseJsonBody(request.body),
+        fileBytes ? { ...body, fileBytes } : body,
         request.headers,
       );
       return jsonResponse(

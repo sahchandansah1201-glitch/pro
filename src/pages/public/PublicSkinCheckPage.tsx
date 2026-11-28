@@ -137,7 +137,11 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
     void bootstrapSession();
   }, [bootstrapSession]);
 
-  async function processUploadedDataUrl(dataUrl: string, clientHints: Record<string, unknown> = {}) {
+  async function processUploadedDataUrl(
+    dataUrl: string | undefined,
+    clientHints: Record<string, unknown> = {},
+    simulatePhotoPreset?: "clear_skin",
+  ) {
     if (!consent152Fz) {
       setError("Отметьте согласие на обработку данных (152-ФЗ) перед отправкой фотографии.");
       return;
@@ -150,6 +154,7 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
       profileId: activeProfileId,
       consent152FzAccepted: true,
       imageBase64: dataUrl,
+      simulatePhotoPreset,
       clientHints,
     });
     setBusy(false);
@@ -469,9 +474,11 @@ export default function PublicSkinCheckPage({ embedded = false }: { embedded?: b
                     variant="secondary"
                     disabled={busy}
                     onClick={() =>
-                      void processUploadedDataUrl(SAMPLE_VALID_JPEG_DATA_URL, {
-                        healthyRingRgb: { r: 228, g: 196, b: 176 },
-                      })
+                      void processUploadedDataUrl(
+                        SAMPLE_VALID_JPEG_DATA_URL,
+                        { healthyRingRgb: { r: 228, g: 196, b: 176 } },
+                        "clear_skin",
+                      )
                     }
                     className="h-auto min-h-11 whitespace-normal py-2 text-[12px]"
                   >

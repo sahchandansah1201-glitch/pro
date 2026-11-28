@@ -443,7 +443,8 @@ export function submitPublicOnboardingPhoto(args: {
   sessionToken: string;
   profileId?: string | null;
   consent152FzAccepted?: boolean;
-  imageBase64: string;
+  imageBase64?: string;
+  simulatePhotoPreset?: "clear_skin";
   clientHints?: Record<string, unknown>;
 }) {
   return publicRequest<PhotoSubmitResultDTO>("/api/v1/public/onboarding/photos", {
@@ -452,7 +453,8 @@ export function submitPublicOnboardingPhoto(args: {
     body: {
       ...(args.profileId ? { profileId: args.profileId } : {}),
       consent152FzAccepted: args.consent152FzAccepted ?? true,
-      imageBase64: args.imageBase64,
+      ...(args.imageBase64 ? { imageBase64: args.imageBase64 } : {}),
+      ...(args.simulatePhotoPreset ? { simulatePhotoPreset: args.simulatePhotoPreset } : {}),
       clientHints: args.clientHints ?? {},
     },
   });

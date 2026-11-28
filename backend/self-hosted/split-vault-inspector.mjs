@@ -704,35 +704,35 @@ export function buildPrivateLesionCropSvgDataUrl({
 }
 
 export function buildMiroPhotoInstructionSvgDataUrl() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 210" role="img" aria-label="Памятка съёмки: ХОРОШО крупно в центре около 10 см, ПЛОХО издалека с одеждой и фоном">
-  <rect width="540" height="210" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 210" role="img" aria-label="Памятка съёмки: ХОРОШО крупно в центре около 10 см, ПЛОХО издалека с одеждой и фоном">
+  <rect width="600" height="210" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
   <!-- ХОРОШО -->
-  <rect x="14" y="14" width="162" height="182" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <rect x="14" y="14" width="180" height="182" rx="10" fill="#ecfdf5" stroke="#10b981"/>
   <text x="26" y="36" fill="#047857" font-family="system-ui, sans-serif" font-size="13" font-weight="700">ХОРОШО ✓</text>
-  <rect x="28" y="46" width="134" height="96" rx="8" fill="#eac5ae"/>
-  <circle cx="95" cy="94" r="18" fill="#6b4226"/>
-  <circle cx="95" cy="94" r="28" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="4 3"/>
+  <rect x="28" y="46" width="152" height="96" rx="8" fill="#eac5ae"/>
+  <circle cx="104" cy="94" r="18" fill="#6b4226"/>
+  <circle cx="104" cy="94" r="28" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="4 3"/>
   <text x="26" y="162" fill="#065f46" font-family="system-ui, sans-serif" font-size="11">1. Участок крупно в центре</text>
   <text x="26" y="178" fill="#065f46" font-family="system-ui, sans-serif" font-size="11">2. Чёткий фокус на коже</text>
   <!-- ПЛОХО -->
-  <rect x="189" y="14" width="162" height="182" rx="10" fill="#fef2f2" stroke="#ef4444"/>
-  <text x="201" y="36" fill="#b91c1c" font-family="system-ui, sans-serif" font-size="13" font-weight="700">ПЛОХО ✕</text>
-  <rect x="203" y="46" width="134" height="96" rx="8" fill="#334155"/>
-  <path d="M203 58 L337 82 M203 98 L337 122" stroke="#64748b" stroke-width="4"/>
-  <rect x="236" y="54" width="54" height="80" rx="18" fill="#eac5ae" transform="rotate(18 263 94)"/>
-  <circle cx="264" cy="96" r="3.5" fill="#6b4226"/>
-  <text x="201" y="162" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">Издалека, одежда, волосы</text>
-  <text x="201" y="178" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">или пёстрый фон позади</text>
+  <rect x="210" y="14" width="180" height="182" rx="10" fill="#fef2f2" stroke="#ef4444"/>
+  <text x="222" y="36" fill="#b91c1c" font-family="system-ui, sans-serif" font-size="13" font-weight="700">ПЛОХО ✕</text>
+  <rect x="224" y="46" width="152" height="96" rx="8" fill="#334155"/>
+  <path d="M224 58 L376 82 M224 98 L376 122" stroke="#64748b" stroke-width="4"/>
+  <rect x="266" y="54" width="54" height="80" rx="18" fill="#eac5ae" transform="rotate(18 293 94)"/>
+  <circle cx="294" cy="96" r="3.5" fill="#6b4226"/>
+  <text x="222" y="162" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">Издалека, одежда, волосы</text>
+  <text x="222" y="178" fill="#991b1b" font-family="system-ui, sans-serif" font-size="11">или пёстрый фон позади</text>
   <!-- ДИСТАНЦИЯ ~10 СМ -->
-  <rect x="364" y="14" width="162" height="182" rx="10" fill="#f0fdfa" stroke="#0d9488"/>
-  <text x="376" y="36" fill="#0f766e" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Дистанция ~10 см</text>
-  <rect x="413" y="50" width="64" height="16" rx="4" fill="#0f172a"/>
-  <line x1="445" y1="68" x2="445" y2="122" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3"/>
-  <text x="453" y="99" fill="#0f766e" font-family="system-ui, sans-serif" font-size="11" font-weight="600">~10 см</text>
-  <rect x="388" y="124" width="114" height="18" rx="6" fill="#eac5ae"/>
-  <circle cx="445" cy="131" r="5" fill="#6b4226"/>
-  <text x="376" y="162" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Дневной свет без вспышки</text>
-  <text x="376" y="178" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Параллельно участку кожи</text>
+  <rect x="406" y="14" width="180" height="182" rx="10" fill="#f0fdfa" stroke="#0d9488"/>
+  <text x="418" y="36" fill="#0f766e" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Дистанция ~10 см</text>
+  <rect x="464" y="50" width="64" height="16" rx="4" fill="#0f172a"/>
+  <line x1="496" y1="68" x2="496" y2="122" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="504" y="99" fill="#0f766e" font-family="system-ui, sans-serif" font-size="11" font-weight="600">~10 см</text>
+  <rect x="434" y="124" width="124" height="18" rx="6" fill="#eac5ae"/>
+  <circle cx="496" cy="131" r="5" fill="#6b4226"/>
+  <text x="418" y="162" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Дневной свет без вспышки</text>
+  <text x="418" y="178" fill="#115e59" font-family="system-ui, sans-serif" font-size="11">Камера параллельно коже</text>
 </svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
