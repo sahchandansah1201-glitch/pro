@@ -209,7 +209,7 @@ select jsonb_build_object(
       'id', c.id::text,
       'slug', c.slug,
       'name', c.name
-    ) order by c.created_at asc)
+    ) order by (case when c.name ilike '%дерматолог%' or c.slug ilike '%main%' or c.slug ilike '%clinic%' then 0 else 1 end), c.created_at asc)
     from clinics c
   ), '[]'::jsonb)
 )::text;
@@ -826,11 +826,13 @@ with target_clinic as (
 fallback_clinic as (
   select id, slug, name from target_clinic
   union all
-  select c.id, c.slug, c.name
-  from clinics c
-  where not exists (select 1 from target_clinic)
-  order by created_at asc
-  limit 1
+  (
+    select c.id, c.slug, c.name
+    from clinics c
+    where not exists (select 1 from target_clinic)
+    order by c.created_at asc
+    limit 1
+  )
 ),
 ensured_patient as (
   insert into patients (

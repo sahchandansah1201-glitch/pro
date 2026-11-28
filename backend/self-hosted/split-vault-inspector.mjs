@@ -739,19 +739,19 @@ export function buildMiroPhotoInstructionSvgDataUrl() {
 
 export function buildMiroAnalysisStagesSvgDataUrls({ qualityScore = 89 } = {}) {
   const safeScore = Math.max(0, Math.min(100, Math.round(Number(qualityScore) || 89)));
-  const step1Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" role="img" aria-label="1 шаг: Детектированы важные участки кожи">
-  <rect width="360" height="180" rx="12" fill="#ead0bd"/>
-  <ellipse cx="180" cy="86" rx="34" ry="26" fill="#7c4d36"/>
-  <rect x="122" y="44" width="116" height="84" rx="10" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-dasharray="6 4"/>
-  <rect x="14" y="140" width="332" height="28" rx="8" fill="#0f172a" fill-opacity="0.84"/>
+  const step1Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 410 180" role="img" aria-label="1 шаг: Детектированы важные участки кожи">
+  <rect width="410" height="180" rx="12" fill="#ead0bd"/>
+  <ellipse cx="205" cy="86" rx="34" ry="26" fill="#7c4d36"/>
+  <rect x="147" y="44" width="116" height="84" rx="10" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <rect x="14" y="140" width="382" height="28" rx="8" fill="#0f172a" fill-opacity="0.84"/>
   <text x="26" y="158" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11.5" font-weight="600">1 шаг: Детектированы важные участки · чёткость ${safeScore}/100</text>
 </svg>`;
 
-  const step2Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" role="img" aria-label="2 шаг: Анализ нейросети — выделение контура очага">
-  <rect width="360" height="180" rx="12" fill="#172554"/>
-  <ellipse cx="180" cy="86" rx="58" ry="44" fill="#1e3a8a" fill-opacity="0.85"/>
-  <ellipse cx="180" cy="86" rx="36" ry="27" fill="#dc2626" fill-opacity="0.88" stroke="#fde047" stroke-width="2"/>
-  <rect x="14" y="140" width="332" height="28" rx="8" fill="#0f172a" fill-opacity="0.88"/>
+  const step2Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 410 180" role="img" aria-label="2 шаг: Анализ нейросети — выделение контура очага">
+  <rect width="410" height="180" rx="12" fill="#172554"/>
+  <ellipse cx="205" cy="86" rx="58" ry="44" fill="#1e3a8a" fill-opacity="0.85"/>
+  <ellipse cx="205" cy="86" rx="36" ry="27" fill="#dc2626" fill-opacity="0.88" stroke="#fde047" stroke-width="2"/>
+  <rect x="14" y="140" width="382" height="28" rx="8" fill="#0f172a" fill-opacity="0.88"/>
   <text x="26" y="158" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="11.5" font-weight="600">2 шаг: Анализ нейросети · локальный контур без фона</text>
 </svg>`;
 
